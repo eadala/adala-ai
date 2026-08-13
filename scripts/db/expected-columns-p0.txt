@@ -330,3 +330,36 @@ jlwm_data_quality.office_id
 jlwm_data_quality.computed_at
 jlwm_learning_events.office_id
 jlwm_learning_events.created_at
+# Migration 037 — Remaining Financial Runtime (P0 critical routes: fincore ledger/wallets/payouts,
+# invoice payments, tax settings, credit notes/revisions, soft-delete accounting, invoice extensions)
+financial_accounts.owner_id
+financial_accounts.currency
+financial_accounts.balance
+ledger_entries.debit_account
+ledger_entries.credit_account
+ledger_entries.amount
+ledger_entries.office_id
+wallets.owner_id
+wallets.available_balance
+lawyer_payouts.office_id
+lawyer_payouts.amount
+lawyer_payouts.net_amount
+invoice_payments.invoice_id
+invoice_payments.office_id
+invoice_payments.amount
+office_tax_settings.office_id
+office_tax_settings.tax_rate
+invoice_revisions.invoice_id
+invoice_revisions.office_id
+credit_notes.office_id
+credit_notes.credit_number
+client_invoices.client_name
+client_invoices.tax_enabled
+client_invoices.amount_paid
+client_invoices.view_token
+client_invoices.zatca_uuid
+client_invoices.qr_code_data
+client_invoices.locked_at
+client_invoices.linked_credit_note_id
+revenues.deleted_at
+expenses.deleted_at

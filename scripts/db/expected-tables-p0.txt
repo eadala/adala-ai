@@ -92,3 +92,11 @@ jlwm_trust_scores
 jlwm_recommendation_tracking
 jlwm_data_quality
 jlwm_learning_events
+financial_accounts
+ledger_entries
+wallets
+lawyer_payouts
+invoice_payments
+office_tax_settings
+invoice_revisions
+credit_notes

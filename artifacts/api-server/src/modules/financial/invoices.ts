@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 5B schema ownership only */
 import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { validate } from "../../middlewares/validate";
 import { Router, type Request, type Response } from "express";
@@ -11,52 +12,32 @@ import nodemailer from "nodemailer";
 
 const router = Router();
 
-/* ─── DB migrations ─────────────────────────────────────────────────────────── */
+/* ─── SELECT-only readiness (Migration 037) + view_token backfill DML ─── */
 async function ensureInvoiceTables() {
-  /* client_name: اسم العميل يدوياً (بديل عن client_id) */
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS client_name TEXT
-  `).catch(() => {});
+  const payOk = await db.execute(sql`
+    SELECT to_regclass('public.invoice_payments') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(payOk.rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[Invoices] Migration 037 financial schema not ready — missing invoice_payments",
+      "(apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)",
+    );
+  }
+  const extOk = await db.execute(sql`
+    SELECT COUNT(*)::int AS n FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'client_invoices'
+      AND column_name IN ('client_name','tax_enabled','amount_paid','view_token')
+  `).catch(() => ({ rows: [{ n: 0 }] }));
+  if (((extOk.rows[0] as { n?: number } | undefined)?.n ?? 0) < 4) {
+    console.error(
+      "[Invoices] Migration 037 client_invoices extensions not ready",
+      "(apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)",
+    );
+  }
 
-  /* tax_enabled: ضريبة القيمة المضافة اختيارية */
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS tax_enabled BOOLEAN DEFAULT true
-  `).catch(() => {});
-
-  /* amount_paid: لتتبع الدفعات الجزئية */
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0
-  `).catch(() => {});
-
-  /* view_token: رابط عام للعميل بدون تسجيل دخول */
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS view_token UUID DEFAULT gen_random_uuid()
-  `).catch(() => {});
-  /* ملء view_token للفواتير القديمة التي لا تملكه */
+  /* Backfill view_token for legacy rows — DML only (column owned by 037) */
   await db.execute(sql`
     UPDATE client_invoices SET view_token = gen_random_uuid() WHERE view_token IS NULL
-  `).catch(() => {});
-
-  /* جدول الدفعات — يدعم الدفعات الجزئية وعزل المكاتب */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS invoice_payments (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      invoice_id  UUID NOT NULL,
-      office_id   TEXT NOT NULL,
-      amount      NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-      method      TEXT NOT NULL DEFAULT 'bank',
-      notes       TEXT,
-      recorded_by TEXT,
-      paid_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-      created_at  TIMESTAMP NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_inv_payments_invoice ON invoice_payments(invoice_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_inv_payments_office ON invoice_payments(office_id)
   `).catch(() => {});
 }
 ensureInvoiceTables();

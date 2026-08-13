@@ -21,7 +21,6 @@ contract_categories
 contract_templates
 contract_versions
 conversation_members
-credit_notes
 ct_security_events
 data_requests
 demo_sync_log
@@ -43,8 +42,6 @@ engineering_tasks
 event_daily_counts
 event_reminders
 events
-expenses
-financial_accounts
 generated_documents
 ghost_access_log
 go_live_certificates
@@ -58,12 +55,8 @@ hr_roles
 hr_settings
 hr_workflows
 integration_requests
-invoice_payments
-invoice_revisions
 launch_events
-lawyer_payouts
 leave_balances
-ledger_entries
 legal_holds
 marketing_leads
 marketplace_deal_offers
@@ -77,7 +70,6 @@ office_ai_settings
 office_integration_status
 office_isolation_config
 office_notification_settings
-office_tax_settings
 office_themes
 onboarding_state
 organization_units
@@ -115,7 +107,6 @@ tenant_binding_history
 tenant_bindings
 trial_offices
 two_factor_settings
-wallets
 web_vitals
 whatsapp_logs
 whatsapp_settings

@@ -295,7 +295,28 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-036.sql
 
-# 37) تحقق بعد التنفيذ
+# 37) Remaining Financial Runtime schema authority (Stage 5B)
+#    Ops order (required — do NOT apply to production without approval):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-037.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop / manual review
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 037
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: financial_accounts, ledger_entries (+ DML office_id), wallets,
+#    lawyer_payouts, invoice_payments, office_tax_settings, invoice_revisions,
+#    credit_notes, invoice_seq; client_invoices extensions (not invoice_number);
+#    revenues/expenses.deleted_at; case financial indexes.
+#    Does NOT re-own 003/010/011/012/013/019/025/032.
+#    Runtime financial CREATE/ALTER/INDEX removed — deploy API only after 037.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-037.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-037.sql
+
+# 38) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -337,6 +358,7 @@ bash scripts/db/verify-schema.sh
 | `034_jlwm_core_schema_authority.sql` | JLWM Core schema authority (Stage 4B). Owns the 14 tables from former `ensureJLWMSchema()`: `jlwm_config` (+ `UNIQUE(office_id)`), `jlwm_memory_nodes` (+ partial `UNIQUE idx_jmn_uniq (office_id,node_type,node_ref) WHERE node_ref IS NOT NULL`), `jlwm_memory_edges` (+ FK→nodes ON DELETE CASCADE, legacy-safe defer on orphans), world/patterns/command/twins/predictions/recommendations/radar/feedback. Twin UNIQUEs: `(office_id,case_id)`, `(office_id,client_id)`, `(office_id,snapshot_date)`. BLOCK on incompatible types/NULL/non-UUID `office_id`/duplicate arbiters/wrong PK/UNIQUE/INDEX. No invented UNIQUEs for targetless `ON CONFLICT DO NOTHING`. Does **not** own satellites (035) or Reliability (036). Runtime core DDL removed; seed DML preserved. Preflight: `scripts/db/preflight-migration-034.sql`. Ops: preflight → block/manual or apply 034 → preflight ALREADY_CORRECT → verify-schema → deploy API. |
 | `035_jlwm_satellites_schema_authority.sql` | JLWM Satellites schema authority (Stage 4C). Owns the 6 tables from former Runtime satellite ensure*: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions` (+ exact named indexes including DESC on `idx_jer_type` / `idx_jca_priority`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Does **not** own Reliability (036). Runtime satellite CREATE/INDEX removed; DML preserved. Preflight: `scripts/db/preflight-migration-035.sql`. Ops: preflight → block/manual or apply 035 → re-preflight → verify-schema → deploy API. |
 | `036_jlwm_reliability_schema_authority.sql` | JLWM Reliability schema authority (Stage 4D). Owns the 5 tables from former `ensureReliabilitySchema()`: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events` (+ exact named indexes including DESC on `idx_jaa_type` / `idx_jts_office` / `idx_jdq_office` / `idx_jle_office`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Runtime Reliability CREATE/INDEX removed; DML preserved (+ narrow 034/035 column compatibility fixes in app). Preflight: `scripts/db/preflight-migration-036.sql`. Ops: preflight → block/manual or apply 036 → re-preflight → verify-schema → deploy API. |
+| `037_financial_remaining_schema_authority.sql` | Remaining Financial Runtime schema authority (Stage 5B). Owns former Runtime DDL from `financialCore` / `invoices` / `financial-completions` / accounting soft-delete / cases financial indexes: `financial_accounts`, `ledger_entries` (+ DML-required `office_id`), `wallets`, `lawyer_payouts`, `invoice_payments` (+ payment indexes), `office_tax_settings`, `invoice_revisions`, `credit_notes`, `invoice_seq`; `client_invoices` extensions (`client_name`, `tax_enabled`, `amount_paid`, `view_token`, `zatca_uuid`, `qr_code_data`, `locked_at`, `linked_credit_note_id` — **not** `invoice_number`, owned by 003); `revenues.deleted_at` / `expenses.deleted_at`; `idx_invoices_case_office` / `idx_revenues_case_office` / `idx_expenses_case_office`. Runtime UNIQUEs: `(owner_id,currency)` / `wallets(owner_id)` / `office_tax_settings(office_id)`. Does **not** re-own ledger/Stripe/payments/ERP/billing/gateway (010–013/019/025/032) or baseline invoices/revenues/expenses (003). Platform wallet seed remains app DML. Preflight: `scripts/db/preflight-migration-037.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 037 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -411,6 +433,8 @@ Document V2 (`document_versions` / `document_permissions` / `storage_migration_l
 JLWM Core (14 tables from former `ensureJLWMSchema`) owned by migration **034**. P0-gated minimum: `jlwm_config`, `jlwm_memory_nodes`, `jlwm_memory_edges`, `jlwm_case_twins`, `jlwm_client_twins`, `jlwm_firm_twin` (additional core tables are owned by 034 but not all are P0-gated to keep the deploy gate focused on rebuild/twin critical path).
 
 JLWM Satellites (6 tables from former Runtime satellite ensure*) owned by migration **035** and P0-gated: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions`. Reliability (5 tables from former `ensureReliabilitySchema`) owned by migration **036** and P0-gated: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events`.
+
+Remaining Financial Runtime (Stage 5B / **037**) P0-gated for production-critical financial routes (`/fincore/*`, invoice payments, tax settings, credit notes/revisions, accounting soft-delete, invoice public-view extensions): `financial_accounts`, `ledger_entries`, `wallets`, `lawyer_payouts`, `invoice_payments`, `office_tax_settings`, `invoice_revisions`, `credit_notes`, plus extension columns on `client_invoices` / `revenues.deleted_at` / `expenses.deleted_at` / `ledger_entries.office_id`. Baseline `client_invoices` / `revenues` / `expenses` tables remain Migration **003** authority.
 `ensureJournalTables` retains CoA seed only (no DDL).
 
 ## Rollback

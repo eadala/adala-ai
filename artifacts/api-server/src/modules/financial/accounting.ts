@@ -17,9 +17,31 @@ import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSaf
 
 const router = Router();
 
-/* ── One-time migration: add deleted_at for soft-delete on revenues & expenses ── */
-db.execute(sql`ALTER TABLE revenues ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
-db.execute(sql`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
+/* ── SELECT-only readiness: revenues/expenses.deleted_at owned by Migration 037 ── */
+void (async () => {
+  const checks = await Promise.all([
+    db.execute(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'revenues' AND column_name = 'deleted_at'
+      ) AS ok
+    `).catch(() => ({ rows: [{}] })),
+    db.execute(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'expenses' AND column_name = 'deleted_at'
+      ) AS ok
+    `).catch(() => ({ rows: [{}] })),
+  ]);
+  for (const [i, col] of (["revenues.deleted_at", "expenses.deleted_at"] as const).entries()) {
+    if (!(checks[i].rows[0] as { ok?: boolean } | undefined)?.ok) {
+      console.error(
+        `[Accounting] Migration 037 financial schema not ready — missing ${col}`,
+        "(apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)",
+      );
+    }
+  }
+})();
 
 /* ── helpers ────────────────────────────────────────────── */
 function num(v: any) { return parseFloat(String(v ?? "0")) || 0; }

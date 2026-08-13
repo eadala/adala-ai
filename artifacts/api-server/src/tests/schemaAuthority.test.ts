@@ -1178,6 +1178,50 @@ assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^jlwm_trust_scores
 assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^jlwm_ai_audit$/m);
 console.log("  ✅ migration 036 owns Reliability; Runtime DDL removed; DML uses formal 034/035 columns; P0 gated");
 
+console.log("\n═══ schemaAuthority: Remaining Financial Runtime (037) ═══");
+assert.ok(migrationFiles.includes("037_financial_remaining_schema_authority.sql"));
+const mig037 = readRepo("artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql");
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS financial_accounts/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS ledger_entries/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS wallets/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS lawyer_payouts/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS invoice_payments/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS office_tax_settings/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS invoice_revisions/);
+assert.match(mig037, /CREATE TABLE IF NOT EXISTS credit_notes/);
+assert.match(mig037, /CREATE SEQUENCE IF NOT EXISTS invoice_seq/);
+assert.match(mig037, /idx_inv_payments_invoice/);
+assert.match(mig037, /idx_invoices_case_office/);
+assert.match(mig037, /ledger_entries[\s\S]*office_id|ADD COLUMN IF NOT EXISTS office_id/);
+assert.match(mig037, /POST_APPLY_READINESS_FAILED/);
+assert.doesNotMatch(mig037, /ADD COLUMN IF NOT EXISTS invoice_number/);
+{
+  const sqlOnly037 = mig037.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly037, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly037, /CREATE TABLE IF NOT EXISTS (?:office_ledger|payment_transactions|stripe_events|moyasar_settings|chart_of_accounts|client_invoices)\b/);
+}
+const preflight037 = readRepo("scripts/db/preflight-migration-037.sql");
+assert.match(preflight037, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|only reads catalogs/i);
+assert.match(preflight037, /FINANCIAL_REMAINING_SCHEMA_READY/);
+assert.match(preflight037, /ALWAYS probed by name|ALWAYS probe by index name|probe by name/i);
+assert.match(preflight037, /Any blocker wins|blocker wins over every safe repair/i);
+assert.doesNotMatch(readSrc("modules/financial/financialCore.ts"), /CREATE TABLE IF NOT EXISTS financial_accounts/);
+assert.doesNotMatch(readSrc("modules/financial/invoices.ts"), /CREATE TABLE IF NOT EXISTS invoice_payments/);
+assert.doesNotMatch(readSrc("modules/financial/financial-completions.ts"), /CREATE SEQUENCE IF NOT EXISTS invoice_seq/);
+assert.doesNotMatch(readSrc("modules/financial/accounting.ts"), /ALTER TABLE revenues ADD COLUMN IF NOT EXISTS deleted_at/);
+assert.doesNotMatch(readSrc("modules/legal-core/cases.ts"), /CREATE INDEX IF NOT EXISTS idx_invoices_case_office/);
+assert.match(readSrc("modules/financial/financialCore.ts"), /to_regclass\('public\.financial_accounts'\)/);
+assert.match(readSrc("modules/financial/financialCore.ts"), /ON CONFLICT \(owner_id\) DO NOTHING/);
+const integ037 = readRepo("scripts/db/test-migrations.integration.sh");
+assert.match(integ037, /scenario_migration_037|MIGRATION_037/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^wallets$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^invoice_payments$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ledger_entries\.office_id$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^client_invoices\.amount_paid$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^financial_accounts$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^wallets$/m);
+console.log("  ✅ migration 037 owns remaining Financial Runtime DDL; readiness-only; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
