@@ -2846,6 +2846,171 @@ scenario_migration_038_marketplace_client_portal() {
   trap - EXIT
   teardown_db
 
+  # G2: correct-shape FK NOT VALID → never ALREADY; SAFE FK_VALIDATION_PENDING → validate → READY
+  setup_db "mig038_fk_notvalid"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_sessions DROP CONSTRAINT IF EXISTS client_sessions_client_id_fkey;
+    ALTER TABLE client_case_links DROP CONSTRAINT IF EXISTS client_case_links_client_id_fkey;
+    ALTER TABLE client_sessions
+      ADD CONSTRAINT client_sessions_client_id_fkey
+      FOREIGN KEY (client_id) REFERENCES client_accounts(id) ON DELETE CASCADE NOT VALID;
+    ALTER TABLE client_case_links
+      ADD CONSTRAINT client_case_links_client_id_fkey
+      FOREIGN KEY (client_id) REFERENCES client_accounts(id) ON DELETE CASCADE NOT VALID;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-notvalid.log 2>&1
+  if grep -q 'chosen_action=ALREADY_CORRECT\|MARKETPLACE_PORTAL_SCHEMA_READY' /tmp/preflight038-notvalid.log; then
+    bad "G2: NOT VALID FK must not be ALREADY_CORRECT / MARKETPLACE_PORTAL_SCHEMA_READY"
+  else
+    ok "G2: NOT VALID FK is not ALREADY"
+  fi
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight038-notvalid.log \
+    && grep -qE 'FK_VALIDATION_PENDING|pending_fk_validation=' /tmp/preflight038-notvalid.log \
+    && ok "G2: SAFE_AUTO_REPAIR FK_VALIDATION_PENDING" || bad "G2: $(grep chosen_action /tmp/preflight038-notvalid.log | tail -1)"
+  apply_migration_038
+  [[ "$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conname IN ('client_sessions_client_id_fkey','client_case_links_client_id_fkey')
+      AND contype='f' AND convalidated")" == "2" ]] \
+    && ok "G2: migration validated both auth FKs" || bad "G2: FKs still unvalidated"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-notvalid-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight038-notvalid-ready.log \
+    && grep -q 'MARKETPLACE_PORTAL_SCHEMA_READY' /tmp/preflight038-notvalid-ready.log \
+    && ok "G2: re-preflight MARKETPLACE_PORTAL_SCHEMA_READY" || bad "G2: post-validate readiness"
+  trap - EXIT
+  teardown_db
+
+  # G3: incompatible FK (wrong ON DELETE) → BLOCK INCOMPATIBLE_FK; no data rewrite
+  setup_db "mig038_fk_badshape"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO client_accounts (id, email) VALUES ('acct-fk038', 'fk038@example.com');
+    INSERT INTO client_sessions (id, client_id, token, expires_at)
+    VALUES ('sess-fk038', 'acct-fk038', 'tok-fk038', NOW() + interval '1 day');
+    ALTER TABLE client_sessions DROP CONSTRAINT IF EXISTS client_sessions_client_id_fkey;
+    ALTER TABLE client_sessions
+      ADD CONSTRAINT client_sessions_client_id_fkey
+      FOREIGN KEY (client_id) REFERENCES client_accounts(id) ON DELETE NO ACTION;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-badfk.log 2>&1; then
+    bad "G3: preflight should BLOCK incompatible FK"
+  else
+    grep -qE 'INCOMPATIBLE_FK|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-badfk.log \
+      && ok "G3: preflight BLOCK INCOMPATIBLE_FK" || bad "G3: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-badfk.log 2>&1; then
+    bad "G3: migration should BLOCK incompatible FK"
+  else
+    grep -q 'INCOMPATIBLE_FK' /tmp/mig038-badfk.log \
+      && ok "G3: migration BLOCK INCOMPATIBLE_FK" || bad "G3: mig reason=$(tail -3 /tmp/mig038-badfk.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM client_sessions WHERE id='sess-fk038'")" == "1" ]] \
+    && ok "G3: session row preserved (no drop/rewrite)" || bad "G3: row altered"
+  trap - EXIT
+  teardown_db
+
+  # G4: marketplace_orders.notes missing → SAFE PARTIAL; apply restores; READY
+  setup_db "mig038_notes_miss"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE marketplace_orders DROP COLUMN IF EXISTS notes;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-notesmiss.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight038-notesmiss.log \
+    && bad "G4: missing notes must not be ALREADY" || ok "G4: missing notes not ALREADY"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|marketplace_orders\.notes' /tmp/preflight038-notesmiss.log \
+    && ok "G4: SAFE/PARTIAL for missing notes" || bad "G4: action"
+  apply_migration_038
+  [[ "$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='marketplace_orders'
+      AND column_name='notes' AND udt_name='text'")" == "1" ]] \
+    && ok "G4: notes TEXT restored" || bad "G4: notes missing after apply"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-notesready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight038-notesready.log \
+    && grep -q 'MARKETPLACE_PORTAL_SCHEMA_READY' /tmp/preflight038-notesready.log \
+    && ok "G4: re-preflight READY" || bad "G4: post-restore readiness"
+  trap - EXIT
+  teardown_db
+
+  # G5: marketplace_orders.notes wrong type → BLOCK INCOMPATIBLE_TYPE
+  setup_db "mig038_notes_type"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE marketplace_orders DROP COLUMN notes;
+    ALTER TABLE marketplace_orders ADD COLUMN notes INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-notestype.log 2>&1; then
+    bad "G5: preflight should BLOCK wrong notes type"
+  else
+    grep -qE 'INCOMPATIBLE_TYPE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-notestype.log \
+      && ok "G5: preflight BLOCK INCOMPATIBLE_TYPE" || bad "G5: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-notestype.log 2>&1; then
+    bad "G5: migration should BLOCK wrong notes type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig038-notestype.log \
+      && ok "G5: migration BLOCK INCOMPATIBLE_TYPE" || bad "G5: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F2: duplicate portal token UNIQUE BLOCK + rows preserved
+  setup_db "mig038_dup_token"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_portal_tokens DROP CONSTRAINT IF EXISTS client_portal_tokens_token_key;
+    INSERT INTO client_portal_tokens (id, case_id, token)
+    VALUES ('pt1','c1','dup-token-038'), ('pt2','c2','dup-token-038');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-duptok.log 2>&1; then
+    bad "F2: preflight should BLOCK duplicate token"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-duptok.log \
+      && ok "F2: preflight BLOCK duplicate token" || bad "F2: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-duptok.log 2>&1; then
+    bad "F2: migration should BLOCK duplicate token"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig038-duptok.log \
+      && ok "F2: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "F2: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM client_portal_tokens WHERE token='dup-token-038'")" == "2" ]] \
+    && ok "F2: duplicate token rows preserved" || bad "F2: rows altered"
+  trap - EXIT
+  teardown_db
+
+  # F3: duplicate client_case_links(client_id, case_id) BLOCK + rows preserved
+  setup_db "mig038_dup_link"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_case_links DROP CONSTRAINT IF EXISTS client_case_links_client_id_case_id_key;
+    INSERT INTO client_accounts (id, email) VALUES ('link-acct','link038@example.com');
+    INSERT INTO client_case_links (id, client_id, case_id)
+    VALUES ('l1','link-acct','case-dup'), ('l2','link-acct','case-dup');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-duplink.log 2>&1; then
+    bad "F3: preflight should BLOCK duplicate client_case_links"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-duplink.log \
+      && ok "F3: preflight BLOCK duplicate client_case" || bad "F3: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-duplink.log 2>&1; then
+    bad "F3: migration should BLOCK duplicate client_case_links"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig038-duplink.log \
+      && ok "F3: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "F3: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM client_case_links WHERE client_id='link-acct' AND case_id='case-dup'")" == "2" ]] \
+    && ok "F3: duplicate link rows preserved" || bad "F3: rows altered"
+  trap - EXIT
+  teardown_db
+
   # H: Runtime DDL removed from modules + webhook
   if grep -qE 'CREATE TABLE IF NOT EXISTS (marketplace_services|client_portal_tokens|client_accounts|case_timeline|home_cms)|ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id' \
       "$ROOT/artifacts/api-server/src/modules/marketplace/marketplace.ts" \
@@ -2908,6 +3073,12 @@ scenario_migration_038_marketplace_client_portal() {
     && ok "K: post-apply readiness gate present" || bad "K: missing"
   grep -qE 'incompatible_uniques[[:space:]]*:=[[:space:]]*array_append|array_append\([[:space:]]*incompatible_uniques' "$PREFLIGHT_038" \
     && ok "K: preflight populates incompatible_uniques" || bad "K: dead uniques"
+  grep -q 'FK_VALIDATION_PENDING' "$PREFLIGHT_038" \
+    && ok "K: preflight FK_VALIDATION_PENDING reason present" || bad "K: missing FK_VALIDATION_PENDING"
+  grep -q "marketplace_orders','notes','text" "$PREFLIGHT_038" \
+    && ok "K: preflight includes marketplace_orders.notes" || bad "K: notes column_spec"
+  grep -q 'reason_code=INCOMPATIBLE_FK' "$MIGRATION_038" \
+    && ok "K: migration wrong FK shape uses INCOMPATIBLE_FK" || bad "K: FK reason-code"
 }
 
 scenario_migration_011_stripe_infra() {

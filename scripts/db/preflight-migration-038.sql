@@ -16,8 +16,9 @@
 --
 -- Reason codes:
 --   INCOMPATIBLE_TYPE, NULL_REQUIRED, INCOMPATIBLE_PK, INCOMPATIBLE_UNIQUE,
---   INCOMPATIBLE_FK, DUPLICATE_UNIQUE_KEY, ORPHAN_FK, MISSING_BASE_TABLE
---   MARKETPLACE_PORTAL_SCHEMA_READY means ALREADY_CORRECT.
+--   INCOMPATIBLE_FK, DUPLICATE_UNIQUE_KEY, ORPHAN_FK, MISSING_BASE_TABLE,
+--   FK_VALIDATION_PENDING (correct-shape FK present but convalidated=false; SAFE repair)
+--   MARKETPLACE_PORTAL_SCHEMA_READY means ALREADY_CORRECT (validated FKs required).
 --
 -- Indexes: none required for 038 (no named Runtime indexes).
 --
@@ -55,6 +56,7 @@ DECLARE
   missing_pks TEXT[] := ARRAY[]::TEXT[];
   missing_uniques TEXT[] := ARRAY[]::TEXT[];
   missing_fks TEXT[] := ARRAY[]::TEXT[];
+  pending_fk_validation TEXT[] := ARRAY[]::TEXT[];
   incompatible_objects TEXT[] := ARRAY[]::TEXT[];
   incompatible_types TEXT[] := ARRAY[]::TEXT[];
   incompatible_pks TEXT[] := ARRAY[]::TEXT[];
@@ -150,6 +152,7 @@ BEGIN
       ('marketplace_orders','buyer_email','text',FALSE,NULL,NULL),
       ('marketplace_orders','buyer_phone','text',FALSE,NULL,NULL),
       ('marketplace_orders','amount','numeric',FALSE,'literal','0'),
+      ('marketplace_orders','notes','text',FALSE,NULL,NULL),
       ('marketplace_orders','status','text',FALSE,'literal','pending'),
       ('marketplace_orders','case_id','text',FALSE,NULL,NULL),
       ('marketplace_orders','created_at','timestamptz',FALSE,'now',NULL),
@@ -633,6 +636,24 @@ BEGIN
         AND c.conname = fk_spec.constraint_name
     ) THEN
       missing_fks := array_append(missing_fks, fk_spec.constraint_name);
+    ELSIF EXISTS (
+      -- Correct shape / CASCADE / columns but NOT yet validated — never ALREADY_CORRECT.
+      SELECT 1 FROM pg_constraint c
+      JOIN pg_class ref ON ref.oid = c.confrelid
+      WHERE c.conrelid = to_regclass(format('public.%I', fk_spec.child_table))
+        AND c.contype = 'f'
+        AND c.conname = fk_spec.constraint_name
+        AND ref.relname = fk_spec.ref_table
+        AND c.confdeltype = 'c'
+        AND NOT c.convalidated
+        AND child_attnum IS NOT NULL
+        AND ref_attnum IS NOT NULL
+        AND array_length(c.conkey, 1) = 1
+        AND c.conkey[1] = child_attnum
+        AND array_length(c.confkey, 1) = 1
+        AND c.confkey[1] = ref_attnum
+    ) THEN
+      pending_fk_validation := array_append(pending_fk_validation, fk_spec.constraint_name);
     END IF;
   END LOOP;
 
@@ -658,6 +679,9 @@ BEGIN
   ELSIF cardinality(missing_columns)>0 OR cardinality(missing_pks)>0
      OR cardinality(missing_uniques)>0 OR cardinality(missing_fks)>0 THEN
     action := 'SAFE_AUTO_REPAIR'; reason_code := 'PARTIAL_SCHEMA'; lock_risk := 'MEDIUM';
+  ELSIF cardinality(pending_fk_validation)>0 THEN
+    -- Orphan-free correct-shape NOT VALID FK → migration may VALIDATE CONSTRAINT.
+    action := 'SAFE_AUTO_REPAIR'; reason_code := 'FK_VALIDATION_PENDING'; lock_risk := 'MEDIUM';
   ELSIF cardinality(missing_defaults)>0 THEN
     action := 'SAFE_AUTO_REPAIR'; reason_code := 'MISSING_COLUMN_DEFAULTS'; lock_risk := 'LOW';
   ELSIF cardinality(missing_not_null)>0 THEN
@@ -695,6 +719,8 @@ BEGIN
     coalesce(nullif(array_to_string(missing_pks,','),''),empty_text),
     coalesce(nullif(array_to_string(missing_uniques,','),''),empty_text),
     coalesce(nullif(array_to_string(missing_fks,','),''),empty_text);
+  RAISE NOTICE '038_preflight: pending_fk_validation=% (convalidated=false; never ALREADY)',
+    coalesce(nullif(array_to_string(pending_fk_validation,','),''),empty_text);
   RAISE NOTICE '038_preflight: chosen_action=% reason_code=%',action,reason_code;
 
   IF action='BLOCK_AND_MANUAL_REVIEW' THEN

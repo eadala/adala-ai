@@ -936,7 +936,7 @@ BEGIN
         )
     ) THEN
       RAISE EXCEPTION
-        '038_marketplace_portal: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — % wrong FK shape',
+        '038_marketplace_portal: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_FK) — % wrong FK shape',
         fk.constraint_name;
     END IF;
 
@@ -1011,6 +1011,14 @@ BEGIN
       AND udt_name='text'
   ) THEN
     RAISE EXCEPTION '038_marketplace_portal: POST_APPLY_READINESS_FAILED — clients.client_account_id TEXT missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='marketplace_orders' AND column_name='notes'
+      AND udt_name='text'
+  ) THEN
+    RAISE EXCEPTION '038_marketplace_portal: POST_APPLY_READINESS_FAILED — marketplace_orders.notes TEXT missing';
   END IF;
 
   FOR uq IN
