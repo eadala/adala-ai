@@ -2527,7 +2527,7 @@ scenario_migration_037_financial_remaining() {
     && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
   grep -q 'invoice_payments CHECK (amount > 0) missing' "$MIGRATION_037" \
     && ok "L: post-apply requires invoice_payments CHECK" || bad "L: post-apply CHECK gate missing"
-  grep -q 'array_append(incompatible_uniques' "$PREFLIGHT_037" \
+  grep -qE 'incompatible_uniques[[:space:]]*:=[[:space:]]*array_append|array_append\([[:space:]]*incompatible_uniques' "$PREFLIGHT_037" \
     && ok "L: preflight populates incompatible_uniques" || bad "L: incompatible_uniques dead"
 
   # M: Duplicate required UNIQUE key BLOCK (financial_accounts owner_id,currency)
