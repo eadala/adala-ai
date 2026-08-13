@@ -130,7 +130,8 @@ assert.match(p0Tables, /^jlwm_firm_twin$/m);
 assert.doesNotMatch(p0Tables, /^jlwm_predictions$/m);
 /* Satellites are P0-gated by Migration 035 (Stage 4C); Reliability remains excluded until 036 */
 assert.match(p0Tables, /^jlwm_future_paths$/m);
-assert.doesNotMatch(p0Tables, /^jlwm_ai_audit$/m);
+/* Reliability tables are P0-gated by Migration 036 (Stage 4D) */
+assert.match(p0Tables, /^jlwm_ai_audit$/m);
 const p0Cols = readRepo("scripts/db/expected-columns-p0.txt");
 assert.match(p0Cols, /^jlwm_config\.office_id$/m);
 assert.match(p0Cols, /^jlwm_memory_nodes\.office_id$/m);
@@ -140,7 +141,7 @@ assert.match(p0Cols, /^jlwm_client_twins\.client_id$/m);
 assert.match(p0Cols, /^jlwm_firm_twin\.snapshot_date$/m);
 console.log("  ✅ P0 gates critical rebuild/twin tables; satellites gated by 035; reliability excluded");
 
-console.log("\n═══ Runtime JLWM Core DDL removed; satellites now Migration 035; reliability remain ═══");
+console.log("\n═══ Runtime JLWM Core DDL removed; satellites 035; reliability 036 ═══");
 const schema = readSrc("modules/jlwm/jlwm.schema.ts");
 assert.match(schema, /034_jlwm_core_schema_authority|Migration 034/);
 assert.doesNotMatch(schema, /CREATE TABLE IF NOT EXISTS jlwm_config/);
@@ -163,9 +164,9 @@ assert.doesNotMatch(exec, /CREATE TABLE IF NOT EXISTS jlwm_executive_reports/);
 const coo = readSrc("modules/jlwm/legalCOO.ts");
 assert.doesNotMatch(coo, /CREATE TABLE IF NOT EXISTS jlwm_coo_actions/);
 const rel = readSrc("modules/jlwm/reliabilityEngine.ts");
-assert.match(rel, /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
-assert.match(rel, /CREATE TABLE IF NOT EXISTS jlwm_trust_scores/);
-console.log("  ✅ Core Runtime DDL gone; satellite Runtime DDL removed (035); Reliability Runtime remains");
+assert.doesNotMatch(rel, /CREATE TABLE IF NOT EXISTS jlwm_ai_audit/);
+assert.match(rel, /to_regclass\('public\.jlwm_ai_audit'\)/);
+console.log("  ✅ Core Runtime DDL gone; satellite Runtime DDL removed (035); Reliability Runtime removed (036)");
 
 console.log("\n═══ Boot inventory + CI wiring ═══");
 const bootTxt = readRepo("scripts/db/boot-created-tables.txt");
@@ -173,7 +174,7 @@ assert.doesNotMatch(bootTxt, /^jlwm_config$/m);
 assert.doesNotMatch(bootTxt, /^jlwm_memory_nodes$/m);
 assert.doesNotMatch(bootTxt, /^jlwm_case_twins$/m);
 assert.doesNotMatch(bootTxt, /^jlwm_future_paths$/m);
-assert.match(bootTxt, /^jlwm_ai_audit$/m);
+assert.doesNotMatch(bootTxt, /^jlwm_ai_audit$/m);
 const pkg = readRepo("artifacts/api-server/package.json");
 assert.match(pkg, /test:jlwm-034/);
 const ci = readRepo(".github/workflows/ci.yml");

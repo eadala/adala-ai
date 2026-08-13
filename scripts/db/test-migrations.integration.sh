@@ -44,6 +44,7 @@ MIGRATION_032="$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema
 MIGRATION_033="$ROOT/artifacts/api-server/migrations/033_document_v2_schema_authority.sql"
 MIGRATION_034="$ROOT/artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql"
 MIGRATION_035="$ROOT/artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql"
+MIGRATION_036="$ROOT/artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -223,6 +224,8 @@ apply_migration_033() {
 # 032 owns moyasar_settings + checkout_settings (Stage 23.4).
 # 033 owns Document V2 tables + documents extension columns (Stage 23.5B).
 # 034 owns JLWM Core 14 tables (Stage 4B).
+# 035 owns JLWM Satellites 6 tables (Stage 4C).
+# 036 owns JLWM Reliability 5 tables (Stage 4D).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -236,6 +239,7 @@ verify_p0_schema() {
   apply_migration_033
   apply_migration_034
   apply_migration_035
+  apply_migration_036
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -245,6 +249,10 @@ apply_migration_034() {
 
 apply_migration_035() {
   psql_db -f "$MIGRATION_035" >/dev/null
+}
+
+apply_migration_036() {
+  psql_db -f "$MIGRATION_036" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -284,11 +292,12 @@ apply_all_migrations() {
   apply_migration_033
   apply_migration_034
   apply_migration_035
+  apply_migration_036
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 + 036 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -1296,8 +1305,11 @@ scenario_migration_034_jlwm_core() {
   else
     ok "K: satellite Runtime CREATE removed (owned by 035)"
   fi
-  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
-    && ok "K: reliability Runtime DDL remains" || bad "K: reliability DDL missing unexpectedly"
+  if grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts"; then
+    bad "K: reliability Runtime DDL still present (must be owned by 036)"
+  else
+    ok "K: reliability Runtime CREATE removed (owned by 036)"
+  fi
 
   setup_db "mig034_p0"
   trap teardown_db EXIT
@@ -1617,8 +1629,11 @@ scenario_migration_035_jlwm_satellites() {
   else
     ok "J: Runtime satellite CREATE removed from futureExplorer.ts"
   fi
-  grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
-    && ok "J: reliability Runtime DDL remains" || bad "J: reliability DDL missing unexpectedly"
+  if grep -q 'CREATE TABLE IF NOT EXISTS jlwm_ai_audit' "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts"; then
+    bad "J: reliability Runtime DDL still present (must be owned by 036)"
+  else
+    ok "J: reliability Runtime CREATE removed (owned by 036)"
+  fi
 
   setup_db "mig035_p0"
   trap teardown_db EXIT
@@ -1647,6 +1662,504 @@ scenario_migration_035_jlwm_satellites() {
 
   grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_035" \
     && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
+}
+
+scenario_migration_036_jlwm_reliability() {
+  log "Scenario 036 — JLWM Reliability: greenfield / already-correct / BLOCK / indexes / DML / P0"
+  local PREFLIGHT_036="$ROOT/scripts/db/preflight-migration-036.sql"
+  local OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+
+  # A0: preflight is safe when all five 036 tables are absent.
+  setup_db "mig036_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight036-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (reliability tables missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -q 'reason_code=TABLE_MISSING' /tmp/preflight036-absent.log \
+    && ok "A0: TABLE_MISSING" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield apply, exact objects, idempotency, and ready preflight.
+  setup_db "mig036_fresh"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  local table_count index_count desc_count
+  table_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN (
+        'jlwm_ai_audit','jlwm_trust_scores','jlwm_recommendation_tracking',
+        'jlwm_data_quality','jlwm_learning_events'
+      )")
+  [[ "$table_count" == "5" ]] && ok "A: all 5 reliability tables present" || bad "A: reliability table count=$table_count"
+  index_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='i'
+      AND c.relname IN (
+        'idx_jaa_office','idx_jaa_type','idx_jts_office',
+        'idx_jrt_office','idx_jdq_office','idx_jle_office'
+      )")
+  [[ "$index_count" == "6" ]] && ok "A: all 6 reliability indexes present" || bad "A: reliability index count=$index_count"
+  desc_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class i
+    JOIN pg_namespace n ON n.oid=i.relnamespace
+    JOIN pg_index x ON x.indexrelid=i.oid
+    WHERE n.nspname='public' AND (
+      (i.relname='idx_jaa_type' AND (x.indoption[0] & 1)=0 AND (x.indoption[1] & 1)=0 AND (x.indoption[2] & 1)=1)
+      OR (i.relname IN ('idx_jts_office','idx_jdq_office','idx_jle_office')
+          AND (x.indoption[0] & 1)=0 AND (x.indoption[1] & 1)=1)
+    )")
+  [[ "$desc_count" == "4" ]] && ok "A: DESC indexes have ASC prefixes and DESC final keys" || bad "A: DESC index count=$desc_count"
+  apply_migration_036
+  ok "A: re-run 036 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight036-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: $(grep chosen_action /tmp/preflight036-ready.log | tail -1)"
+  grep -q 'reason_code=JLWM_RELIABILITY_SCHEMA_READY' /tmp/preflight036-ready.log \
+    && ok "A: JLWM_RELIABILITY_SCHEMA_READY" || bad "A: reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table is SAFE and Migration 036 restores it.
+  setup_db "mig036_missing_table"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_data_quality CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight036-misstbl.log \
+    && ok "B: missing jlwm_data_quality → SAFE" || bad "B: preflight"
+  apply_migration_036
+  local dq
+  dq=$(psql_db -At -c "SELECT to_regclass('public.jlwm_data_quality') IS NOT NULL")
+  [[ "$dq" == "t" ]] && ok "B: jlwm_data_quality restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing index is SAFE and Migration 036 restores it.
+  setup_db "mig036_missing_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_jrt_office;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-missidx.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|MISSING_COLUMN_DEFAULTS\|SAFE_AUTO_REPAIR' /tmp/preflight036-missidx.log \
+    && ok "C: missing index → SAFE" || bad "C: preflight"
+  apply_migration_036
+  local idx
+  idx=$(psql_db -At -c "SELECT to_regclass('public.idx_jrt_office') IS NOT NULL")
+  [[ "$idx" == "t" ]] && ok "C: idx_jrt_office restored" || bad "C: index missing"
+  trap - EXIT
+  teardown_db
+
+  # C2: missing safe defaults are SAFE and Migration 036 restores them.
+  setup_db "mig036_miss_defaults"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_ai_audit ALTER COLUMN created_at DROP DEFAULT;
+    ALTER TABLE jlwm_ai_audit ALTER COLUMN evidence_count DROP DEFAULT;
+    ALTER TABLE jlwm_learning_events ALTER COLUMN evidence DROP DEFAULT;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-miss-def.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight036-miss-def.log \
+    && bad "C2: missing defaults must not be ALREADY_CORRECT" \
+    || ok "C2: missing defaults not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight036-miss-def.log \
+    && ok "C2: SAFE_AUTO_REPAIR for missing defaults" || bad "C2: action"
+  grep -q 'MISSING_COLUMN_DEFAULTS' /tmp/preflight036-miss-def.log \
+    && ok "C2: reason MISSING_COLUMN_DEFAULTS" || bad "C2: reason"
+  apply_migration_036
+  local ca_def ev_def le_def
+  ca_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%now%' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_ai_audit' AND column_name='created_at'")
+  ev_def=$(psql_db -At -c "
+    SELECT column_default = '0' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_ai_audit' AND column_name='evidence_count'")
+  le_def=$(psql_db -At -c "
+    SELECT column_default IS NOT NULL FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='jlwm_learning_events' AND column_name='evidence'")
+  [[ "$ca_def" == "t" && "$ev_def" == "t" && "$le_def" == "t" ]] \
+    && ok "C2: Migration 036 restored safe defaults" \
+    || bad "C2: defaults not restored (created_at=$ca_def evidence_count=$ev_def evidence=$le_def)"
+  trap - EXIT
+  teardown_db
+
+  # D: incompatible type blocks both preflight and apply.
+  setup_db "mig036_badtype"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_trust_scores DROP COLUMN computed_at;
+    ALTER TABLE jlwm_trust_scores ADD COLUMN computed_at INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig036-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: NULL office_id blocks both preflight and apply.
+  setup_db "mig036_null_office"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_ai_audit ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO jlwm_ai_audit (id, office_id, query_type, model_used)
+    VALUES ('$OID', NULL, 'test', 'test');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-null-office.log 2>&1; then
+    bad "E: preflight should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-null-office.log \
+      && ok "E: preflight BLOCK NULL_OFFICE_ID" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-null-office.log 2>&1; then
+    bad "E: migration should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID' /tmp/mig036-null-office.log \
+      && ok "E: migration BLOCK NULL_OFFICE_ID" || bad "E: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: non-UUID office_id blocks both preflight and apply.
+  setup_db "mig036_non_uuid"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_trust_scores (id, office_id)
+    VALUES ('$OID', 'not-a-uuid');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-nuuid.log 2>&1; then
+    bad "F: preflight should BLOCK non-UUID"
+  else
+    grep -q 'NON_UUID_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-nuuid.log \
+      && ok "F: preflight BLOCK NON_UUID_OFFICE_ID" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-nuuid.log 2>&1; then
+    bad "F: migration should BLOCK non-UUID"
+  else
+    grep -q 'NON_UUID_OFFICE_ID' /tmp/mig036-nuuid.log \
+      && ok "F: migration BLOCK NON_UUID_OFFICE_ID" || bad "F: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F2: NULL required non-office fields block both preflight and apply.
+  setup_db "mig036_null_required"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_recommendation_tracking ALTER COLUMN title DROP NOT NULL;
+    INSERT INTO jlwm_recommendation_tracking (id, office_id, title)
+    VALUES ('null-title', '$OID', NULL);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-nullreq.log 2>&1; then
+    bad "F2: preflight should BLOCK NULL required fields"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-nullreq.log \
+      && ok "F2: preflight BLOCK NULL_REQUIRED" || bad "F2: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-nullreq.log 2>&1; then
+    bad "F2: migration should BLOCK NULL required fields"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig036-nullreq.log \
+      && ok "F2: migration BLOCK NULL_REQUIRED" || bad "F2: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: a wrong same-name index is a blocker, never a safe repair.
+  setup_db "mig036_wrong_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_jaa_office;
+    CREATE INDEX idx_jaa_office ON jlwm_ai_audit(query_type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-wrongidx.log 2>&1; then
+    bad "G: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-wrongidx.log \
+      && ok "G: preflight BLOCK INCOMPATIBLE_INDEX" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-wrongidx.log 2>&1; then
+    bad "G: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig036-wrongidx.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_INDEX" || bad "G: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H2: a DESC prefix must block; it must never look already correct.
+  setup_db "mig036_wrong_desc"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_jaa_type;
+    CREATE INDEX idx_jaa_type ON jlwm_ai_audit(office_id DESC, query_type, created_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-wrongdesc.log 2>&1; then
+    bad "H2: preflight must not ALREADY_CORRECT with prefix DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-wrongdesc.log \
+      && ok "H2: preflight BLOCK prefix-DESC idx_jaa_type" || bad "H2: preflight reason"
+    grep -q 'ALREADY_CORRECT\|JLWM_RELIABILITY_SCHEMA_READY' /tmp/preflight036-wrongdesc.log \
+      && bad "H2: must never report ALREADY_CORRECT for prefix DESC" \
+      || ok "H2: no ALREADY_CORRECT for prefix DESC"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-wrongdesc.log 2>&1; then
+    bad "H2: migration should BLOCK prefix-DESC idx_jaa_type"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig036-wrongdesc.log \
+      && ok "H2: migration BLOCK INCOMPATIBLE_INDEX prefix DESC" || bad "H2: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H3: a missing table plus an incompatible same-name index remains a blocker.
+  setup_db "mig036_miss_tbl_bad_idx"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE jlwm_ai_audit CASCADE;
+    CREATE TABLE jlwm_ai_audit_orphan (office_id TEXT);
+    CREATE INDEX idx_jaa_office ON jlwm_ai_audit_orphan(office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-misstbl-idx.log 2>&1; then
+    bad "H3: preflight must BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-misstbl-idx.log \
+      && ok "H3: preflight BLOCK INCOMPATIBLE_INDEX (table missing)" || bad "H3: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight036-misstbl-idx.log \
+      && bad "H3: must never SAFE when same-name index incompatible" \
+      || ok "H3: no SAFE_AUTO_REPAIR over incompatible index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-misstbl-idx.log 2>&1; then
+    bad "H3: migration should BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig036-misstbl-idx.log \
+      && ok "H3: migration BLOCK INCOMPATIBLE_INDEX" || bad "H3: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: a wrong primary key blocks both preflight and apply.
+  setup_db "mig036_wrong_pk"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE jlwm_trust_scores DROP CONSTRAINT jlwm_trust_scores_pkey;
+    ALTER TABLE jlwm_trust_scores ADD PRIMARY KEY (office_id, id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_036" >/tmp/preflight036-wrongpk.log 2>&1; then
+    bad "I: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight036-wrongpk.log \
+      && ok "I: preflight BLOCK INCOMPATIBLE_PK" || bad "I: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_036" >/tmp/mig036-wrongpk.log 2>&1; then
+    bad "I: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig036-wrongpk.log \
+      && ok "I: migration BLOCK INCOMPATIBLE_PK" || bad "I: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # J: Runtime DDL is gone; Migration 036 owns table/index creation.
+  if grep -qE 'CREATE TABLE IF NOT EXISTS jlwm_|CREATE INDEX IF NOT EXISTS idx_jaa_' \
+      "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts"; then
+    bad "J: reliability Runtime CREATE/INDEX still present"
+  else
+    ok "J: reliability Runtime CREATE/INDEX removed (owned by 036)"
+  fi
+
+  # K: Reliability tables are P0-gated; missing ai_audit fails verification.
+  setup_db "mig036_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig036-p0-present.log 2>&1; then
+    ok "K: verify-schema passes with reliability tables present"
+  else
+    bad "K: verify-schema failed after full chain"; tail -30 /tmp/mig036-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE jlwm_ai_audit CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig036-p0.log 2>&1; then
+    bad "K: verify-schema should fail without jlwm_ai_audit"
+  else
+    grep -qi 'jlwm_ai_audit' /tmp/mig036-p0.log \
+      && ok "K: P0 verify fails when jlwm_ai_audit absent" || bad "K: verify log missing jlwm_ai_audit"
+  fi
+  apply_migration_036
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig036-p0-restored.log 2>&1; then
+    ok "K: verify-schema passes after 036 restore"
+  else
+    bad "K: verify-schema failed after 036 restore"; tail -30 /tmp/mig036-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L/M: post-apply gate and source DML contracts.
+  grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_036" \
+    && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
+  if python3 - "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text()
+if "subject_type = 'case'" not in text or "supporting_data" not in text or "recorded_at" not in text:
+    raise SystemExit("missing 034/035 DML columns")
+if "prediction_type = 'case_bundle'" not in text:
+    raise SystemExit("missing prediction_type=case_bundle filter")
+if not re.search(r"await selectCaseBundlePrediction\(\s*officeId,\s*entityId\s*\)", text):
+    raise SystemExit("explain path missing selectCaseBundlePrediction")
+if not re.search(r"selectCaseBundlePrediction\(\s*officeId,\s*caseId\s*\)", text):
+    raise SystemExit("confidence path missing selectCaseBundlePrediction")
+if re.search(r"SELECT\s+predictions\b", text, re.IGNORECASE):
+    raise SystemExit("legacy SELECT predictions remains")
+if re.search(r"FROM\s+jlwm_predictions[\s\S]{0,300}\bcase_id\s*=", text, re.IGNORECASE):
+    raise SystemExit("legacy predictions case_id filter remains")
+prediction_queries = re.findall(r"FROM\s+jlwm_predictions[\s\S]*?LIMIT 1", text, re.IGNORECASE)
+if len(prediction_queries) != 1:
+    raise SystemExit("expected single shared jlwm_predictions read")
+q = prediction_queries[0]
+if (
+    not re.search(r"WHERE\s+office_id\s*=", q, re.IGNORECASE)
+    or not re.search(r"prediction_type\s*=\s*'case_bundle'", q)
+    or re.search(r"\bcomputed_at\b", q, re.IGNORECASE)
+):
+    raise SystemExit("prediction query lost tenant/case_bundle filter or still uses computed_at")
+if re.search(r"toISOString\(\)\s*\+\s*[\"']::timestamptz", text):
+    raise SystemExit("applied_at concatenates a cast into an ISO value")
+if re.search(r"ALTER\s+TABLE\s+jlwm_predictions", text, re.IGNORECASE):
+    raise SystemExit("reliability DML alters Migration 034 predictions schema")
+PY
+  then
+    ok "M: reliability DML uses case_bundle/supporting_data/recorded_at and keeps office filters"
+  else
+    bad "M: reliability DML source contract failed"
+  fi
+
+  # N: behavioral — older case_bundle wins over newer duration/appeal slices.
+  setup_db "mig036_case_bundle"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_034
+  apply_migration_035
+  apply_migration_036
+  local BUNDLE_OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+  local BUNDLE_CASE='case-1111-2222-3333-444444444444'
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO jlwm_predictions
+      (id, office_id, subject_type, subject_id, prediction_type, predicted_value,
+       confidence_score, supporting_data, created_at)
+    VALUES
+      ('pred-bundle', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'case_bundle', 'win', 0.8,
+       '{\"marker\":\"BUNDLE_SUPPORTING\",\"outcome\":{\"value\":\"win\",\"confidence\":0.8}}'::jsonb,
+       '2026-01-01 10:00:00+00'),
+      ('pred-duration', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'duration', '90', 0.6,
+       '{\"marker\":\"SLICE_DURATION\",\"value\":90}'::jsonb,
+       '2026-01-01 11:00:00+00'),
+      ('pred-appeal', '$BUNDLE_OID', 'case', '$BUNDLE_CASE', 'appeal', '0.2', 0.5,
+       '{\"marker\":\"SLICE_APPEAL\",\"probability\":0.2}'::jsonb,
+       '2026-01-01 12:00:00+00');
+  " >/dev/null
+  # Exact Reliability selectCaseBundlePrediction predicate (explain + confidence).
+  local selected_marker
+  selected_marker=$(psql_db -At -c "
+    SELECT supporting_data->>'marker'
+    FROM jlwm_predictions
+    WHERE office_id = '$BUNDLE_OID'
+      AND subject_type = 'case'
+      AND subject_id = '$BUNDLE_CASE'
+      AND prediction_type = 'case_bundle'
+    ORDER BY created_at DESC
+    LIMIT 1;
+  ")
+  [[ "$selected_marker" == "BUNDLE_SUPPORTING" ]] \
+    && ok "N: case_bundle supporting_data selected over newer slices" \
+    || bad "N: selected marker=$selected_marker (expected BUNDLE_SUPPORTING)"
+  local newest_marker
+  newest_marker=$(psql_db -At -c "
+    SELECT supporting_data->>'marker'
+    FROM jlwm_predictions
+    WHERE office_id = '$BUNDLE_OID'
+      AND subject_type = 'case'
+      AND subject_id = '$BUNDLE_CASE'
+    ORDER BY created_at DESC
+    LIMIT 1;
+  ")
+  [[ "$newest_marker" == "SLICE_APPEAL" ]] \
+    && ok "N: newest unfiltered row is appeal slice (would be wrong without filter)" \
+    || bad "N: newest marker=$newest_marker"
+  # Source wiring: both explain and confidence call the shared helper.
+  if grep -qE 'await selectCaseBundlePrediction\(\s*officeId,\s*entityId\s*\)' \
+       "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts" \
+     && grep -qE 'selectCaseBundlePrediction\(\s*officeId,\s*caseId\s*\)' \
+       "$ROOT/artifacts/api-server/src/modules/jlwm/reliabilityEngine.ts"; then
+    ok "N: explain + confidence both call selectCaseBundlePrediction"
+  else
+    bad "N: explain/confidence call sites missing"
+  fi
+  trap - EXIT
+  teardown_db
 }
 
 
@@ -8284,6 +8797,7 @@ scenario_migration_032_gateway_settings
 scenario_migration_033_document_v2
 scenario_migration_034_jlwm_core
 scenario_migration_035_jlwm_satellites
+scenario_migration_036_jlwm_reliability
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

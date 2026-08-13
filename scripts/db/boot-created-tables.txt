@@ -60,11 +60,6 @@ hr_workflows
 integration_requests
 invoice_payments
 invoice_revisions
-jlwm_ai_audit
-jlwm_data_quality
-jlwm_learning_events
-jlwm_recommendation_tracking
-jlwm_trust_scores
 launch_events
 lawyer_payouts
 leave_balances
