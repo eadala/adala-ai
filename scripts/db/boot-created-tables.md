@@ -43,7 +43,8 @@
 - ~~`ensureFullTextSearch` (internal-messages)~~ — removed; `office_messages.search_vector` and `idx_messages_search` via migration **016**
 - ~~`ensureCaseIdColumn` (internal-messages)~~ — removed; `office_messages.case_id` TEXT via migration **030** (Stage 22); no Runtime INTEGER ADD COLUMN
 - ~~`ensureConversationTables`~~ — removed; `message_conversations` + `conversation_members` (+ `case_id TEXT`) via migration **031** (Stage 23.3B); compatible with **020** indexes
-- `ensureTables` — `marketplace.ts`, `production-os.ts`, `control-tower.ts`, ...
+- ~~`ensureTables` (marketplace / client-portal / client-auth / homeCms)~~ — removed; schema via migration **038** (homeCms keeps singleton seed DML)
+- `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)
@@ -109,6 +110,7 @@
 | `message_conversations` / `conversation_members` | **031** (preflight → apply CREATE/repair + `case_id TEXT` + indexes; FK legacy-safe; Runtime `ensureConversationTables` removed; compatible with **020**) |
 | `document_center_files` / `document_ai_metadata` / `rag_chunks` | **021** |
 | `documents` V2 extension cols + `document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` | **033** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; compliance `retention_policies` untouched) |
+| `client_accounts` / `client_sessions` / `client_case_links` / `client_portal_tokens` / `case_timeline` / `portal_uploads` / `marketplace_services` / `marketplace_orders` (+ `clients.client_account_id`) | **038** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; `home_cms` owned by 038 but not P0; storefront 003/004/006 untouched) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

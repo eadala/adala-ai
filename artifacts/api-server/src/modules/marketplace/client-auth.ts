@@ -31,44 +31,22 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 
 function makeToken(): string { return randomBytes(32).toString("hex"); }
 
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_accounts (
-      id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      email        TEXT UNIQUE NOT NULL,
-      password_hash TEXT,
-      name         TEXT,
-      phone        TEXT,
-      email_verified BOOLEAN DEFAULT false,
-      otp          TEXT,
-      otp_expires  TIMESTAMPTZ,
-      created_at   TIMESTAMPTZ DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_sessions (
-      id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      client_id  TEXT NOT NULL REFERENCES client_accounts(id) ON DELETE CASCADE,
-      token      TEXT UNIQUE NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_case_links (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      client_id       TEXT NOT NULL REFERENCES client_accounts(id) ON DELETE CASCADE,
-      case_id         TEXT NOT NULL,
-      portal_token_id TEXT,
-      portal_token    TEXT,
-      office_id       TEXT,
-      linked_at       TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(client_id, case_id)
-    )
-  `);
+/** SELECT-only readiness — schema owned by Migration 038 (auth FK contract). */
+async function ensureClientAuthTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.client_accounts') IS NOT NULL AS accounts,
+      to_regclass('public.client_sessions') IS NOT NULL AS sessions,
+      to_regclass('public.client_case_links') IS NOT NULL AS links
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.accounts || !row.sessions || !row.links) {
+    console.error(
+      "[client-auth] Migration 038 schema not ready — client_accounts/sessions/links missing",
+    );
+  }
 }
-ensureTables().catch(console.error);
+ensureClientAuthTablesReady().catch(console.error);
 
 // ─── auth middleware for client sessions ─────────────────────────────────────
 async function getClientSession(req: Request): Promise<{ clientId: string; email: string; name: string } | null> {

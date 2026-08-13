@@ -100,3 +100,12 @@ invoice_payments
 office_tax_settings
 invoice_revisions
 credit_notes
+# Migration 038 — Marketplace + Client Portal Runtime
+client_accounts
+client_sessions
+client_case_links
+client_portal_tokens
+case_timeline
+portal_uploads
+marketplace_services
+marketplace_orders

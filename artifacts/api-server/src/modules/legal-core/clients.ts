@@ -18,8 +18,8 @@ import {
 
 const router = Router();
 
-/* ── One-time migrations ─────────────────────────────────────────────────── */
-db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
+/* clients.client_account_id owned by Migration 038 — no Runtime ALTER. */
+/* deleted_at remains Runtime until a later schema-authority stage. */
 db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`).catch(() => {});
 
 // ── Zod schemas ───────────────────────────────────────────────────────────────

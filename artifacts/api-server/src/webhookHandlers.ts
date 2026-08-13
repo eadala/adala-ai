@@ -511,21 +511,7 @@ async function handleOfficeServicePayment(opts: {
     WHERE stripe_session_id = ${stripeSessionId}
   `);
 
-  /* ── Step 4: Ensure client_accounts table (non-critical DDL) ── */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_accounts (
-      id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      email          TEXT UNIQUE NOT NULL,
-      password_hash  TEXT,
-      name           TEXT,
-      phone          TEXT,
-      email_verified BOOLEAN DEFAULT false,
-      otp            TEXT,
-      otp_expires    TIMESTAMPTZ,
-      created_at     TIMESTAMPTZ DEFAULT NOW(),
-      updated_at     TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+  /* ── Step 4: client_accounts schema owned by Migration 038 (no Runtime DDL) ── */
 
   /* ── Step 5: Get or create client account (CRITICAL) ── */
   let clientId: string;
@@ -559,9 +545,9 @@ async function handleOfficeServicePayment(opts: {
   }
 
   /* ── Step 5b: Sync to clients CRM table (non-critical) ── */
+  /* clients.client_account_id owned by Migration 038 — no Runtime ALTER. */
   if (clientEmail) {
     try {
-      await db.execute(sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id TEXT`).catch(() => {});
       const existingCrm = await db.execute(sql`
         SELECT id FROM clients WHERE LOWER(email) = ${clientEmail.toLowerCase()} AND office_id = ${officeId} LIMIT 1
       `).then((r: unknown) => ((r as { rows?: { id: unknown }[] }).rows ?? [])[0]).catch(() => null);
@@ -601,25 +587,7 @@ async function handleOfficeServicePayment(opts: {
     )
   `);
 
-  /* ── Step 7: Create portal token (CRITICAL) ── */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_portal_tokens (
-      id               TEXT PRIMARY KEY,
-      case_id          TEXT NOT NULL,
-      token            TEXT NOT NULL UNIQUE,
-      client_email     TEXT,
-      client_name      TEXT,
-      expires_at       TIMESTAMPTZ,
-      last_accessed    TIMESTAMPTZ,
-      access_count     INTEGER DEFAULT 0,
-      show_invoices    BOOLEAN DEFAULT true,
-      show_timeline    BOOLEAN DEFAULT true,
-      allowed_to_upload BOOLEAN DEFAULT false,
-      shared_documents JSONB DEFAULT '[]',
-      created_at       TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
+  /* ── Step 7: Create portal token (CRITICAL) — table owned by Migration 038 ── */
   const portalToken = randomBytes(32).toString("hex");
   const portalId    = randomUUID();
   const expiresAt   = new Date(Date.now() + 365 * 86400000);
@@ -635,20 +603,7 @@ async function handleOfficeServicePayment(opts: {
        true, true, true, '[]', NOW())
   `);
 
-  /* ── Step 8: Link case → client account (CRITICAL) ── */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_case_links (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      client_id       TEXT NOT NULL,
-      case_id         TEXT NOT NULL,
-      portal_token_id TEXT,
-      portal_token    TEXT,
-      office_id       TEXT,
-      linked_at       TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(client_id, case_id)
-    )
-  `).catch(() => {});
-
+  /* ── Step 8: Link case → client account (CRITICAL) — table owned by Migration 038 ── */
   await db.execute(sql`
     INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
     VALUES (${clientId}, ${caseId}, ${portalId}, ${portalToken}, ${officeId})
@@ -662,21 +617,7 @@ async function handleOfficeServicePayment(opts: {
     WHERE stripe_session_id = ${stripeSessionId}
   `);
 
-  /* ── Step 10: Initial timeline entry (non-critical) ── */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_timeline (
-      id          TEXT PRIMARY KEY,
-      case_id     TEXT NOT NULL,
-      entry_type  TEXT NOT NULL DEFAULT 'note',
-      title       TEXT NOT NULL,
-      description TEXT,
-      happened_at TIMESTAMPTZ DEFAULT NOW(),
-      is_shared   BOOLEAN DEFAULT true,
-      created_by  TEXT,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
+  /* ── Step 10: Initial timeline entry (non-critical) — table owned by Migration 038 ── */
   await db.execute(sql`
     INSERT INTO case_timeline (id, case_id, entry_type, title, description, is_shared, created_by)
     VALUES (

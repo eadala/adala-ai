@@ -316,7 +316,30 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-037.sql
 
-# 38) تحقق بعد التنفيذ
+# 38) Marketplace + Client Portal Runtime schema authority (Stage 6B)
+#    Ops order (required — do NOT apply to production without approval):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-038.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop / manual review
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 038
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: marketplace_services/orders/deals/deal_offers; client_portal_tokens;
+#    portal_uploads; case_timeline; client_accounts/sessions/case_links (auth FK);
+#    home_cms; clients.client_account_id TEXT nullable (no backfill).
+#    Does NOT re-own invitations/office_page/office_services/office_orders/office_reviews
+#    (003/004/006). Does NOT own client_comm_settings/website_builder_pages/
+#    clients.deleted_at/appointments.
+#    Runtime marketplace/portal/auth/homeCms/webhook CREATE+ALTER removed —
+#    deploy API only after 038.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-038.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/038_marketplace_client_portal_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-038.sql
+
+# 39) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -359,6 +382,7 @@ bash scripts/db/verify-schema.sh
 | `035_jlwm_satellites_schema_authority.sql` | JLWM Satellites schema authority (Stage 4C). Owns the 6 tables from former Runtime satellite ensure*: `jlwm_future_paths`, `jlwm_simulations`, `jlwm_litigation_intel`, `jlwm_accuracy_records`, `jlwm_executive_reports`, `jlwm_coo_actions` (+ exact named indexes including DESC on `idx_jer_type` / `idx_jca_priority`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Does **not** own Reliability (036). Runtime satellite CREATE/INDEX removed; DML preserved. Preflight: `scripts/db/preflight-migration-035.sql`. Ops: preflight → block/manual or apply 035 → re-preflight → verify-schema → deploy API. |
 | `036_jlwm_reliability_schema_authority.sql` | JLWM Reliability schema authority (Stage 4D). Owns the 5 tables from former `ensureReliabilitySchema()`: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events` (+ exact named indexes including DESC on `idx_jaa_type` / `idx_jts_office` / `idx_jdq_office` / `idx_jle_office`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Runtime Reliability CREATE/INDEX removed; DML preserved (+ narrow 034/035 column compatibility fixes in app). Preflight: `scripts/db/preflight-migration-036.sql`. Ops: preflight → block/manual or apply 036 → re-preflight → verify-schema → deploy API. |
 | `037_financial_remaining_schema_authority.sql` | Remaining Financial Runtime schema authority (Stage 5B). Owns former Runtime DDL from `financialCore` / `invoices` / `financial-completions` / accounting soft-delete / cases financial indexes: `financial_accounts`, `ledger_entries` (+ DML-required `office_id`), `wallets`, `lawyer_payouts`, `invoice_payments` (+ payment indexes), `office_tax_settings`, `invoice_revisions`, `credit_notes`, `invoice_seq`; `client_invoices` extensions (`client_name`, `tax_enabled`, `amount_paid`, `view_token`, `zatca_uuid`, `qr_code_data`, `locked_at`, `linked_credit_note_id` — **not** `invoice_number`, owned by 003); `revenues.deleted_at` / `expenses.deleted_at`; `idx_invoices_case_office` / `idx_revenues_case_office` / `idx_expenses_case_office`. Runtime UNIQUEs: `(owner_id,currency)` / `wallets(owner_id)` / `office_tax_settings(office_id)`. Does **not** re-own ledger/Stripe/payments/ERP/billing/gateway (010–013/019/025/032) or baseline invoices/revenues/expenses (003). Platform wallet seed remains app DML. Preflight: `scripts/db/preflight-migration-037.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 037 → re-preflight → verify-schema → deploy API. |
+| `038_marketplace_client_portal_schema_authority.sql` | Marketplace + Client Portal Runtime schema authority (Stage 6B). Owns former Runtime DDL from `marketplace` / `client-portal` / `client-auth` / `homeCms` / webhook+clients extension: `marketplace_services`, `marketplace_orders`, `marketplace_deals`, `marketplace_deal_offers`, `client_portal_tokens` (+ UNIQUE token), `portal_uploads`, `case_timeline`, `client_accounts` (+ UNIQUE email), `client_sessions` (+ UNIQUE token + FK CASCADE→`client_accounts`), `client_case_links` (+ UNIQUE(client_id,case_id) + FK CASCADE→`client_accounts`; auth shape), `home_cms` (global singleton), `clients.client_account_id` TEXT nullable (no backfill). Does **not** invent `office_id` on marketplace_*/portal tokens/home_cms. Does **not** re-own invitations/office_page/office_services/office_orders/office_reviews (003/004/006). Does **not** own `client_comm_settings` / `website_builder_pages` / `clients.deleted_at` / appointments. Orphan FK → `ORPHAN_FK` fail-closed (no silent delete/NOT VALID “ready”). Runtime CREATE/ALTER removed; homeCms singleton seed DML preserved. Preflight: `scripts/db/preflight-migration-038.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 038 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -436,6 +460,8 @@ JLWM Satellites (6 tables from former Runtime satellite ensure*) owned by migrat
 
 Remaining Financial Runtime (Stage 5B / **037**) P0-gated for production-critical financial routes (`/fincore/*`, invoice payments, tax settings, credit notes/revisions, accounting soft-delete, invoice public-view extensions): `financial_accounts`, `ledger_entries`, `wallets`, `lawyer_payouts`, `invoice_payments`, `office_tax_settings`, `invoice_revisions`, `credit_notes`, plus extension columns on `client_invoices` / `revenues.deleted_at` / `expenses.deleted_at` / `ledger_entries.office_id`. Baseline `client_invoices` / `revenues` / `expenses` tables remain Migration **003** authority.
 `ensureJournalTables` retains CoA seed only (no DDL).
+
+Marketplace + Client Portal Runtime (Stage 6B / **038**) P0-gated for critical portal/auth/marketplace routes: `client_accounts`, `client_sessions`, `client_case_links`, `client_portal_tokens`, `case_timeline`, `portal_uploads`, `marketplace_services`, `marketplace_orders`, plus `clients.client_account_id`. `home_cms` is formally owned by 038 but not P0-gated (global CMS singleton; not required for API boot/routing). Storefront tables (`invitations` / `office_page` / `office_services` / `office_orders` / `office_reviews`) remain **003/004/006** authority.
 
 ## Rollback
 
