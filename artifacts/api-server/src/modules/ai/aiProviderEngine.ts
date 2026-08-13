@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7B schema ownership only */
 /**
  * AI Provider Engine — محرك مزودي الذكاء الاصطناعي
  * ─────────────────────────────────────────────────
@@ -68,13 +69,7 @@ async function ensureTables() {
       )
     `);
 
-    /* enhance usage_logs with SAR cost column */
-    await db.execute(sql`
-      ALTER TABLE ai_usage_logs
-        ADD COLUMN IF NOT EXISTS cost_sar    NUMERIC(8,6) DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS token_count INTEGER      DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS policy_used TEXT
-    `).catch(() => {});
+    /* ai_usage_logs columns owned by Migration 039 — no Runtime ALTER. */
 
     /* seed default providers */
     const providers = [

@@ -109,3 +109,7 @@ case_timeline
 portal_uploads
 marketplace_services
 marketplace_orders
+# Migration 039 — AI Credits + Usage Core
+office_ai_credits
+ai_credit_transactions
+ai_usage_logs

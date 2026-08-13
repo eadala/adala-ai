@@ -378,3 +378,15 @@ marketplace_services.user_id
 marketplace_services.title
 marketplace_orders.seller_id
 clients.client_account_id
+# Migration 039 — AI Credits + Usage
+office_ai_credits.office_id
+office_ai_credits.balance
+office_ai_credits.daily_limit
+office_ai_credits.daily_used
+office_ai_credits.monthly_limit
+office_ai_credits.monthly_used
+ai_credit_transactions.office_id
+ai_credit_transactions.amount
+ai_usage_logs.office_id
+ai_usage_logs.model_used
+ai_usage_logs.cost_sar

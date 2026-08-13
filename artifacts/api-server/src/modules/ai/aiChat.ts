@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Gemini auth hardening */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Stage 7B schema ownership only */
 import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -71,35 +71,17 @@ export async function logAIUsage(opts: {
   } catch { /* non-blocking */ }
 }
 
-async function ensureUsageTable(): Promise<void> {
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS ai_usage_logs (
-        id            SERIAL PRIMARY KEY,
-        office_id     TEXT NOT NULL DEFAULT 'default',
-        query_type    TEXT NOT NULL DEFAULT 'custom',
-        model_used    TEXT NOT NULL,
-        tier          TEXT NOT NULL DEFAULT 'mid',
-        cost_points   REAL NOT NULL DEFAULT 1,
-        cached        BOOLEAN NOT NULL DEFAULT FALSE,
-        response_ms   INTEGER,
-        prompt_length INTEGER,
-        prompt_text   TEXT,
-        response_text TEXT,
-        case_id       TEXT,
-        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    /* Migrations for existing tables */
-    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS prompt_text   TEXT`).catch(() => {});
-    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS response_text TEXT`).catch(() => {});
-    await db.execute(sql`ALTER TABLE ai_usage_logs ADD COLUMN IF NOT EXISTS case_id       TEXT`).catch(() => {});
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_office  ON ai_usage_logs(office_id)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage_logs(created_at)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_usage_case    ON ai_usage_logs(case_id) WHERE case_id IS NOT NULL`).catch(() => {});
-  } catch { /* already exists */ }
+/** SELECT-only readiness — schema owned by Migration 039. */
+async function ensureUsageTableReady(): Promise<void> {
+  const r = await db.execute(sql`
+    SELECT to_regclass('public.ai_usage_logs') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  const ok = Boolean(((r as { rows?: { ok?: boolean }[] }).rows ?? [])[0]?.ok);
+  if (!ok) {
+    console.error("[aiChat] Migration 039 schema not ready — ai_usage_logs missing");
+  }
 }
-ensureUsageTable();
+ensureUsageTableReady().catch(console.error);
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL ?? "gemma3:4b";
@@ -254,35 +236,29 @@ async function deductCredits(officeId: string, model: string): Promise<void> {
   } catch { /* non-blocking — don't fail the AI call */ }
 }
 
-async function ensureCreditTables(): Promise<void> {
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS office_ai_credits (
-        id SERIAL PRIMARY KEY, office_id TEXT NOT NULL UNIQUE DEFAULT 'default',
-        office_name TEXT NOT NULL DEFAULT 'المكتب الافتراضي',
-        balance INTEGER NOT NULL DEFAULT 100, monthly_allowance INTEGER NOT NULL DEFAULT 100,
-        auto_renew BOOLEAN NOT NULL DEFAULT TRUE, renew_day INTEGER NOT NULL DEFAULT 1,
-        last_renewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS ai_credit_transactions (
-        id SERIAL PRIMARY KEY, office_id TEXT NOT NULL DEFAULT 'default',
-        amount INTEGER NOT NULL, type TEXT NOT NULL DEFAULT 'usage',
-        description TEXT, model TEXT, created_by TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance)
-      VALUES ('default','المكتب الافتراضي',100,100) ON CONFLICT (office_id) DO NOTHING
-    `);
-  } catch { /* tables may already exist */ }
+/** Readiness + platform seed DML — schema owned by Migration 039. */
+async function ensureCreditTablesReady(): Promise<void> {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.office_ai_credits') IS NOT NULL AS credits,
+      to_regclass('public.ai_credit_transactions') IS NOT NULL AS txns
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.credits || !row.txns) {
+    console.error(
+      "[aiChat] Migration 039 schema not ready — office_ai_credits / ai_credit_transactions missing",
+    );
+    return;
+  }
+  /* Platform default-office seed (DML; not schema mutation) */
+  await db.execute(sql`
+    INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance)
+    VALUES ('default','المكتب الافتراضي',100,100) ON CONFLICT (office_id) DO NOTHING
+  `).catch(() => {});
 }
 
 /* run once on load */
-ensureCreditTables();
+ensureCreditTablesReady().catch(console.error);
 
 export async function callAI(
   systemPrompt: string,
