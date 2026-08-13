@@ -768,10 +768,14 @@ BEGIN
   END IF;
 
   -- invoice_payments CHECK (amount > 0)
+  -- Runtime/CREATE may emit CHECK ((amount > (0)::numeric)); match loosely.
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     WHERE c.conrelid = 'public.invoice_payments'::regclass AND c.contype = 'c'
-      AND pg_get_constraintdef(c.oid) ~* 'amount\s*>\s*0'
+      AND (
+        c.conname = 'invoice_payments_amount_check'
+        OR pg_get_constraintdef(c.oid) ~* 'amount\s*>\s*\(?\s*0'
+      )
   ) THEN
     ALTER TABLE invoice_payments ADD CONSTRAINT invoice_payments_amount_check CHECK (amount > 0);
   END IF;
