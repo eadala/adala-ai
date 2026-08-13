@@ -363,3 +363,4 @@ client_invoices.locked_at
 client_invoices.linked_credit_note_id
 revenues.deleted_at
 expenses.deleted_at
+expenses.case_id

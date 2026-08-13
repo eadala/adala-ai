@@ -223,7 +223,8 @@ BEGIN
       ('client_invoices','locked_at','timestamptz',FALSE,NULL,NULL),
       ('client_invoices','linked_credit_note_id','text',FALSE,NULL,NULL),
       ('revenues','deleted_at','timestamptz',FALSE,NULL,NULL),
-      ('expenses','deleted_at','timestamptz',FALSE,NULL,NULL)
+      ('expenses','deleted_at','timestamptz',FALSE,NULL,NULL),
+      ('expenses','case_id','text',FALSE,NULL,NULL)
     ) AS expected_column(
       table_name,column_name,expected_udt,required_not_null,default_kind,expected_default
     )

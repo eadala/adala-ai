@@ -257,6 +257,10 @@ CREATE SEQUENCE IF NOT EXISTS invoice_seq START 1;
 -- ── D) soft-delete extensions on 003-owned revenues/expenses ───────────────
 ALTER TABLE revenues ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+-- Narrow DML/index compatibility: Runtime idx_expenses_case_office and cases.ts
+-- SELECT filter expenses.case_id, but Migration 003 expenses never defined case_id
+-- (unlike revenues). Nullable TEXT only — no invented NOT NULL/UNIQUE/FK.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS case_id TEXT;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Type validation, NULL blocks, UUID tenant checks (where office_id is tenant)
@@ -384,7 +388,8 @@ BEGIN
       ('client_invoices','locked_at','timestamptz'),
       ('client_invoices','linked_credit_note_id','text'),
       ('revenues','deleted_at','timestamptz'),
-      ('expenses','deleted_at','timestamptz')
+      ('expenses','deleted_at','timestamptz'),
+      ('expenses','case_id','text')
     ) AS t(table_name, column_name, udt_name)
   LOOP
     IF to_regclass(format('public.%I', spec.table_name)) IS NULL THEN
