@@ -46,6 +46,7 @@ MIGRATION_034="$ROOT/artifacts/api-server/migrations/034_jlwm_core_schema_author
 MIGRATION_035="$ROOT/artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql"
 MIGRATION_036="$ROOT/artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql"
 MIGRATION_037="$ROOT/artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql"
+MIGRATION_038="$ROOT/artifacts/api-server/migrations/038_marketplace_client_portal_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -242,6 +243,7 @@ verify_p0_schema() {
   apply_migration_035
   apply_migration_036
   apply_migration_037
+  apply_migration_038
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -259,6 +261,10 @@ apply_migration_036() {
 
 apply_migration_037() {
   psql_db -f "$MIGRATION_037" >/dev/null
+}
+
+apply_migration_038() {
+  psql_db -f "$MIGRATION_038" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -300,11 +306,12 @@ apply_all_migrations() {
   apply_migration_035
   apply_migration_036
   apply_migration_037
+  apply_migration_038
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 + 036 + 037 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…038 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -2627,6 +2634,280 @@ scenario_migration_037_financial_remaining() {
     && ok "O: FINANCIAL_REMAINING_SCHEMA_READY after CHECK restore" || bad "O: ready reason"
   trap - EXIT
   teardown_db
+}
+
+scenario_migration_038_marketplace_client_portal() {
+  log "Scenario 038 — Marketplace/Portal: greenfield / SAFE / BLOCK / Runtime removed / P0 / authority"
+  local PREFLIGHT_038="$ROOT/scripts/db/preflight-migration-038.sql"
+  local OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+
+  # A0: SAFE when 038 tables absent
+  setup_db "mig038_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_037
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight038-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (038 tables missing)" || bad "A0: action"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield + idempotent + ALREADY + FK/UNIQUE + client_account_id no invent
+  setup_db "mig038_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local table_count fk_cnt uq_cnt ca_col
+  table_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname IN (
+      'marketplace_services','marketplace_orders','marketplace_deals','marketplace_deal_offers',
+      'client_portal_tokens','portal_uploads','case_timeline',
+      'client_accounts','client_sessions','client_case_links','home_cms'
+    )")
+  [[ "$table_count" == "11" ]] && ok "A: all 11 marketplace/portal tables present" || bad "A: tables=$table_count"
+  fk_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conname IN ('client_sessions_client_id_fkey','client_case_links_client_id_fkey')
+      AND contype='f' AND convalidated")
+  [[ "$fk_cnt" == "2" ]] && ok "A: auth FKs present+validated" || bad "A: fk_cnt=$fk_cnt"
+  uq_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint
+    WHERE conname IN (
+      'client_portal_tokens_token_key','client_accounts_email_key',
+      'client_sessions_token_key','client_case_links_client_id_case_id_key'
+    ) AND contype='u'")
+  [[ "$uq_cnt" == "4" ]] && ok "A: 4 UNIQUEs present" || bad "A: uq=$uq_cnt"
+  ca_col=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='clients' AND column_name='client_account_id'
+      AND udt_name='text'")
+  [[ "$ca_col" == "1" ]] && ok "A: clients.client_account_id TEXT present" || bad "A: client_account_id"
+  local null_ca
+  null_ca=$(psql_db -At -c "SELECT COUNT(*) FROM clients WHERE client_account_id IS NOT NULL")
+  [[ "$null_ca" == "0" ]] && ok "A: client_account_id not backfilled" || bad "A: invent backfill"
+  apply_migration_038
+  ok "A: re-run 038 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight038-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight038-ready.log | tail -1)"
+  grep -q 'MARKETPLACE_PORTAL_SCHEMA_READY' /tmp/preflight038-ready.log \
+    && ok "A: MARKETPLACE_PORTAL_SCHEMA_READY" || bad "A: reason"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (invitations|office_page|office_services|office_orders|office_reviews)' "$MIGRATION_038"; then
+    bad "A: 038 must not re-own 003/004 storefront tables"
+  else
+    ok "A: 038 does not re-own invitations/office_*"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig038_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE portal_uploads CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight038-misstbl.log \
+    && ok "B: missing portal_uploads → SAFE" || bad "B: preflight"
+  apply_migration_038
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.portal_uploads') IS NOT NULL")" == "t" ]] \
+    && ok "B: portal_uploads restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # B2: missing extension column SAFE
+  setup_db "mig038_miss_ext"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE clients DROP COLUMN IF EXISTS client_account_id;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-missext.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|PARTIAL_SCHEMA' /tmp/preflight038-missext.log \
+    && ok "B2: missing client_account_id → SAFE" || bad "B2: preflight"
+  apply_migration_038
+  [[ "$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name='clients' AND column_name='client_account_id'")" == "1" ]] \
+    && ok "B2: client_account_id restored" || bad "B2: missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing UNIQUE + clean data SAFE
+  setup_db "mig038_miss_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_accounts DROP CONSTRAINT IF EXISTS client_accounts_email_key;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-missuq.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight038-missuq.log \
+    && bad "C: missing UNIQUE must not be ALREADY" || ok "C: missing UNIQUE not ALREADY"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA' /tmp/preflight038-missuq.log \
+    && ok "C: SAFE for missing UNIQUE" || bad "C: action"
+  apply_migration_038
+  [[ "$(psql_db -At -c "
+    SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='client_accounts_email_key')")" == "t" ]] \
+    && ok "C: email UNIQUE restored" || bad "C: unique missing"
+  trap - EXIT
+  teardown_db
+
+  # D: incompatible type BLOCK
+  setup_db "mig038_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE marketplace_services DROP COLUMN title;
+    ALTER TABLE marketplace_services ADD COLUMN title INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig038-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig038_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE marketplace_orders DROP CONSTRAINT marketplace_orders_pkey;
+    ALTER TABLE marketplace_orders ADD PRIMARY KEY (seller_id, id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-pk.log 2>&1; then
+    bad "E: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-pk.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-pk.log 2>&1; then
+    bad "E: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig038-pk.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: duplicate UNIQUE email BLOCK
+  setup_db "mig038_dup_email"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_accounts DROP CONSTRAINT IF EXISTS client_accounts_email_key;
+    INSERT INTO client_accounts (id, email) VALUES ('a1','dup038@example.com'), ('a2','dup038@example.com');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-dup.log 2>&1; then
+    bad "F: preflight should BLOCK duplicate email"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-dup.log \
+      && ok "F: preflight BLOCK duplicate UNIQUE" || bad "F: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-dup.log 2>&1; then
+    bad "F: migration should BLOCK duplicate email"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig038-dup.log \
+      && ok "F: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "F: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM client_accounts WHERE email='dup038@example.com'")" == "2" ]] \
+    && ok "F: duplicate rows preserved" || bad "F: rows altered"
+  trap - EXIT
+  teardown_db
+
+  # G: orphan FK BLOCK
+  setup_db "mig038_orphan_fk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE client_sessions DROP CONSTRAINT IF EXISTS client_sessions_client_id_fkey;
+    INSERT INTO client_sessions (id, client_id, token, expires_at)
+    VALUES ('s-orphan', 'missing-client-038', 'tok-orphan-038', NOW() + interval '1 day');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_038" >/tmp/preflight038-orphan.log 2>&1; then
+    bad "G: preflight should BLOCK orphan FK"
+  else
+    grep -qE 'ORPHAN_FK|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight038-orphan.log \
+      && ok "G: preflight BLOCK ORPHAN_FK" || bad "G: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_038" >/tmp/mig038-orphan.log 2>&1; then
+    bad "G: migration should BLOCK orphan FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig038-orphan.log \
+      && ok "G: migration BLOCK ORPHAN_FK" || bad "G: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM client_sessions WHERE id='s-orphan'")" == "1" ]] \
+    && ok "G: orphan row preserved (no silent delete)" || bad "G: orphan deleted"
+  trap - EXIT
+  teardown_db
+
+  # H: Runtime DDL removed from modules + webhook
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (marketplace_services|client_portal_tokens|client_accounts|case_timeline|home_cms)|ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_account_id' \
+      "$ROOT/artifacts/api-server/src/modules/marketplace/marketplace.ts" \
+      "$ROOT/artifacts/api-server/src/modules/marketplace/client-portal.ts" \
+      "$ROOT/artifacts/api-server/src/modules/marketplace/client-auth.ts" \
+      "$ROOT/artifacts/api-server/src/modules/marketplace/homeCms.ts" \
+      "$ROOT/artifacts/api-server/src/webhookHandlers.ts" \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/clients.ts"; then
+    bad "H: Runtime CREATE/ALTER for 038 objects still present"
+  else
+    ok "H: Runtime marketplace/portal/webhook/clients.client_account_id DDL removed"
+  fi
+  grep -q "to_regclass('public.marketplace_services')" \
+    "$ROOT/artifacts/api-server/src/modules/marketplace/marketplace.ts" \
+    && ok "H: marketplace readiness probe present" || bad "H: readiness missing"
+  grep -q "INSERT INTO home_cms (id) VALUES (1) ON CONFLICT DO NOTHING" \
+    "$ROOT/artifacts/api-server/src/modules/marketplace/homeCms.ts" \
+    && ok "H: home_cms seed DML preserved" || bad "H: seed missing"
+
+  # I: prior authority unchanged
+  grep -q 'invitations' "$ROOT/artifacts/api-server/migrations/003_drizzle_baseline_safe.sql" \
+    && ok "I: 003 invitations authority present" || bad "I: 003"
+  grep -q 'portal_token' "$ROOT/artifacts/api-server/migrations/004_legal_core_extensions.sql" \
+    && ok "I: 004 office_orders portal_token present" || bad "I: 004"
+  grep -q 'website_config' "$ROOT/artifacts/api-server/migrations/006_post_migration_api_support.sql" \
+    && ok "I: 006 office_page website_config present" || bad "I: 006"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (invitations|office_page|office_services|office_orders|office_reviews|client_comm_settings|website_builder_pages)' "$MIGRATION_038"; then
+    bad "I: 038 must not CREATE prior/out-of-scope tables"
+  else
+    ok "I: 038 does not CREATE 003/004/006 or out-of-scope tables"
+  fi
+
+  # J: P0 verify fails without critical portal table
+  setup_db "mig038_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig038-p0-present.log 2>&1; then
+    ok "J: verify-schema passes with 038 objects"
+  else
+    bad "J: verify-schema failed after full chain"; tail -20 /tmp/mig038-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE client_portal_tokens CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig038-p0.log 2>&1; then
+    bad "J: verify-schema should fail without client_portal_tokens"
+  else
+    grep -qi 'client_portal_tokens' /tmp/mig038-p0.log \
+      && ok "J: P0 fails when client_portal_tokens absent" || bad "J: verify log"
+  fi
+  apply_migration_038
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig038-p0-restored.log 2>&1; then
+    ok "J: verify-schema passes after 038 restore"
+  else
+    bad "J: verify failed after restore"; tail -20 /tmp/mig038-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_038" \
+    && ok "K: post-apply readiness gate present" || bad "K: missing"
+  grep -qE 'incompatible_uniques[[:space:]]*:=[[:space:]]*array_append|array_append\([[:space:]]*incompatible_uniques' "$PREFLIGHT_038" \
+    && ok "K: preflight populates incompatible_uniques" || bad "K: dead uniques"
 }
 
 scenario_migration_011_stripe_infra() {
@@ -9276,6 +9557,7 @@ scenario_migration_034_jlwm_core
 scenario_migration_035_jlwm_satellites
 scenario_migration_036_jlwm_reliability
 scenario_migration_037_financial_remaining
+scenario_migration_038_marketplace_client_portal
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

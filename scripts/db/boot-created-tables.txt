@@ -10,11 +10,6 @@ audit_coverage_rules
 audit_risk_scores
 blocked_ips
 case_ai_insights
-case_timeline
-client_accounts
-client_case_links
-client_portal_tokens
-client_sessions
 compliance_controls
 contract_ai_history
 contract_categories
@@ -47,7 +42,6 @@ ghost_access_log
 go_live_certificates
 governance_action_log
 high_risk_op_log
-home_cms
 hr_announcements
 hr_audit_logs
 hr_memberships
@@ -59,10 +53,6 @@ launch_events
 leave_balances
 legal_holds
 marketing_leads
-marketplace_deal_offers
-marketplace_deals
-marketplace_orders
-marketplace_services
 message_conversations
 mfa_status_cache
 office_ai_credits
@@ -79,7 +69,6 @@ pcc_command_log
 performance_evaluations
 plan_cms
 platform_integrations
-portal_uploads
 prod_heal_log
 prod_incidents
 push_subscriptions

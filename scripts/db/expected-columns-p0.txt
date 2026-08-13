@@ -364,3 +364,17 @@ client_invoices.linked_credit_note_id
 revenues.deleted_at
 expenses.deleted_at
 expenses.case_id
+# Migration 038 — Marketplace + Client Portal
+client_accounts.email
+client_sessions.client_id
+client_sessions.token
+client_case_links.client_id
+client_case_links.case_id
+client_portal_tokens.token
+client_portal_tokens.case_id
+case_timeline.case_id
+portal_uploads.portal_token
+marketplace_services.user_id
+marketplace_services.title
+marketplace_orders.seller_id
+clients.client_account_id

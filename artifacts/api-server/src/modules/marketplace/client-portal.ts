@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 6B schema ownership only */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { writeClientCommSettings } from "../../lib/clientCommSettingsWrite";
@@ -14,60 +15,22 @@ import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
-// ─── ensureTables ─────────────────────────────────────────────────────────────
-// nosemgrep: ban-drizzle-sql-raw — all db.execute() calls here use parameterized sql`` template literals (no sql.raw)
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_portal_tokens (
-      id TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      client_email TEXT,
-      client_name TEXT,
-      expires_at TIMESTAMPTZ,
-      last_accessed TIMESTAMPTZ,
-      access_count INTEGER DEFAULT 0,
-      show_invoices BOOLEAN DEFAULT true,
-      show_timeline BOOLEAN DEFAULT true,
-      allowed_to_upload BOOLEAN DEFAULT false,
-      shared_documents JSONB DEFAULT '[]',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS show_invoices BOOLEAN DEFAULT true`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS show_timeline BOOLEAN DEFAULT true`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS allowed_to_upload BOOLEAN DEFAULT false`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS shared_documents JSONB DEFAULT '[]'`);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_timeline (
-      id TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      entry_type TEXT NOT NULL DEFAULT 'note',
-      title TEXT NOT NULL,
-      description TEXT,
-      happened_at TIMESTAMPTZ DEFAULT NOW(),
-      is_shared BOOLEAN DEFAULT true,
-      created_by TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS portal_uploads (
-      id TEXT PRIMARY KEY,
-      portal_token TEXT NOT NULL,
-      case_id TEXT,
-      file_name TEXT NOT NULL,
-      file_size INTEGER,
-      file_type TEXT,
-      file_path TEXT,
-      uploaded_at TIMESTAMPTZ DEFAULT NOW(),
-      is_read BOOLEAN DEFAULT false
-    )
-  `);
+/** SELECT-only readiness — schema owned by Migration 038. */
+async function ensureClientPortalTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.client_portal_tokens') IS NOT NULL AS tokens,
+      to_regclass('public.case_timeline') IS NOT NULL AS timeline,
+      to_regclass('public.portal_uploads') IS NOT NULL AS uploads
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.tokens || !row.timeline || !row.uploads) {
+    console.error(
+      "[client-portal] Migration 038 schema not ready — portal/timeline/uploads tables missing",
+    );
+  }
 }
-ensureTables().catch(console.error);
+ensureClientPortalTablesReady().catch(console.error);
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function sqlOne(res: any) { return (res?.rows ?? res)?.[0] ?? null; }
