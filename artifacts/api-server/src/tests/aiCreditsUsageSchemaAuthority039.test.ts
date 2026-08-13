@@ -75,7 +75,9 @@ assert.match(pre, /Any blocker wins|blocker wins over every safe repair/i);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*ALTER\s+TABLE\b/im);
 }
-console.log("  ✅ preflight SELECT-only; default office reported not blocked");
+assert.match(pre, /FROM\s+pg_class\s+i[\s\S]*i\.relname\s*=\s*index_spec\.index_name|i\.relname\s*=\s*index_spec\.index_name/);
+assert.match(mig, /FROM\s+pg_class\s+i[\s\S]*i\.relname\s*=\s*spec\.index_name/);
+console.log("  ✅ preflight SELECT-only; default office reported not blocked; global index-name probes");
 
 console.log("\n═══ P0 / boot gates ═══");
 const p0Tables = readRepo("scripts/db/expected-tables-p0.txt");
@@ -105,14 +107,18 @@ assert.doesNotMatch(provider, /ADD COLUMN IF NOT EXISTS cost_sar/);
 assert.match(chat, /to_regclass\('public\.ai_usage_logs'\)/);
 assert.match(chat, /INSERT INTO office_ai_credits[\s\S]*ON CONFLICT \(office_id\) DO NOTHING/);
 assert.match(credits, /ON CONFLICT \(office_id\)/);
+assert.match(credits, /INSERT INTO office_ai_credits[\s\S]*\bbalance\b[\s\S]*ON CONFLICT \(office_id\) DO UPDATE/);
 assert.match(provider, /CREATE TABLE IF NOT EXISTS ai_provider_config/);
 assert.match(provider, /CREATE TABLE IF NOT EXISTS office_ai_settings/);
-console.log("  ✅ 039 Runtime DDL removed; provider/settings Runtime CREATE retained; seed DML kept");
+console.log("  ✅ 039 Runtime DDL removed; provider/settings Runtime CREATE retained; seed DML kept; settings sets balance");
 
 console.log("\n═══ Wiring ═══");
 assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-credits-039/);
 assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-credits-039/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /MIGRATION_039|scenario_migration_039/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_stolen_idx|stolen same-name index/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_wrong_uq|wrong UNIQUE shape/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_wrong_pred|wrong partial predicate/);
 assert.match(readRepo("artifacts/api-server/migrations/README.md"), /039_ai_credits_usage_schema_authority/);
 console.log("  ✅ package/CI/integration/README wired");
 

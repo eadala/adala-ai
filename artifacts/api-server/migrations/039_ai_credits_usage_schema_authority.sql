@@ -395,95 +395,74 @@ BEGIN
 END $$;
 
 -- ── ai_usage_logs indexes (exact form; idx_ai_usage_case is partial) ─────
+-- Probe INDEX NAMES globally (037 pattern) before CREATE INDEX IF NOT EXISTS.
+-- Stolen name on another relation / wrong shape → INCOMPATIBLE_INDEX BLOCK
+-- before any CREATE attempt (do not rely on post-apply as first detection).
 DO $$
 DECLARE
-  idx_exists BOOLEAN;
-  idx_valid BOOLEAN;
-  idx_ready BOOLEAN;
-  idx_partial BOOLEAN;
-  idx_expr BOOLEAN;
-  idx_cols TEXT[];
-  idx_pred TEXT;
+  spec RECORD;
+  expected_table_oid OID;
+  actual_table_oid OID;
+  index_unique BOOLEAN;
+  index_partial BOOLEAN;
+  index_expression BOOLEAN;
+  index_valid BOOLEAN;
+  index_ready BOOLEAN;
+  index_columns TEXT[];
+  index_pred TEXT;
 BEGIN
-  -- idx_ai_usage_office (office_id) — non-partial
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname = 'public' AND t.relname = 'ai_usage_logs' AND i.relname = 'idx_ai_usage_office'
-  LIMIT 1;
-  IF NOT FOUND THEN idx_exists := false; END IF;
-  IF idx_exists THEN
-    IF idx_partial OR idx_expr OR idx_cols IS DISTINCT FROM ARRAY['office_id']::text[]
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      RAISE EXCEPTION
-        '039_ai_credits_usage: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — idx_ai_usage_office incompatible (cols=% partial=% expr=% valid=% ready=%). No DROP INDEX.',
-        idx_cols, idx_partial, idx_expr, idx_valid, idx_ready;
-    END IF;
-  ELSE
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_office ON ai_usage_logs(office_id);
-  END IF;
+  FOR spec IN
+    SELECT * FROM (VALUES
+      ('idx_ai_usage_office','ai_usage_logs',ARRAY['office_id']::text[],FALSE,
+       'CREATE INDEX IF NOT EXISTS idx_ai_usage_office ON ai_usage_logs(office_id)'),
+      ('idx_ai_usage_created','ai_usage_logs',ARRAY['created_at']::text[],FALSE,
+       'CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage_logs(created_at)'),
+      ('idx_ai_usage_case','ai_usage_logs',ARRAY['case_id']::text[],TRUE,
+       $c$CREATE INDEX IF NOT EXISTS idx_ai_usage_case ON ai_usage_logs (case_id) WHERE case_id IS NOT NULL$c$)
+    ) AS t(index_name, table_name, columns, expect_partial, create_sql)
+  LOOP
+    expected_table_oid := to_regclass(format('public.%I', spec.table_name));
 
-  -- idx_ai_usage_created (created_at) — non-partial
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname = 'public' AND t.relname = 'ai_usage_logs' AND i.relname = 'idx_ai_usage_created'
-  LIMIT 1;
-  IF NOT FOUND THEN idx_exists := false; END IF;
-  IF idx_exists THEN
-    IF idx_partial OR idx_expr OR idx_cols IS DISTINCT FROM ARRAY['created_at']::text[]
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      RAISE EXCEPTION
-        '039_ai_credits_usage: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — idx_ai_usage_created incompatible (cols=% partial=% expr=% valid=% ready=%). No DROP INDEX.',
-        idx_cols, idx_partial, idx_expr, idx_valid, idx_ready;
-    END IF;
-  ELSE
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage_logs(created_at);
-  END IF;
+    SELECT x.indrelid, x.indisunique, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
+      x.indisvalid, x.indisready,
+      (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+       FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+       LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped),
+      pg_get_expr(x.indpred, x.indrelid)
+    INTO actual_table_oid, index_unique, index_partial, index_expression,
+      index_valid, index_ready, index_columns, index_pred
+    FROM pg_class i
+    JOIN pg_namespace n ON n.oid=i.relnamespace
+    LEFT JOIN pg_index x ON x.indexrelid=i.oid
+    WHERE n.nspname='public' AND i.relname=spec.index_name;
 
-  -- idx_ai_usage_case (case_id) WHERE case_id IS NOT NULL — partial
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL; idx_pred := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped),
-         pg_get_expr(x.indpred, x.indrelid)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols, idx_pred
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname = 'public' AND t.relname = 'ai_usage_logs' AND i.relname = 'idx_ai_usage_case'
-  LIMIT 1;
-  IF NOT FOUND THEN idx_exists := false; END IF;
-  IF idx_exists THEN
-    IF NOT idx_partial OR idx_expr
-       OR idx_cols IS DISTINCT FROM ARRAY['case_id']::text[]
-       OR COALESCE(idx_pred, '') !~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      RAISE EXCEPTION
-        '039_ai_credits_usage: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — idx_ai_usage_case incompatible (cols=% partial=% pred=% valid=% ready=%). Expected partial (case_id) WHERE case_id IS NOT NULL. No DROP INDEX.',
-        idx_cols, idx_partial, idx_pred, idx_valid, idx_ready;
+    IF FOUND THEN
+      IF actual_table_oid IS DISTINCT FROM expected_table_oid
+         OR index_unique IS DISTINCT FROM FALSE
+         OR index_partial IS DISTINCT FROM spec.expect_partial
+         OR index_expression IS DISTINCT FROM FALSE
+         OR index_valid IS DISTINCT FROM TRUE
+         OR index_ready IS DISTINCT FROM TRUE
+         OR index_columns IS DISTINCT FROM spec.columns
+         OR (
+           spec.expect_partial
+           AND COALESCE(index_pred, '') !~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
+         ) THEN
+        RAISE EXCEPTION
+          '039_ai_credits_usage: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_INDEX) — % incompatible (table_oid=% expected_oid=% cols=% partial=% pred=%). No DROP INDEX.',
+          spec.index_name, actual_table_oid, expected_table_oid, index_columns,
+          index_partial, coalesce(index_pred,'<none>');
+      END IF;
+      -- Exact match already present — leave alone.
+    ELSE
+      IF expected_table_oid IS NULL THEN
+        RAISE EXCEPTION
+          '039_ai_credits_usage: BLOCK_AND_MANUAL_REVIEW (reason_code=MISSING_BASE_TABLE) — index % needs table %',
+          spec.index_name, spec.table_name;
+      END IF;
+      EXECUTE spec.create_sql;
     END IF;
-  ELSE
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_case
-      ON ai_usage_logs (case_id)
-      WHERE case_id IS NOT NULL;
-  END IF;
+  END LOOP;
 END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════

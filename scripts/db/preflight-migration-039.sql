@@ -103,6 +103,11 @@ DECLARE
   idx_expr BOOLEAN;
   idx_cols TEXT[];
   idx_pred TEXT;
+  idx_unique BOOLEAN;
+  idx_relkind "char";
+  idx_table TEXT;
+  index_spec RECORD;
+  expect_partial BOOLEAN;
 
   empty_text TEXT := '<none>';
   rows_notice TEXT := '';
@@ -355,83 +360,65 @@ BEGIN
     END IF;
   END IF;
 
-  -- ai_usage_logs indexes: idx_ai_usage_office, idx_ai_usage_created
-  -- (non-partial), idx_ai_usage_case (partial WHERE case_id IS NOT NULL).
-  -- Always probed by name even if ai_usage_logs itself is missing.
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname='public' AND t.relname='ai_usage_logs' AND i.relname='idx_ai_usage_office'
-  LIMIT 1;
-  IF NOT FOUND THEN
-    missing_indexes := array_append(missing_indexes, 'idx_ai_usage_office');
-  ELSE
-    IF idx_partial OR idx_expr OR idx_cols IS DISTINCT FROM ARRAY['office_id']::text[]
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      incompatible_indexes := array_append(incompatible_indexes,
-        format('idx_ai_usage_office(cols=%s,partial=%s,expr=%s,valid=%s,ready=%s)',
-          coalesce(idx_cols::TEXT,'<none>'), coalesce(idx_partial::TEXT,'<null>'),
-          coalesce(idx_expr::TEXT,'<null>'), coalesce(idx_valid::TEXT,'<null>'), coalesce(idx_ready::TEXT,'<null>')));
-    END IF;
-  END IF;
+  -- ai_usage_logs indexes ALWAYS probed by NAME globally (037 pattern),
+  -- even when ai_usage_logs itself is missing. Wrong table binding /
+  -- columns / partial predicate / uniqueness / expression / invalid /
+  -- not-ready → INCOMPATIBLE_INDEX (wins over TABLE_MISSING / SAFE).
+  FOR index_spec IN
+    SELECT * FROM (VALUES
+      ('idx_ai_usage_office','ai_usage_logs',ARRAY['office_id']::TEXT[],FALSE),
+      ('idx_ai_usage_created','ai_usage_logs',ARRAY['created_at']::TEXT[],FALSE),
+      ('idx_ai_usage_case','ai_usage_logs',ARRAY['case_id']::TEXT[],TRUE)
+    ) AS expected_index(index_name, table_name, expected_cols, expect_partial)
+  LOOP
+    idx_relkind := NULL; idx_table := NULL; idx_unique := NULL;
+    idx_partial := NULL; idx_expr := NULL; idx_valid := NULL; idx_ready := NULL;
+    idx_cols := NULL; idx_pred := NULL;
+    SELECT i.relkind, t.relname, x.indisunique, x.indpred IS NOT NULL,
+           x.indexprs IS NOT NULL, x.indisvalid, x.indisready,
+           (SELECT array_agg(a.attname::TEXT ORDER BY k.ordinality)
+            FROM unnest(x.indkey::SMALLINT[]) WITH ORDINALITY AS k(attnum, ordinality)
+            LEFT JOIN pg_attribute a
+              ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped),
+           pg_get_expr(x.indpred, x.indrelid)
+    INTO idx_relkind, idx_table, idx_unique, idx_partial, idx_expr,
+         idx_valid, idx_ready, idx_cols, idx_pred
+    FROM pg_class i
+    JOIN pg_namespace n ON n.oid = i.relnamespace
+    LEFT JOIN pg_index x ON x.indexrelid = i.oid
+    LEFT JOIN pg_class t ON t.oid = x.indrelid
+    WHERE n.nspname = 'public' AND i.relname = index_spec.index_name;
 
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname='public' AND t.relname='ai_usage_logs' AND i.relname='idx_ai_usage_created'
-  LIMIT 1;
-  IF NOT FOUND THEN
-    missing_indexes := array_append(missing_indexes, 'idx_ai_usage_created');
-  ELSE
-    IF idx_partial OR idx_expr OR idx_cols IS DISTINCT FROM ARRAY['created_at']::text[]
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      incompatible_indexes := array_append(incompatible_indexes,
-        format('idx_ai_usage_created(cols=%s,partial=%s,expr=%s,valid=%s,ready=%s)',
-          coalesce(idx_cols::TEXT,'<none>'), coalesce(idx_partial::TEXT,'<null>'),
-          coalesce(idx_expr::TEXT,'<null>'), coalesce(idx_valid::TEXT,'<null>'), coalesce(idx_ready::TEXT,'<null>')));
+    IF NOT FOUND THEN
+      missing_indexes := array_append(missing_indexes, index_spec.index_name);
+    ELSE
+      expect_partial := index_spec.expect_partial;
+      IF idx_relkind NOT IN ('i','I')
+         OR idx_table IS DISTINCT FROM index_spec.table_name
+         OR idx_unique IS DISTINCT FROM FALSE
+         OR idx_partial IS DISTINCT FROM expect_partial
+         OR idx_expr IS DISTINCT FROM FALSE
+         OR idx_valid IS DISTINCT FROM TRUE
+         OR idx_ready IS DISTINCT FROM TRUE
+         OR idx_cols IS DISTINCT FROM index_spec.expected_cols
+         OR (
+           expect_partial
+           AND COALESCE(idx_pred, '') !~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
+         ) THEN
+        incompatible_indexes := array_append(incompatible_indexes,
+          format('%s(table=%s,cols=%s,unique=%s,partial=%s,pred=%s,expr=%s,valid=%s,ready=%s)',
+            index_spec.index_name,
+            coalesce(idx_table,'<none>'),
+            coalesce(idx_cols::TEXT,'<none>'),
+            coalesce(idx_unique::TEXT,'<null>'),
+            coalesce(idx_partial::TEXT,'<null>'),
+            coalesce(idx_pred,'<none>'),
+            coalesce(idx_expr::TEXT,'<null>'),
+            coalesce(idx_valid::TEXT,'<null>'),
+            coalesce(idx_ready::TEXT,'<null>')));
+      END IF;
     END IF;
-  END IF;
-
-  idx_exists := false; idx_valid := NULL; idx_ready := NULL; idx_partial := NULL; idx_expr := NULL; idx_cols := NULL; idx_pred := NULL;
-  SELECT true, x.indisvalid, x.indisready, x.indpred IS NOT NULL, x.indexprs IS NOT NULL,
-         (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
-          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
-          JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = ord.attnum AND NOT a.attisdropped),
-         pg_get_expr(x.indpred, x.indrelid)
-  INTO idx_exists, idx_valid, idx_ready, idx_partial, idx_expr, idx_cols, idx_pred
-  FROM pg_class t
-  JOIN pg_namespace n ON n.oid = t.relnamespace
-  JOIN pg_index x ON x.indrelid = t.oid
-  JOIN pg_class i ON i.oid = x.indexrelid
-  WHERE n.nspname='public' AND t.relname='ai_usage_logs' AND i.relname='idx_ai_usage_case'
-  LIMIT 1;
-  IF NOT FOUND THEN
-    missing_indexes := array_append(missing_indexes, 'idx_ai_usage_case');
-  ELSE
-    IF NOT idx_partial OR idx_expr
-       OR idx_cols IS DISTINCT FROM ARRAY['case_id']::text[]
-       OR COALESCE(idx_pred, '') !~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
-       OR idx_valid IS NOT TRUE OR idx_ready IS NOT TRUE THEN
-      incompatible_indexes := array_append(incompatible_indexes,
-        format('idx_ai_usage_case(cols=%s,partial=%s,pred=%s,valid=%s,ready=%s)',
-          coalesce(idx_cols::TEXT,'<none>'), coalesce(idx_partial::TEXT,'<null>'),
-          coalesce(idx_pred,'<none>'), coalesce(idx_valid::TEXT,'<null>'), coalesce(idx_ready::TEXT,'<null>')));
-    END IF;
-  END IF;
+  END LOOP;
 
   -- Any blocker wins over every safe repair, including missing tables.
   IF cardinality(incompatible_objects)>0 OR cardinality(incompatible_types)>0 THEN

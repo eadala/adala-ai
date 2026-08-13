@@ -106,12 +106,14 @@ router.post("/admin/ai-credits/settings", adminOnly, async (req, res) => {
   await ensureCreditTablesReady();
   try {
     const { officeId = "default", officeName, monthlyAllowance, autoRenew, renewDay } = req.body;
+    const allowance = monthlyAllowance ?? 100;
     await db.execute(sql`
-      INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, auto_renew, renew_day)
+      INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, balance, auto_renew, renew_day)
       VALUES (
         ${officeId},
         ${officeName ?? 'مكتب'},
-        ${monthlyAllowance ?? 100},
+        ${allowance},
+        ${allowance},
         ${autoRenew ?? true},
         ${renewDay ?? 1}
       )

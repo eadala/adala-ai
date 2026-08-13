@@ -3282,7 +3282,7 @@ scenario_migration_039_ai_credits_usage() {
   trap - EXIT
   teardown_db
 
-  # H: wrong same-name index idx_ai_usage_case BLOCK (non-partial)
+  # H: wrong same-name index idx_ai_usage_case BLOCK (non-partial / no predicate)
   setup_db "mig039_wrong_idx"
   trap teardown_db EXIT
   apply_all_migrations
@@ -3301,6 +3301,82 @@ scenario_migration_039_ai_credits_usage() {
   else
     grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-wrongidx.log \
       && ok "H: migration BLOCK INCOMPATIBLE_INDEX" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H2: wrong partial predicate on idx_ai_usage_case BLOCK
+  setup_db "mig039_wrong_pred"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_ai_usage_case;
+    CREATE INDEX idx_ai_usage_case ON ai_usage_logs(case_id) WHERE case_id IS NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-wrongpred.log 2>&1; then
+    bad "H2: preflight should BLOCK wrong partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-wrongpred.log \
+      && ok "H2: preflight BLOCK wrong partial predicate" || bad "H2: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-wrongpred.log 2>&1; then
+    bad "H2: migration should BLOCK wrong partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-wrongpred.log \
+      && ok "H2: migration BLOCK wrong partial predicate" || bad "H2: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H3: stolen index name — ai_usage_logs missing + idx_ai_usage_office on another table → BLOCK (never SAFE)
+  setup_db "mig039_stolen_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE ai_usage_logs CASCADE;
+    CREATE TABLE ai_usage_logs_orphan (office_id TEXT);
+    CREATE INDEX idx_ai_usage_office ON ai_usage_logs_orphan(office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-stolen.log 2>&1; then
+    bad "H3: preflight must BLOCK missing table + stolen same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-stolen.log \
+      && ok "H3: preflight BLOCK INCOMPATIBLE_INDEX (stolen name)" || bad "H3: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight039-stolen.log \
+      && bad "H3: must never SAFE when same-name index incompatible" \
+      || ok "H3: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-stolen.log 2>&1; then
+    bad "H3: migration should BLOCK stolen index name"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-stolen.log \
+      && ok "H3: migration BLOCK INCOMPATIBLE_INDEX" || bad "H3: mig reason=$(tail -3 /tmp/mig039-stolen.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H4: wrong UNIQUE shape (wider same-name key) BLOCK — never ALREADY
+  setup_db "mig039_wrong_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits DROP CONSTRAINT IF EXISTS office_ai_credits_office_id_key;
+    ALTER TABLE office_ai_credits ADD CONSTRAINT office_ai_credits_office_id_key UNIQUE (office_id, office_name);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-wuniq.log 2>&1; then
+    bad "H4: preflight should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-wuniq.log \
+      && ok "H4: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "H4: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-wuniq.log \
+      && bad "H4: must never ALREADY with wrong UNIQUE" \
+      || ok "H4: not ALREADY_CORRECT"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-wuniq.log 2>&1; then
+    bad "H4: migration should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig039-wuniq.log \
+      && ok "H4: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "H4: mig reason=$(tail -3 /tmp/mig039-wuniq.log)"
   fi
   trap - EXIT
   teardown_db
