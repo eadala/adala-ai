@@ -1292,6 +1292,65 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:marketplace-03
 assert.match(readRepo(".github/workflows/ci.yml"), /test:marketplace-038/);
 console.log("  ✅ migration 038 owns marketplace/portal/auth/home_cms + clients.client_account_id; Runtime DDL removed; P0 gated");
 
+console.log("\n═══ schemaAuthority: AI Credits + Usage (039) ═══");
+assert.ok(migrationFiles.includes("039_ai_credits_usage_schema_authority.sql"));
+const mig039 = readRepo("artifacts/api-server/migrations/039_ai_credits_usage_schema_authority.sql");
+assert.match(mig039, /CREATE TABLE IF NOT EXISTS office_ai_credits/);
+assert.match(mig039, /CREATE TABLE IF NOT EXISTS ai_credit_transactions/);
+assert.match(mig039, /CREATE TABLE IF NOT EXISTS ai_usage_logs/);
+assert.match(mig039, /balance\s+INTEGER\s+NOT NULL\s+DEFAULT\s+100/);
+assert.match(mig039, /daily_limit/);
+assert.match(mig039, /idx_ai_usage_office/);
+assert.match(mig039, /idx_ai_usage_created/);
+assert.match(mig039, /idx_ai_usage_case/);
+assert.match(mig039, /WHERE\s+case_id\s+IS\s+NOT\s+NULL/i);
+assert.match(mig039, /office_ai_credits_office_id_key|UNIQUE\s*\(\s*office_id\s*\)/);
+assert.match(mig039, /DUPLICATE_UNIQUE_KEY/);
+assert.match(mig039, /INCOMPATIBLE_INDEX/);
+assert.match(mig039, /POST_APPLY_READINESS_FAILED|AI_CREDITS_USAGE_SCHEMA_READY/);
+{
+  const sqlOnly039 = mig039.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly039, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly039, /CREATE TABLE IF NOT EXISTS usage_logs\b/);
+  assert.doesNotMatch(sqlOnly039, /CREATE TABLE IF NOT EXISTS ai_provider_config\b/);
+  assert.doesNotMatch(sqlOnly039, /CREATE TABLE IF NOT EXISTS office_ai_settings\b/);
+}
+const preflight039 = readRepo("scripts/db/preflight-migration-039.sql");
+assert.match(preflight039, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight039, /AI_CREDITS_USAGE_SCHEMA_READY/);
+assert.match(preflight039, /SAFE_AUTO_REPAIR/);
+assert.match(preflight039, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight039, /legacy_default_office|office_id='default'|default_office/i);
+assert.match(preflight039, /idx_ai_usage_case/);
+assert.match(preflight039, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight039, /i\.relname\s*=\s*index_spec\.index_name/);
+assert.match(mig039, /i\.relname\s*=\s*spec\.index_name/);
+assert.doesNotMatch(readSrc("modules/ai/aiChat.ts"), /CREATE TABLE IF NOT EXISTS office_ai_credits/);
+assert.doesNotMatch(readSrc("modules/ai/aiChat.ts"), /CREATE TABLE IF NOT EXISTS ai_usage_logs/);
+assert.doesNotMatch(readSrc("modules/ai/aiCredits.ts"), /CREATE TABLE IF NOT EXISTS office_ai_credits/);
+assert.doesNotMatch(readSrc("modules/ai/aiCredits.ts"), /CREATE TABLE IF NOT EXISTS ai_credit_transactions/);
+assert.doesNotMatch(readSrc("modules/ai/aiProviderEngine.ts"), /ALTER TABLE ai_usage_logs/);
+assert.match(readSrc("modules/ai/aiChat.ts"), /INSERT INTO office_ai_credits[\s\S]*ON CONFLICT \(office_id\) DO NOTHING/);
+assert.match(readSrc("modules/ai/aiCredits.ts"), /ON CONFLICT \(office_id\)/);
+assert.match(readSrc("modules/ai/aiCredits.ts"), /INSERT INTO office_ai_credits[\s\S]*\bbalance\b[\s\S]*ON CONFLICT \(office_id\) DO UPDATE/);
+assert.match(readSrc("modules/ai/aiProviderEngine.ts"), /CREATE TABLE IF NOT EXISTS ai_provider_config/);
+assert.match(readSrc("modules/ai/aiProviderEngine.ts"), /CREATE TABLE IF NOT EXISTS office_ai_settings/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_039|MIGRATION_039/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_stolen_idx/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_wrong_uq/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig039_wrong_pred/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^office_ai_credits$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ai_credit_transactions$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ai_usage_logs$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^office_ai_credits\.balance$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ai_usage_logs\.cost_sar$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^office_ai_credits$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ai_credit_transactions$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ai_usage_logs$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-credits-039/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-credits-039/);
+console.log("  ✅ migration 039 owns AI credits/usage; Runtime DDL removed; P0 gated; provider CREATE retained; stolen-index hardened");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

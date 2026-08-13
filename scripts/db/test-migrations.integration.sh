@@ -47,6 +47,7 @@ MIGRATION_035="$ROOT/artifacts/api-server/migrations/035_jlwm_satellites_schema_
 MIGRATION_036="$ROOT/artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql"
 MIGRATION_037="$ROOT/artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql"
 MIGRATION_038="$ROOT/artifacts/api-server/migrations/038_marketplace_client_portal_schema_authority.sql"
+MIGRATION_039="$ROOT/artifacts/api-server/migrations/039_ai_credits_usage_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -244,6 +245,7 @@ verify_p0_schema() {
   apply_migration_036
   apply_migration_037
   apply_migration_038
+  apply_migration_039
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -265,6 +267,10 @@ apply_migration_037() {
 
 apply_migration_038() {
   psql_db -f "$MIGRATION_038" >/dev/null
+}
+
+apply_migration_039() {
+  psql_db -f "$MIGRATION_039" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -307,11 +313,12 @@ apply_all_migrations() {
   apply_migration_036
   apply_migration_037
   apply_migration_038
+  apply_migration_039
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…038 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…039 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3079,6 +3086,432 @@ scenario_migration_038_marketplace_client_portal() {
     && ok "K: preflight includes marketplace_orders.notes" || bad "K: notes column_spec"
   grep -q 'reason_code=INCOMPATIBLE_FK' "$MIGRATION_038" \
     && ok "K: migration wrong FK shape uses INCOMPATIBLE_FK" || bad "K: FK reason-code"
+}
+
+scenario_migration_039_ai_credits_usage() {
+  log "Scenario 039 — AI Credits/Usage: greenfield / SAFE / BLOCK / Runtime / P0 / authority"
+  local PREFLIGHT_039="$ROOT/scripts/db/preflight-migration-039.sql"
+
+  # A: greenfield + idempotent + ALREADY + UNIQUE(office_id) + indexes + balance DEFAULT 100
+  setup_db "mig039_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt idx_cnt bal_def uq_ok
+  tbl_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('office_ai_credits','ai_credit_transactions','ai_usage_logs')")
+  [[ "$tbl_cnt" == "3" ]] && ok "A: 3 owned tables present" || bad "A: table count=$tbl_cnt"
+  idx_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='i'
+      AND c.relname IN ('idx_ai_usage_office','idx_ai_usage_created','idx_ai_usage_case')")
+  [[ "$idx_cnt" == "3" ]] && ok "A: usage indexes present" || bad "A: index count=$idx_cnt"
+  uq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.office_ai_credits'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    ) OR EXISTS (
+      SELECT 1 FROM pg_index x
+      WHERE x.indrelid='public.office_ai_credits'::regclass
+        AND x.indisunique AND NOT x.indisprimary
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+            = ARRAY['office_id']::text[]
+    )")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUE(office_id) present" || bad "A: UNIQUE missing"
+  bal_def=$(psql_db -At -c "
+    SELECT column_default FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='office_ai_credits' AND column_name='balance'")
+  [[ "$bal_def" == "100" ]] && ok "A: balance DEFAULT 100" || bad "A: balance default=$bal_def"
+  local case_partial
+  case_partial=$(psql_db -At -c "
+    SELECT x.indpred IS NOT NULL AND pg_get_expr(x.indpred, x.indrelid) ~* 'case_id[[:space:]]+IS[[:space:]]+NOT[[:space:]]+NULL'
+    FROM pg_class t
+    JOIN pg_namespace n ON n.oid=t.relnamespace
+    JOIN pg_index x ON x.indrelid=t.oid
+    JOIN pg_class i ON i.oid=x.indexrelid
+    WHERE n.nspname='public' AND t.relname='ai_usage_logs' AND i.relname='idx_ai_usage_case'")
+  [[ "$case_partial" == "t" ]] && ok "A: idx_ai_usage_case partial WHERE case_id IS NOT NULL" || bad "A: partial=$case_partial"
+  apply_migration_039
+  ok "A: re-run 039 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight039-ready.log | tail -1)"
+  grep -q 'AI_CREDITS_USAGE_SCHEMA_READY' /tmp/preflight039-ready.log \
+    && ok "A: AI_CREDITS_USAGE_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig039_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE ai_credit_transactions CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight039-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_039
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.ai_credit_transactions') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: ai_credit_transactions restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column (daily_limit) SAFE + restore
+  setup_db "mig039_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE office_ai_credits DROP COLUMN daily_limit;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|daily_limit' /tmp/preflight039-misscol.log \
+    && ok "C: missing daily_limit → SAFE" || bad "C: preflight"
+  apply_migration_039
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='office_ai_credits' AND column_name='daily_limit'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: daily_limit restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: wrong type BLOCK (balance as TEXT)
+  setup_db "mig039_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits DROP COLUMN balance;
+    ALTER TABLE office_ai_credits ADD COLUMN balance TEXT;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig039-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason=$(tail -3 /tmp/mig039-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig039_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits DROP CONSTRAINT office_ai_credits_pkey;
+    ALTER TABLE office_ai_credits ADD PRIMARY KEY (office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-pk.log 2>&1; then
+    bad "E: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-pk.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-pk.log 2>&1; then
+    bad "E: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig039-pk.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong UNIQUE / duplicate office_id BLOCK + rows preserved
+  setup_db "mig039_dup_office"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits DROP CONSTRAINT IF EXISTS office_ai_credits_office_id_key;
+    INSERT INTO office_ai_credits (office_id, office_name, balance)
+    VALUES ('dup039', 'A', 10), ('dup039', 'B', 20);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-dup.log 2>&1; then
+    bad "F: preflight should BLOCK duplicate office_id"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-dup.log \
+      && ok "F: preflight BLOCK duplicate/unique" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-dup.log 2>&1; then
+    bad "F: migration should BLOCK duplicate office_id"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig039-dup.log \
+      && ok "F: migration BLOCK duplicate/unique" || bad "F: mig reason=$(tail -3 /tmp/mig039-dup.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM office_ai_credits WHERE office_id='dup039'")" == "2" ]] \
+    && ok "F: duplicate rows preserved" || bad "F: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # G: NULL required preventing NOT NULL
+  setup_db "mig039_null_req"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits ALTER COLUMN office_name DROP NOT NULL;
+    INSERT INTO office_ai_credits (office_id, office_name, balance)
+    VALUES ('null-name-039', NULL, 50);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-null.log 2>&1; then
+    bad "G: preflight should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-null.log \
+      && ok "G: preflight BLOCK NULL_REQUIRED" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-null.log 2>&1; then
+    bad "G: migration should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig039-null.log \
+      && ok "G: migration BLOCK NULL_REQUIRED" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: wrong same-name index idx_ai_usage_case BLOCK (non-partial / no predicate)
+  setup_db "mig039_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_ai_usage_case;
+    CREATE INDEX idx_ai_usage_case ON ai_usage_logs(case_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-wrongidx.log 2>&1; then
+    bad "H: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-wrongidx.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_INDEX" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-wrongidx.log 2>&1; then
+    bad "H: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-wrongidx.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_INDEX" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H2: wrong partial predicate on idx_ai_usage_case BLOCK
+  setup_db "mig039_wrong_pred"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_ai_usage_case;
+    CREATE INDEX idx_ai_usage_case ON ai_usage_logs(case_id) WHERE case_id IS NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-wrongpred.log 2>&1; then
+    bad "H2: preflight should BLOCK wrong partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-wrongpred.log \
+      && ok "H2: preflight BLOCK wrong partial predicate" || bad "H2: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-wrongpred.log 2>&1; then
+    bad "H2: migration should BLOCK wrong partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-wrongpred.log \
+      && ok "H2: migration BLOCK wrong partial predicate" || bad "H2: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H3: stolen index name — ai_usage_logs missing + idx_ai_usage_office on another table → BLOCK (never SAFE)
+  setup_db "mig039_stolen_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE ai_usage_logs CASCADE;
+    CREATE TABLE ai_usage_logs_orphan (office_id TEXT);
+    CREATE INDEX idx_ai_usage_office ON ai_usage_logs_orphan(office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-stolen.log 2>&1; then
+    bad "H3: preflight must BLOCK missing table + stolen same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-stolen.log \
+      && ok "H3: preflight BLOCK INCOMPATIBLE_INDEX (stolen name)" || bad "H3: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight039-stolen.log \
+      && bad "H3: must never SAFE when same-name index incompatible" \
+      || ok "H3: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-stolen.log 2>&1; then
+    bad "H3: migration should BLOCK stolen index name"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig039-stolen.log \
+      && ok "H3: migration BLOCK INCOMPATIBLE_INDEX" || bad "H3: mig reason=$(tail -3 /tmp/mig039-stolen.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H4: wrong UNIQUE shape (wider same-name key) BLOCK — never ALREADY
+  setup_db "mig039_wrong_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_credits DROP CONSTRAINT IF EXISTS office_ai_credits_office_id_key;
+    ALTER TABLE office_ai_credits ADD CONSTRAINT office_ai_credits_office_id_key UNIQUE (office_id, office_name);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-wuniq.log 2>&1; then
+    bad "H4: preflight should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight039-wuniq.log \
+      && ok "H4: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "H4: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-wuniq.log \
+      && bad "H4: must never ALREADY with wrong UNIQUE" \
+      || ok "H4: not ALREADY_CORRECT"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_039" >/tmp/mig039-wuniq.log 2>&1; then
+    bad "H4: migration should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig039-wuniq.log \
+      && ok "H4: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "H4: mig reason=$(tail -3 /tmp/mig039-wuniq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: missing index SAFE + apply restores
+  setup_db "mig039_miss_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_ai_usage_office;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-missidx.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-missidx.log \
+    && bad "I: missing index must not be ALREADY_CORRECT" \
+    || ok "I: missing index not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING|idx_ai_usage_office' /tmp/preflight039-missidx.log \
+    && ok "I: missing index → SAFE" || bad "I: preflight"
+  apply_migration_039
+  local idx_ok
+  idx_ok=$(psql_db -At -c "SELECT to_regclass('public.idx_ai_usage_office') IS NOT NULL")
+  [[ "$idx_ok" == "t" ]] && ok "I: idx_ai_usage_office restored" || bad "I: index still missing"
+  trap - EXIT
+  teardown_db
+
+  # J: office_id='default' survives unchanged after apply
+  setup_db "mig039_default_survive"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO office_ai_credits (office_id, office_name, balance)
+    VALUES ('default', 'Legacy Default Office', 77)
+    ON CONFLICT (office_id) DO UPDATE
+      SET office_name = EXCLUDED.office_name, balance = EXCLUDED.balance;
+  " >/dev/null
+  apply_migration_039
+  local def_bal def_name
+  def_bal=$(psql_db -At -c "SELECT balance FROM office_ai_credits WHERE office_id='default'")
+  def_name=$(psql_db -At -c "SELECT office_name FROM office_ai_credits WHERE office_id='default'")
+  [[ "$def_bal" == "77" && "$def_name" == "Legacy Default Office" ]] \
+    && ok "J: office_id='default' row unchanged after re-apply" \
+    || bad "J: default row mutated (balance=$def_bal name=$def_name)"
+  trap - EXIT
+  teardown_db
+
+  # K: Runtime CREATE/ALTER for 039 tables gone; provider CREATE retained; no ALTER ai_usage_logs
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (office_ai_credits|ai_credit_transactions|ai_usage_logs)' \
+      "$ROOT/artifacts/api-server/src/modules/ai/aiChat.ts" \
+      "$ROOT/artifacts/api-server/src/modules/ai/aiCredits.ts"; then
+    bad "K: Runtime CREATE for 039 tables still in aiChat/aiCredits"
+  else
+    ok "K: aiChat/aiCredits Runtime CREATE for 039 tables removed"
+  fi
+  if grep -qE 'ALTER TABLE ai_usage_logs|ADD COLUMN IF NOT EXISTS cost_sar' \
+      "$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts"; then
+    bad "K: aiProviderEngine still ALTERs ai_usage_logs"
+  else
+    ok "K: aiProviderEngine has no ALTER ai_usage_logs"
+  fi
+  if grep -q 'CREATE TABLE IF NOT EXISTS ai_provider_config' \
+      "$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts" \
+    && grep -q 'CREATE TABLE IF NOT EXISTS office_ai_settings' \
+      "$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts"; then
+    ok "K: aiProviderEngine retains provider/settings Runtime CREATE"
+  else
+    bad "K: provider/settings CREATE missing from aiProviderEngine"
+  fi
+
+  # L: prior usage_logs (003) still exists; 039 does not CREATE usage_logs
+  setup_db "mig039_usage_logs_prior"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local usage_logs_ok
+  usage_logs_ok=$(psql_db -At -c "SELECT to_regclass('public.usage_logs') IS NOT NULL")
+  [[ "$usage_logs_ok" == "t" ]] && ok "L: usage_logs (003) still present after chain" || bad "L: usage_logs missing"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS usage_logs\b' "$MIGRATION_039"; then
+    bad "L: 039 must not CREATE usage_logs"
+  else
+    ok "L: 039 does not CREATE usage_logs as alias"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: P0 verify fails without office_ai_credits
+  setup_db "mig039_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig039-p0-present.log 2>&1; then
+    ok "M: verify-schema passes with 039 objects"
+  else
+    bad "M: verify-schema failed after full chain"; tail -20 /tmp/mig039-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE office_ai_credits CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig039-p0.log 2>&1; then
+    bad "M: verify-schema should fail without office_ai_credits"
+  else
+    grep -qi 'office_ai_credits' /tmp/mig039-p0.log \
+      && ok "M: P0 verify fails when office_ai_credits absent" || bad "M: verify log missing office_ai_credits"
+  fi
+  apply_migration_039
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig039-p0-restored.log 2>&1; then
+    ok "M: verify-schema passes after 039 restore"
+  else
+    bad "M: verify failed after restore"; tail -20 /tmp/mig039-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  # N: ON CONFLICT (office_id) works after apply
+  setup_db "mig039_on_conflict"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO office_ai_credits (office_id, office_name, balance)
+    VALUES ('topup-039', 'Topup Office', 100)
+    ON CONFLICT (office_id) DO NOTHING;
+    INSERT INTO office_ai_credits (office_id, office_name, balance)
+    VALUES ('topup-039', 'Topup Office', 100)
+    ON CONFLICT (office_id) DO UPDATE SET balance = office_ai_credits.balance + 50;
+  " >/dev/null
+  local topup_bal
+  topup_bal=$(psql_db -At -c "SELECT balance FROM office_ai_credits WHERE office_id='topup-039'")
+  [[ "$topup_bal" == "150" ]] && ok "N: ON CONFLICT (office_id) topup-style works" || bad "N: balance=$topup_bal"
+  trap - EXIT
+  teardown_db
+
+  # O: re-preflight AI_CREDITS_USAGE_SCHEMA_READY
+  setup_db "mig039_repreflight"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_039" >/tmp/preflight039-o.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight039-o.log \
+    && grep -q 'AI_CREDITS_USAGE_SCHEMA_READY' /tmp/preflight039-o.log \
+    && ok "O: re-preflight AI_CREDITS_USAGE_SCHEMA_READY" \
+    || bad "O: $(grep -E 'chosen_action=|AI_CREDITS' /tmp/preflight039-o.log | tail -3)"
+  trap - EXIT
+  teardown_db
 }
 
 scenario_migration_011_stripe_infra() {
@@ -9729,6 +10162,7 @@ scenario_migration_035_jlwm_satellites
 scenario_migration_036_jlwm_reliability
 scenario_migration_037_financial_remaining
 scenario_migration_038_marketplace_client_portal
+scenario_migration_039_ai_credits_usage
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
