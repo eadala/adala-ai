@@ -45,6 +45,7 @@ MIGRATION_033="$ROOT/artifacts/api-server/migrations/033_document_v2_schema_auth
 MIGRATION_034="$ROOT/artifacts/api-server/migrations/034_jlwm_core_schema_authority.sql"
 MIGRATION_035="$ROOT/artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql"
 MIGRATION_036="$ROOT/artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql"
+MIGRATION_037="$ROOT/artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -240,6 +241,7 @@ verify_p0_schema() {
   apply_migration_034
   apply_migration_035
   apply_migration_036
+  apply_migration_037
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -253,6 +255,10 @@ apply_migration_035() {
 
 apply_migration_036() {
   psql_db -f "$MIGRATION_036" >/dev/null
+}
+
+apply_migration_037() {
+  psql_db -f "$MIGRATION_037" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -293,11 +299,12 @@ apply_all_migrations() {
   apply_migration_034
   apply_migration_035
   apply_migration_036
+  apply_migration_037
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 + 036 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025 + 026 + 027 + 028 + 029 + 030 + 031 + 032 + 033 + 034 + 035 + 036 + 037 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -2162,6 +2169,465 @@ PY
   teardown_db
 }
 
+scenario_migration_037_financial_remaining() {
+  log "Scenario 037 — Remaining Financial: greenfield / SAFE / BLOCK / Runtime removed / P0 / authority"
+  local PREFLIGHT_037="$ROOT/scripts/db/preflight-migration-037.sql"
+  local OID='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+
+  # A0: preflight SAFE when 037 tables absent (003 bases present).
+  setup_db "mig037_preflight_absent"
+  trap teardown_db EXIT
+  apply_migrations_base
+  apply_migration_036
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-absent.log 2>&1
+  grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight037-absent.log \
+    && ok "A0: SAFE_AUTO_REPAIR (037 tables missing)" \
+    || bad "A0: missing SAFE_AUTO_REPAIR"
+  grep -qE 'reason_code=(TABLE_MISSING|PARTIAL_SCHEMA)' /tmp/preflight037-absent.log \
+    && ok "A0: TABLE_MISSING/PARTIAL_SCHEMA" || bad "A0: reason"
+  trap - EXIT
+  teardown_db
+
+  # A: greenfield apply, idempotency, ALREADY_CORRECT.
+  setup_db "mig037_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local table_count index_count seq_ok
+  table_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN (
+        'financial_accounts','ledger_entries','wallets','lawyer_payouts',
+        'invoice_payments','office_tax_settings','invoice_revisions','credit_notes'
+      )")
+  [[ "$table_count" == "8" ]] && ok "A: all 8 financial tables present" || bad "A: table count=$table_count"
+  index_count=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='i'
+      AND c.relname IN (
+        'idx_inv_payments_invoice','idx_inv_payments_office',
+        'idx_invoice_revisions_invoice','idx_credit_notes_office',
+        'idx_invoices_case_office','idx_revenues_case_office','idx_expenses_case_office'
+      )")
+  [[ "$index_count" == "7" ]] && ok "A: all 7 financial indexes present" || bad "A: index count=$index_count"
+  seq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='invoice_seq' AND c.relkind='S'
+    )")
+  [[ "$seq_ok" == "t" ]] && ok "A: invoice_seq present" || bad "A: invoice_seq missing"
+  local amt_nn office_col
+  amt_nn=$(psql_db -At -c "
+    SELECT is_nullable='NO' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='client_invoices' AND column_name='amount_paid'")
+  office_col=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='ledger_entries' AND column_name='office_id'")
+  [[ "$amt_nn" == "t" ]] && ok "A: amount_paid NOT NULL" || bad "A: amount_paid nullable"
+  [[ "$office_col" == "1" ]] && ok "A: ledger_entries.office_id DML column present" || bad "A: office_id missing"
+  local amt_check
+  amt_check=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid = 'public.invoice_payments'::regclass
+        AND c.contype = 'c'
+        AND c.convalidated
+        AND (
+          c.conname = 'invoice_payments_amount_check'
+          OR pg_get_constraintdef(c.oid) ~* 'amount[[:space:]]*>[[:space:]]*\(?[[:space:]]*0'
+        )
+    )")
+  [[ "$amt_check" == "t" ]] && ok "A: invoice_payments CHECK (amount > 0) present+validated" \
+    || bad "A: invoice_payments amount CHECK missing"
+  apply_migration_037
+  ok "A: re-run 037 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" \
+    || bad "A: $(grep chosen_action /tmp/preflight037-ready.log | tail -1)"
+  grep -q 'reason_code=FINANCIAL_REMAINING_SCHEMA_READY' /tmp/preflight037-ready.log \
+    && ok "A: FINANCIAL_REMAINING_SCHEMA_READY" || bad "A: reason"
+  # 003 invoice_number still present; 037 must not dual-own via ADD COLUMN invoice_number
+  if grep -qE 'ADD COLUMN IF NOT EXISTS invoice_number' "$MIGRATION_037"; then
+    bad "A: 037 must not ADD invoice_number (003 owns it)"
+  else
+    ok "A: 037 does not dual-own invoice_number"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig037_missing_table"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE credit_notes CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight037-misstbl.log \
+    && ok "B: missing credit_notes → SAFE" || bad "B: preflight"
+  apply_migration_037
+  local cn
+  cn=$(psql_db -At -c "SELECT to_regclass('public.credit_notes') IS NOT NULL")
+  [[ "$cn" == "t" ]] && ok "B: credit_notes restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # B2: missing extension column SAFE + restore
+  setup_db "mig037_miss_ext"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE client_invoices DROP COLUMN IF EXISTS view_token;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-missext.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|SAFE_AUTO_REPAIR' /tmp/preflight037-missext.log \
+    && ok "B2: missing view_token → SAFE" || bad "B2: preflight"
+  apply_migration_037
+  local vt
+  vt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='client_invoices' AND column_name='view_token'")
+  [[ "$vt" == "1" ]] && ok "B2: view_token restored" || bad "B2: view_token missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing safe index SAFE + restore
+  setup_db "mig037_missing_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_inv_payments_office;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-missidx.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|SAFE_AUTO_REPAIR' /tmp/preflight037-missidx.log \
+    && ok "C: missing index → SAFE" || bad "C: preflight"
+  apply_migration_037
+  local idx
+  idx=$(psql_db -At -c "SELECT to_regclass('public.idx_inv_payments_office') IS NOT NULL")
+  [[ "$idx" == "t" ]] && ok "C: idx_inv_payments_office restored" || bad "C: index missing"
+  trap - EXIT
+  teardown_db
+
+  # C2: safe default repair
+  setup_db "mig037_miss_defaults"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE wallets ALTER COLUMN currency DROP DEFAULT;
+    ALTER TABLE invoice_payments ALTER COLUMN method DROP DEFAULT;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-miss-def.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-miss-def.log \
+    && bad "C2: missing defaults must not be ALREADY_CORRECT" \
+    || ok "C2: missing defaults not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight037-miss-def.log \
+    && ok "C2: SAFE_AUTO_REPAIR for missing defaults" || bad "C2: action"
+  apply_migration_037
+  local cur_def meth_def
+  cur_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%SAR%' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='wallets' AND column_name='currency'")
+  meth_def=$(psql_db -At -c "
+    SELECT column_default ILIKE '%bank%' FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='invoice_payments' AND column_name='method'")
+  [[ "$cur_def" == "t" && "$meth_def" == "t" ]] \
+    && ok "C2: Migration 037 restored safe defaults" \
+    || bad "C2: defaults not restored (currency=$cur_def method=$meth_def)"
+  trap - EXIT
+  teardown_db
+
+  # D: incompatible type BLOCK
+  setup_db "mig037_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE wallets DROP COLUMN currency;
+    ALTER TABLE wallets ADD COLUMN currency INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig037-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: unsafe NULL office_id BLOCK
+  setup_db "mig037_null_office"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE lawyer_payouts ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO lawyer_payouts (id, office_id, amount, net_amount)
+    VALUES ('$OID', NULL, 10, 10);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-null-office.log 2>&1; then
+    bad "E: preflight should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-null-office.log \
+      && ok "E: preflight BLOCK NULL_OFFICE_ID" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-null-office.log 2>&1; then
+    bad "E: migration should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_OFFICE_ID' /tmp/mig037-null-office.log \
+      && ok "E: migration BLOCK NULL_OFFICE_ID" || bad "E: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong same-name index BLOCK
+  setup_db "mig037_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_credit_notes_office;
+    CREATE INDEX idx_credit_notes_office ON credit_notes(credit_number);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-wrongidx.log 2>&1; then
+    bad "F: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-wrongidx.log \
+      && ok "F: preflight BLOCK INCOMPATIBLE_INDEX" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-wrongidx.log 2>&1; then
+    bad "F: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig037-wrongidx.log \
+      && ok "F: migration BLOCK INCOMPATIBLE_INDEX" || bad "F: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: missing target table + wrong same-name index BLOCK (blocker wins)
+  setup_db "mig037_miss_tbl_bad_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE invoice_payments CASCADE;
+    CREATE TABLE invoice_payments_orphan (invoice_id UUID);
+    CREATE INDEX idx_inv_payments_invoice ON invoice_payments_orphan(invoice_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misstbl-idx.log 2>&1; then
+    bad "G: preflight must BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-misstbl-idx.log \
+      && ok "G: preflight BLOCK INCOMPATIBLE_INDEX (table missing)" || bad "G: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight037-misstbl-idx.log \
+      && bad "G: must never SAFE when same-name index incompatible" \
+      || ok "G: no SAFE_AUTO_REPAIR over incompatible index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-misstbl-idx.log 2>&1; then
+    bad "G: migration should BLOCK missing table + wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig037-misstbl-idx.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_INDEX" || bad "G: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: wrong PK BLOCK
+  setup_db "mig037_wrong_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE wallets DROP CONSTRAINT wallets_pkey;
+    ALTER TABLE wallets ADD PRIMARY KEY (owner_id, id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-wrongpk.log 2>&1; then
+    bad "H: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-wrongpk.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_PK" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-wrongpk.log 2>&1; then
+    bad "H: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig037-wrongpk.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_PK" || bad "H: migration reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: Runtime financial DDL removed
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (financial_accounts|ledger_entries|wallets|lawyer_payouts|invoice_payments|office_tax_settings)|CREATE INDEX IF NOT EXISTS idx_inv_payments_|CREATE SEQUENCE IF NOT EXISTS invoice_seq|ALTER TABLE revenues ADD COLUMN IF NOT EXISTS deleted_at|CREATE INDEX IF NOT EXISTS idx_invoices_case_office' \
+      "$ROOT/artifacts/api-server/src/modules/financial/financialCore.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/invoices.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/financial-completions.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/accounting.ts" \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    bad "I: financial Runtime CREATE/INDEX/ALTER still present"
+  else
+    ok "I: financial Runtime DDL removed (owned by 037)"
+  fi
+  grep -q "to_regclass('public.financial_accounts')" \
+    "$ROOT/artifacts/api-server/src/modules/financial/financialCore.ts" \
+    && ok "I: financialCore readiness probes present" || bad "I: readiness missing"
+  grep -q "ON CONFLICT (owner_id) DO NOTHING" \
+    "$ROOT/artifacts/api-server/src/modules/financial/financialCore.ts" \
+    && ok "I: platform wallet seed preserved" || bad "I: wallet seed missing"
+
+  # J: prior authority unchanged (smoke: migrations still define owned objects)
+  grep -q 'office_ledger' \
+    "$ROOT/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql" \
+    && ok "J: 010 office_ledger authority file present" || bad "J: 010"
+  grep -q 'stripe_events' "$ROOT/artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql" \
+    && ok "J: 011 stripe authority unchanged" || bad "J: 011"
+  grep -q 'payment_transactions' "$ROOT/artifacts/api-server/migrations/012_payment_transactions.sql" \
+    && ok "J: 012 payment_transactions unchanged" || bad "J: 012"
+  grep -q 'chart_of_accounts' "$ROOT/artifacts/api-server/migrations/013_erp_schema.sql" \
+    && ok "J: 013 ERP unchanged" || bad "J: 013"
+  if grep -qE 'platform_billing_invoices|office_entitlements' \
+       "$ROOT/artifacts/api-server/migrations/025_billing_schema_authority.sql"; then
+    ok "J: 025 billing authority unchanged"
+  else
+    bad "J: 025"
+  fi
+  grep -q 'moyasar_settings' "$ROOT/artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql" \
+    && ok "J: 032 gateway unchanged" || bad "J: 032"
+  grep -q 'invoice_number' "$ROOT/artifacts/api-server/migrations/003_drizzle_baseline_safe.sql" \
+    && ok "J: 003 baseline invoice_number ownership unchanged" || bad "J: 003"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (office_ledger|payment_transactions|stripe_events|moyasar_settings|chart_of_accounts)' "$MIGRATION_037"; then
+    bad "J: 037 must not re-own prior formal tables"
+  else
+    ok "J: 037 does not re-own 010/011/012/013/025/032 tables"
+  fi
+
+  # K: P0 verify fails if required 037 object missing
+  setup_db "mig037_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig037-p0-present.log 2>&1; then
+    ok "K: verify-schema passes with 037 objects present"
+  else
+    bad "K: verify-schema failed after full chain"; tail -30 /tmp/mig037-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE wallets CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig037-p0.log 2>&1; then
+    bad "K: verify-schema should fail without wallets"
+  else
+    grep -qi 'wallets' /tmp/mig037-p0.log \
+      && ok "K: P0 verify fails when wallets absent" || bad "K: verify log missing wallets"
+  fi
+  apply_migration_037
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig037-p0-restored.log 2>&1; then
+    ok "K: verify-schema passes after 037 restore"
+  else
+    bad "K: verify-schema failed after 037 restore"; tail -30 /tmp/mig037-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+
+  grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_037" \
+    && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
+  grep -q 'invoice_payments CHECK (amount > 0) missing' "$MIGRATION_037" \
+    && ok "L: post-apply requires invoice_payments CHECK" || bad "L: post-apply CHECK gate missing"
+  grep -qE 'incompatible_uniques[[:space:]]*:=[[:space:]]*array_append|array_append\([[:space:]]*incompatible_uniques' "$PREFLIGHT_037" \
+    && ok "L: preflight populates incompatible_uniques" || bad "L: incompatible_uniques dead"
+
+  # M: Duplicate required UNIQUE key BLOCK (financial_accounts owner_id,currency)
+  setup_db "mig037_dup_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE financial_accounts DROP CONSTRAINT IF EXISTS financial_accounts_owner_id_currency_key;
+    INSERT INTO financial_accounts (owner_id, currency, balance)
+    VALUES
+      ('dup-owner-037', 'SAR', 1),
+      ('dup-owner-037', 'SAR', 2);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-dup.log 2>&1; then
+    bad "M: preflight should BLOCK duplicate UNIQUE data"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-dup.log \
+      && ok "M: preflight BLOCK on duplicate UNIQUE" || bad "M: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight037-dup.log \
+      && bad "M: must never SAFE over duplicate UNIQUE" \
+      || ok "M: no SAFE over duplicate UNIQUE"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-dup.log 2>&1; then
+    bad "M: migration should BLOCK duplicate UNIQUE data"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig037-dup.log \
+      && ok "M: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "M: migration reason"
+  fi
+  local dup_rows
+  dup_rows=$(psql_db -At -c "SELECT COUNT(*) FROM financial_accounts WHERE owner_id='dup-owner-037'")
+  [[ "$dup_rows" == "2" ]] && ok "M: duplicate rows preserved (no silent cleanup)" \
+    || bad "M: duplicate rows altered (count=$dup_rows)"
+  trap - EXIT
+  teardown_db
+
+  # N: invoice_payments CHECK violation BLOCK (amount <= 0)
+  setup_db "mig037_check_viol"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE invoice_payments DROP CONSTRAINT IF EXISTS invoice_payments_amount_check;
+    INSERT INTO invoice_payments (invoice_id, office_id, amount, method)
+    VALUES ('$OID'::uuid, '$OID', 0, 'bank');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-check.log 2>&1; then
+    bad "N: preflight should BLOCK CHECK_VIOLATION"
+  else
+    grep -q 'CHECK_VIOLATION\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-check.log \
+      && ok "N: preflight BLOCK CHECK_VIOLATION" || bad "N: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-check.log 2>&1; then
+    bad "N: migration should BLOCK CHECK_VIOLATION"
+  else
+    grep -q 'CHECK_VIOLATION' /tmp/mig037-check.log \
+      && ok "N: migration BLOCK CHECK_VIOLATION" || bad "N: migration reason"
+  fi
+  local bad_amt_rows
+  bad_amt_rows=$(psql_db -At -c "SELECT COUNT(*) FROM invoice_payments WHERE amount <= 0")
+  [[ "$bad_amt_rows" -ge 1 ]] && ok "N: violating row preserved (no silent delete)" \
+    || bad "N: violating row removed"
+  trap - EXIT
+  teardown_db
+
+  # O: Missing CHECK + valid data → SAFE (not ALREADY); apply restores; READY
+  setup_db "mig037_miss_check"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE invoice_payments DROP CONSTRAINT IF EXISTS invoice_payments_amount_check;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misscheck.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-misscheck.log \
+    && bad "O: missing CHECK must not be ALREADY_CORRECT" \
+    || ok "O: missing CHECK is not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR|reason_code=PARTIAL_SCHEMA' /tmp/preflight037-misscheck.log \
+    && ok "O: missing CHECK → SAFE_AUTO_REPAIR/PARTIAL_SCHEMA" || bad "O: preflight action"
+  grep -q 'missing_checks=.*invoice_payments' /tmp/preflight037-misscheck.log \
+    && ok "O: missing_checks reports invoice_payments" || bad "O: missing_checks notice"
+  apply_migration_037
+  amt_check=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid = 'public.invoice_payments'::regclass
+        AND c.contype = 'c'
+        AND c.convalidated
+        AND (
+          c.conname = 'invoice_payments_amount_check'
+          OR pg_get_constraintdef(c.oid) ~* 'amount[[:space:]]*>[[:space:]]*\(?[[:space:]]*0'
+        )
+    )")
+  [[ "$amt_check" == "t" ]] && ok "O: Migration 037 restored amount CHECK" \
+    || bad "O: CHECK still missing after apply"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misscheck-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-misscheck-ready.log \
+    && ok "O: re-preflight ALREADY_CORRECT" || bad "O: re-preflight action"
+  grep -q 'reason_code=FINANCIAL_REMAINING_SCHEMA_READY' /tmp/preflight037-misscheck-ready.log \
+    && ok "O: FINANCIAL_REMAINING_SCHEMA_READY after CHECK restore" || bad "O: ready reason"
+  trap - EXIT
+  teardown_db
+}
 
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
@@ -4296,6 +4762,17 @@ scenario_incomplete_schema_no_runtime_ddl() {
     ok "Autopilot modules contain no Runtime DDL (migration 028)"
   else
     bad "Autopilot Runtime DDL still present"
+  fi
+
+  if ! grep -qE 'CREATE TABLE IF NOT EXISTS (financial_accounts|ledger_entries|wallets|lawyer_payouts|invoice_payments|office_tax_settings|invoice_revisions|credit_notes)|CREATE INDEX IF NOT EXISTS idx_inv_payments_|CREATE INDEX IF NOT EXISTS idx_invoice_revisions_|CREATE INDEX IF NOT EXISTS idx_credit_notes_|CREATE INDEX IF NOT EXISTS idx_invoices_case_office|CREATE INDEX IF NOT EXISTS idx_revenues_case_office|CREATE INDEX IF NOT EXISTS idx_expenses_case_office|ALTER TABLE (revenues|expenses) ADD COLUMN IF NOT EXISTS deleted_at|CREATE SEQUENCE IF NOT EXISTS invoice_seq' \
+      "$ROOT/artifacts/api-server/src/modules/financial/financialCore.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/invoices.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/financial-completions.ts" \
+      "$ROOT/artifacts/api-server/src/modules/financial/accounting.ts" \
+      "$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"; then
+    ok "Financial 037 modules contain no Runtime DDL"
+  else
+    bad "Financial 037 Runtime DDL still present"
   fi
 
   trap - EXIT
@@ -8798,6 +9275,7 @@ scenario_migration_033_document_v2
 scenario_migration_034_jlwm_core
 scenario_migration_035_jlwm_satellites
 scenario_migration_036_jlwm_reliability
+scenario_migration_037_financial_remaining
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

@@ -43,10 +43,9 @@ const router = Router();
     sql`CREATE INDEX IF NOT EXISTS idx_cases_office_active ON cases (office_id) WHERE deleted_at IS NULL`,
 
     /* ── Cross-module integration indexes (task indexes live in migration 015) ── */
-    sql`CREATE INDEX IF NOT EXISTS idx_invoices_case_office    ON client_invoices (case_id, office_id)`,
+    /* idx_invoices_case_office / idx_revenues_case_office / idx_expenses_case_office
+       owned by Migration 037 — no Runtime CREATE. */
     sql`CREATE INDEX IF NOT EXISTS idx_contracts_case_office   ON contracts (case_id, office_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_revenues_case_office    ON revenues (case_id, office_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_expenses_case_office    ON expenses (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_documents_case_office   ON documents (case_id, office_id)`,
     /* idx_events_case_id owned by migration 020 — no Runtime CREATE. */
     /* idx_messages_case_id owned by Migration 020/030 (Stage 22) — no Runtime CREATE. */

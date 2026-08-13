@@ -19,76 +19,25 @@ async function rows(q: any): Promise<any[]> {
 }
 async function one(q: any): Promise<any | null> { return (await rows(q))[0] ?? null; }
 
-/* ── Auto-migrate tables ──────────────────────── */
+/* ── SELECT-only readiness (Migration 037) + platform wallet seed DML ── */
 async function ensureFinancialCoreTables() {
-  /* Financial Accounts — per entity (platform / office / lawyer) */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS financial_accounts (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      owner_id     TEXT NOT NULL,
-      owner_type   TEXT NOT NULL DEFAULT 'office',  -- platform | office | lawyer | client
-      label        TEXT,
-      currency     TEXT NOT NULL DEFAULT 'SAR',
-      balance      NUMERIC(14,2) NOT NULL DEFAULT 0,
-      frozen_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
-      created_at   TIMESTAMP DEFAULT NOW(),
-      updated_at   TIMESTAMP DEFAULT NOW(),
-      UNIQUE(owner_id, currency)
-    )
-  `).catch(() => {});
+  const checks = await Promise.all([
+    db.execute(sql`SELECT to_regclass('public.financial_accounts') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.ledger_entries') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.wallets') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.lawyer_payouts') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+  ]);
+  const names = ["financial_accounts", "ledger_entries", "wallets", "lawyer_payouts"] as const;
+  for (let i = 0; i < names.length; i++) {
+    if (!(checks[i].rows[0] as { ok?: boolean } | undefined)?.ok) {
+      console.error(
+        `[FinancialCore] Migration 037 financial schema not ready — missing ${names[i]}`,
+        "(apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)",
+      );
+    }
+  }
 
-  /* Double-Entry Ledger */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ledger_entries (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      transaction_ref TEXT,
-      debit_account   TEXT NOT NULL,
-      credit_account  TEXT NOT NULL,
-      amount          NUMERIC(14,2) NOT NULL,
-      currency        TEXT NOT NULL DEFAULT 'SAR',
-      description     TEXT,
-      entry_type      TEXT DEFAULT 'payment',  -- payment | refund | fee | payout | adjustment
-      created_at      TIMESTAMP DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* Wallets — available + pending per user/office */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS wallets (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      owner_id          TEXT NOT NULL UNIQUE,
-      owner_label       TEXT,
-      available_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
-      pending_balance   NUMERIC(14,2) NOT NULL DEFAULT 0,
-      total_earned      NUMERIC(14,2) NOT NULL DEFAULT 0,
-      total_withdrawn   NUMERIC(14,2) NOT NULL DEFAULT 0,
-      currency          TEXT NOT NULL DEFAULT 'SAR',
-      created_at        TIMESTAMP DEFAULT NOW(),
-      updated_at        TIMESTAMP DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* Payouts — lawyer/office payouts */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS lawyer_payouts (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id       TEXT NOT NULL,
-      owner_label     TEXT,
-      amount          NUMERIC(14,2) NOT NULL,
-      platform_fee    NUMERIC(14,2) NOT NULL DEFAULT 0,
-      net_amount      NUMERIC(14,2) NOT NULL,
-      status          TEXT NOT NULL DEFAULT 'pending',  -- pending | processing | sent | failed
-      bank_reference  TEXT,
-      provider        TEXT DEFAULT 'manual',
-      transaction_ids TEXT[],
-      notes           TEXT,
-      processed_at    TIMESTAMP,
-      created_at      TIMESTAMP DEFAULT NOW(),
-      updated_at      TIMESTAMP DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* Ensure platform wallet exists */
+  /* Platform wallet seed — application DML (not schema authority) */
   await db.execute(sql`
     INSERT INTO wallets (owner_id, owner_label, currency)
     VALUES ('platform', 'عدالة AI — المنصة', 'SAR')

@@ -40,96 +40,32 @@ function apiErr(res: Response, status: number, code: string, msg: string) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   DB MIGRATIONS — تُشغَّل مرة واحدة عند التحميل
+   SELECT-only readiness (Migration 037) + invoice_number backfill DML
+   Schema CREATE/ALTER/INDEX removed — invoice_number remains 003-owned.
 ══════════════════════════════════════════════════════════════════════ */
 async function ensureFinancialCompletionTables() {
-  /* 1. إعدادات الضريبة على مستوى المكتب */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_tax_settings (
-      id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id    TEXT NOT NULL UNIQUE,
-      tax_enabled  BOOLEAN NOT NULL DEFAULT true,
-      tax_rate     NUMERIC(5,2) NOT NULL DEFAULT 15,
-      tax_type     TEXT NOT NULL DEFAULT 'VAT',
-      tax_number   TEXT,
-      tax_exempt   BOOLEAN NOT NULL DEFAULT false,
-      zatca_enabled BOOLEAN NOT NULL DEFAULT false,
-      notes        TEXT,
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
+  const checks = await Promise.all([
+    db.execute(sql`SELECT to_regclass('public.office_tax_settings') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.invoice_revisions') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.credit_notes') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname = 'invoice_seq' AND c.relkind = 'S'
+      ) AS ok
+    `).catch(() => ({ rows: [{}] })),
+  ]);
+  const names = ["office_tax_settings", "invoice_revisions", "credit_notes", "invoice_seq"] as const;
+  for (let i = 0; i < names.length; i++) {
+    if (!(checks[i].rows[0] as { ok?: boolean } | undefined)?.ok) {
+      console.error(
+        `[FinancialCompletions] Migration 037 financial schema not ready — missing ${names[i]}`,
+        "(apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)",
+      );
+    }
+  }
 
-  /* 2. سجل إصدارات الفاتورة */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS invoice_revisions (
-      id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      invoice_id   TEXT NOT NULL,
-      office_id    TEXT NOT NULL,
-      version      INTEGER NOT NULL DEFAULT 1,
-      changed_by   TEXT NOT NULL,
-      change_type  TEXT NOT NULL DEFAULT 'edit',
-      snapshot     JSONB NOT NULL,
-      old_snapshot JSONB,
-      changed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_invoice_revisions_invoice ON invoice_revisions(invoice_id)
-  `).catch(() => {});
-
-  /* 3. إشعارات الدائن (Credit Notes) */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS credit_notes (
-      id                  TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id           TEXT NOT NULL,
-      original_invoice_id TEXT NOT NULL,
-      credit_number       TEXT NOT NULL,
-      client_id           TEXT,
-      client_name         TEXT,
-      case_id             TEXT,
-      amount              NUMERIC(12,2) NOT NULL,
-      tax_amount          NUMERIC(12,2) NOT NULL DEFAULT 0,
-      total               NUMERIC(12,2) NOT NULL,
-      reason              TEXT NOT NULL,
-      status              TEXT NOT NULL DEFAULT 'issued',
-      notes               TEXT,
-      issued_by           TEXT,
-      issued_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_credit_notes_office ON credit_notes(office_id)
-  `).catch(() => {});
-
-  /* 4. حقول إضافية على client_invoices */
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS invoice_number TEXT
-  `).catch(() => {});
-
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS zatca_uuid TEXT
-  `).catch(() => {});
-
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS qr_code_data TEXT
-  `).catch(() => {});
-
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ
-  `).catch(() => {});
-
-  await db.execute(sql`
-    ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS linked_credit_note_id TEXT
-  `).catch(() => {});
-
-  /* تسلسل أرقام الفواتير */
-  await db.execute(sql`
-    CREATE SEQUENCE IF NOT EXISTS invoice_seq START 1
-  `).catch(() => {});
-
-  /* ملء invoice_number للفواتير القديمة التي لا تملكه */
+  /* Backfill invoice_number — column owned by Migration 003; DML only */
   await db.execute(sql`
     UPDATE client_invoices
     SET invoice_number = 'INV-' || TO_CHAR(created_at, 'YYYY') || '-' || LPAD(ROW_NUMBER() OVER (ORDER BY created_at)::text, 4, '0')

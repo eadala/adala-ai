@@ -69,6 +69,7 @@
     "test:jlwm-034": "node --import tsx src/tests/jlwmCoreSchemaAuthority034.test.ts",
     "test:jlwm-035": "node --import tsx src/tests/jlwmSatellitesSchemaAuthority035.test.ts",
     "test:reliability-036": "node --import tsx src/tests/jlwmReliabilitySchemaAuthority036.test.ts",
+    "test:financial-037": "node --import tsx src/tests/financialRemainingSchemaAuthority037.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"
