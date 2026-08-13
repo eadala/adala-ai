@@ -2227,6 +2227,20 @@ scenario_migration_037_financial_remaining() {
     WHERE table_schema='public' AND table_name='ledger_entries' AND column_name='office_id'")
   [[ "$amt_nn" == "t" ]] && ok "A: amount_paid NOT NULL" || bad "A: amount_paid nullable"
   [[ "$office_col" == "1" ]] && ok "A: ledger_entries.office_id DML column present" || bad "A: office_id missing"
+  local amt_check
+  amt_check=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid = 'public.invoice_payments'::regclass
+        AND c.contype = 'c'
+        AND c.convalidated
+        AND (
+          c.conname = 'invoice_payments_amount_check'
+          OR pg_get_constraintdef(c.oid) ~* 'amount[[:space:]]*>[[:space:]]*\(?[[:space:]]*0'
+        )
+    )")
+  [[ "$amt_check" == "t" ]] && ok "A: invoice_payments CHECK (amount > 0) present+validated" \
+    || bad "A: invoice_payments amount CHECK missing"
   apply_migration_037
   ok "A: re-run 037 idempotent"
   psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-ready.log 2>&1
@@ -2511,6 +2525,108 @@ scenario_migration_037_financial_remaining() {
 
   grep -q 'POST_APPLY_READINESS_FAILED' "$MIGRATION_037" \
     && ok "L: post-apply readiness gate present" || bad "L: post-apply gate missing"
+  grep -q 'invoice_payments CHECK (amount > 0) missing' "$MIGRATION_037" \
+    && ok "L: post-apply requires invoice_payments CHECK" || bad "L: post-apply CHECK gate missing"
+  grep -q 'array_append(incompatible_uniques' "$PREFLIGHT_037" \
+    && ok "L: preflight populates incompatible_uniques" || bad "L: incompatible_uniques dead"
+
+  # M: Duplicate required UNIQUE key BLOCK (financial_accounts owner_id,currency)
+  setup_db "mig037_dup_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE financial_accounts DROP CONSTRAINT IF EXISTS financial_accounts_owner_id_currency_key;
+    INSERT INTO financial_accounts (owner_id, currency, balance)
+    VALUES
+      ('dup-owner-037', 'SAR', 1),
+      ('dup-owner-037', 'SAR', 2);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-dup.log 2>&1; then
+    bad "M: preflight should BLOCK duplicate UNIQUE data"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-dup.log \
+      && ok "M: preflight BLOCK on duplicate UNIQUE" || bad "M: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight037-dup.log \
+      && bad "M: must never SAFE over duplicate UNIQUE" \
+      || ok "M: no SAFE over duplicate UNIQUE"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-dup.log 2>&1; then
+    bad "M: migration should BLOCK duplicate UNIQUE data"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig037-dup.log \
+      && ok "M: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "M: migration reason"
+  fi
+  local dup_rows
+  dup_rows=$(psql_db -At -c "SELECT COUNT(*) FROM financial_accounts WHERE owner_id='dup-owner-037'")
+  [[ "$dup_rows" == "2" ]] && ok "M: duplicate rows preserved (no silent cleanup)" \
+    || bad "M: duplicate rows altered (count=$dup_rows)"
+  trap - EXIT
+  teardown_db
+
+  # N: invoice_payments CHECK violation BLOCK (amount <= 0)
+  setup_db "mig037_check_viol"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE invoice_payments DROP CONSTRAINT IF EXISTS invoice_payments_amount_check;
+    INSERT INTO invoice_payments (invoice_id, office_id, amount, method)
+    VALUES ('$OID'::uuid, '$OID', 0, 'bank');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-check.log 2>&1; then
+    bad "N: preflight should BLOCK CHECK_VIOLATION"
+  else
+    grep -q 'CHECK_VIOLATION\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight037-check.log \
+      && ok "N: preflight BLOCK CHECK_VIOLATION" || bad "N: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_037" >/tmp/mig037-check.log 2>&1; then
+    bad "N: migration should BLOCK CHECK_VIOLATION"
+  else
+    grep -q 'CHECK_VIOLATION' /tmp/mig037-check.log \
+      && ok "N: migration BLOCK CHECK_VIOLATION" || bad "N: migration reason"
+  fi
+  local bad_amt_rows
+  bad_amt_rows=$(psql_db -At -c "SELECT COUNT(*) FROM invoice_payments WHERE amount <= 0")
+  [[ "$bad_amt_rows" -ge 1 ]] && ok "N: violating row preserved (no silent delete)" \
+    || bad "N: violating row removed"
+  trap - EXIT
+  teardown_db
+
+  # O: Missing CHECK + valid data → SAFE (not ALREADY); apply restores; READY
+  setup_db "mig037_miss_check"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE invoice_payments DROP CONSTRAINT IF EXISTS invoice_payments_amount_check;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misscheck.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-misscheck.log \
+    && bad "O: missing CHECK must not be ALREADY_CORRECT" \
+    || ok "O: missing CHECK is not ALREADY_CORRECT"
+  grep -qE 'chosen_action=SAFE_AUTO_REPAIR|reason_code=PARTIAL_SCHEMA' /tmp/preflight037-misscheck.log \
+    && ok "O: missing CHECK → SAFE_AUTO_REPAIR/PARTIAL_SCHEMA" || bad "O: preflight action"
+  grep -q 'missing_checks=.*invoice_payments' /tmp/preflight037-misscheck.log \
+    && ok "O: missing_checks reports invoice_payments" || bad "O: missing_checks notice"
+  apply_migration_037
+  amt_check=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid = 'public.invoice_payments'::regclass
+        AND c.contype = 'c'
+        AND c.convalidated
+        AND (
+          c.conname = 'invoice_payments_amount_check'
+          OR pg_get_constraintdef(c.oid) ~* 'amount[[:space:]]*>[[:space:]]*\(?[[:space:]]*0'
+        )
+    )")
+  [[ "$amt_check" == "t" ]] && ok "O: Migration 037 restored amount CHECK" \
+    || bad "O: CHECK still missing after apply"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_037" >/tmp/preflight037-misscheck-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight037-misscheck-ready.log \
+    && ok "O: re-preflight ALREADY_CORRECT" || bad "O: re-preflight action"
+  grep -q 'reason_code=FINANCIAL_REMAINING_SCHEMA_READY' /tmp/preflight037-misscheck-ready.log \
+    && ok "O: FINANCIAL_REMAINING_SCHEMA_READY after CHECK restore" || bad "O: ready reason"
+  trap - EXIT
+  teardown_db
 }
 
 scenario_migration_011_stripe_infra() {

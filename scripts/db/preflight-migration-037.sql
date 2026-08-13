@@ -63,6 +63,7 @@ DECLARE
   missing_uniques TEXT[] := ARRAY[]::TEXT[];
   missing_indexes TEXT[] := ARRAY[]::TEXT[];
   missing_sequence TEXT[] := ARRAY[]::TEXT[];
+  missing_checks TEXT[] := ARRAY[]::TEXT[];
   incompatible_objects TEXT[] := ARRAY[]::TEXT[];
   incompatible_types TEXT[] := ARRAY[]::TEXT[];
   incompatible_pks TEXT[] := ARRAY[]::TEXT[];
@@ -86,6 +87,8 @@ DECLARE
 
   column_spec RECORD;
   index_spec RECORD;
+  unique_spec RECORD;
+  uq_idx_rec RECORD;
   tbl TEXT;
   tbl_idx INT;
   actual_relkind "char";
@@ -109,6 +112,13 @@ DECLARE
   opts_i INT;
   opts_len INT;
   has_uq BOOLEAN;
+  wrong_uq BOOLEAN;
+  near_miss_uq BOOLEAN;
+  bad_exact_uq BOOLEAN;
+  uq_cols TEXT[];
+  uq_sorted TEXT[];
+  expected_sorted TEXT[];
+  has_amount_check BOOLEAN := false;
   empty_text TEXT := '<none>';
   rows_notice TEXT := '';
 BEGIN
@@ -399,6 +409,24 @@ BEGIN
     END;
   END IF;
 
+  -- invoice_payments CHECK (amount > 0) must exist for ALREADY_CORRECT.
+  -- Missing CHECK with clean data → SAFE_AUTO_REPAIR (Migration 037 can ADD it).
+  IF to_regclass('public.invoice_payments') IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid = 'public.invoice_payments'::regclass
+        AND c.contype = 'c'
+        AND c.convalidated
+        AND (
+          c.conname = 'invoice_payments_amount_check'
+          OR pg_get_constraintdef(c.oid) ~* 'amount\s*>\s*\(?\s*0'
+        )
+    ) INTO has_amount_check;
+    IF NOT has_amount_check THEN
+      missing_checks := array_append(missing_checks, 'invoice_payments(amount>0)');
+    END IF;
+  END IF;
+
   FOREACH tbl IN ARRAY owned_tables LOOP
     SELECT c.relkind INTO actual_relkind
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -425,68 +453,148 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF to_regclass('public.financial_accounts') IS NOT NULL THEN
-    SELECT EXISTS (
-      SELECT 1 FROM pg_constraint c
-      WHERE c.conrelid='public.financial_accounts'::regclass AND c.contype='u'
-        AND pg_get_constraintdef(c.oid) ~* 'owner_id' AND pg_get_constraintdef(c.oid) ~* 'currency'
-    ) OR EXISTS (
-      SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid=x.indexrelid
-      JOIN pg_namespace n ON n.oid=i.relnamespace
-      WHERE n.nspname='public' AND x.indrelid='public.financial_accounts'::regclass
-        AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['owner_id','currency']::text[]
-    ) INTO has_uq;
-    IF NOT has_uq THEN
-      missing_uniques := array_append(missing_uniques, 'financial_accounts(owner_id,currency)');
+  -- Required UNIQUEs: exact columns/order only. Wider/wrong-order/partial/expression/
+  -- invalid/not-ready near-miss shapes → INCOMPATIBLE_UNIQUE (never false READY).
+  FOR unique_spec IN
+    SELECT * FROM (VALUES
+      ('financial_accounts', 'financial_accounts_owner_id_currency_key',
+       ARRAY['owner_id','currency']::TEXT[],
+       'UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)'),
+      ('wallets', 'wallets_owner_id_key',
+       ARRAY['owner_id']::TEXT[],
+       'UNIQUE\s*\(\s*owner_id\s*\)'),
+      ('office_tax_settings', 'office_tax_settings_office_id_key',
+       ARRAY['office_id']::TEXT[],
+       'UNIQUE\s*\(\s*office_id\s*\)')
+    ) AS u(table_name, constraint_name, cols, def_re)
+  LOOP
+    IF to_regclass(format('public.%I', unique_spec.table_name)) IS NULL THEN
+      CONTINUE;
     END IF;
-  END IF;
+    SELECT c.relkind INTO actual_relkind
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname=unique_spec.table_name;
+    IF NOT FOUND OR actual_relkind NOT IN ('r','p') THEN
+      CONTINUE;
+    END IF;
 
-  IF to_regclass('public.wallets') IS NOT NULL THEN
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
-      WHERE c.conrelid='public.wallets'::regclass AND c.contype='u'
-        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*\)' AND pg_get_constraintdef(c.oid) !~* ','
+      WHERE c.conrelid = to_regclass(format('public.%I', unique_spec.table_name))
+        AND c.contype = 'u'
+        AND pg_get_constraintdef(c.oid) ~* unique_spec.def_re
+        AND (
+          cardinality(unique_spec.cols) > 1
+          OR pg_get_constraintdef(c.oid) !~* ','
+        )
     ) OR EXISTS (
       SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid=x.indexrelid
-      JOIN pg_namespace n ON n.oid=i.relnamespace
-      WHERE n.nspname='public' AND x.indrelid='public.wallets'::regclass
+      WHERE x.indrelid = to_regclass(format('public.%I', unique_spec.table_name))
         AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['owner_id']::text[]
+        AND x.indisvalid AND x.indisready
+        AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND (
+          SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+          JOIN pg_attribute a
+            ON a.attrelid = x.indrelid AND a.attnum = k.attnum AND NOT a.attisdropped
+        ) = unique_spec.cols
     ) INTO has_uq;
-    IF NOT has_uq THEN
-      missing_uniques := array_append(missing_uniques, 'wallets(owner_id)');
-    END IF;
-  END IF;
 
-  IF to_regclass('public.office_tax_settings') IS NOT NULL THEN
     SELECT EXISTS (
       SELECT 1 FROM pg_constraint c
-      WHERE c.conrelid='public.office_tax_settings'::regclass AND c.contype='u'
-        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*office_id\s*\)' AND pg_get_constraintdef(c.oid) !~* ','
-    ) OR EXISTS (
+      WHERE c.conrelid = to_regclass(format('public.%I', unique_spec.table_name))
+        AND c.contype = 'u'
+        AND c.conname = unique_spec.constraint_name
+        AND (
+          pg_get_constraintdef(c.oid) !~* unique_spec.def_re
+          OR (
+            cardinality(unique_spec.cols) = 1
+            AND pg_get_constraintdef(c.oid) ~* ','
+          )
+        )
+    ) INTO wrong_uq;
+
+    SELECT EXISTS (
       SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid=x.indexrelid
-      JOIN pg_namespace n ON n.oid=i.relnamespace
-      WHERE n.nspname='public' AND x.indrelid='public.office_tax_settings'::regclass
+      WHERE x.indrelid = to_regclass(format('public.%I', unique_spec.table_name))
         AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['office_id']::text[]
-    ) INTO has_uq;
+        AND (
+          SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+          JOIN pg_attribute a
+            ON a.attrelid = x.indrelid AND a.attnum = k.attnum AND NOT a.attisdropped
+        ) = unique_spec.cols
+        AND (
+          x.indisvalid IS DISTINCT FROM TRUE
+          OR x.indisready IS DISTINCT FROM TRUE
+          OR x.indpred IS NOT NULL
+          OR x.indexprs IS NOT NULL
+        )
+    ) INTO bad_exact_uq;
+
+    near_miss_uq := false;
     IF NOT has_uq THEN
-      missing_uniques := array_append(missing_uniques, 'office_tax_settings(office_id)');
+      SELECT array_agg(x ORDER BY x) INTO expected_sorted FROM unnest(unique_spec.cols) AS x;
+      FOR uq_idx_rec IN
+        SELECT (
+          SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+          JOIN pg_attribute a
+            ON a.attrelid = x.indrelid AND a.attnum = k.attnum AND NOT a.attisdropped
+        ) AS cols
+        FROM pg_index x
+        WHERE x.indrelid = to_regclass(format('public.%I', unique_spec.table_name))
+          AND x.indisunique AND NOT x.indisprimary
+      LOOP
+        uq_cols := uq_idx_rec.cols;
+        IF uq_cols IS NULL THEN
+          CONTINUE;
+        END IF;
+        SELECT array_agg(x ORDER BY x) INTO uq_sorted FROM unnest(uq_cols) AS x;
+        IF uq_cols IS DISTINCT FROM unique_spec.cols
+           AND (
+             -- wider prefix: (owner_id,currency,extra...)
+             (
+               cardinality(uq_cols) > cardinality(unique_spec.cols)
+               AND uq_cols[1:cardinality(unique_spec.cols)] = unique_spec.cols
+             )
+             -- same set, wrong order
+             OR (
+               cardinality(uq_cols) = cardinality(unique_spec.cols)
+               AND uq_sorted IS NOT DISTINCT FROM expected_sorted
+             )
+             -- wider set that contains every required column
+             OR (
+               cardinality(uq_cols) > cardinality(unique_spec.cols)
+               AND unique_spec.cols <@ uq_cols
+             )
+           ) THEN
+          near_miss_uq := true;
+          EXIT;
+        END IF;
+      END LOOP;
     END IF;
-  END IF;
+
+    IF wrong_uq OR bad_exact_uq OR near_miss_uq THEN
+      incompatible_uniques := array_append(
+        incompatible_uniques,
+        format(
+          '%s(expected=%s,same_name_wrong=%s,bad_exact=%s,near_miss=%s)',
+          unique_spec.table_name,
+          array_to_string(unique_spec.cols, ','),
+          coalesce(wrong_uq::TEXT, 'f'),
+          coalesce(bad_exact_uq::TEXT, 'f'),
+          coalesce(near_miss_uq::TEXT, 'f')
+        )
+      );
+    ELSIF NOT has_uq THEN
+      missing_uniques := array_append(
+        missing_uniques,
+        format('%s(%s)', unique_spec.table_name, array_to_string(unique_spec.cols, ','))
+      );
+    END IF;
+  END LOOP;
 
   -- Indexes ALWAYS probed by name (even when intended target table is missing)
   FOR index_spec IN
@@ -569,7 +677,7 @@ BEGIN
     action := 'SAFE_AUTO_REPAIR'; reason_code := 'TABLE_MISSING'; lock_risk := 'MEDIUM';
   ELSIF cardinality(missing_columns)>0 OR cardinality(missing_pks)>0
      OR cardinality(missing_indexes)>0 OR cardinality(missing_uniques)>0
-     OR cardinality(missing_sequence)>0 THEN
+     OR cardinality(missing_sequence)>0 OR cardinality(missing_checks)>0 THEN
     action := 'SAFE_AUTO_REPAIR'; reason_code := 'PARTIAL_SCHEMA'; lock_risk := 'MEDIUM';
   ELSIF cardinality(missing_defaults)>0 THEN
     action := 'SAFE_AUTO_REPAIR'; reason_code := 'MISSING_COLUMN_DEFAULTS'; lock_risk := 'LOW';
@@ -598,12 +706,14 @@ BEGIN
   RAISE NOTICE '037_preflight: incompatible_objects=% incompatible_types=%',
     coalesce(nullif(array_to_string(incompatible_objects,','),''),empty_text),
     coalesce(nullif(array_to_string(incompatible_types,','),''),empty_text);
-  RAISE NOTICE '037_preflight: incompatible_pks=% incompatible_indexes=%',
+  RAISE NOTICE '037_preflight: incompatible_pks=% incompatible_uniques=% incompatible_indexes=%',
     coalesce(nullif(array_to_string(incompatible_pks,','),''),empty_text),
+    coalesce(nullif(array_to_string(incompatible_uniques,','),''),empty_text),
     coalesce(nullif(array_to_string(incompatible_indexes,','),''),empty_text);
-  RAISE NOTICE '037_preflight: missing_tables=% missing_sequence=%',
+  RAISE NOTICE '037_preflight: missing_tables=% missing_sequence=% missing_checks=%',
     coalesce(nullif(array_to_string(missing_tables,','),''),empty_text),
-    coalesce(nullif(array_to_string(missing_sequence,','),''),empty_text);
+    coalesce(nullif(array_to_string(missing_sequence,','),''),empty_text),
+    coalesce(nullif(array_to_string(missing_checks,','),''),empty_text);
   RAISE NOTICE '037_preflight: missing_columns=%',coalesce(nullif(array_to_string(missing_columns,','),''),empty_text);
   RAISE NOTICE '037_preflight: missing_defaults=% missing_not_null=%',
     coalesce(nullif(array_to_string(missing_defaults,','),''),empty_text),

@@ -81,10 +81,16 @@ assert.match(mig, /NULL_OFFICE_ID/);
 assert.match(mig, /NULL_REQUIRED/);
 assert.match(mig, /INCOMPATIBLE_(?:TYPE|PK|INDEX)/);
 assert.match(mig, /DUPLICATE_UNIQUE_KEY/);
+assert.match(mig, /INCOMPATIBLE_UNIQUE/);
 assert.match(mig, /POST_APPLY_READINESS_FAILED/);
+assert.match(mig, /invoice_payments CHECK \(amount > 0\) missing/);
 assert.match(mig, /UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)/);
 assert.match(mig, /UNIQUE\s*\(\s*owner_id\s*\)/);
 assert.match(mig, /office_tax_settings[\s\S]{0,200}UNIQUE\s*\(\s*office_id\s*\)|UNIQUE\s*\(\s*office_id\s*\)/);
+assert.doesNotMatch(
+  mig,
+  /pg_get_constraintdef\(c\.oid\)\s*~\*\s*'owner_id'\s*AND\s*pg_get_constraintdef\(c\.oid\)\s*~\*\s*'currency'/,
+);
 {
   const sqlOnly = stripComments(mig);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+TABLE\b/im);
@@ -113,10 +119,21 @@ assert.match(pre, /NULL_OFFICE_ID/);
 assert.match(pre, /NULL_REQUIRED/);
 assert.match(pre, /INCOMPATIBLE_(?:TYPE|PK|INDEX|UNIQUE)/);
 assert.match(pre, /DUPLICATE_UNIQUE_KEY/);
+assert.match(pre, /CHECK_VIOLATION/);
+assert.match(pre, /missing_checks/);
+assert.match(pre, /invoice_payments\(amount>0\)/);
+assert.match(pre, /incompatible_uniques\s*:=\s*array_append|array_append\(\s*incompatible_uniques/);
+assert.match(pre, /financial_accounts_owner_id_currency_key/);
+assert.match(pre, /ARRAY\['owner_id','currency'\]/);
 assert.match(pre, /Any blocker wins|blocker wins over every safe repair/i);
 assert.match(pre, /ALWAYS probed by name|ALWAYS probe by index name|probe by name/i);
 assert.match(pre, /WHERE n\.nspname='public' AND i\.relname=index_spec\.index_name/);
 assert.match(pre, /incompatible_objects[\s\S]*missing_tables|missing_tables[\s\S]*incompatible/);
+assert.match(pre, /cardinality\(missing_checks\)>0/);
+assert.doesNotMatch(
+  pre,
+  /pg_get_constraintdef\(c\.oid\)\s*~\*\s*'owner_id'\s*AND\s*pg_get_constraintdef\(c\.oid\)\s*~\*\s*'currency'/,
+);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);

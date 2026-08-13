@@ -677,12 +677,80 @@ BEGIN
 END $$;
 
 -- Runtime UNIQUE arbiters (financial_accounts, wallets, office_tax_settings)
+-- Exact columns/order only; same-name wrong shape, wider/near-miss, invalid → BLOCK.
 DO $$
 DECLARE
   dup_cnt BIGINT;
   has_uq BOOLEAN;
-  uq_def TEXT;
 BEGIN
+  -- ── financial_accounts UNIQUE (owner_id, currency) ─────────────────────
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.financial_accounts'::regclass AND c.contype = 'u'
+      AND c.conname = 'financial_accounts_owner_id_currency_key'
+      AND pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)'
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — financial_accounts_owner_id_currency_key wrong shape';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.financial_accounts'::regclass AND c.contype = 'u'
+      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.financial_accounts'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['owner_id','currency']::text[]
+  ) INTO has_uq;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.financial_accounts'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['owner_id','currency']::text[]
+      AND (
+        x.indisvalid IS DISTINCT FROM TRUE OR x.indisready IS DISTINCT FROM TRUE
+        OR x.indpred IS NOT NULL OR x.indexprs IS NOT NULL
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — financial_accounts UNIQUE(owner_id,currency) index invalid/not-ready/partial/expression';
+  END IF;
+
+  IF NOT has_uq AND EXISTS (
+    SELECT 1
+    FROM pg_index x
+    CROSS JOIN LATERAL (
+      SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
+      FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+      JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
+    ) c
+    WHERE x.indrelid = 'public.financial_accounts'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND c.cols IS DISTINCT FROM ARRAY['owner_id','currency']::text[]
+      AND (
+        (cardinality(c.cols) > 2 AND c.cols[1:2] = ARRAY['owner_id','currency']::text[])
+        OR (
+          cardinality(c.cols) = 2
+          AND (SELECT array_agg(u ORDER BY u) FROM unnest(c.cols) u)
+            = ARRAY['currency','owner_id']::text[]
+        )
+        OR (
+          cardinality(c.cols) > 2
+          AND ARRAY['owner_id','currency']::text[] <@ c.cols
+        )
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — financial_accounts has wider/wrong-order UNIQUE near (owner_id,currency); exact contract UNIQUE required';
+  END IF;
+
   SELECT COUNT(*) INTO dup_cnt FROM (
     SELECT owner_id, currency FROM financial_accounts GROUP BY owner_id, currency HAVING COUNT(*) > 1
   ) d;
@@ -690,26 +758,69 @@ BEGIN
     RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=DUPLICATE_UNIQUE_KEY) — % duplicate (owner_id,currency) group(s) on financial_accounts', dup_cnt;
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1 FROM pg_constraint c
-    WHERE c.conrelid = 'public.financial_accounts'::regclass AND c.contype = 'u'
-      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)'
-  ) INTO has_uq;
-  IF NOT has_uq THEN
-    SELECT EXISTS (
-      SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid = x.indexrelid
-      JOIN pg_namespace n ON n.oid = i.relnamespace
-      WHERE n.nspname = 'public' AND x.indrelid = 'public.financial_accounts'::regclass
-        AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['owner_id','currency']::text[]
-    ) INTO has_uq;
-  END IF;
   IF NOT has_uq THEN
     ALTER TABLE financial_accounts ADD CONSTRAINT financial_accounts_owner_id_currency_key UNIQUE (owner_id, currency);
+  END IF;
+
+  -- ── wallets UNIQUE (owner_id) ──────────────────────────────────────────
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.wallets'::regclass AND c.contype = 'u'
+      AND c.conname = 'wallets_owner_id_key'
+      AND (
+        pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\(\s*owner_id\s*\)'
+        OR pg_get_constraintdef(c.oid) ~* ','
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — wallets_owner_id_key wrong shape';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.wallets'::regclass AND c.contype = 'u'
+      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*\)'
+      AND pg_get_constraintdef(c.oid) !~* ','
+  ) OR EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.wallets'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['owner_id']::text[]
+  ) INTO has_uq;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.wallets'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['owner_id']::text[]
+      AND (
+        x.indisvalid IS DISTINCT FROM TRUE OR x.indisready IS DISTINCT FROM TRUE
+        OR x.indpred IS NOT NULL OR x.indexprs IS NOT NULL
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — wallets UNIQUE(owner_id) index invalid/not-ready/partial/expression';
+  END IF;
+
+  IF NOT has_uq AND EXISTS (
+    SELECT 1
+    FROM pg_index x
+    CROSS JOIN LATERAL (
+      SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
+      FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+      JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
+    ) c
+    WHERE x.indrelid = 'public.wallets'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND cardinality(c.cols) > 1
+      AND ARRAY['owner_id']::text[] <@ c.cols
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — wallets has wider UNIQUE containing owner_id; exact UNIQUE(owner_id) required';
   END IF;
 
   SELECT COUNT(*) INTO dup_cnt FROM (
@@ -719,27 +830,69 @@ BEGIN
     RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=DUPLICATE_UNIQUE_KEY) — % duplicate owner_id group(s) on wallets', dup_cnt;
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1 FROM pg_constraint c
-    WHERE c.conrelid = 'public.wallets'::regclass AND c.contype = 'u'
-      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*\)'
-      AND pg_get_constraintdef(c.oid) !~* ','
-  ) INTO has_uq;
-  IF NOT has_uq THEN
-    SELECT EXISTS (
-      SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid = x.indexrelid
-      JOIN pg_namespace n ON n.oid = i.relnamespace
-      WHERE n.nspname = 'public' AND x.indrelid = 'public.wallets'::regclass
-        AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['owner_id']::text[]
-    ) INTO has_uq;
-  END IF;
   IF NOT has_uq THEN
     ALTER TABLE wallets ADD CONSTRAINT wallets_owner_id_key UNIQUE (owner_id);
+  END IF;
+
+  -- ── office_tax_settings UNIQUE (office_id) ─────────────────────────────
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.office_tax_settings'::regclass AND c.contype = 'u'
+      AND c.conname = 'office_tax_settings_office_id_key'
+      AND (
+        pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\(\s*office_id\s*\)'
+        OR pg_get_constraintdef(c.oid) ~* ','
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — office_tax_settings_office_id_key wrong shape';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.office_tax_settings'::regclass AND c.contype = 'u'
+      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*office_id\s*\)'
+      AND pg_get_constraintdef(c.oid) !~* ','
+  ) OR EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.office_tax_settings'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['office_id']::text[]
+  ) INTO has_uq;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_index x
+    WHERE x.indrelid = 'public.office_tax_settings'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+           FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+          = ARRAY['office_id']::text[]
+      AND (
+        x.indisvalid IS DISTINCT FROM TRUE OR x.indisready IS DISTINCT FROM TRUE
+        OR x.indpred IS NOT NULL OR x.indexprs IS NOT NULL
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — office_tax_settings UNIQUE(office_id) index invalid/not-ready/partial/expression';
+  END IF;
+
+  IF NOT has_uq AND EXISTS (
+    SELECT 1
+    FROM pg_index x
+    CROSS JOIN LATERAL (
+      SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
+      FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+      JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
+    ) c
+    WHERE x.indrelid = 'public.office_tax_settings'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND cardinality(c.cols) > 1
+      AND ARRAY['office_id']::text[] <@ c.cols
+  ) THEN
+    RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — office_tax_settings has wider UNIQUE containing office_id; exact UNIQUE(office_id) required';
   END IF;
 
   SELECT COUNT(*) INTO dup_cnt FROM (
@@ -749,25 +902,6 @@ BEGIN
     RAISE EXCEPTION '037_financial: BLOCK_AND_MANUAL_REVIEW (reason_code=DUPLICATE_UNIQUE_KEY) — % duplicate office_id group(s) on office_tax_settings', dup_cnt;
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1 FROM pg_constraint c
-    WHERE c.conrelid = 'public.office_tax_settings'::regclass AND c.contype = 'u'
-      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*office_id\s*\)'
-      AND pg_get_constraintdef(c.oid) !~* ','
-  ) INTO has_uq;
-  IF NOT has_uq THEN
-    SELECT EXISTS (
-      SELECT 1 FROM pg_index x
-      JOIN pg_class i ON i.oid = x.indexrelid
-      JOIN pg_namespace n ON n.oid = i.relnamespace
-      WHERE n.nspname = 'public' AND x.indrelid = 'public.office_tax_settings'::regclass
-        AND x.indisunique AND NOT x.indisprimary
-        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
-             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-             LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
-            = ARRAY['office_id']::text[]
-    ) INTO has_uq;
-  END IF;
   IF NOT has_uq THEN
     ALTER TABLE office_tax_settings ADD CONSTRAINT office_tax_settings_office_id_key UNIQUE (office_id);
   END IF;
@@ -908,17 +1042,15 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     WHERE c.conrelid='public.financial_accounts'::regclass AND c.contype='u'
-      AND pg_get_constraintdef(c.oid) ~* 'owner_id'
-      AND pg_get_constraintdef(c.oid) ~* 'currency'
+      AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*,\s*currency\s*\)'
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_index x
-    JOIN pg_class i ON i.oid=x.indexrelid
-    JOIN pg_namespace n ON n.oid=i.relnamespace
-    WHERE n.nspname='public' AND x.indrelid='public.financial_accounts'::regclass
+    WHERE x.indrelid='public.financial_accounts'::regclass
       AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
       AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-           LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
           = ARRAY['owner_id','currency']::text[]
   ) THEN
     RAISE EXCEPTION '037_financial: POST_APPLY_READINESS_FAILED — financial_accounts UNIQUE(owner_id,currency) missing';
@@ -928,15 +1060,15 @@ BEGIN
     SELECT 1 FROM pg_constraint c
     WHERE c.conrelid='public.wallets'::regclass AND c.contype='u'
       AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*owner_id\s*\)'
+      AND pg_get_constraintdef(c.oid) !~* ','
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_index x
-    JOIN pg_class i ON i.oid=x.indexrelid
-    JOIN pg_namespace n ON n.oid=i.relnamespace
-    WHERE n.nspname='public' AND x.indrelid='public.wallets'::regclass
+    WHERE x.indrelid='public.wallets'::regclass
       AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
       AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-           LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
           = ARRAY['owner_id']::text[]
   ) THEN
     RAISE EXCEPTION '037_financial: POST_APPLY_READINESS_FAILED — wallets UNIQUE(owner_id) missing';
@@ -946,18 +1078,31 @@ BEGIN
     SELECT 1 FROM pg_constraint c
     WHERE c.conrelid='public.office_tax_settings'::regclass AND c.contype='u'
       AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*office_id\s*\)'
+      AND pg_get_constraintdef(c.oid) !~* ','
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_index x
-    JOIN pg_class i ON i.oid=x.indexrelid
-    JOIN pg_namespace n ON n.oid=i.relnamespace
-    WHERE n.nspname='public' AND x.indrelid='public.office_tax_settings'::regclass
+    WHERE x.indrelid='public.office_tax_settings'::regclass
       AND x.indisunique AND NOT x.indisprimary
+      AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
       AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-           LEFT JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+           JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
           = ARRAY['office_id']::text[]
   ) THEN
     RAISE EXCEPTION '037_financial: POST_APPLY_READINESS_FAILED — office_tax_settings UNIQUE(office_id) missing';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid = 'public.invoice_payments'::regclass
+      AND c.contype = 'c'
+      AND c.convalidated
+      AND (
+        c.conname = 'invoice_payments_amount_check'
+        OR pg_get_constraintdef(c.oid) ~* 'amount\s*>\s*\(?\s*0'
+      )
+  ) THEN
+    RAISE EXCEPTION '037_financial: POST_APPLY_READINESS_FAILED — invoice_payments CHECK (amount > 0) missing or not validated';
   END IF;
 
   FOREACH idx_name IN ARRAY ARRAY[
@@ -971,7 +1116,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  RAISE NOTICE '037_financial: post-apply FULL READY (8 tables; extensions on 003; invoice_seq; Runtime UNIQUEs; 7 indexes)';
+  RAISE NOTICE '037_financial: post-apply FULL READY (8 tables; extensions on 003; invoice_seq; Runtime UNIQUEs; CHECK amount>0; 7 indexes)';
 END $$;
 
 COMMIT;

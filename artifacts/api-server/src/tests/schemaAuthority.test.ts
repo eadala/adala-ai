@@ -1205,6 +1205,11 @@ assert.match(preflight037, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|o
 assert.match(preflight037, /FINANCIAL_REMAINING_SCHEMA_READY/);
 assert.match(preflight037, /ALWAYS probed by name|ALWAYS probe by index name|probe by name/i);
 assert.match(preflight037, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight037, /missing_checks/);
+assert.match(preflight037, /incompatible_uniques\s*:=\s*array_append|array_append\(\s*incompatible_uniques/);
+assert.match(preflight037, /invoice_payments\(amount>0\)/);
+assert.match(mig037, /invoice_payments CHECK \(amount > 0\) missing/);
+assert.match(mig037, /INCOMPATIBLE_UNIQUE/);
 assert.doesNotMatch(readSrc("modules/financial/financialCore.ts"), /CREATE TABLE IF NOT EXISTS financial_accounts/);
 assert.doesNotMatch(readSrc("modules/financial/invoices.ts"), /CREATE TABLE IF NOT EXISTS invoice_payments/);
 assert.doesNotMatch(readSrc("modules/financial/financial-completions.ts"), /CREATE SEQUENCE IF NOT EXISTS invoice_seq/);
