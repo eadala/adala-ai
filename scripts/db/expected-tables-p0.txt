@@ -119,3 +119,8 @@ office_ai_settings
 
 # Migration 041 — AI Events
 ai_events
+
+# Migration 042 — AI Agents Runtime
+ai_agents
+agent_actions
+agent_job_logs

@@ -1,6 +1,3 @@
-agent_actions
-agent_job_logs
-ai_agents
 ai_coo_notif_settings
 audit_coverage_rules
 audit_risk_scores
