@@ -1394,6 +1394,46 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-provider-04
 assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-provider-040/);
 console.log("  ✅ migration 040 owns provider/settings; Runtime CREATE absent; readiness + seed DML; P0 gated");
 
+console.log("\n═══ schemaAuthority: AI Events (041) ═══");
+assert.ok(migrationFiles.includes("041_ai_events_schema_authority.sql"));
+const mig041 = readRepo("artifacts/api-server/migrations/041_ai_events_schema_authority.sql");
+assert.match(mig041, /CREATE TABLE IF NOT EXISTS ai_events/);
+assert.match(mig041, /ai_events_office_status_idx/);
+assert.match(mig041, /office_id,\s*status,\s*created_at\s+DESC/i);
+assert.match(mig041, /INCOMPATIBLE_INDEX/);
+assert.match(mig041, /POST_APPLY_READINESS_FAILED|AI_EVENTS_SCHEMA_READY/);
+assert.match(mig041, /i\.relname\s*=\s*'ai_events_office_status_idx'/);
+{
+  const sqlOnly041 = mig041.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly041, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly041, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly041, /CREATE TABLE IF NOT EXISTS ai_agents\b/);
+  assert.doesNotMatch(sqlOnly041, /CREATE TABLE IF NOT EXISTS office_ai_credits\b/);
+  assert.doesNotMatch(sqlOnly041, /CREATE TABLE IF NOT EXISTS ai_provider_config\b/);
+}
+const preflight041 = readRepo("scripts/db/preflight-migration-041.sql");
+assert.match(preflight041, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight041, /AI_EVENTS_SCHEMA_READY/);
+assert.match(preflight041, /SAFE_AUTO_REPAIR/);
+assert.match(preflight041, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight041, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight041, /i\.relname\s*=\s*'ai_events_office_status_idx'/);
+assert.doesNotMatch(readSrc("modules/ai/aiEvents.ts"), /CREATE TABLE IF NOT EXISTS ai_events/);
+assert.doesNotMatch(readSrc("modules/ai/aiEvents.ts"), /CREATE INDEX IF NOT EXISTS ai_events_office_status_idx/);
+assert.match(readSrc("modules/ai/aiEvents.ts"), /to_regclass\('public\.ai_events'\)/);
+assert.match(readSrc("modules/ai/aiEvents.ts"), /ensureAiEventsReady/);
+assert.match(readSrc("modules/ai/aiEvents.ts"), /WHERE NOT EXISTS/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_041|MIGRATION_041/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig041_stolen_idx/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig041_wrong_desc/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ai_events$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ai_events\.office_id$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ai_events\.status$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ai_events$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-events-041/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-events-041/);
+console.log("  ✅ migration 041 owns ai_events + DESC index; Runtime CREATE/INDEX absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

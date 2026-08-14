@@ -397,3 +397,9 @@ ai_provider_config.priority
 office_ai_settings.office_id
 office_ai_settings.preferred_provider
 office_ai_settings.mode
+
+# Migration 041 — AI Events
+ai_events.office_id
+ai_events.status
+ai_events.created_at
+ai_events.type

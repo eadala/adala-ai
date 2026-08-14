@@ -46,6 +46,7 @@
 - ~~`ensureTables` (marketplace / client-portal / client-auth / homeCms)~~ — removed; schema via migration **038** (homeCms keeps singleton seed DML)
 - ~~Runtime `CREATE`/`ALTER` for `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs`~~ — removed via migration **039**; `aiChat` / `aiCredits` keep readiness + platform seed DML (`INSERT … ON CONFLICT (office_id)`)
 - ~~Runtime `CREATE` for `ai_provider_config` / `office_ai_settings`~~ — removed via migration **040**; `aiProviderEngine` keeps readiness (`to_regclass`) + provider seed DML (`INSERT … ON CONFLICT (provider)`) and settings upserts (`ON CONFLICT (office_id)`)
+- ~~Runtime `CREATE`/`INDEX` for `ai_events` / `ai_events_office_status_idx`~~ — removed via migration **041**; `aiEvents` keeps readiness (`to_regclass`) + insert/read/dismiss/scan DML (application `WHERE NOT EXISTS` dedupe preserved)
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -115,6 +116,7 @@
 | `client_accounts` / `client_sessions` / `client_case_links` / `client_portal_tokens` / `case_timeline` / `portal_uploads` / `marketplace_services` / `marketplace_orders` (+ `clients.client_account_id`) | **038** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; `home_cms` owned by 038 but not P0; storefront 003/004/006 untouched) |
 | `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs` | **039** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; seed DML preserved; `usage_logs` remains **003**) |
 | `ai_provider_config` / `office_ai_settings` | **040** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; seed/upsert DML preserved) |
+| `ai_events` (+ `ai_events_office_status_idx`) | **041** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; insert/dismiss/scan DML preserved) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 
