@@ -2,7 +2,6 @@ agent_actions
 agent_job_logs
 ai_agents
 ai_coo_notif_settings
-ai_events
 audit_coverage_rules
 audit_risk_scores
 blocked_ips

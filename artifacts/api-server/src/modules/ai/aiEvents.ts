@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7E schema ownership only */
+/**
+ * AI Events — office-scoped autonomous event feed.
+ * Schema owned by Migration 041 — Runtime CREATE/INDEX removed.
+ */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -5,26 +10,23 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ai_events (
-      id SERIAL PRIMARY KEY,
-      office_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      severity TEXT NOT NULL DEFAULT 'info',
-      title TEXT NOT NULL,
-      body TEXT,
-      payload JSONB DEFAULT '{}',
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS ai_events_office_status_idx
-      ON ai_events(office_id, status, created_at DESC)
-  `);
+/* ── readiness — schema owned by Migration 041 ── */
+let tablesReady = false;
+async function ensureAiEventsReady() {
+  if (tablesReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.ai_events') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      console.error("[aiEvents] Migration 041 schema not ready — ai_events missing");
+      return;
+    }
+    tablesReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables().catch(() => {});
+ensureAiEventsReady().catch(() => {});
 
 const lastScanAt: Record<string, number> = {};
 const SCAN_COOLDOWN_MS = 30 * 60 * 1000;
@@ -145,6 +147,7 @@ async function runAutonomousScan(officeId: string) {
 
 /* ── GET /api/ai-events ─────────────────────────── */
 router.get("/ai-events", requireAuth, async (req, res) => {
+  await ensureAiEventsReady();
   const officeId = (req as any).officeId as string;
   if (!officeId) { res.json({ events: [] }); return; }
 
@@ -173,6 +176,7 @@ router.get("/ai-events", requireAuth, async (req, res) => {
 
 /* ── POST /api/ai-events/:id/dismiss ─────────────── */
 router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
+  await ensureAiEventsReady();
   const officeId = (req as any).officeId as string;
   const id = parseInt(String(req.params.id));
   if (!officeId || isNaN(id)) { res.status(400).json({ error: "invalid" }); return; }
@@ -189,6 +193,7 @@ router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
 
 /* ── POST /api/ai-events/scan ─────────────────────── */
 router.post("/ai-events/scan", requireAuth, async (req, res) => {
+  await ensureAiEventsReady();
   const officeId = (req as any).officeId as string;
   if (!officeId) { res.status(401).json({ error: "unauthorized" }); return; }
   delete lastScanAt[officeId];
