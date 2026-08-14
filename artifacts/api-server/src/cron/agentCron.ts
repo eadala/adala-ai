@@ -2,6 +2,8 @@
 /**
  * Agent Cron — وكلاء الذكاء الاصطناعي التلقائيون
  *
+ * Schema owned by Migration 042 — Runtime CREATE/INDEX removed.
+ *
  * يعمل كل ساعة على الخادم السحابي ويُنفّذ 4 وكلاء:
  *  1. case_review      — مراجعة القضايا والجلسات القادمة
  *  2. invoice_reminder — تتبع الفواتير المتأخرة
@@ -41,27 +43,21 @@ async function sqlExec(q: any): Promise<void> {
   try { await db.execute(q); } catch { /* best-effort */ }
 }
 
-/* ── Ensure tables exist ─────────────────────────────── */
-async function ensureTables() {
-  await sqlExec(sql`
-    CREATE TABLE IF NOT EXISTS agent_job_logs (
-      id          BIGSERIAL PRIMARY KEY,
-      agent_type  TEXT NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'running',
-      office_id   TEXT,
-      summary     TEXT,
-      details     JSONB,
-      duration_ms INTEGER,
-      created_at  TIMESTAMPTZ DEFAULT NOW(),
-      completed_at TIMESTAMPTZ
-    )
-  `);
-  await sqlExec(sql`
-    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_created ON agent_job_logs(created_at DESC)
-  `);
-  await sqlExec(sql`
-    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_type ON agent_job_logs(agent_type)
-  `);
+/* ── readiness — schema owned by Migration 042 ── */
+let jobLogsSchemaReady = false;
+async function ensureAgentJobLogsReady() {
+  if (jobLogsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.agent_job_logs') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      logger.error("[AgentCron] Migration 042 schema not ready — agent_job_logs missing");
+      return;
+    }
+    jobLogsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── Log helpers ────────────────────────────────────── */
@@ -365,7 +361,7 @@ async function runAiHealthCheckAgent() {
    ENTRY POINT — تسجيل جميع الوكلاء مع Cron
 ════════════════════════════════════════════════════════ */
 export function startAgentCron() {
-  ensureTables().then(() => {
+  ensureAgentJobLogsReady().then(() => {
     /* ── كل 4 ساعات في production / كل ساعة في dev ── */
     const agentSchedule = process.env.NODE_ENV === "production" ? "0 */4 * * *" : "0 * * * *";
     cron.schedule(agentSchedule, async () => {

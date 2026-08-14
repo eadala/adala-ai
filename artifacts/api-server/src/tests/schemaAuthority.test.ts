@@ -1434,6 +1434,62 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-events-041/
 assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-events-041/);
 console.log("  ✅ migration 041 owns ai_events + DESC index; Runtime CREATE/INDEX absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: AI Agents (042) ═══");
+assert.ok(migrationFiles.includes("042_ai_agents_schema_authority.sql"));
+const mig042 = readRepo("artifacts/api-server/migrations/042_ai_agents_schema_authority.sql");
+assert.match(mig042, /CREATE TABLE IF NOT EXISTS ai_agents/);
+assert.match(mig042, /CREATE TABLE IF NOT EXISTS agent_actions/);
+assert.match(mig042, /CREATE TABLE IF NOT EXISTS agent_job_logs/);
+assert.match(mig042, /idx_agent_job_logs_created/);
+assert.match(mig042, /created_at\s+DESC/i);
+assert.match(mig042, /idx_agent_job_logs_type/);
+assert.match(mig042, /ON CONFLICT \(id\) DO NOTHING/);
+assert.match(mig042, /INCOMPATIBLE_INDEX/);
+assert.match(mig042, /POST_APPLY_READINESS_FAILED|AI_AGENTS_SCHEMA_READY/);
+assert.match(mig042, /i\.relname\s*=\s*'idx_agent_job_logs_created'/);
+{
+  const sqlOnly042 = mig042.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly042, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly042, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly042, /CREATE TABLE IF NOT EXISTS ai_events\b/);
+  assert.doesNotMatch(sqlOnly042, /CREATE TABLE IF NOT EXISTS case_ai_insights\b/);
+  assert.doesNotMatch(sqlOnly042, /CREATE TABLE IF NOT EXISTS ai_coo_notif_settings\b/);
+  assert.doesNotMatch(sqlOnly042, /CREATE TABLE IF NOT EXISTS support_ai_analysis\b/);
+  assert.doesNotMatch(sqlOnly042, /FOREIGN\s+KEY/i);
+  assert.doesNotMatch(sqlOnly042, /UNIQUE\s*\(/);
+}
+const preflight042 = readRepo("scripts/db/preflight-migration-042.sql");
+assert.match(preflight042, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight042, /AI_AGENTS_SCHEMA_READY/);
+assert.match(preflight042, /SAFE_AUTO_REPAIR/);
+assert.match(preflight042, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight042, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight042, /i\.relname\s*=\s*'idx_agent_job_logs_created'/);
+assert.match(preflight042, /desc_ok/);
+assert.doesNotMatch(readSrc("modules/platform/agentRuntime.ts"), /CREATE TABLE IF NOT EXISTS ai_agents/);
+assert.doesNotMatch(readSrc("modules/platform/agentRuntime.ts"), /CREATE TABLE IF NOT EXISTS agent_actions/);
+assert.match(readSrc("modules/platform/agentRuntime.ts"), /to_regclass\('public\.ai_agents'\)/);
+assert.match(readSrc("modules/platform/agentRuntime.ts"), /ensureAgentsSchemaReady/);
+assert.match(readSrc("modules/platform/agentRuntime.ts"), /ON CONFLICT \(id\) DO NOTHING/);
+assert.doesNotMatch(readSrc("cron/agentCron.ts"), /CREATE TABLE IF NOT EXISTS agent_job_logs/);
+assert.doesNotMatch(readSrc("cron/agentCron.ts"), /CREATE INDEX IF NOT EXISTS idx_agent_job_logs_created/);
+assert.match(readSrc("cron/agentCron.ts"), /to_regclass\('public\.agent_job_logs'\)/);
+assert.match(readSrc("cron/agentCron.ts"), /ensureAgentJobLogsReady/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_042|MIGRATION_042/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig042_stolen_idx/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig042_wrong_desc/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ai_agents$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^agent_actions$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^agent_job_logs$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ai_agents\.id$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^agent_job_logs\.agent_type$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ai_agents$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^agent_actions$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^agent_job_logs$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-agents-042/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-agents-042/);
+console.log("  ✅ migration 042 owns agents trio + DESC index; Runtime CREATE/INDEX absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

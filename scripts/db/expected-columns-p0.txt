@@ -403,3 +403,15 @@ ai_events.office_id
 ai_events.status
 ai_events.created_at
 ai_events.type
+
+ai_agents.id
+ai_agents.name
+ai_agents.name_ar
+ai_agents.type
+agent_actions.agent_id
+agent_actions.event_type
+agent_actions.decision
+agent_actions.title
+agent_job_logs.agent_type
+agent_job_logs.status
+agent_job_logs.created_at

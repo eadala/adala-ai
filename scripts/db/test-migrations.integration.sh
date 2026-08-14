@@ -50,6 +50,7 @@ MIGRATION_038="$ROOT/artifacts/api-server/migrations/038_marketplace_client_port
 MIGRATION_039="$ROOT/artifacts/api-server/migrations/039_ai_credits_usage_schema_authority.sql"
 MIGRATION_040="$ROOT/artifacts/api-server/migrations/040_ai_provider_engine_schema_authority.sql"
 MIGRATION_041="$ROOT/artifacts/api-server/migrations/041_ai_events_schema_authority.sql"
+MIGRATION_042="$ROOT/artifacts/api-server/migrations/042_ai_agents_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -231,7 +232,8 @@ apply_migration_033() {
 # 034 owns JLWM Core 14 tables (Stage 4B).
 # 035 owns JLWM Satellites 6 tables (Stage 4C).
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
-# 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events.
+# 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events;
+# 042 owns ai_agents / agent_actions / agent_job_logs.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -251,6 +253,7 @@ verify_p0_schema() {
   apply_migration_039
   apply_migration_040
   apply_migration_041
+  apply_migration_042
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -284,6 +287,10 @@ apply_migration_040() {
 
 apply_migration_041() {
   psql_db -f "$MIGRATION_041" >/dev/null
+}
+
+apply_migration_042() {
+  psql_db -f "$MIGRATION_042" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -329,11 +336,12 @@ apply_all_migrations() {
   apply_migration_039
   apply_migration_040
   apply_migration_041
+  apply_migration_042
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…041 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…042 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -4234,6 +4242,346 @@ scenario_migration_041_ai_events() {
   else
     grep -qi 'office_id\|ai_events' /tmp/mig041-p0-col.log \
       && ok "O: P0 verify fails when critical column missing" || bad "O: verify log missing column"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_042_ai_agents() {
+  log "Scenario 042 — AI Agents: greenfield / SAFE / BLOCK / index DESC / seed / Runtime / P0"
+  local PREFLIGHT_042="$ROOT/scripts/db/preflight-migration-042.sql"
+  local RUNTIME_SRC="$ROOT/artifacts/api-server/src/modules/platform/agentRuntime.ts"
+  local CRON_SRC="$ROOT/artifacts/api-server/src/cron/agentCron.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + seed + index DESC shape
+  setup_db "mig042_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok idx_ok seed_ok
+  tbl_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('ai_agents','agent_actions','agent_job_logs')")
+  [[ "$tbl_ok" == "3" ]] && ok "A: agents trio present" || bad "A: tables count=$tbl_ok"
+  seed_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM ai_agents WHERE id IN ('legal','finance','risk','system','hr')")
+  [[ "$seed_ok" == "5" ]] && ok "A: 5 seed agents present" || bad "A: seed=$seed_ok"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='agent_job_logs'
+        AND i.relname='idx_agent_job_logs_created'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['created_at']::text[]
+        AND (x.indoption[0] & 1) = 1
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_agent_job_logs_created (created_at DESC)" \
+    || bad "A: DESC index missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='agent_job_logs'
+        AND i.relname='idx_agent_job_logs_type'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['agent_type']::text[]
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_agent_job_logs_type (agent_type)" || bad "A: type index missing"
+  apply_migration_042
+  ok "A: re-run 042 idempotent"
+  seed_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM ai_agents WHERE id IN ('legal','finance','risk','system','hr')")
+  [[ "$seed_ok" == "5" ]] && ok "A: seed preserved after reapply" || bad "A: seed after reapply=$seed_ok"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight042-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight042-ready.log | tail -1)"
+  grep -q 'AI_AGENTS_SCHEMA_READY' /tmp/preflight042-ready.log \
+    && ok "A: AI_AGENTS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig042_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE agent_job_logs CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA\|MISSING_INDEXES' /tmp/preflight042-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_042
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.agent_job_logs') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: agent_job_logs restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: incompatible type BLOCK
+  setup_db "mig042_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE agent_actions DROP COLUMN status;
+    ALTER TABLE agent_actions ADD COLUMN status INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-type.log 2>&1; then
+    bad "C: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-type.log \
+      && ok "C: preflight BLOCK INCOMPATIBLE_TYPE" || bad "C: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-type.log 2>&1; then
+    bad "C: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig042-type.log \
+      && ok "C: migration BLOCK INCOMPATIBLE_TYPE" || bad "C: mig reason=$(tail -3 /tmp/mig042-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: wrong PK BLOCK
+  setup_db "mig042_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_agents DROP CONSTRAINT ai_agents_pkey;
+    ALTER TABLE ai_agents ADD PRIMARY KEY (id, type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-pk.log 2>&1; then
+    bad "D: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-pk.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_PK" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-pk.log 2>&1; then
+    bad "D: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig042-pk.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_PK" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: NULL required field BLOCK + rows preserved
+  setup_db "mig042_nullreq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE agent_actions ALTER COLUMN agent_id DROP NOT NULL;
+    INSERT INTO agent_actions (agent_id, event_type, decision, title, status)
+    VALUES (NULL, 'NULL_TEST', 'RECOMMEND', 'null agent', 'pending');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-null.log 2>&1; then
+    bad "E: preflight should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-null.log \
+      && ok "E: preflight BLOCK NULL_REQUIRED" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-null.log 2>&1; then
+    bad "E: migration should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig042-null.log \
+      && ok "E: migration BLOCK NULL_REQUIRED" || bad "E: mig reason=$(tail -3 /tmp/mig042-null.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM agent_actions WHERE event_type='NULL_TEST'")" == "1" ]] \
+    && ok "E: NULL agent_id row preserved" || bad "E: row deleted"
+  trap - EXIT
+  teardown_db
+
+  # F: missing index SAFE + restore
+  setup_db "mig042_miss_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_agent_job_logs_created;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-missidx.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight042-missidx.log \
+    && bad "F: missing index must not be ALREADY_CORRECT" \
+    || ok "F: missing index not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|MISSING_INDEXES|idx_agent_job_logs_created' /tmp/preflight042-missidx.log \
+    && ok "F: missing index → SAFE" || bad "F: preflight"
+  apply_migration_042
+  local idx_restored
+  idx_restored=$(psql_db -At -c "SELECT to_regclass('public.idx_agent_job_logs_created') IS NOT NULL")
+  [[ "$idx_restored" == "t" ]] && ok "F: index restored" || bad "F: index still missing"
+  trap - EXIT
+  teardown_db
+
+  # G: wrong same-name index (wrong cols) BLOCK
+  setup_db "mig042_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_agent_job_logs_created;
+    CREATE INDEX idx_agent_job_logs_created ON agent_job_logs(agent_type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-widx.log 2>&1; then
+    bad "G: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-widx.log \
+      && ok "G: preflight BLOCK INCOMPATIBLE_INDEX" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-widx.log 2>&1; then
+    bad "G: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig042-widx.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_INDEX" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: stolen index name on another table BLOCK (never SAFE)
+  setup_db "mig042_stolen_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE agent_job_logs CASCADE;
+    CREATE TABLE agent_job_logs_orphan (created_at TIMESTAMPTZ, agent_type TEXT);
+    CREATE INDEX idx_agent_job_logs_created ON agent_job_logs_orphan(created_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-stolen.log 2>&1; then
+    bad "H: preflight must BLOCK missing table + stolen same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-stolen.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_INDEX (stolen name)" || bad "H: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight042-stolen.log \
+      && bad "H: must never SAFE when same-name index incompatible" \
+      || ok "H: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-stolen.log 2>&1; then
+    bad "H: migration should BLOCK stolen index name"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig042-stolen.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_INDEX" || bad "H: mig reason=$(tail -3 /tmp/mig042-stolen.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: ASC instead of DESC BLOCK
+  setup_db "mig042_wrong_desc"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_agent_job_logs_created;
+    CREATE INDEX idx_agent_job_logs_created ON agent_job_logs(created_at);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_042" >/tmp/preflight042-wrongdesc.log 2>&1; then
+    bad "I: preflight must BLOCK ASC-only (missing DESC)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight042-wrongdesc.log \
+      && ok "I: preflight BLOCK wrong DESC" || bad "I: preflight reason"
+    grep -q 'ALREADY_CORRECT\|AI_AGENTS_SCHEMA_READY' /tmp/preflight042-wrongdesc.log \
+      && bad "I: must never ALREADY with wrong DESC" \
+      || ok "I: no ALREADY_CORRECT for wrong DESC"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_042" >/tmp/mig042-wrongdesc.log 2>&1; then
+    bad "I: migration should BLOCK wrong DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig042-wrongdesc.log \
+      && ok "I: migration BLOCK INCOMPATIBLE_INDEX wrong DESC" || bad "I: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # J: seed idempotency — custom row preserved; seed re-insert does not wipe
+  setup_db "mig042_seed"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO ai_agents (id, name, name_ar, type, description)
+    VALUES ('custom', 'Custom', 'مخصص', 'custom', 'custom agent')
+    ON CONFLICT (id) DO NOTHING;
+    UPDATE ai_agents SET description = 'preserved-legal' WHERE id = 'legal';
+  " >/dev/null
+  apply_migration_042
+  local custom_ok legal_desc
+  custom_ok=$(psql_db -At -c "SELECT COUNT(*) FROM ai_agents WHERE id='custom'")
+  legal_desc=$(psql_db -At -c "SELECT description FROM ai_agents WHERE id='legal'")
+  [[ "$custom_ok" == "1" ]] && ok "J: custom agent preserved" || bad "J: custom wiped"
+  [[ "$legal_desc" == "preserved-legal" ]] && ok "J: seed ON CONFLICT did not overwrite legal" \
+    || bad "J: legal overwritten ($legal_desc)"
+  seed_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM ai_agents WHERE id IN ('legal','finance','risk','system','hr')")
+  [[ "$seed_ok" == "5" ]] && ok "J: canonical seed still present" || bad "J: seed=$seed_ok"
+  trap - EXIT
+  teardown_db
+
+  # K: Runtime CREATE/INDEX absent; readiness + DML present
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_agents|agent_actions)' "$RUNTIME_SRC"; then
+    bad "K: Runtime CREATE still present in agentRuntime"
+  else
+    ok "K: agentRuntime Runtime CREATE absent"
+  fi
+  grep -q "to_regclass('public.ai_agents')" "$RUNTIME_SRC" \
+    && grep -q 'ON CONFLICT (id) DO NOTHING' "$RUNTIME_SRC" \
+    && ok "K: agentRuntime readiness + seed DML present" \
+    || bad "K: agentRuntime readiness/seed missing"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS agent_job_logs|CREATE INDEX IF NOT EXISTS idx_agent_job_logs_' "$CRON_SRC"; then
+    bad "K: Runtime CREATE/INDEX still present in agentCron"
+  else
+    ok "K: agentCron Runtime CREATE/INDEX absent"
+  fi
+  grep -q "to_regclass('public.agent_job_logs')" "$CRON_SRC" \
+    && grep -q 'INSERT INTO agent_job_logs' "$CRON_SRC" \
+    && ok "K: agentCron readiness + job-log DML present" \
+    || bad "K: agentCron readiness/DML missing"
+
+  # L: prior AI tables still present; 042 does not CREATE them
+  setup_db "mig042_prior_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local prior_ok
+  prior_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN (
+        'office_ai_credits','ai_credit_transactions','ai_usage_logs',
+        'ai_provider_config','office_ai_settings','ai_events'
+      )")
+  [[ "$prior_ok" == "6" ]] && ok "L: 039–041 tables still present after chain" || bad "L: count=$prior_ok"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_events|case_ai_insights|ai_coo_notif_settings|office_ai_credits|ai_provider_config)' "$MIGRATION_042"; then
+    bad "L: 042 must not CREATE out-of-scope tables"
+  else
+    ok "L: 042 does not CREATE 039–041/out-of-scope tables"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: P0 verify fails without ai_agents; restores after 042
+  setup_db "mig042_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig042-p0-present.log 2>&1; then
+    ok "M: verify-schema passes with 042 objects"
+  else
+    bad "M: verify-schema failed after full chain"; tail -20 /tmp/mig042-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE ai_agents CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig042-p0.log 2>&1; then
+    bad "M: verify-schema should fail without ai_agents"
+  else
+    grep -qi 'ai_agents' /tmp/mig042-p0.log \
+      && ok "M: P0 verify fails when ai_agents absent" || bad "M: verify log missing ai_agents"
+  fi
+  apply_migration_042
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig042-p0-restored.log 2>&1; then
+    ok "M: verify-schema passes after 042 restore"
+  else
+    bad "M: verify failed after restore"; tail -20 /tmp/mig042-p0-restored.log
   fi
   trap - EXIT
   teardown_db
@@ -10890,6 +11238,7 @@ scenario_migration_038_marketplace_client_portal
 scenario_migration_039_ai_credits_usage
 scenario_migration_040_ai_provider_engine
 scenario_migration_041_ai_events
+scenario_migration_042_ai_agents
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
