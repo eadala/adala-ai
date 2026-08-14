@@ -44,7 +44,8 @@
 - ~~`ensureCaseIdColumn` (internal-messages)~~ — removed; `office_messages.case_id` TEXT via migration **030** (Stage 22); no Runtime INTEGER ADD COLUMN
 - ~~`ensureConversationTables`~~ — removed; `message_conversations` + `conversation_members` (+ `case_id TEXT`) via migration **031** (Stage 23.3B); compatible with **020** indexes
 - ~~`ensureTables` (marketplace / client-portal / client-auth / homeCms)~~ — removed; schema via migration **038** (homeCms keeps singleton seed DML)
-- ~~Runtime `CREATE`/`ALTER` for `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs`~~ — removed via migration **039**; `aiChat` / `aiCredits` keep readiness + platform seed DML (`INSERT … ON CONFLICT (office_id)`). `aiProviderEngine` retains Runtime `CREATE` for out-of-scope `ai_provider_config` / `office_ai_settings` (no `ALTER ai_usage_logs`)
+- ~~Runtime `CREATE`/`ALTER` for `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs`~~ — removed via migration **039**; `aiChat` / `aiCredits` keep readiness + platform seed DML (`INSERT … ON CONFLICT (office_id)`)
+- ~~Runtime `CREATE` for `ai_provider_config` / `office_ai_settings`~~ — removed via migration **040**; `aiProviderEngine` keeps readiness (`to_regclass`) + provider seed DML (`INSERT … ON CONFLICT (provider)`) and settings upserts (`ON CONFLICT (office_id)`)
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -112,7 +113,8 @@
 | `document_center_files` / `document_ai_metadata` / `rag_chunks` | **021** |
 | `documents` V2 extension cols + `document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` | **033** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; compliance `retention_policies` untouched) |
 | `client_accounts` / `client_sessions` / `client_case_links` / `client_portal_tokens` / `case_timeline` / `portal_uploads` / `marketplace_services` / `marketplace_orders` (+ `clients.client_account_id`) | **038** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; `home_cms` owned by 038 but not P0; storefront 003/004/006 untouched) |
-| `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs` | **039** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; seed DML preserved; `usage_logs` remains **003**; provider/settings Runtime CREATE out of scope) |
+| `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs` | **039** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; seed DML preserved; `usage_logs` remains **003**) |
+| `ai_provider_config` / `office_ai_settings` | **040** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; seed/upsert DML preserved) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

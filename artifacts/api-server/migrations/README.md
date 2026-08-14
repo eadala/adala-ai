@@ -350,10 +350,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 #    Owns: office_ai_credits (+ UNIQUE(office_id), balance DEFAULT 100,
 #    daily/monthly limit columns); ai_credit_transactions; ai_usage_logs
 #    (+ idx_ai_usage_office / idx_ai_usage_created / partial idx_ai_usage_case).
-#    Does NOT CREATE usage_logs (003) or ai_provider_config / office_ai_settings.
-#    office_id='default' is a deliberate business key (never remapped/blocked).
-#    Runtime CREATE/ALTER for credits/usage removed from aiChat/aiCredits;
-#    aiProviderEngine keeps provider/settings CREATE only — deploy API after 039.
+#    Does NOT CREATE usage_logs (003) or ai_provider_config / office_ai_settings
+#    (040). office_id='default' is a deliberate business key (never remapped/blocked).
+#    Runtime CREATE/ALTER for credits/usage removed from aiChat/aiCredits —
+#    deploy API after 039 (provider/settings CREATE owned by 040).
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-039.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -361,7 +361,29 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-039.sql
 
-# 40) تحقق بعد التنفيذ
+# 40) AI Provider Engine Runtime schema authority (Stage 7E)
+#    Ops order (required — do NOT apply to production without approval):
+#      a) psql "$DATABASE_URL" -f scripts/db/preflight-migration-040.sql
+#      b) if chosen_action = BLOCK_AND_MANUAL_REVIEW → stop / manual review
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 040
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: ai_provider_config (+ UNIQUE(provider) for ON CONFLICT (provider));
+#    office_ai_settings (+ UNIQUE(office_id) for ON CONFLICT (office_id)).
+#    Does NOT CREATE office_ai_credits / ai_credit_transactions / ai_usage_logs
+#    (039), ai_events, agents, support AI, orphan credit/session tables.
+#    No invented FK. office_id is TEXT business key (no UUID-only enforcement).
+#    Runtime CREATE removed from aiProviderEngine; readiness + seed/upsert DML
+#    preserved — deploy API after 040.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-040.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/040_ai_provider_engine_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-040.sql
+
+# 41) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -405,7 +427,8 @@ bash scripts/db/verify-schema.sh
 | `036_jlwm_reliability_schema_authority.sql` | JLWM Reliability schema authority (Stage 4D). Owns the 5 tables from former `ensureReliabilitySchema()`: `jlwm_ai_audit`, `jlwm_trust_scores`, `jlwm_recommendation_tracking`, `jlwm_data_quality`, `jlwm_learning_events` (+ exact named indexes including DESC on `idx_jaa_type` / `idx_jts_office` / `idx_jdq_office` / `idx_jle_office`). BLOCK on incompatible types/NULL/non-UUID `office_id`/NULL required identifiers/wrong PK/INDEX. No invented UNIQUEs. Runtime Reliability CREATE/INDEX removed; DML preserved (+ narrow 034/035 column compatibility fixes in app). Preflight: `scripts/db/preflight-migration-036.sql`. Ops: preflight → block/manual or apply 036 → re-preflight → verify-schema → deploy API. |
 | `037_financial_remaining_schema_authority.sql` | Remaining Financial Runtime schema authority (Stage 5B). Owns former Runtime DDL from `financialCore` / `invoices` / `financial-completions` / accounting soft-delete / cases financial indexes: `financial_accounts`, `ledger_entries` (+ DML-required `office_id`), `wallets`, `lawyer_payouts`, `invoice_payments` (+ payment indexes), `office_tax_settings`, `invoice_revisions`, `credit_notes`, `invoice_seq`; `client_invoices` extensions (`client_name`, `tax_enabled`, `amount_paid`, `view_token`, `zatca_uuid`, `qr_code_data`, `locked_at`, `linked_credit_note_id` — **not** `invoice_number`, owned by 003); `revenues.deleted_at` / `expenses.deleted_at`; `idx_invoices_case_office` / `idx_revenues_case_office` / `idx_expenses_case_office`. Runtime UNIQUEs: `(owner_id,currency)` / `wallets(owner_id)` / `office_tax_settings(office_id)`. Does **not** re-own ledger/Stripe/payments/ERP/billing/gateway (010–013/019/025/032) or baseline invoices/revenues/expenses (003). Platform wallet seed remains app DML. Preflight: `scripts/db/preflight-migration-037.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 037 → re-preflight → verify-schema → deploy API. |
 | `038_marketplace_client_portal_schema_authority.sql` | Marketplace + Client Portal Runtime schema authority (Stage 6B). Owns former Runtime DDL from `marketplace` / `client-portal` / `client-auth` / `homeCms` / webhook+clients extension: `marketplace_services`, `marketplace_orders`, `marketplace_deals`, `marketplace_deal_offers`, `client_portal_tokens` (+ UNIQUE token), `portal_uploads`, `case_timeline`, `client_accounts` (+ UNIQUE email), `client_sessions` (+ UNIQUE token + FK CASCADE→`client_accounts`), `client_case_links` (+ UNIQUE(client_id,case_id) + FK CASCADE→`client_accounts`; auth shape), `home_cms` (global singleton), `clients.client_account_id` TEXT nullable (no backfill). Does **not** invent `office_id` on marketplace_*/portal tokens/home_cms. Does **not** re-own invitations/office_page/office_services/office_orders/office_reviews (003/004/006). Does **not** own `client_comm_settings` / `website_builder_pages` / `clients.deleted_at` / appointments. Orphan FK → `ORPHAN_FK` fail-closed (no silent delete/NOT VALID “ready”). Runtime CREATE/ALTER removed; homeCms singleton seed DML preserved. Preflight: `scripts/db/preflight-migration-038.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 038 → re-preflight → verify-schema → deploy API. |
-| `039_ai_credits_usage_schema_authority.sql` | AI Credits + Usage Runtime schema authority (Stage 7B). Owns former Runtime DDL from `aiChat` / `aiCredits` / merged `ai_usage_logs` ALTERs: `office_ai_credits` (+ `UNIQUE(office_id)`, `balance DEFAULT 100`, daily/monthly limit-and-usage columns), `ai_credit_transactions` (append-only; no invented UNIQUE/FK), `ai_usage_logs` (+ exact `idx_ai_usage_office` / `idx_ai_usage_created` / partial `idx_ai_usage_case`). Does **not** CREATE `usage_logs` (003) or `ai_provider_config` / `office_ai_settings` / agents. `office_id='default'` is a deliberate business key (informational in preflight; never remapped/blocked). BLOCK on incompatible types/NULL required/PK/UNIQUE/INDEX and duplicate `office_id`. Runtime CREATE/ALTER for 039 tables removed; seed DML (`ON CONFLICT (office_id)`) preserved. Preflight: `scripts/db/preflight-migration-039.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 039 → re-preflight → verify-schema → deploy API. |
+| `039_ai_credits_usage_schema_authority.sql` | AI Credits + Usage Runtime schema authority (Stage 7B). Owns former Runtime DDL from `aiChat` / `aiCredits` / merged `ai_usage_logs` ALTERs: `office_ai_credits` (+ `UNIQUE(office_id)`, `balance DEFAULT 100`, daily/monthly limit-and-usage columns), `ai_credit_transactions` (append-only; no invented UNIQUE/FK), `ai_usage_logs` (+ exact `idx_ai_usage_office` / `idx_ai_usage_created` / partial `idx_ai_usage_case`). Does **not** CREATE `usage_logs` (003) or `ai_provider_config` / `office_ai_settings` (040) / agents. `office_id='default'` is a deliberate business key (informational in preflight; never remapped/blocked). BLOCK on incompatible types/NULL required/PK/UNIQUE/INDEX and duplicate `office_id`. Runtime CREATE/ALTER for 039 tables removed; seed DML (`ON CONFLICT (office_id)`) preserved. Preflight: `scripts/db/preflight-migration-039.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 039 → re-preflight → verify-schema → deploy API. |
+| `040_ai_provider_engine_schema_authority.sql` | AI Provider Engine Runtime schema authority (Stage 7E). Owns former Runtime DDL from `aiProviderEngine.ensureTables`: `ai_provider_config` (+ `UNIQUE(provider)` for seed `ON CONFLICT (provider) DO NOTHING`), `office_ai_settings` (+ `UNIQUE(office_id)` for upsert `ON CONFLICT (office_id) DO UPDATE`). Does **not** CREATE credits/usage (039), agents, or invent FK. `office_id` remains TEXT business key (no UUID-only enforcement). BLOCK on incompatible types/NULL required/PK/UNIQUE and duplicate `provider` / `office_id`. Runtime CREATE removed; readiness + seed/upsert DML preserved. Preflight: `scripts/db/preflight-migration-040.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 040 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -486,7 +509,9 @@ Remaining Financial Runtime (Stage 5B / **037**) P0-gated for production-critica
 
 Marketplace + Client Portal Runtime (Stage 6B / **038**) P0-gated for critical portal/auth/marketplace routes: `client_accounts`, `client_sessions`, `client_case_links`, `client_portal_tokens`, `case_timeline`, `portal_uploads`, `marketplace_services`, `marketplace_orders`, plus `clients.client_account_id`. `home_cms` is formally owned by 038 but not P0-gated (global CMS singleton; not required for API boot/routing). Storefront tables (`invitations` / `office_page` / `office_services` / `office_orders` / `office_reviews`) remain **003/004/006** authority.
 
-AI Credits + Usage Runtime (Stage 7B / **039**) P0-gated for AI chat/credits/usage routes: `office_ai_credits`, `ai_credit_transactions`, `ai_usage_logs` (essential columns include `balance` / `daily_limit` / `cost_sar`). Baseline `usage_logs` remains Migration **003** authority (039 does not alias or re-CREATE it). Provider engine tables (`ai_provider_config` / `office_ai_settings`) stay Runtime CREATE out of scope.
+AI Credits + Usage Runtime (Stage 7B / **039**) P0-gated for AI chat/credits/usage routes: `office_ai_credits`, `ai_credit_transactions`, `ai_usage_logs` (essential columns include `balance` / `daily_limit` / `cost_sar`). Baseline `usage_logs` remains Migration **003** authority (039 does not alias or re-CREATE it).
+
+AI Provider Engine Runtime (Stage 7E / **040**) P0-gated for provider/settings routes: `ai_provider_config`, `office_ai_settings` (essential columns include `provider` / `enabled` / `priority` / `office_id` / `preferred_provider` / `mode`). Runtime CREATE removed from `aiProviderEngine`; readiness + seed/upsert DML preserved.
 
 ## Rollback
 

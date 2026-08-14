@@ -48,6 +48,7 @@ MIGRATION_036="$ROOT/artifacts/api-server/migrations/036_jlwm_reliability_schema
 MIGRATION_037="$ROOT/artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql"
 MIGRATION_038="$ROOT/artifacts/api-server/migrations/038_marketplace_client_portal_schema_authority.sql"
 MIGRATION_039="$ROOT/artifacts/api-server/migrations/039_ai_credits_usage_schema_authority.sql"
+MIGRATION_040="$ROOT/artifacts/api-server/migrations/040_ai_provider_engine_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -229,6 +230,7 @@ apply_migration_033() {
 # 034 owns JLWM Core 14 tables (Stage 4B).
 # 035 owns JLWM Satellites 6 tables (Stage 4C).
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
+# 039 owns AI credits/usage; 040 owns AI provider engine tables.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -246,6 +248,7 @@ verify_p0_schema() {
   apply_migration_037
   apply_migration_038
   apply_migration_039
+  apply_migration_040
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -271,6 +274,10 @@ apply_migration_038() {
 
 apply_migration_039() {
   psql_db -f "$MIGRATION_039" >/dev/null
+}
+
+apply_migration_040() {
+  psql_db -f "$MIGRATION_040" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -314,11 +321,12 @@ apply_all_migrations() {
   apply_migration_037
   apply_migration_038
   apply_migration_039
+  apply_migration_040
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…039 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…040 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -3419,7 +3427,7 @@ scenario_migration_039_ai_credits_usage() {
   trap - EXIT
   teardown_db
 
-  # K: Runtime CREATE/ALTER for 039 tables gone; provider CREATE retained; no ALTER ai_usage_logs
+  # K: Runtime CREATE/ALTER for 039 tables gone; provider CREATE owned by 040 (absent); no ALTER ai_usage_logs
   if grep -qE 'CREATE TABLE IF NOT EXISTS (office_ai_credits|ai_credit_transactions|ai_usage_logs)' \
       "$ROOT/artifacts/api-server/src/modules/ai/aiChat.ts" \
       "$ROOT/artifacts/api-server/src/modules/ai/aiCredits.ts"; then
@@ -3433,13 +3441,11 @@ scenario_migration_039_ai_credits_usage() {
   else
     ok "K: aiProviderEngine has no ALTER ai_usage_logs"
   fi
-  if grep -q 'CREATE TABLE IF NOT EXISTS ai_provider_config' \
-      "$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts" \
-    && grep -q 'CREATE TABLE IF NOT EXISTS office_ai_settings' \
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_provider_config|office_ai_settings)' \
       "$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts"; then
-    ok "K: aiProviderEngine retains provider/settings Runtime CREATE"
+    bad "K: provider/settings Runtime CREATE still in aiProviderEngine (owned by 040)"
   else
-    bad "K: provider/settings CREATE missing from aiProviderEngine"
+    ok "K: aiProviderEngine Runtime CREATE for provider/settings removed (040)"
   fi
 
   # L: prior usage_logs (003) still exists; 039 does not CREATE usage_logs
@@ -3510,6 +3516,357 @@ scenario_migration_039_ai_credits_usage() {
     && grep -q 'AI_CREDITS_USAGE_SCHEMA_READY' /tmp/preflight039-o.log \
     && ok "O: re-preflight AI_CREDITS_USAGE_SCHEMA_READY" \
     || bad "O: $(grep -E 'chosen_action=|AI_CREDITS' /tmp/preflight039-o.log | tail -3)"
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_040_ai_provider_engine() {
+  log "Scenario 040 — AI Provider Engine: greenfield / SAFE / BLOCK / Runtime / P0 / authority"
+  local PREFLIGHT_040="$ROOT/scripts/db/preflight-migration-040.sql"
+  local PROVIDER_SRC="$ROOT/artifacts/api-server/src/modules/ai/aiProviderEngine.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUE(provider) + UNIQUE(office_id)
+  setup_db "mig040_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt uq_prov uq_off
+  tbl_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('ai_provider_config','office_ai_settings')")
+  [[ "$tbl_cnt" == "2" ]] && ok "A: 2 owned tables present" || bad "A: table count=$tbl_cnt"
+  uq_prov=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.ai_provider_config'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*provider[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    ) OR EXISTS (
+      SELECT 1 FROM pg_index x
+      WHERE x.indrelid='public.ai_provider_config'::regclass
+        AND x.indisunique AND NOT x.indisprimary
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+            = ARRAY['provider']::text[]
+    )")
+  [[ "$uq_prov" == "t" ]] && ok "A: UNIQUE(provider) present" || bad "A: UNIQUE(provider) missing"
+  uq_off=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.office_ai_settings'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    ) OR EXISTS (
+      SELECT 1 FROM pg_index x
+      WHERE x.indrelid='public.office_ai_settings'::regclass
+        AND x.indisunique AND NOT x.indisprimary
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+            = ARRAY['office_id']::text[]
+    )")
+  [[ "$uq_off" == "t" ]] && ok "A: UNIQUE(office_id) present" || bad "A: UNIQUE(office_id) missing"
+  apply_migration_040
+  ok "A: re-run 040 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight040-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight040-ready.log | tail -1)"
+  grep -q 'AI_PROVIDER_ENGINE_SCHEMA_READY' /tmp/preflight040-ready.log \
+    && ok "A: AI_PROVIDER_ENGINE_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig040_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE office_ai_settings CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight040-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_040
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.office_ai_settings') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: office_ai_settings restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig040_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE ai_provider_config DROP COLUMN enabled;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight040-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|enabled' /tmp/preflight040-misscol.log \
+    && ok "C: missing enabled → SAFE" || bad "C: preflight"
+  apply_migration_040
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='ai_provider_config' AND column_name='enabled'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: enabled restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: wrong type BLOCK
+  setup_db "mig040_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_provider_config DROP COLUMN enabled;
+    ALTER TABLE ai_provider_config ADD COLUMN enabled TEXT;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight040-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_040" >/tmp/mig040-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig040-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason=$(tail -3 /tmp/mig040-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig040_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_provider_config DROP CONSTRAINT ai_provider_config_pkey;
+    ALTER TABLE ai_provider_config ADD PRIMARY KEY (provider);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-pk.log 2>&1; then
+    bad "E: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight040-pk.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_040" >/tmp/mig040-pk.log 2>&1; then
+    bad "E: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig040-pk.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong UNIQUE shape BLOCK — never ALREADY
+  setup_db "mig040_wrong_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_provider_config DROP CONSTRAINT IF EXISTS ai_provider_config_provider_key;
+    ALTER TABLE ai_provider_config ADD CONSTRAINT ai_provider_config_provider_key UNIQUE (provider, label_ar);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-wuniq.log 2>&1; then
+    bad "F: preflight should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight040-wuniq.log \
+      && ok "F: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "F: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight040-wuniq.log \
+      && bad "F: must never ALREADY with wrong UNIQUE" \
+      || ok "F: not ALREADY_CORRECT"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_040" >/tmp/mig040-wuniq.log 2>&1; then
+    bad "F: migration should BLOCK wrong UNIQUE shape"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig040-wuniq.log \
+      && ok "F: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "F: mig reason=$(tail -3 /tmp/mig040-wuniq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: duplicate provider BLOCK + rows preserved
+  setup_db "mig040_dup_provider"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_provider_config DROP CONSTRAINT IF EXISTS ai_provider_config_provider_key;
+    INSERT INTO ai_provider_config (provider, label_ar, priority)
+    VALUES ('dup-prov-040', 'A', 1), ('dup-prov-040', 'B', 2);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-dupprov.log 2>&1; then
+    bad "G: preflight should BLOCK duplicate provider"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight040-dupprov.log \
+      && ok "G: preflight BLOCK duplicate provider" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_040" >/tmp/mig040-dupprov.log 2>&1; then
+    bad "G: migration should BLOCK duplicate provider"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig040-dupprov.log \
+      && ok "G: migration BLOCK duplicate provider" || bad "G: mig reason=$(tail -3 /tmp/mig040-dupprov.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM ai_provider_config WHERE provider='dup-prov-040'")" == "2" ]] \
+    && ok "G: duplicate provider rows preserved" || bad "G: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # H: duplicate office_id BLOCK + rows preserved
+  setup_db "mig040_dup_office"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_ai_settings DROP CONSTRAINT IF EXISTS office_ai_settings_office_id_key;
+    INSERT INTO office_ai_settings (office_id, preferred_provider, mode)
+    VALUES ('dup040', 'auto', 'balanced'), ('dup040', 'gemini', 'fast');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-dupoff.log 2>&1; then
+    bad "H: preflight should BLOCK duplicate office_id"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight040-dupoff.log \
+      && ok "H: preflight BLOCK duplicate office_id" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_040" >/tmp/mig040-dupoff.log 2>&1; then
+    bad "H: migration should BLOCK duplicate office_id"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig040-dupoff.log \
+      && ok "H: migration BLOCK duplicate office_id" || bad "H: mig reason=$(tail -3 /tmp/mig040-dupoff.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM office_ai_settings WHERE office_id='dup040'")" == "2" ]] \
+    && ok "H: duplicate office_id rows preserved" || bad "H: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # I: missing UNIQUE clean → SAFE apply restores
+  setup_db "mig040_miss_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_provider_config DROP CONSTRAINT IF EXISTS ai_provider_config_provider_key;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_040" >/tmp/preflight040-missuq.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight040-missuq.log \
+    && bad "I: missing UNIQUE must not be ALREADY_CORRECT" \
+    || ok "I: missing UNIQUE not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING|provider' /tmp/preflight040-missuq.log \
+    && ok "I: missing UNIQUE → SAFE" || bad "I: preflight"
+  apply_migration_040
+  local uq_restored
+  uq_restored=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.ai_provider_config'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*provider[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_restored" == "t" ]] && ok "I: UNIQUE(provider) restored" || bad "I: UNIQUE still missing"
+  trap - EXIT
+  teardown_db
+
+  # J: ON CONFLICT (provider) works after apply
+  setup_db "mig040_on_conflict_prov"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO ai_provider_config (provider, label_ar, priority)
+    VALUES ('seed-040', 'Seed A', 9)
+    ON CONFLICT (provider) DO NOTHING;
+    INSERT INTO ai_provider_config (provider, label_ar, priority)
+    VALUES ('seed-040', 'Seed B', 1)
+    ON CONFLICT (provider) DO NOTHING;
+  " >/dev/null
+  local seed_cnt seed_label
+  seed_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM ai_provider_config WHERE provider='seed-040'")
+  seed_label=$(psql_db -At -c "SELECT label_ar FROM ai_provider_config WHERE provider='seed-040'")
+  [[ "$seed_cnt" == "1" && "$seed_label" == "Seed A" ]] \
+    && ok "J: ON CONFLICT (provider) DO NOTHING works" \
+    || bad "J: count=$seed_cnt label=$seed_label"
+  trap - EXIT
+  teardown_db
+
+  # K: ON CONFLICT (office_id) works after apply
+  setup_db "mig040_on_conflict_off"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO office_ai_settings (office_id, preferred_provider, mode)
+    VALUES ('upsert-040', 'auto', 'balanced')
+    ON CONFLICT (office_id) DO NOTHING;
+    INSERT INTO office_ai_settings (office_id, preferred_provider, mode)
+    VALUES ('upsert-040', 'gemini', 'fast')
+    ON CONFLICT (office_id) DO UPDATE
+      SET preferred_provider = EXCLUDED.preferred_provider, mode = EXCLUDED.mode;
+  " >/dev/null
+  local up_prov up_mode
+  up_prov=$(psql_db -At -c "SELECT preferred_provider FROM office_ai_settings WHERE office_id='upsert-040'")
+  up_mode=$(psql_db -At -c "SELECT mode FROM office_ai_settings WHERE office_id='upsert-040'")
+  [[ "$up_prov" == "gemini" && "$up_mode" == "fast" ]] \
+    && ok "K: ON CONFLICT (office_id) DO UPDATE works" \
+    || bad "K: preferred=$up_prov mode=$up_mode"
+  trap - EXIT
+  teardown_db
+
+  # L: Runtime CREATE absent; readiness + ON CONFLICT seed present
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_provider_config|office_ai_settings)' "$PROVIDER_SRC"; then
+    bad "L: Runtime CREATE still present in aiProviderEngine"
+  else
+    ok "L: Runtime CREATE absent"
+  fi
+  grep -q "to_regclass('public.ai_provider_config')" "$PROVIDER_SRC" \
+    && grep -q "to_regclass('public.office_ai_settings')" "$PROVIDER_SRC" \
+    && ok "L: to_regclass readiness present" \
+    || bad "L: to_regclass readiness missing"
+  grep -q 'ON CONFLICT (provider)' "$PROVIDER_SRC" \
+    && grep -q 'ON CONFLICT (office_id)' "$PROVIDER_SRC" \
+    && ok "L: ON CONFLICT seed/upsert DML present" \
+    || bad "L: ON CONFLICT DML missing"
+
+  # M: 039 tables still present after full chain
+  setup_db "mig040_039_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local credits_ok
+  credits_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('office_ai_credits','ai_credit_transactions','ai_usage_logs')")
+  [[ "$credits_ok" == "3" ]] && ok "M: 039 tables still present after chain" || bad "M: credits count=$credits_ok"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (office_ai_credits|ai_credit_transactions|ai_usage_logs)' "$MIGRATION_040"; then
+    bad "M: 040 must not CREATE 039 tables"
+  else
+    ok "M: 040 does not CREATE 039 tables"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # N: P0 verify fails without ai_provider_config
+  setup_db "mig040_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig040-p0-present.log 2>&1; then
+    ok "N: verify-schema passes with 040 objects"
+  else
+    bad "N: verify-schema failed after full chain"; tail -20 /tmp/mig040-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE ai_provider_config CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig040-p0.log 2>&1; then
+    bad "N: verify-schema should fail without ai_provider_config"
+  else
+    grep -qi 'ai_provider_config' /tmp/mig040-p0.log \
+      && ok "N: P0 verify fails when ai_provider_config absent" || bad "N: verify log missing ai_provider_config"
+  fi
+  apply_migration_040
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig040-p0-restored.log 2>&1; then
+    ok "N: verify-schema passes after 040 restore"
+  else
+    bad "N: verify failed after restore"; tail -20 /tmp/mig040-p0-restored.log
+  fi
   trap - EXIT
   teardown_db
 }
@@ -10163,6 +10520,7 @@ scenario_migration_036_jlwm_reliability
 scenario_migration_037_financial_remaining
 scenario_migration_038_marketplace_client_portal
 scenario_migration_039_ai_credits_usage
+scenario_migration_040_ai_provider_engine
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

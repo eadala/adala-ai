@@ -390,3 +390,10 @@ ai_credit_transactions.amount
 ai_usage_logs.office_id
 ai_usage_logs.model_used
 ai_usage_logs.cost_sar
+# Migration 040 — AI Provider Engine
+ai_provider_config.provider
+ai_provider_config.enabled
+ai_provider_config.priority
+office_ai_settings.office_id
+office_ai_settings.preferred_provider
+office_ai_settings.mode

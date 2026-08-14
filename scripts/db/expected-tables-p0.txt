@@ -113,3 +113,6 @@ marketplace_orders
 office_ai_credits
 ai_credit_transactions
 ai_usage_logs
+# Migration 040 — AI Provider Engine
+ai_provider_config
+office_ai_settings

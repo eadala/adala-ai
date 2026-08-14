@@ -3,7 +3,6 @@ agent_job_logs
 ai_agents
 ai_coo_notif_settings
 ai_events
-ai_provider_config
 audit_coverage_rules
 audit_risk_scores
 blocked_ips
@@ -53,7 +52,6 @@ legal_holds
 marketing_leads
 message_conversations
 mfa_status_cache
-office_ai_settings
 office_integration_status
 office_isolation_config
 office_notification_settings

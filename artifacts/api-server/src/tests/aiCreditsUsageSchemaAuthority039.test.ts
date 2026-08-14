@@ -94,7 +94,7 @@ for (const t of OWNED) {
 }
 console.log("  ✅ P0 gates credits/usage; boot inventory cleared");
 
-console.log("\n═══ Runtime DDL removed for 039; provider out-of-scope preserved ═══");
+console.log("\n═══ Runtime DDL removed for 039; provider CREATE owned by 040 (absent) ═══");
 const chat = readSrc("modules/ai/aiChat.ts");
 const credits = readSrc("modules/ai/aiCredits.ts");
 const provider = readSrc("modules/ai/aiProviderEngine.ts");
@@ -108,9 +108,9 @@ assert.match(chat, /to_regclass\('public\.ai_usage_logs'\)/);
 assert.match(chat, /INSERT INTO office_ai_credits[\s\S]*ON CONFLICT \(office_id\) DO NOTHING/);
 assert.match(credits, /ON CONFLICT \(office_id\)/);
 assert.match(credits, /INSERT INTO office_ai_credits[\s\S]*\bbalance\b[\s\S]*ON CONFLICT \(office_id\) DO UPDATE/);
-assert.match(provider, /CREATE TABLE IF NOT EXISTS ai_provider_config/);
-assert.match(provider, /CREATE TABLE IF NOT EXISTS office_ai_settings/);
-console.log("  ✅ 039 Runtime DDL removed; provider/settings Runtime CREATE retained; seed DML kept; settings sets balance");
+assert.doesNotMatch(provider, /CREATE TABLE IF NOT EXISTS ai_provider_config/);
+assert.doesNotMatch(provider, /CREATE TABLE IF NOT EXISTS office_ai_settings/);
+console.log("  ✅ 039 Runtime DDL removed; provider/settings Runtime CREATE gone (040); seed DML kept; settings sets balance");
 
 console.log("\n═══ Wiring ═══");
 assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-credits-039/);
