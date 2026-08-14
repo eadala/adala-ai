@@ -67,6 +67,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:financial-037
           pnpm --filter @workspace/api-server run test:marketplace-038
           pnpm --filter @workspace/api-server run test:ai-credits-039
+          pnpm --filter @workspace/api-server run test:ai-provider-040
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |
