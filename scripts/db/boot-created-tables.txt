@@ -2,7 +2,6 @@ ai_coo_notif_settings
 audit_coverage_rules
 audit_risk_scores
 blocked_ips
-case_ai_insights
 compliance_controls
 contract_ai_history
 contract_categories

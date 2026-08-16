@@ -415,3 +415,8 @@ agent_actions.title
 agent_job_logs.agent_type
 agent_job_logs.status
 agent_job_logs.created_at
+
+case_ai_insights.case_id
+case_ai_insights.office_id
+case_ai_insights.created_at
+case_ai_insights.id
