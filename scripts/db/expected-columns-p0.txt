@@ -420,3 +420,7 @@ case_ai_insights.case_id
 case_ai_insights.office_id
 case_ai_insights.created_at
 case_ai_insights.id
+
+ai_coo_notif_settings.id
+ai_coo_notif_settings.office_id
+ai_coo_notif_settings.updated_at

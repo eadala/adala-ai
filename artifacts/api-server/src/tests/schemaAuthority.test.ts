@@ -1533,6 +1533,43 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:case-ai-insigh
 assert.match(readRepo(".github/workflows/ci.yml"), /test:case-ai-insights-043/);
 console.log("  ✅ migration 043 owns case_ai_insights + DESC index; Runtime CREATE/INDEX absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: AI COO Notif Settings (044) ═══");
+assert.ok(migrationFiles.includes("044_ai_coo_notif_settings_schema_authority.sql"));
+const mig044 = readRepo("artifacts/api-server/migrations/044_ai_coo_notif_settings_schema_authority.sql");
+assert.match(mig044, /CREATE TABLE IF NOT EXISTS ai_coo_notif_settings/);
+assert.match(mig044, /UNIQUE\s*\(\s*office_id\s*\)/i);
+assert.match(mig044, /INCOMPATIBLE_UNIQUE/);
+assert.match(mig044, /POST_APPLY_READINESS_FAILED|AI_COO_NOTIF_SETTINGS_SCHEMA_READY/);
+assert.match(mig044, /DUPLICATE_UNIQUE_KEY/);
+{
+  const sqlOnly044 = mig044.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly044, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly044, /(?:^|;)\s*DELETE\s+FROM\b/im);
+  assert.doesNotMatch(sqlOnly044, /CREATE TABLE IF NOT EXISTS support_ai_analysis\b/);
+  assert.doesNotMatch(sqlOnly044, /CREATE TABLE IF NOT EXISTS case_ai_insights\b/);
+  assert.doesNotMatch(sqlOnly044, /FOREIGN\s+KEY/i);
+}
+const preflight044 = readRepo("scripts/db/preflight-migration-044.sql");
+assert.match(preflight044, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight044, /AI_COO_NOTIF_SETTINGS_SCHEMA_READY/);
+assert.match(preflight044, /SAFE_AUTO_REPAIR/);
+assert.match(preflight044, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight044, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight044, /INCOMPATIBLE_UNIQUE/);
+assert.doesNotMatch(readSrc("modules/platform/aiCoo.ts"), /CREATE TABLE IF NOT EXISTS ai_coo_notif_settings/);
+assert.match(readSrc("modules/platform/aiCoo.ts"), /to_regclass\('public\.ai_coo_notif_settings'\)/);
+assert.match(readSrc("modules/platform/aiCoo.ts"), /ensureNotifTable/);
+assert.match(readSrc("modules/platform/aiCoo.ts"), /ON CONFLICT \(office_id\) DO UPDATE/);
+assert.match(readSrc("modules/platform/aiCoo.ts"), /ON CONFLICT DO NOTHING/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_044|MIGRATION_044/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig044_partial_uq|mig044_expr_uq/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ai_coo_notif_settings$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ai_coo_notif_settings\.office_id$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ai_coo_notif_settings$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-coo-notif-044/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-coo-notif-044/);
+console.log("  ✅ migration 044 owns ai_coo_notif_settings + UNIQUE(office_id); Runtime CREATE absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

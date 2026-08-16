@@ -49,6 +49,7 @@
 - ~~Runtime `CREATE`/`INDEX` for `ai_events` / `ai_events_office_status_idx`~~ — removed via migration **041**; `aiEvents` keeps readiness (`to_regclass`) + insert/read/dismiss/scan DML (application `WHERE NOT EXISTS` dedupe preserved)
 - ~~Runtime `CREATE` for `ai_agents` / `agent_actions` + cron `CREATE`/`INDEX` for `agent_job_logs`~~ — removed via migration **042**; `agentRuntime` keeps readiness + seed DML (`ON CONFLICT (id)`); `agentCron` keeps readiness + job-log DML
 - ~~Runtime `CREATE`/`INDEX` for `case_ai_insights` / `idx_case_ai_insights_case`~~ — removed via migration **043**; `case.ai` keeps readiness (`to_regclass`) + analysis/insight/task DML
+- ~~Runtime `CREATE` for `ai_coo_notif_settings`~~ — removed via migration **044**; `aiCoo` keeps readiness (`to_regclass`) + GET/PATCH/notify DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -121,6 +122,7 @@
 | `ai_events` (+ `ai_events_office_status_idx`) | **041** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; insert/dismiss/scan DML preserved) |
 | `ai_agents` / `agent_actions` / `agent_job_logs` (+ `idx_agent_job_logs_created` DESC / `idx_agent_job_logs_type`) | **042** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; seed + job-log DML preserved; no invented FK/UNIQUE) |
 | `case_ai_insights` (+ `idx_case_ai_insights_case`) | **043** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; analysis/insight DML preserved; TEXT office_id/case_id; no invented FK/UNIQUE) |
+| `ai_coo_notif_settings` (+ `UNIQUE(office_id)`) | **044** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/notify DML + ON CONFLICT preserved; TEXT office_id; no invented FK) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

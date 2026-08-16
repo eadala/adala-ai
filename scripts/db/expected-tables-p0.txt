@@ -127,3 +127,6 @@ agent_job_logs
 
 # Migration 043 — Case AI Insights
 case_ai_insights
+
+# Migration 044 — AI COO Notif Settings
+ai_coo_notif_settings
