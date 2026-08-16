@@ -71,6 +71,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:ai-events-041
           pnpm --filter @workspace/api-server run test:ai-agents-042
           pnpm --filter @workspace/api-server run test:case-ai-insights-043
+          pnpm --filter @workspace/api-server run test:ai-coo-notif-044
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
         run: |

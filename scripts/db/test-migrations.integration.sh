@@ -52,6 +52,7 @@ MIGRATION_040="$ROOT/artifacts/api-server/migrations/040_ai_provider_engine_sche
 MIGRATION_041="$ROOT/artifacts/api-server/migrations/041_ai_events_schema_authority.sql"
 MIGRATION_042="$ROOT/artifacts/api-server/migrations/042_ai_agents_schema_authority.sql"
 MIGRATION_043="$ROOT/artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql"
+MIGRATION_044="$ROOT/artifacts/api-server/migrations/044_ai_coo_notif_settings_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -234,7 +235,8 @@ apply_migration_033() {
 # 035 owns JLWM Satellites 6 tables (Stage 4C).
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
 # 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events;
-# 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights.
+# 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights;
+# 044 owns ai_coo_notif_settings.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -256,6 +258,7 @@ verify_p0_schema() {
   apply_migration_041
   apply_migration_042
   apply_migration_043
+  apply_migration_044
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -297,6 +300,10 @@ apply_migration_042() {
 
 apply_migration_043() {
   psql_db -f "$MIGRATION_043" >/dev/null
+}
+
+apply_migration_044() {
+  psql_db -f "$MIGRATION_044" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -344,11 +351,12 @@ apply_all_migrations() {
   apply_migration_041
   apply_migration_042
   apply_migration_043
+  apply_migration_044
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…043 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…044 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -4928,6 +4936,379 @@ scenario_migration_043_case_ai_insights() {
   else
     grep -qi 'office_id\|case_ai_insights' /tmp/mig043-p0-col.log \
       && ok "N: P0 verify fails when critical column missing" || bad "N: verify log missing column"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_044_ai_coo_notif_settings() {
+  log "Scenario 044 — AI COO Notif Settings: greenfield / SAFE / BLOCK / UNIQUE / Runtime / P0"
+  local PREFLIGHT_044="$ROOT/scripts/db/preflight-migration-044.sql"
+  local AICOO_SRC="$ROOT/artifacts/api-server/src/modules/platform/aiCoo.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUE(office_id)
+  setup_db "mig044_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok uq_ok
+  tbl_ok=$(psql_db -At -c "SELECT to_regclass('public.ai_coo_notif_settings') IS NOT NULL")
+  [[ "$tbl_ok" == "t" ]] && ok "A: ai_coo_notif_settings present" || bad "A: table missing"
+  uq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.ai_coo_notif_settings'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    ) OR EXISTS (
+      SELECT 1 FROM pg_index x
+      WHERE x.indrelid='public.ai_coo_notif_settings'::regclass
+        AND x.indisunique AND NOT x.indisprimary
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
+            = ARRAY['office_id']::text[]
+    )")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUE(office_id) present" || bad "A: UNIQUE missing"
+  apply_migration_044
+  ok "A: re-run 044 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight044-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight044-ready.log | tail -1)"
+  grep -q 'AI_COO_NOTIF_SETTINGS_SCHEMA_READY' /tmp/preflight044-ready.log \
+    && ok "A: AI_COO_NOTIF_SETTINGS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig044_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE ai_coo_notif_settings CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight044-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_044
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.ai_coo_notif_settings') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: ai_coo_notif_settings restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig044_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE ai_coo_notif_settings DROP COLUMN min_level;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight044-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|min_level' /tmp/preflight044-misscol.log \
+    && ok "C: missing min_level → SAFE" || bad "C: preflight"
+  apply_migration_044
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='ai_coo_notif_settings' AND column_name='min_level'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: min_level restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: wrong type BLOCK
+  setup_db "mig044_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP COLUMN office_id CASCADE;
+    ALTER TABLE ai_coo_notif_settings ADD COLUMN office_id INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig044-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason=$(tail -3 /tmp/mig044-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig044_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT ai_coo_notif_settings_pkey;
+    ALTER TABLE ai_coo_notif_settings ADD PRIMARY KEY (office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-pk.log 2>&1; then
+    bad "E: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-pk.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-pk.log 2>&1; then
+    bad "E: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig044-pk.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: NULL office_id BLOCK + row preserved
+  setup_db "mig044_nullreq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO ai_coo_notif_settings (office_id, min_level) VALUES (NULL, 'null-row');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-null.log 2>&1; then
+    bad "F: preflight should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-null.log \
+      && ok "F: preflight BLOCK NULL_REQUIRED" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-null.log 2>&1; then
+    bad "F: migration should BLOCK NULL office_id"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig044-null.log \
+      && ok "F: migration BLOCK NULL_REQUIRED" || bad "F: mig reason=$(tail -3 /tmp/mig044-null.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM ai_coo_notif_settings WHERE min_level='null-row'")" == "1" ]] \
+    && ok "F: NULL office_id row preserved" || bad "F: row not preserved"
+  trap - EXIT
+  teardown_db
+
+  # G: duplicate office_id BLOCK + rows preserved
+  setup_db "mig044_dup_office"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT IF EXISTS ai_coo_notif_settings_office_id_key;
+    INSERT INTO ai_coo_notif_settings (office_id, min_level)
+    VALUES ('dup044', 'a'), ('dup044', 'b');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-dup.log 2>&1; then
+    bad "G: preflight should BLOCK duplicate office_id"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-dup.log \
+      && ok "G: preflight BLOCK duplicate office_id" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-dup.log 2>&1; then
+    bad "G: migration should BLOCK duplicate office_id"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig044-dup.log \
+      && ok "G: migration BLOCK duplicate office_id" || bad "G: mig reason=$(tail -3 /tmp/mig044-dup.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM ai_coo_notif_settings WHERE office_id='dup044'")" == "2" ]] \
+    && ok "G: duplicate office_id rows preserved" || bad "G: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # H: missing UNIQUE clean → SAFE apply restores
+  setup_db "mig044_miss_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT IF EXISTS ai_coo_notif_settings_office_id_key;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-missuq.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight044-missuq.log \
+    && bad "H: missing UNIQUE must not be ALREADY_CORRECT" \
+    || ok "H: missing UNIQUE not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING|office_id' /tmp/preflight044-missuq.log \
+    && ok "H: missing UNIQUE → SAFE" || bad "H: preflight"
+  apply_migration_044
+  local uq_restored
+  uq_restored=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.ai_coo_notif_settings'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_restored" == "t" ]] && ok "H: UNIQUE(office_id) restored" || bad "H: UNIQUE still missing"
+  trap - EXIT
+  teardown_db
+
+  # I: wrong/wider same-name UNIQUE BLOCK — never ALREADY
+  setup_db "mig044_wider_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT IF EXISTS ai_coo_notif_settings_office_id_key;
+    ALTER TABLE ai_coo_notif_settings ADD CONSTRAINT ai_coo_notif_settings_office_id_key
+      UNIQUE (office_id, min_level);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-wuniq.log 2>&1; then
+    bad "I: preflight should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-wuniq.log \
+      && ok "I: preflight BLOCK INCOMPATIBLE_UNIQUE (wider)" || bad "I: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight044-wuniq.log \
+      && bad "I: must never ALREADY with wrong UNIQUE" \
+      || ok "I: not ALREADY_CORRECT"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-wuniq.log 2>&1; then
+    bad "I: migration should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig044-wuniq.log \
+      && ok "I: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "I: mig reason=$(tail -3 /tmp/mig044-wuniq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # J: partial UNIQUE(office_id) WHERE … BLOCK
+  setup_db "mig044_partial_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT IF EXISTS ai_coo_notif_settings_office_id_key;
+    CREATE UNIQUE INDEX ai_coo_notif_settings_office_id_key
+      ON ai_coo_notif_settings (office_id) WHERE telegram_enabled IS TRUE;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-partial.log 2>&1; then
+    bad "J: preflight should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-partial.log \
+      && ok "J: preflight BLOCK INCOMPATIBLE_UNIQUE (partial)" || bad "J: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-partial.log 2>&1; then
+    bad "J: migration should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig044-partial.log \
+      && ok "J: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "J: mig reason=$(tail -3 /tmp/mig044-partial.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: expression UNIQUE(lower(office_id)) BLOCK
+  setup_db "mig044_expr_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE ai_coo_notif_settings DROP CONSTRAINT IF EXISTS ai_coo_notif_settings_office_id_key;
+    CREATE UNIQUE INDEX ai_coo_notif_settings_office_id_expr
+      ON ai_coo_notif_settings (lower(office_id));
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_044" >/tmp/preflight044-expr.log 2>&1; then
+    bad "K: preflight should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight044-expr.log \
+      && ok "K: preflight BLOCK INCOMPATIBLE_UNIQUE (expression)" || bad "K: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_044" >/tmp/mig044-expr.log 2>&1; then
+    bad "K: migration should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig044-expr.log \
+      && ok "K: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "K: mig reason=$(tail -3 /tmp/mig044-expr.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L: ON CONFLICT (office_id) works after apply (GET seed + PATCH upsert)
+  setup_db "mig044_on_conflict"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO ai_coo_notif_settings (office_id)
+    VALUES ('upsert-044')
+    ON CONFLICT DO NOTHING;
+    INSERT INTO ai_coo_notif_settings
+      (office_id, telegram_enabled, min_level, email_recipients, auto_notify, updated_at)
+    VALUES
+      ('upsert-044', true, 'warning', 'a@b.co', true, NOW())
+    ON CONFLICT (office_id) DO UPDATE SET
+      telegram_enabled = EXCLUDED.telegram_enabled,
+      min_level = EXCLUDED.min_level,
+      email_recipients = EXCLUDED.email_recipients,
+      auto_notify = EXCLUDED.auto_notify,
+      updated_at = NOW();
+    UPDATE ai_coo_notif_settings SET last_notified_at = NOW() WHERE office_id = 'upsert-044';
+  " >/dev/null
+  local up_min up_tg up_email notified
+  up_min=$(psql_db -At -c "SELECT min_level FROM ai_coo_notif_settings WHERE office_id='upsert-044'")
+  up_tg=$(psql_db -At -c "SELECT telegram_enabled FROM ai_coo_notif_settings WHERE office_id='upsert-044'")
+  up_email=$(psql_db -At -c "SELECT email_recipients FROM ai_coo_notif_settings WHERE office_id='upsert-044'")
+  notified=$(psql_db -At -c "SELECT last_notified_at IS NOT NULL FROM ai_coo_notif_settings WHERE office_id='upsert-044'")
+  [[ "$up_min" == "warning" && "$up_tg" == "t" && "$up_email" == "a@b.co" && "$notified" == "t" ]] \
+    && ok "L: ON CONFLICT (office_id) DO UPDATE + last_notified_at works" \
+    || bad "L: min=$up_min tg=$up_tg email=$up_email notified=$notified"
+  trap - EXIT
+  teardown_db
+
+  # M: Runtime CREATE absent; readiness + DML preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS ai_coo_notif_settings' "$AICOO_SRC"; then
+    bad "M: Runtime CREATE still present in aiCoo.ts"
+  else
+    ok "M: Runtime CREATE absent"
+  fi
+  grep -q "to_regclass('public.ai_coo_notif_settings')" "$AICOO_SRC" \
+    && ok "M: to_regclass readiness present" \
+    || bad "M: to_regclass readiness missing"
+  grep -q 'ON CONFLICT DO NOTHING' "$AICOO_SRC" \
+    && grep -q 'ON CONFLICT (office_id) DO UPDATE' "$AICOO_SRC" \
+    && grep -q 'UPDATE ai_coo_notif_settings SET last_notified_at' "$AICOO_SRC" \
+    && ok "M: GET/PATCH/notify DML + ON CONFLICT preserved" \
+    || bad "M: DML/ON CONFLICT missing"
+
+  # N: prior AI tables still present; 044 does not CREATE them
+  setup_db "mig044_prior_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local prior_cnt
+  prior_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('case_ai_insights','ai_agents','ai_events','office_ai_credits','ai_provider_config')")
+  [[ "$prior_cnt" == "5" ]] && ok "N: prior AI tables still present after chain" || bad "N: prior count=$prior_cnt"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (case_ai_insights|support_ai_analysis|ai_agents|ai_events|office_ai_credits)' "$MIGRATION_044"; then
+    bad "N: 044 must not CREATE out-of-scope tables"
+  else
+    ok "N: 044 does not CREATE 039–043/out-of-scope tables"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # O: P0 verify fails without ai_coo_notif_settings / critical column
+  setup_db "mig044_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig044-p0-present.log 2>&1; then
+    ok "O: verify-schema passes with 044 objects"
+  else
+    bad "O: verify-schema failed after full chain"; tail -20 /tmp/mig044-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE ai_coo_notif_settings CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig044-p0.log 2>&1; then
+    bad "O: verify-schema should fail without ai_coo_notif_settings"
+  else
+    grep -qi 'ai_coo_notif_settings' /tmp/mig044-p0.log \
+      && ok "O: P0 verify fails when ai_coo_notif_settings absent" || bad "O: verify log missing table"
+  fi
+  apply_migration_044
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig044-p0-restored.log 2>&1; then
+    ok "O: verify-schema passes after 044 restore"
+  else
+    bad "O: verify failed after restore"; tail -20 /tmp/mig044-p0-restored.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE ai_coo_notif_settings DROP COLUMN office_id;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig044-p0-col.log 2>&1; then
+    bad "O: verify-schema should fail without ai_coo_notif_settings.office_id"
+  else
+    grep -qi 'office_id\|ai_coo_notif_settings' /tmp/mig044-p0-col.log \
+      && ok "O: P0 verify fails when critical column missing" || bad "O: verify log missing column"
   fi
   trap - EXIT
   teardown_db
@@ -11586,6 +11967,7 @@ scenario_migration_040_ai_provider_engine
 scenario_migration_041_ai_events
 scenario_migration_042_ai_agents
 scenario_migration_043_case_ai_insights
+scenario_migration_044_ai_coo_notif_settings
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
