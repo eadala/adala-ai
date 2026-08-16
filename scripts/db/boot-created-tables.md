@@ -48,6 +48,7 @@
 - ~~Runtime `CREATE` for `ai_provider_config` / `office_ai_settings`~~ — removed via migration **040**; `aiProviderEngine` keeps readiness (`to_regclass`) + provider seed DML (`INSERT … ON CONFLICT (provider)`) and settings upserts (`ON CONFLICT (office_id)`)
 - ~~Runtime `CREATE`/`INDEX` for `ai_events` / `ai_events_office_status_idx`~~ — removed via migration **041**; `aiEvents` keeps readiness (`to_regclass`) + insert/read/dismiss/scan DML (application `WHERE NOT EXISTS` dedupe preserved)
 - ~~Runtime `CREATE` for `ai_agents` / `agent_actions` + cron `CREATE`/`INDEX` for `agent_job_logs`~~ — removed via migration **042**; `agentRuntime` keeps readiness + seed DML (`ON CONFLICT (id)`); `agentCron` keeps readiness + job-log DML
+- ~~Runtime `CREATE`/`INDEX` for `case_ai_insights` / `idx_case_ai_insights_case`~~ — removed via migration **043**; `case.ai` keeps readiness (`to_regclass`) + analysis/insight/task DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -119,6 +120,7 @@
 | `ai_provider_config` / `office_ai_settings` | **040** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; seed/upsert DML preserved) |
 | `ai_events` (+ `ai_events_office_status_idx`) | **041** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; insert/dismiss/scan DML preserved) |
 | `ai_agents` / `agent_actions` / `agent_job_logs` (+ `idx_agent_job_logs_created` DESC / `idx_agent_job_logs_type`) | **042** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; seed + job-log DML preserved; no invented FK/UNIQUE) |
+| `case_ai_insights` (+ `idx_case_ai_insights_case`) | **043** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; analysis/insight DML preserved; TEXT office_id/case_id; no invented FK/UNIQUE) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

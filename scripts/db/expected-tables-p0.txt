@@ -124,3 +124,6 @@ ai_events
 ai_agents
 agent_actions
 agent_job_logs
+
+# Migration 043 — Case AI Insights
+case_ai_insights

@@ -51,6 +51,7 @@ MIGRATION_039="$ROOT/artifacts/api-server/migrations/039_ai_credits_usage_schema
 MIGRATION_040="$ROOT/artifacts/api-server/migrations/040_ai_provider_engine_schema_authority.sql"
 MIGRATION_041="$ROOT/artifacts/api-server/migrations/041_ai_events_schema_authority.sql"
 MIGRATION_042="$ROOT/artifacts/api-server/migrations/042_ai_agents_schema_authority.sql"
+MIGRATION_043="$ROOT/artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -233,7 +234,7 @@ apply_migration_033() {
 # 035 owns JLWM Satellites 6 tables (Stage 4C).
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
 # 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events;
-# 042 owns ai_agents / agent_actions / agent_job_logs.
+# 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -254,6 +255,7 @@ verify_p0_schema() {
   apply_migration_040
   apply_migration_041
   apply_migration_042
+  apply_migration_043
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -291,6 +293,10 @@ apply_migration_041() {
 
 apply_migration_042() {
   psql_db -f "$MIGRATION_042" >/dev/null
+}
+
+apply_migration_043() {
+  psql_db -f "$MIGRATION_043" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -337,11 +343,12 @@ apply_all_migrations() {
   apply_migration_040
   apply_migration_041
   apply_migration_042
+  apply_migration_043
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…042 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…043 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -4582,6 +4589,345 @@ scenario_migration_042_ai_agents() {
     ok "M: verify-schema passes after 042 restore"
   else
     bad "M: verify failed after restore"; tail -20 /tmp/mig042-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_043_case_ai_insights() {
+  log "Scenario 043 — Case AI Insights: greenfield / SAFE / BLOCK / index DESC / Runtime / P0"
+  local PREFLIGHT_043="$ROOT/scripts/db/preflight-migration-043.sql"
+  local CASE_AI_SRC="$ROOT/artifacts/api-server/src/case/case.ai.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + index DESC shape
+  setup_db "mig043_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok idx_ok
+  tbl_ok=$(psql_db -At -c "SELECT to_regclass('public.case_ai_insights') IS NOT NULL")
+  [[ "$tbl_ok" == "t" ]] && ok "A: case_ai_insights present" || bad "A: case_ai_insights missing"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='case_ai_insights'
+        AND i.relname='idx_case_ai_insights_case'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['case_id','office_id','created_at']::text[]
+        AND (x.indoption[2] & 1) = 1
+        AND (x.indoption[0] & 1) = 0
+        AND (x.indoption[1] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_case_ai_insights_case (case_id, office_id, created_at DESC)" \
+    || bad "A: index missing/wrong"
+  apply_migration_043
+  ok "A: re-run 043 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight043-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight043-ready.log | tail -1)"
+  grep -q 'CASE_AI_INSIGHTS_SCHEMA_READY' /tmp/preflight043-ready.log \
+    && ok "A: CASE_AI_INSIGHTS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig043_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE case_ai_insights CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA\|MISSING_INDEXES' /tmp/preflight043-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_043
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.case_ai_insights') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: case_ai_insights restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing safe column SAFE + restore
+  setup_db "mig043_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE case_ai_insights DROP COLUMN alerts;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight043-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|alerts' /tmp/preflight043-misscol.log \
+    && ok "C: missing alerts → SAFE" || bad "C: preflight"
+  apply_migration_043
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='case_ai_insights' AND column_name='alerts'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: alerts restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: wrong type BLOCK
+  setup_db "mig043_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE case_ai_insights DROP COLUMN office_id;
+    ALTER TABLE case_ai_insights ADD COLUMN office_id INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-type.log 2>&1; then
+    bad "D: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-type.log \
+      && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-type.log 2>&1; then
+    bad "D: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig043-type.log \
+      && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason=$(tail -3 /tmp/mig043-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig043_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE case_ai_insights DROP CONSTRAINT case_ai_insights_pkey;
+    ALTER TABLE case_ai_insights ADD PRIMARY KEY (case_id, office_id, id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-pk.log 2>&1; then
+    bad "E: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-pk.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-pk.log 2>&1; then
+    bad "E: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig043-pk.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: NULL required field BLOCK + rows preserved
+  setup_db "mig043_nullreq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE case_ai_insights ALTER COLUMN office_id DROP NOT NULL;
+    INSERT INTO case_ai_insights (case_id, office_id, risks)
+    VALUES ('case-null', NULL, '[]'::jsonb);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-null.log 2>&1; then
+    bad "F: preflight should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-null.log \
+      && ok "F: preflight BLOCK NULL_REQUIRED" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-null.log 2>&1; then
+    bad "F: migration should BLOCK NULL required"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig043-null.log \
+      && ok "F: migration BLOCK NULL_REQUIRED" || bad "F: mig reason=$(tail -3 /tmp/mig043-null.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM case_ai_insights WHERE case_id='case-null'")" == "1" ]] \
+    && ok "F: NULL office_id row preserved" || bad "F: row deleted"
+  trap - EXIT
+  teardown_db
+
+  # G: missing index SAFE + restore
+  setup_db "mig043_miss_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_case_ai_insights_case;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-missidx.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight043-missidx.log \
+    && bad "G: missing index must not be ALREADY_CORRECT" \
+    || ok "G: missing index not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|MISSING_INDEXES|idx_case_ai_insights_case' /tmp/preflight043-missidx.log \
+    && ok "G: missing index → SAFE" || bad "G: preflight"
+  apply_migration_043
+  local idx_restored
+  idx_restored=$(psql_db -At -c "SELECT to_regclass('public.idx_case_ai_insights_case') IS NOT NULL")
+  [[ "$idx_restored" == "t" ]] && ok "G: index restored" || bad "G: index still missing"
+  trap - EXIT
+  teardown_db
+
+  # H: wrong same-name index (wrong cols) BLOCK
+  setup_db "mig043_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_case_ai_insights_case;
+    CREATE INDEX idx_case_ai_insights_case ON case_ai_insights(case_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-widx.log 2>&1; then
+    bad "H: preflight should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-widx.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_INDEX" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-widx.log 2>&1; then
+    bad "H: migration should BLOCK wrong same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig043-widx.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_INDEX" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: stolen index name on another table BLOCK (never SAFE)
+  setup_db "mig043_stolen_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE case_ai_insights CASCADE;
+    CREATE TABLE case_ai_insights_orphan (case_id TEXT, office_id TEXT, created_at TIMESTAMPTZ);
+    CREATE INDEX idx_case_ai_insights_case ON case_ai_insights_orphan(case_id, office_id, created_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-stolen.log 2>&1; then
+    bad "I: preflight must BLOCK missing table + stolen same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-stolen.log \
+      && ok "I: preflight BLOCK INCOMPATIBLE_INDEX (stolen name)" || bad "I: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight043-stolen.log \
+      && bad "I: must never SAFE when same-name index incompatible" \
+      || ok "I: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-stolen.log 2>&1; then
+    bad "I: migration should BLOCK stolen index name"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig043-stolen.log \
+      && ok "I: migration BLOCK INCOMPATIBLE_INDEX" || bad "I: mig reason=$(tail -3 /tmp/mig043-stolen.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # J: wrong DESC prefix/final direction BLOCK
+  setup_db "mig043_wrong_desc"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_case_ai_insights_case;
+    CREATE INDEX idx_case_ai_insights_case ON case_ai_insights(case_id DESC, office_id, created_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-wrongdesc.log 2>&1; then
+    bad "J: preflight must BLOCK prefix DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-wrongdesc.log \
+      && ok "J: preflight BLOCK wrong DESC" || bad "J: preflight reason"
+    grep -q 'ALREADY_CORRECT\|CASE_AI_INSIGHTS_SCHEMA_READY' /tmp/preflight043-wrongdesc.log \
+      && bad "J: must never ALREADY with wrong DESC" \
+      || ok "J: no ALREADY_CORRECT for wrong DESC"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-wrongdesc.log 2>&1; then
+    bad "J: migration should BLOCK wrong DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig043-wrongdesc.log \
+      && ok "J: migration BLOCK INCOMPATIBLE_INDEX wrong DESC" || bad "J: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: ASC-only instead of final DESC BLOCK
+  setup_db "mig043_asc_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_case_ai_insights_case;
+    CREATE INDEX idx_case_ai_insights_case ON case_ai_insights(case_id, office_id, created_at);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_043" >/tmp/preflight043-asc.log 2>&1; then
+    bad "K: preflight must BLOCK ASC-only index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight043-asc.log \
+      && ok "K: preflight BLOCK ASC-only (missing DESC)" || bad "K: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_043" >/tmp/mig043-asc.log 2>&1; then
+    bad "K: migration should BLOCK ASC-only index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig043-asc.log \
+      && ok "K: migration BLOCK ASC-only" || bad "K: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L: Runtime CREATE/INDEX absent; readiness + DML present
+  if grep -qE 'CREATE TABLE IF NOT EXISTS case_ai_insights|CREATE INDEX IF NOT EXISTS idx_case_ai_insights_case' "$CASE_AI_SRC"; then
+    bad "L: Runtime CREATE/INDEX still present in case.ai"
+  else
+    ok "L: Runtime CREATE/INDEX absent"
+  fi
+  grep -q "to_regclass('public.case_ai_insights')" "$CASE_AI_SRC" \
+    && ok "L: to_regclass readiness present" \
+    || bad "L: to_regclass readiness missing"
+  grep -q 'INSERT INTO case_ai_insights' "$CASE_AI_SRC" \
+    && grep -q 'UPDATE case_ai_insights SET auto_tasks' "$CASE_AI_SRC" \
+    && ok "L: insert + update DML present" \
+    || bad "L: DML missing"
+
+  # M: prior AI tables still present; 043 does not CREATE them
+  setup_db "mig043_prior_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local prior_ok
+  prior_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN (
+        'office_ai_credits','ai_credit_transactions','ai_usage_logs',
+        'ai_provider_config','office_ai_settings','ai_events',
+        'ai_agents','agent_actions','agent_job_logs'
+      )")
+  [[ "$prior_ok" == "9" ]] && ok "M: 039–042 tables still present after chain" || bad "M: count=$prior_ok"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_coo_notif_settings|support_ai_analysis|ai_agents|ai_events|office_ai_credits)' "$MIGRATION_043"; then
+    bad "M: 043 must not CREATE out-of-scope tables"
+  else
+    ok "M: 043 does not CREATE 039–042/out-of-scope tables"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # N: P0 verify fails without case_ai_insights; restores after 043
+  setup_db "mig043_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig043-p0-present.log 2>&1; then
+    ok "N: verify-schema passes with 043 objects"
+  else
+    bad "N: verify-schema failed after full chain"; tail -20 /tmp/mig043-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE case_ai_insights CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig043-p0.log 2>&1; then
+    bad "N: verify-schema should fail without case_ai_insights"
+  else
+    grep -qi 'case_ai_insights' /tmp/mig043-p0.log \
+      && ok "N: P0 verify fails when case_ai_insights absent" || bad "N: verify log missing case_ai_insights"
+  fi
+  apply_migration_043
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig043-p0-restored.log 2>&1; then
+    ok "N: verify-schema passes after 043 restore"
+  else
+    bad "N: verify failed after restore"; tail -20 /tmp/mig043-p0-restored.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE case_ai_insights DROP COLUMN office_id;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig043-p0-col.log 2>&1; then
+    bad "N: verify-schema should fail without case_ai_insights.office_id"
+  else
+    grep -qi 'office_id\|case_ai_insights' /tmp/mig043-p0-col.log \
+      && ok "N: P0 verify fails when critical column missing" || bad "N: verify log missing column"
   fi
   trap - EXIT
   teardown_db
@@ -11239,6 +11585,7 @@ scenario_migration_039_ai_credits_usage
 scenario_migration_040_ai_provider_engine
 scenario_migration_041_ai_events
 scenario_migration_042_ai_agents
+scenario_migration_043_case_ai_insights
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

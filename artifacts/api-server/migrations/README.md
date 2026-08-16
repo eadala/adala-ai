@@ -428,7 +428,27 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-042.sql
 
-# 43) تحقق بعد التنفيذ
+# 43) Migration 043 — Case AI Insights schema authority (Stage 7)
+#    Ops:
+#      a) run preflight-migration-043.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 043
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: case_ai_insights (+ idx_case_ai_insights_case
+#    (case_id, office_id, created_at DESC)).
+#    Does NOT CREATE COO/support AI / orphans / 039–042 objects.
+#    No invented UNIQUE/FK. office_id/case_id remain TEXT business keys.
+#    Runtime CREATE/INDEX removed from case.ai; readiness + DML preserved.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-043.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-043.sql
+
+# 44) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -476,6 +496,7 @@ bash scripts/db/verify-schema.sh
 | `040_ai_provider_engine_schema_authority.sql` | AI Provider Engine Runtime schema authority (Stage 7E). Owns former Runtime DDL from `aiProviderEngine.ensureTables`: `ai_provider_config` (+ `UNIQUE(provider)` for seed `ON CONFLICT (provider) DO NOTHING`), `office_ai_settings` (+ `UNIQUE(office_id)` for upsert `ON CONFLICT (office_id) DO UPDATE`). Does **not** CREATE credits/usage (039), agents, or invent FK. `office_id` remains TEXT business key (no UUID-only enforcement). BLOCK on incompatible types/NULL required/PK/UNIQUE and duplicate `provider` / `office_id`. Runtime CREATE removed; readiness + seed/upsert DML preserved. Preflight: `scripts/db/preflight-migration-040.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 040 → re-preflight → verify-schema → deploy API. |
 | `041_ai_events_schema_authority.sql` | AI Events Runtime schema authority (Stage 7E). Owns former Runtime DDL from `aiEvents.ensureTables`: `ai_events` + exact `ai_events_office_status_idx` `(office_id, status, created_at DESC)`. Does **not** invent UNIQUE/FK (dedupe remains application `WHERE NOT EXISTS`). Does **not** CREATE agents / case insights / COO / support AI / orphans / 039–040 objects. `office_id` TEXT business key; `created_at` is `TIMESTAMP` (without time zone). BLOCK on incompatible types/NULL required/PK/INDEX (incl. stolen name + wrong DESC bits). Runtime CREATE/INDEX removed; readiness + insert/read/dismiss/scan DML preserved. Preflight: `scripts/db/preflight-migration-041.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 041 → re-preflight → verify-schema → deploy API. |
 | `042_ai_agents_schema_authority.sql` | AI Agents Runtime schema authority (Stage 7). Owns former Runtime DDL from `agentRuntime` IIFE + `agentCron.ensureTables`: `ai_agents` (+ 5-row seed `ON CONFLICT (id) DO NOTHING`), `agent_actions`, `agent_job_logs` + exact `idx_agent_job_logs_created` `(created_at DESC)` + `idx_agent_job_logs_type` `(agent_type)`. Does **not** invent UNIQUE/FK. Does **not** CREATE events/insights/COO/support/orphans/039–041. `agent_job_logs.office_id` remains nullable TEXT. BLOCK on incompatible types/NULL required/PK/INDEX (incl. stolen name + wrong DESC bits). Runtime CREATE/INDEX removed; readiness + seed/job-log DML preserved. Preflight: `scripts/db/preflight-migration-042.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 042 → re-preflight → verify-schema → deploy API. |
+| `043_case_ai_insights_schema_authority.sql` | Case AI Insights Runtime schema authority (Stage 7). Owns former Runtime DDL from `case.ai.ensureAIInsightsTable`: `case_ai_insights` + exact `idx_case_ai_insights_case` `(case_id, office_id, created_at DESC)`. TEXT PK `id` with `DEFAULT gen_random_uuid()::text`. Does **not** invent UNIQUE/FK. Does **not** CREATE COO/support/orphans/039–042. `office_id`/`case_id` TEXT business keys (no UUID-only enforcement). BLOCK on incompatible types/NULL required/PK/INDEX (incl. stolen name + wrong DESC bits). Runtime CREATE/INDEX removed; readiness + analysis/insight/task DML preserved. Preflight: `scripts/db/preflight-migration-043.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 043 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

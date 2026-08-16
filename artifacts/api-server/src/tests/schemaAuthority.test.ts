@@ -1490,6 +1490,49 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-agents-042/
 assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-agents-042/);
 console.log("  ✅ migration 042 owns agents trio + DESC index; Runtime CREATE/INDEX absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: Case AI Insights (043) ═══");
+assert.ok(migrationFiles.includes("043_case_ai_insights_schema_authority.sql"));
+const mig043 = readRepo("artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql");
+assert.match(mig043, /CREATE TABLE IF NOT EXISTS case_ai_insights/);
+assert.match(mig043, /idx_case_ai_insights_case/);
+assert.match(mig043, /case_id,\s*office_id,\s*created_at\s+DESC/i);
+assert.match(mig043, /INCOMPATIBLE_INDEX/);
+assert.match(mig043, /POST_APPLY_READINESS_FAILED|CASE_AI_INSIGHTS_SCHEMA_READY/);
+assert.match(mig043, /i\.relname\s*=\s*'idx_case_ai_insights_case'/);
+{
+  const sqlOnly043 = mig043.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly043, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly043, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly043, /CREATE TABLE IF NOT EXISTS ai_coo_notif_settings\b/);
+  assert.doesNotMatch(sqlOnly043, /CREATE TABLE IF NOT EXISTS support_ai_analysis\b/);
+  assert.doesNotMatch(sqlOnly043, /CREATE TABLE IF NOT EXISTS ai_agents\b/);
+  assert.doesNotMatch(sqlOnly043, /FOREIGN\s+KEY/i);
+  assert.doesNotMatch(sqlOnly043, /UNIQUE\s*\(/);
+}
+const preflight043 = readRepo("scripts/db/preflight-migration-043.sql");
+assert.match(preflight043, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight043, /CASE_AI_INSIGHTS_SCHEMA_READY/);
+assert.match(preflight043, /SAFE_AUTO_REPAIR/);
+assert.match(preflight043, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight043, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight043, /i\.relname\s*=\s*'idx_case_ai_insights_case'/);
+assert.match(preflight043, /desc_ok/);
+assert.doesNotMatch(readSrc("case/case.ai.ts"), /CREATE TABLE IF NOT EXISTS case_ai_insights/);
+assert.doesNotMatch(readSrc("case/case.ai.ts"), /CREATE INDEX IF NOT EXISTS idx_case_ai_insights_case/);
+assert.match(readSrc("case/case.ai.ts"), /to_regclass\('public\.case_ai_insights'\)/);
+assert.match(readSrc("case/case.ai.ts"), /ensureAIInsightsTable/);
+assert.match(readSrc("case/case.ai.ts"), /INSERT INTO case_ai_insights/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_043|MIGRATION_043/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig043_stolen_idx/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig043_wrong_desc/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^case_ai_insights$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^case_ai_insights\.case_id$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^case_ai_insights\.office_id$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^case_ai_insights$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:case-ai-insights-043/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:case-ai-insights-043/);
+console.log("  ✅ migration 043 owns case_ai_insights + DESC index; Runtime CREATE/INDEX absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 schema ownership only */
 /**
  * Case AI — Autonomous Legal Assistant Engine
  * ─────────────────────────────────────────────
@@ -8,6 +8,8 @@
  *  - touch financial data
  *  - execute without approval
  *  - bypass tenant isolation
+ *
+ * Schema owned by Migration 043 — Runtime CREATE/INDEX removed.
  */
 
 import { db }    from "@workspace/db";
@@ -48,24 +50,21 @@ export interface AIInsight {
   created_at:  string;
 }
 
-/* ── DB bootstrap ────────────────────────────────── */
+/* ── readiness — schema owned by Migration 043 ── */
+let insightsSchemaReady = false;
 export async function ensureAIInsightsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_ai_insights (
-      id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      case_id     TEXT NOT NULL,
-      office_id   TEXT NOT NULL,
-      risks       JSONB DEFAULT '[]',
-      suggestions JSONB DEFAULT '[]',
-      alerts      JSONB DEFAULT '[]',
-      auto_tasks  JSONB DEFAULT '[]',
-      created_at  TIMESTAMPTZ DEFAULT now()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_case_ai_insights_case
-    ON case_ai_insights(case_id, office_id, created_at DESC)
-  `).catch(() => {});
+  if (insightsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.case_ai_insights') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      console.error("[case.ai] Migration 043 schema not ready — case_ai_insights missing");
+      return;
+    }
+    insightsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── Mask PII before sending to external AI ─────── */

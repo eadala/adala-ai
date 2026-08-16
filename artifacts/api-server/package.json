@@ -75,6 +75,7 @@
     "test:ai-provider-040": "node --import tsx src/tests/aiProviderEngineSchemaAuthority040.test.ts",
     "test:ai-events-041": "node --import tsx src/tests/aiEventsSchemaAuthority041.test.ts",
     "test:ai-agents-042": "node --import tsx src/tests/aiAgentsSchemaAuthority042.test.ts",
+    "test:case-ai-insights-043": "node --import tsx src/tests/caseAiInsightsSchemaAuthority043.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
     "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"
