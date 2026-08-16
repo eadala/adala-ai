@@ -70,8 +70,6 @@ security_alerts
 security_events
 security_sessions
 server_config
-support_ai_analysis
-support_knowledge_base
 support_ticket_attachments
 support_ticket_audit
 support_visitor_profiles

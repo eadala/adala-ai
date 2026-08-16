@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 schema ownership only */
 /**
  * AI Support Agent Layer — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -9,6 +10,9 @@
  *   5. SOC Integration            — eventBus for security tickets
  *   6. Knowledge Base             — support_knowledge_base table
  *   7. AI Metrics                 — stats & performance
+ *
+ * Schema owned by Migration 045 — Runtime CREATE removed.
+ * KB seed INSERT preserved (known duplicate-seed follow-up; no invented UNIQUE).
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -24,43 +28,27 @@ const router = Router();
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   TABLES
-══════════════════════════════════════════════════════════════════════════ */
+/* ── readiness — schema owned by Migration 045 ── */
+let supportAiSchemaReady = false;
 export async function ensureSupportAITables(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_ai_analysis (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      ticket_id       TEXT NOT NULL UNIQUE,
-      ai_type         TEXT,   -- security | bug | billing | performance | feature | general
-      ai_priority     TEXT,   -- critical | high | medium | low
-      ai_root_cause   TEXT,
-      ai_confidence   NUMERIC(4,2) DEFAULT 0,
-      ai_suggestions  JSONB  DEFAULT '[]',
-      ai_summary      TEXT,
-      ai_auto_replied BOOLEAN DEFAULT FALSE,
-      ai_escalated    BOOLEAN DEFAULT FALSE,
-      soc_alerted     BOOLEAN DEFAULT FALSE,
-      knowledge_hits  JSONB  DEFAULT '[]',
-      model_used      TEXT,
-      created_at      TIMESTAMPTZ DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+  if (!supportAiSchemaReady) {
+    try {
+      const r = await db.execute(sql`
+        SELECT
+          to_regclass('public.support_ai_analysis') IS NOT NULL AS analysis_present,
+          to_regclass('public.support_knowledge_base') IS NOT NULL AS kb_present
+      `).catch(() => ({ rows: [{}] }));
+      const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+      if (!row.analysis_present || !row.kb_present) {
+        console.error("[support-ai] Migration 045 schema not ready — support_ai_analysis / support_knowledge_base missing");
+        return;
+      }
+      supportAiSchemaReady = true;
+    } catch { /* non-blocking */ }
+  }
 
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_knowledge_base (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      category    TEXT NOT NULL,
-      issue       TEXT NOT NULL,
-      fix         TEXT NOT NULL,
-      tags        TEXT[] DEFAULT '{}',
-      hits        INT  DEFAULT 0,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* Seed knowledge base */
+  /* Seed knowledge base — preserved app behavior (bare ON CONFLICT DO NOTHING
+   * has no useful arbiter without a business UNIQUE; de-dupe is a follow-up). */
   await db.execute(sql`
     INSERT INTO support_knowledge_base (category, issue, fix, tags) VALUES
       ('security', 'cross-tenant data leak', 'Add office_id filter + enable RLS on all tables', ARRAY['security','rls','office_id']),

@@ -50,6 +50,7 @@
 - ~~Runtime `CREATE` for `ai_agents` / `agent_actions` + cron `CREATE`/`INDEX` for `agent_job_logs`~~ — removed via migration **042**; `agentRuntime` keeps readiness + seed DML (`ON CONFLICT (id)`); `agentCron` keeps readiness + job-log DML
 - ~~Runtime `CREATE`/`INDEX` for `case_ai_insights` / `idx_case_ai_insights_case`~~ — removed via migration **043**; `case.ai` keeps readiness (`to_regclass`) + analysis/insight/task DML
 - ~~Runtime `CREATE` for `ai_coo_notif_settings`~~ — removed via migration **044**; `aiCoo` keeps readiness (`to_regclass`) + GET/PATCH/notify DML
+- ~~Runtime `CREATE` for `support_ai_analysis` / `support_knowledge_base`~~ — removed via migration **045**; `support-ai` keeps readiness (`to_regclass`) + analysis/KB DML (KB seed duplicate follow-up)
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -123,6 +124,7 @@
 | `ai_agents` / `agent_actions` / `agent_job_logs` (+ `idx_agent_job_logs_created` DESC / `idx_agent_job_logs_type`) | **042** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; seed + job-log DML preserved; no invented FK/UNIQUE) |
 | `case_ai_insights` (+ `idx_case_ai_insights_case`) | **043** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; analysis/insight DML preserved; TEXT office_id/case_id; no invented FK/UNIQUE) |
 | `ai_coo_notif_settings` (+ `UNIQUE(office_id)`) | **044** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/notify DML + ON CONFLICT preserved; TEXT office_id; no invented FK) |
+| `support_ai_analysis` (+ `UNIQUE(ticket_id)`) / `support_knowledge_base` (PK only) | **045** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; analysis ON CONFLICT + KB DML preserved; no invented KB UNIQUE/FK; `ai_score` deferred to Enterprise) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

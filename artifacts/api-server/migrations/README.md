@@ -468,7 +468,28 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-044.sql
 
-# 45) تحقق بعد التنفيذ
+# 45) Migration 045 — Support AI schema authority (Stage 7)
+#    Ops:
+#      a) run preflight-migration-045.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 045
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: support_ai_analysis (+ exact UNIQUE(ticket_id) for
+#    ON CONFLICT (ticket_id) DO UPDATE) + support_knowledge_base (PK only).
+#    Does NOT invent KB business UNIQUE/FK. Does NOT ALTER ai_score /
+#    Enterprise support objects / 039–044.
+#    Runtime CREATE removed from ensureSupportAITables; readiness + DML preserved
+#    (KB seed duplicate-seed follow-up — no invented UNIQUE).
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-045.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/045_support_ai_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-045.sql
+
+# 46) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -518,6 +539,7 @@ bash scripts/db/verify-schema.sh
 | `042_ai_agents_schema_authority.sql` | AI Agents Runtime schema authority (Stage 7). Owns former Runtime DDL from `agentRuntime` IIFE + `agentCron.ensureTables`: `ai_agents` (+ 5-row seed `ON CONFLICT (id) DO NOTHING`), `agent_actions`, `agent_job_logs` + exact `idx_agent_job_logs_created` `(created_at DESC)` + `idx_agent_job_logs_type` `(agent_type)`. Does **not** invent UNIQUE/FK. Does **not** CREATE events/insights/COO/support/orphans/039–041. `agent_job_logs.office_id` remains nullable TEXT. BLOCK on incompatible types/NULL required/PK/INDEX (incl. stolen name + wrong DESC bits). Runtime CREATE/INDEX removed; readiness + seed/job-log DML preserved. Preflight: `scripts/db/preflight-migration-042.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 042 → re-preflight → verify-schema → deploy API. |
 | `043_case_ai_insights_schema_authority.sql` | Case AI Insights Runtime schema authority (Stage 7). Owns former Runtime DDL from `case.ai.ensureAIInsightsTable`: `case_ai_insights` + exact `idx_case_ai_insights_case` `(case_id, office_id, created_at DESC)`. TEXT PK `id` with `DEFAULT gen_random_uuid()::text`. Does **not** invent UNIQUE/FK. Does **not** CREATE COO/support/orphans/039–042. `office_id`/`case_id` TEXT business keys (no UUID-only enforcement). BLOCK on incompatible types/NULL required/PK/INDEX (incl. stolen name + wrong DESC bits). Runtime CREATE/INDEX removed; readiness + analysis/insight/task DML preserved. Preflight: `scripts/db/preflight-migration-043.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 043 → re-preflight → verify-schema → deploy API. |
 | `044_ai_coo_notif_settings_schema_authority.sql` | AI COO Notif Settings Runtime schema authority (Stage 7). Owns former Runtime DDL from `aiCoo.ensureNotifTable`: `ai_coo_notif_settings` + exact `UNIQUE(office_id)` for GET seed `ON CONFLICT DO NOTHING` and PATCH `ON CONFLICT (office_id) DO UPDATE`. SERIAL PK `id`. Does **not** invent FK. Does **not** CREATE support AI / orphans / 039–043. `office_id` TEXT business key (no UUID-only / remap / backfill). BLOCK on incompatible types/NULL required/PK/UNIQUE (wider/partial/expression/same-name wrong) and duplicate `office_id` (rows preserved). Runtime CREATE removed; readiness + GET/PATCH/notify DML preserved. Preflight: `scripts/db/preflight-migration-044.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 044 → re-preflight → verify-schema → deploy API. |
+| `045_support_ai_schema_authority.sql` | Support AI Runtime schema authority (Stage 7). Owns former Runtime CREATE from `support-ai.ensureSupportAITables`: `support_ai_analysis` (+ exact `UNIQUE(ticket_id)` for `ON CONFLICT (ticket_id) DO UPDATE`) and `support_knowledge_base` (UUID PK only — **no** invented business UNIQUE/FK). Does **not** ALTER `support_tickets.ai_score` or Enterprise support satellites. BLOCK on incompatible types/NULL required/PK/UNIQUE and duplicate `ticket_id` (rows preserved). KB duplicate seed rows never deleted/merged. Runtime CREATE removed; readiness + analysis/KB DML preserved. Preflight: `scripts/db/preflight-migration-045.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 045 → re-preflight → verify-schema → deploy API. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
