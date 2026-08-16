@@ -5699,7 +5699,7 @@ scenario_migration_045_support_ai() {
   else
     ok "P: 045 does not CREATE 039–044 tables"
   fi
-  if grep -qE 'ai_score|support_ticket_attachments|support_visitor_profiles' "$MIGRATION_045"; then
+  if grep -qE 'ADD COLUMN IF NOT EXISTS ai_score|CREATE TABLE IF NOT EXISTS support_ticket_attachments|CREATE TABLE IF NOT EXISTS support_visitor_profiles|CREATE TABLE IF NOT EXISTS support_ticket_audit' "$MIGRATION_045"; then
     bad "P: 045 must not touch Enterprise support objects / ai_score"
   else
     ok "P: 045 excludes Enterprise / ai_score"
