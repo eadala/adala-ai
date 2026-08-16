@@ -53,6 +53,7 @@ MIGRATION_041="$ROOT/artifacts/api-server/migrations/041_ai_events_schema_author
 MIGRATION_042="$ROOT/artifacts/api-server/migrations/042_ai_agents_schema_authority.sql"
 MIGRATION_043="$ROOT/artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql"
 MIGRATION_044="$ROOT/artifacts/api-server/migrations/044_ai_coo_notif_settings_schema_authority.sql"
+MIGRATION_045="$ROOT/artifacts/api-server/migrations/045_support_ai_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -236,7 +237,7 @@ apply_migration_033() {
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
 # 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events;
 # 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights;
-# 044 owns ai_coo_notif_settings.
+# 044 owns ai_coo_notif_settings; 045 owns support_ai_analysis / support_knowledge_base.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -259,6 +260,7 @@ verify_p0_schema() {
   apply_migration_042
   apply_migration_043
   apply_migration_044
+  apply_migration_045
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -304,6 +306,10 @@ apply_migration_043() {
 
 apply_migration_044() {
   psql_db -f "$MIGRATION_044" >/dev/null
+}
+
+apply_migration_045() {
+  psql_db -f "$MIGRATION_045" >/dev/null
 }
 
 apply_migrations_through_013() {
@@ -352,11 +358,12 @@ apply_all_migrations() {
   apply_migration_042
   apply_migration_043
   apply_migration_044
+  apply_migration_045
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…044 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…045 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -5309,6 +5316,426 @@ scenario_migration_044_ai_coo_notif_settings() {
   else
     grep -qi 'office_id\|ai_coo_notif_settings' /tmp/mig044-p0-col.log \
       && ok "O: P0 verify fails when critical column missing" || bad "O: verify log missing column"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_045_support_ai() {
+  log "Scenario 045 — Support AI: greenfield / SAFE / BLOCK / UNIQUE(ticket_id) / Runtime / P0 / KB"
+  local PREFLIGHT_045="$ROOT/scripts/db/preflight-migration-045.sql"
+  local SUPPORT_AI_SRC="$ROOT/artifacts/api-server/src/modules/platform/support-ai.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUE(ticket_id) + no KB business UNIQUE
+  setup_db "mig045_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt uq_ok kb_uq
+  tbl_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('support_ai_analysis','support_knowledge_base')")
+  [[ "$tbl_cnt" == "2" ]] && ok "A: 2 owned tables present" || bad "A: table count=$tbl_cnt"
+  uq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.support_ai_analysis'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*ticket_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUE(ticket_id) present" || bad "A: UNIQUE missing"
+  kb_uq=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_constraint c
+    WHERE c.conrelid='public.support_knowledge_base'::regclass AND c.contype='u'")
+  [[ "$kb_uq" == "0" ]] && ok "A: KB has no business UNIQUE (PK only)" || bad "A: KB unique count=$kb_uq"
+  apply_migration_045
+  ok "A: re-run 045 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight045-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight045-ready.log | tail -1)"
+  grep -q 'SUPPORT_AI_SCHEMA_READY' /tmp/preflight045-ready.log \
+    && ok "A: SUPPORT_AI_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig045_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE support_knowledge_base CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight045-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_045
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.support_knowledge_base') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: support_knowledge_base restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig045_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE support_ai_analysis DROP COLUMN ai_summary;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight045-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|ai_summary' /tmp/preflight045-misscol.log \
+    && ok "C: missing ai_summary → SAFE" || bad "C: preflight"
+  apply_migration_045
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='support_ai_analysis' AND column_name='ai_summary'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: ai_summary restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: missing UNIQUE clean → SAFE apply restores
+  setup_db "mig045_miss_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT IF EXISTS support_ai_analysis_ticket_id_key;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-missuq.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight045-missuq.log \
+    && bad "D: missing UNIQUE must not be ALREADY_CORRECT" \
+    || ok "D: missing UNIQUE not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING|ticket_id' /tmp/preflight045-missuq.log \
+    && ok "D: missing UNIQUE → SAFE" || bad "D: preflight"
+  apply_migration_045
+  local uq_restored
+  uq_restored=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.support_ai_analysis'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*ticket_id[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_restored" == "t" ]] && ok "D: UNIQUE(ticket_id) restored" || bad "D: UNIQUE still missing"
+  trap - EXIT
+  teardown_db
+
+  # E: wrong type BLOCK
+  setup_db "mig045_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP COLUMN ticket_id CASCADE;
+    ALTER TABLE support_ai_analysis ADD COLUMN ticket_id INTEGER;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-type.log 2>&1; then
+    bad "E: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-type.log \
+      && ok "E: preflight BLOCK INCOMPATIBLE_TYPE" || bad "E: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-type.log 2>&1; then
+    bad "E: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig045-type.log \
+      && ok "E: migration BLOCK INCOMPATIBLE_TYPE" || bad "E: mig reason=$(tail -3 /tmp/mig045-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong PK BLOCK
+  setup_db "mig045_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT support_ai_analysis_pkey;
+    ALTER TABLE support_ai_analysis ADD PRIMARY KEY (ticket_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-pk.log 2>&1; then
+    bad "F: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-pk.log \
+      && ok "F: preflight BLOCK INCOMPATIBLE_PK" || bad "F: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-pk.log 2>&1; then
+    bad "F: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig045-pk.log \
+      && ok "F: migration BLOCK INCOMPATIBLE_PK" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: NULL ticket_id BLOCK + row preserved
+  setup_db "mig045_null_ticket"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis ALTER COLUMN ticket_id DROP NOT NULL;
+    INSERT INTO support_ai_analysis (ticket_id, ai_summary) VALUES (NULL, 'null-ticket-row');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-nullt.log 2>&1; then
+    bad "G: preflight should BLOCK NULL ticket_id"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-nullt.log \
+      && ok "G: preflight BLOCK NULL_REQUIRED (ticket_id)" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-nullt.log 2>&1; then
+    bad "G: migration should BLOCK NULL ticket_id"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig045-nullt.log \
+      && ok "G: migration BLOCK NULL_REQUIRED" || bad "G: mig reason=$(tail -3 /tmp/mig045-nullt.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_ai_analysis WHERE ai_summary='null-ticket-row'")" == "1" ]] \
+    && ok "G: NULL ticket_id row preserved" || bad "G: row not preserved"
+  trap - EXIT
+  teardown_db
+
+  # H: NULL required KB category/issue/fix BLOCK + rows preserved
+  setup_db "mig045_null_kb"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_knowledge_base ALTER COLUMN category DROP NOT NULL;
+    ALTER TABLE support_knowledge_base ALTER COLUMN issue DROP NOT NULL;
+    ALTER TABLE support_knowledge_base ALTER COLUMN fix DROP NOT NULL;
+    INSERT INTO support_knowledge_base (category, issue, fix) VALUES (NULL, NULL, NULL);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-nullkb.log 2>&1; then
+    bad "H: preflight should BLOCK NULL KB required cols"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-nullkb.log \
+      && ok "H: preflight BLOCK NULL_REQUIRED (KB)" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-nullkb.log 2>&1; then
+    bad "H: migration should BLOCK NULL KB required cols"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig045-nullkb.log \
+      && ok "H: migration BLOCK NULL_REQUIRED" || bad "H: mig reason=$(tail -3 /tmp/mig045-nullkb.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_knowledge_base WHERE category IS NULL")" == "1" ]] \
+    && ok "H: NULL KB row preserved" || bad "H: row not preserved"
+  trap - EXIT
+  teardown_db
+
+  # I: duplicate ticket_id BLOCK + rows preserved
+  setup_db "mig045_dup_ticket"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT IF EXISTS support_ai_analysis_ticket_id_key;
+    INSERT INTO support_ai_analysis (ticket_id, ai_summary)
+    VALUES ('dup045', 'a'), ('dup045', 'b');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-dup.log 2>&1; then
+    bad "I: preflight should BLOCK duplicate ticket_id"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-dup.log \
+      && ok "I: preflight BLOCK duplicate ticket_id" || bad "I: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-dup.log 2>&1; then
+    bad "I: migration should BLOCK duplicate ticket_id"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig045-dup.log \
+      && ok "I: migration BLOCK duplicate ticket_id" || bad "I: mig reason=$(tail -3 /tmp/mig045-dup.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_ai_analysis WHERE ticket_id='dup045'")" == "2" ]] \
+    && ok "I: duplicate ticket_id rows preserved" || bad "I: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # J: wrong/wider same-name UNIQUE BLOCK
+  setup_db "mig045_wider_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT IF EXISTS support_ai_analysis_ticket_id_key;
+    ALTER TABLE support_ai_analysis ADD CONSTRAINT support_ai_analysis_ticket_id_key
+      UNIQUE (ticket_id, ai_type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-wuniq.log 2>&1; then
+    bad "J: preflight should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-wuniq.log \
+      && ok "J: preflight BLOCK INCOMPATIBLE_UNIQUE (wider)" || bad "J: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-wuniq.log 2>&1; then
+    bad "J: migration should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig045-wuniq.log \
+      && ok "J: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "J: mig reason=$(tail -3 /tmp/mig045-wuniq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: partial UNIQUE(ticket_id) WHERE … BLOCK
+  setup_db "mig045_partial_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT IF EXISTS support_ai_analysis_ticket_id_key;
+    CREATE UNIQUE INDEX support_ai_analysis_ticket_id_key
+      ON support_ai_analysis (ticket_id) WHERE ai_auto_replied IS TRUE;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-partial.log 2>&1; then
+    bad "K: preflight should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-partial.log \
+      && ok "K: preflight BLOCK INCOMPATIBLE_UNIQUE (partial)" || bad "K: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-partial.log 2>&1; then
+    bad "K: migration should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig045-partial.log \
+      && ok "K: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "K: mig reason=$(tail -3 /tmp/mig045-partial.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L: expression UNIQUE(lower(ticket_id)) BLOCK
+  setup_db "mig045_expr_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ai_analysis DROP CONSTRAINT IF EXISTS support_ai_analysis_ticket_id_key;
+    CREATE UNIQUE INDEX support_ai_analysis_ticket_id_expr
+      ON support_ai_analysis (lower(ticket_id));
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-expr.log 2>&1; then
+    bad "L: preflight should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight045-expr.log \
+      && ok "L: preflight BLOCK INCOMPATIBLE_UNIQUE (expression)" || bad "L: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_045" >/tmp/mig045-expr.log 2>&1; then
+    bad "L: migration should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig045-expr.log \
+      && ok "L: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "L: mig reason=$(tail -3 /tmp/mig045-expr.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: ON CONFLICT (ticket_id) works after apply
+  setup_db "mig045_on_conflict"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO support_ai_analysis (ticket_id, ai_type, ai_summary)
+    VALUES ('upsert-045', 'bug', 'first')
+    ON CONFLICT (ticket_id) DO NOTHING;
+    INSERT INTO support_ai_analysis (ticket_id, ai_type, ai_summary, ai_auto_replied)
+    VALUES ('upsert-045', 'security', 'second', true)
+    ON CONFLICT (ticket_id) DO UPDATE SET
+      ai_type = EXCLUDED.ai_type,
+      ai_summary = EXCLUDED.ai_summary,
+      ai_auto_replied = EXCLUDED.ai_auto_replied,
+      updated_at = NOW();
+  " >/dev/null
+  local up_type up_sum up_cnt
+  up_type=$(psql_db -At -c "SELECT ai_type FROM support_ai_analysis WHERE ticket_id='upsert-045'")
+  up_sum=$(psql_db -At -c "SELECT ai_summary FROM support_ai_analysis WHERE ticket_id='upsert-045'")
+  up_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM support_ai_analysis WHERE ticket_id='upsert-045'")
+  [[ "$up_type" == "security" && "$up_sum" == "second" && "$up_cnt" == "1" ]] \
+    && ok "M: ON CONFLICT (ticket_id) DO UPDATE works" \
+    || bad "M: type=$up_type sum=$up_sum cnt=$up_cnt"
+  trap - EXIT
+  teardown_db
+
+  # N: Runtime CREATE absent; readiness + DML + seed preserved; no invented KB UNIQUE in migration
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (support_ai_analysis|support_knowledge_base)' "$SUPPORT_AI_SRC"; then
+    bad "N: Runtime CREATE still present in support-ai.ts"
+  else
+    ok "N: Runtime CREATE absent"
+  fi
+  grep -q "to_regclass('public.support_ai_analysis')" "$SUPPORT_AI_SRC" \
+    && grep -q "to_regclass('public.support_knowledge_base')" "$SUPPORT_AI_SRC" \
+    && ok "N: to_regclass readiness present" \
+    || bad "N: to_regclass readiness missing"
+  grep -q 'ON CONFLICT (ticket_id) DO UPDATE' "$SUPPORT_AI_SRC" \
+    && grep -q 'INSERT INTO support_knowledge_base' "$SUPPORT_AI_SRC" \
+    && grep -q 'ON CONFLICT DO NOTHING' "$SUPPORT_AI_SRC" \
+    && ok "N: analysis upsert + KB seed DML preserved" \
+    || bad "N: DML missing"
+  if grep -qE 'UNIQUE\s*\(\s*(category|issue|fix)' "$MIGRATION_045"; then
+    bad "N: 045 must not invent KB business UNIQUE"
+  else
+    ok "N: 045 does not invent KB business UNIQUE"
+  fi
+
+  # O: KB duplicate seed rows preserved (no delete/merge); no invented UNIQUE
+  setup_db "mig045_kb_dups"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO support_knowledge_base (category, issue, fix)
+    VALUES ('bug', 'dup-seed-issue', 'fix-a'), ('bug', 'dup-seed-issue', 'fix-b');
+  " >/dev/null
+  apply_migration_045
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_knowledge_base WHERE issue='dup-seed-issue'")" == "2" ]] \
+    && ok "O: KB duplicate rows preserved after re-apply" || bad "O: KB rows altered"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_045" >/tmp/preflight045-kbdup.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight045-kbdup.log \
+    && ok "O: KB duplicates do not BLOCK (no invented UNIQUE)" \
+    || bad "O: $(grep chosen_action /tmp/preflight045-kbdup.log | tail -1)"
+  trap - EXIT
+  teardown_db
+
+  # P: prior 039–044 tables still present; 045 does not CREATE them / ai_score
+  setup_db "mig045_prior_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local prior_cnt
+  prior_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('ai_coo_notif_settings','case_ai_insights','ai_agents','ai_events','office_ai_credits')")
+  [[ "$prior_cnt" == "5" ]] && ok "P: prior AI tables still present after chain" || bad "P: prior count=$prior_cnt"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (ai_coo_notif_settings|case_ai_insights|ai_agents|ai_events|office_ai_credits)' "$MIGRATION_045"; then
+    bad "P: 045 must not CREATE 039–044 tables"
+  else
+    ok "P: 045 does not CREATE 039–044 tables"
+  fi
+  if grep -qE 'ADD COLUMN IF NOT EXISTS ai_score|CREATE TABLE IF NOT EXISTS support_ticket_attachments|CREATE TABLE IF NOT EXISTS support_visitor_profiles|CREATE TABLE IF NOT EXISTS support_ticket_audit' "$MIGRATION_045"; then
+    bad "P: 045 must not touch Enterprise support objects / ai_score"
+  else
+    ok "P: 045 excludes Enterprise / ai_score"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # Q: P0 verify fails without owned table / critical column
+  setup_db "mig045_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig045-p0-present.log 2>&1; then
+    ok "Q: verify-schema passes with 045 objects"
+  else
+    bad "Q: verify-schema failed after full chain"; tail -20 /tmp/mig045-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE support_ai_analysis CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig045-p0.log 2>&1; then
+    bad "Q: verify-schema should fail without support_ai_analysis"
+  else
+    grep -qi 'support_ai_analysis' /tmp/mig045-p0.log \
+      && ok "Q: P0 verify fails when support_ai_analysis absent" || bad "Q: verify log missing table"
+  fi
+  apply_migration_045
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig045-p0-restored.log 2>&1; then
+    ok "Q: verify-schema passes after 045 restore"
+  else
+    bad "Q: verify failed after restore"; tail -20 /tmp/mig045-p0-restored.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE support_knowledge_base DROP COLUMN category;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig045-p0-col.log 2>&1; then
+    bad "Q: verify-schema should fail without support_knowledge_base.category"
+  else
+    grep -qi 'category\|support_knowledge_base' /tmp/mig045-p0-col.log \
+      && ok "Q: P0 verify fails when critical column missing" || bad "Q: verify log missing column"
   fi
   trap - EXIT
   teardown_db
@@ -11968,6 +12395,7 @@ scenario_migration_041_ai_events
 scenario_migration_042_ai_agents
 scenario_migration_043_case_ai_insights
 scenario_migration_044_ai_coo_notif_settings
+scenario_migration_045_support_ai
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

@@ -424,3 +424,11 @@ case_ai_insights.id
 ai_coo_notif_settings.id
 ai_coo_notif_settings.office_id
 ai_coo_notif_settings.updated_at
+
+support_ai_analysis.id
+support_ai_analysis.ticket_id
+support_ai_analysis.created_at
+support_knowledge_base.id
+support_knowledge_base.category
+support_knowledge_base.issue
+support_knowledge_base.fix

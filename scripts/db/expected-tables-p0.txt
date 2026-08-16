@@ -130,3 +130,7 @@ case_ai_insights
 
 # Migration 044 — AI COO Notif Settings
 ai_coo_notif_settings
+
+# Migration 045 — Support AI
+support_ai_analysis
+support_knowledge_base

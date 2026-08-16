@@ -1570,6 +1570,49 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:ai-coo-notif-0
 assert.match(readRepo(".github/workflows/ci.yml"), /test:ai-coo-notif-044/);
 console.log("  ✅ migration 044 owns ai_coo_notif_settings + UNIQUE(office_id); Runtime CREATE absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: Support AI (045) ═══");
+assert.ok(migrationFiles.includes("045_support_ai_schema_authority.sql"));
+const mig045 = readRepo("artifacts/api-server/migrations/045_support_ai_schema_authority.sql");
+assert.match(mig045, /CREATE TABLE IF NOT EXISTS support_ai_analysis/);
+assert.match(mig045, /CREATE TABLE IF NOT EXISTS support_knowledge_base/);
+assert.match(mig045, /UNIQUE\s*\(\s*ticket_id\s*\)/i);
+assert.match(mig045, /INCOMPATIBLE_UNIQUE/);
+assert.match(mig045, /POST_APPLY_READINESS_FAILED|SUPPORT_AI_SCHEMA_READY/);
+assert.match(mig045, /DUPLICATE_UNIQUE_KEY/);
+{
+  const sqlOnly045 = mig045.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly045, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly045, /(?:^|;)\s*DELETE\s+FROM\b/im);
+  assert.doesNotMatch(sqlOnly045, /ai_score/);
+  assert.doesNotMatch(sqlOnly045, /CREATE TABLE IF NOT EXISTS support_ticket_attachments\b/);
+  assert.doesNotMatch(sqlOnly045, /CREATE TABLE IF NOT EXISTS ai_coo_notif_settings\b/);
+  assert.doesNotMatch(sqlOnly045, /FOREIGN\s+KEY/i);
+  assert.doesNotMatch(sqlOnly045, /UNIQUE\s*\(\s*category/i);
+}
+const preflight045 = readRepo("scripts/db/preflight-migration-045.sql");
+assert.match(preflight045, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight045, /SUPPORT_AI_SCHEMA_READY/);
+assert.match(preflight045, /SAFE_AUTO_REPAIR/);
+assert.match(preflight045, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight045, /Any blocker wins|blocker wins over every safe repair/i);
+assert.match(preflight045, /INCOMPATIBLE_UNIQUE/);
+assert.doesNotMatch(readSrc("modules/platform/support-ai.ts"), /CREATE TABLE IF NOT EXISTS support_ai_analysis/);
+assert.doesNotMatch(readSrc("modules/platform/support-ai.ts"), /CREATE TABLE IF NOT EXISTS support_knowledge_base/);
+assert.match(readSrc("modules/platform/support-ai.ts"), /to_regclass\('public\.support_ai_analysis'\)/);
+assert.match(readSrc("modules/platform/support-ai.ts"), /to_regclass\('public\.support_knowledge_base'\)/);
+assert.match(readSrc("modules/platform/support-ai.ts"), /ensureSupportAITables/);
+assert.match(readSrc("modules/platform/support-ai.ts"), /ON CONFLICT \(ticket_id\) DO UPDATE/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_045|MIGRATION_045/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig045_partial_uq|mig045_expr_uq|mig045_kb_dups/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^support_ai_analysis$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^support_knowledge_base$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^support_ai_analysis\.ticket_id$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^support_ai_analysis$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^support_knowledge_base$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:support-ai-045/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:support-ai-045/);
+console.log("  ✅ migration 045 owns Support AI tables + UNIQUE(ticket_id); Runtime CREATE absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
