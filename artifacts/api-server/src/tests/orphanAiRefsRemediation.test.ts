@@ -7,7 +7,7 @@
  * 2) no production source references obsolete ai_credits (excl. office_ai_credits)
  * 3) production-launch readiness uses office_ai_credits
  * 4) ai_command_sessions durable DML removed; v2 in-memory only
- * 5) no speculative Migration 046
+ * 5) no speculative ai_command_sessions Migration 046 (046 = Support Enterprise)
  */
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
@@ -93,11 +93,20 @@ assert.doesNotMatch(stripComments(v1), /ai_command_sessions/);
 assert.match(v1, /\/ai-command\/sessions/);
 console.log("  ✅ durable session DML removed; v2 memory + legacy session stubs remain");
 
-console.log("\n═══ no speculative Migration 046 ═══");
+console.log("\n═══ no speculative ai_command_sessions Migration 046 ═══");
 const migDir = join(ROOT, "artifacts/api-server/migrations");
 const mig046 = readdirSync(migDir).filter((f) => /^046_/.test(f));
-assert.deepEqual(mig046, [], `unexpected 046 migration(s): ${mig046.join(", ")}`);
-assert.ok(!existsSync(join(ROOT, "scripts/db/preflight-migration-046.sql")));
-console.log("  ✅ no Migration 046 / preflight-046");
+// Migration 046 is reserved for Support Enterprise schema authority (Stage 7).
+// Orphan remediation must not invent a sessions / AI-credits 046.
+assert.deepEqual(
+  mig046,
+  ["046_support_enterprise_schema_authority.sql"],
+  `unexpected 046 migration(s): ${mig046.join(", ")}`,
+);
+assert.ok(existsSync(join(ROOT, "scripts/db/preflight-migration-046.sql")));
+const mig046Body = readRepo("artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql");
+assert.doesNotMatch(mig046Body, /ai_command_sessions|ai_credit_log|\bai_credits\b/);
+assert.match(mig046Body, /support_ticket_attachments|support_visitor_profiles/);
+console.log("  ✅ 046 is Support Enterprise only (no speculative sessions/credits migration)");
 
 console.log("\n✅ orphanAiRefsRemediation tests passed\n");
