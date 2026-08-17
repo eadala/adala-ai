@@ -134,3 +134,8 @@ ai_coo_notif_settings
 # Migration 045 — Support AI
 support_ai_analysis
 support_knowledge_base
+
+# Migration 046 — Support Enterprise
+support_ticket_attachments
+support_ticket_audit
+support_visitor_profiles

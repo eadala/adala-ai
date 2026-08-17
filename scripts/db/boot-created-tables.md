@@ -51,6 +51,7 @@
 - ~~Runtime `CREATE`/`INDEX` for `case_ai_insights` / `idx_case_ai_insights_case`~~ — removed via migration **043**; `case.ai` keeps readiness (`to_regclass`) + analysis/insight/task DML
 - ~~Runtime `CREATE` for `ai_coo_notif_settings`~~ — removed via migration **044**; `aiCoo` keeps readiness (`to_regclass`) + GET/PATCH/notify DML
 - ~~Runtime `CREATE` for `support_ai_analysis` / `support_knowledge_base`~~ — removed via migration **045**; `support-ai` keeps readiness (`to_regclass`) + analysis/KB DML (KB seed duplicate follow-up)
+- ~~Runtime `CREATE`/`ALTER`/`INDEX` from `ensureEnterpriseSchema`~~ — removed via migration **046**; `support-enterprise` keeps readiness (`to_regclass`) + ticket/audit/visitor DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -125,6 +126,7 @@
 | `case_ai_insights` (+ `idx_case_ai_insights_case`) | **043** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; analysis/insight DML preserved; TEXT office_id/case_id; no invented FK/UNIQUE) |
 | `ai_coo_notif_settings` (+ `UNIQUE(office_id)`) | **044** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/notify DML + ON CONFLICT preserved; TEXT office_id; no invented FK) |
 | `support_ai_analysis` (+ `UNIQUE(ticket_id)`) / `support_knowledge_base` (PK only) | **045** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; analysis ON CONFLICT + KB DML preserved; no invented KB UNIQUE/FK; `ai_score` deferred to Enterprise) |
+| `support_tickets` extensions (+ `ai_score`) / `support_ticket_attachments` (+ FK CASCADE) / `support_ticket_audit` / `support_visitor_profiles` (+ `UNIQUE(email)`) + 7 indexes | **046** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/ALTER/INDEX removed; DML preserved; no office_id backfill; orphans/wrong UNIQUE/INDEX fail-closed) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

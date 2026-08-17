@@ -70,9 +70,6 @@ security_alerts
 security_events
 security_sessions
 server_config
-support_ticket_attachments
-support_ticket_audit
-support_visitor_profiles
 system_audit_logs
 system_events
 telegram_logs
