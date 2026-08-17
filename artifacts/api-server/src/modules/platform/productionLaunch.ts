@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Production Launch Center — مركز إطلاق الإنتاج
  * ══════════════════════════════════════════════
@@ -79,8 +80,9 @@ router.get("/production-launch/readiness", requireSuperAdmin, async (req, res) =
     });
 
     /* ── 2. AI GATEWAY LAYER ── */
-    const aiLogs = await qOne(`SELECT COUNT(*) AS n FROM ai_assistant_logs`);
-    const aiCredits = await qOne(`SELECT COUNT(*) AS n FROM ai_credits`);
+    const aiLogs = await qOne(`SELECT COUNT(*) AS n FROM ai_assistant_logs`).catch(() => ({ n: 0 }));
+    /* Migration 039 authority — office_ai_credits (balance/allowance), not obsolete ai_credits */
+    const aiCredits = await qOne(`SELECT COUNT(*) AS n FROM office_ai_credits`).catch(() => ({ n: 0 }));
     const aiSanitizer = true; // built in src/core/promptSanitizer.ts
     layers.push({
       id: "ai",

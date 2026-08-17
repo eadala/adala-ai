@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Data Vault — Enterprise Multi-Tenant Isolation Center
  * ─────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ async function ensureSecurityTables() {
 const CRITICAL_TABLES = [
   "cases","clients","contracts","documents","employees",
   "tasks","reminders","audit_logs","login_logs",
-  "ai_tasks","ai_credit_transactions","ai_command_sessions",
+  "ai_tasks","ai_credit_transactions",
   "chart_of_accounts","office_ledger","revenues","expenses",
   "client_invoices","payroll","bank_accounts","cash_advances",
   "telegram_settings","telegram_logs","whatsapp_settings","whatsapp_logs",

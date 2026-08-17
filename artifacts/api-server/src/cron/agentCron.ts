@@ -226,8 +226,10 @@ async function runDailySnapshotAgent() {
       `).catch(() => ({ total: 0 })),
       sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM cases WHERE created_at::date = CURRENT_DATE`).catch(() => ({ cnt: 0 })),
       sqlOne(sql`
-        SELECT COALESCE(SUM(credits_used)::numeric,0) AS total FROM ai_credit_log
-        WHERE created_at::date = CURRENT_DATE
+        SELECT COALESCE(SUM(ABS(amount))::numeric,0) AS total
+        FROM ai_credit_transactions
+        WHERE type = 'usage'
+          AND created_at::date = CURRENT_DATE
       `).catch(() => ({ total: 0 })),
     ]);
 

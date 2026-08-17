@@ -273,7 +273,12 @@ async function checkAIIntegration(officeId: string): Promise<{
         COUNT(DISTINCT model_used) AS models_count
       FROM jlwm_ai_audit WHERE office_id = ${officeId}
     `),
-    qOne(sql`SELECT COALESCE(SUM(credits_used),0)::int AS used FROM ai_credits WHERE office_id=${officeId}`).catch(() => ({ used: 0 })),
+    /* Migration 039: usage debits from ai_credit_transactions (not obsolete ai_credits) */
+    qOne(sql`
+      SELECT COALESCE(SUM(ABS(amount)),0)::int AS used
+      FROM ai_credit_transactions
+      WHERE office_id = ${officeId} AND type = 'usage'
+    `).catch(() => ({ used: 0 })),
   ]);
 
   const models = await qAll(sql`
