@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Platform Command Center (PCC) — Real-time SaaS Operations Console
  * لوحة القيادة اللحظية — مركز عمليات المنصة
@@ -126,12 +127,16 @@ router.get("/pcc/tenant-matrix", pccOnly, async (_req, res) => {
       LIMIT 200
     `);
 
+    /* Migration 039: ai_credit_transactions (usage debits) — not obsolete ai_credit_log */
     const aiUsage = await q(sql`
-      SELECT office_id, COUNT(*) AS ai_calls, SUM(credits_used) AS ai_credits
-      FROM ai_credit_log
-      WHERE created_at > NOW() - INTERVAL '30 days'
+      SELECT office_id,
+             COUNT(*)::int AS ai_calls,
+             COALESCE(SUM(ABS(amount)), 0)::int AS ai_credits
+      FROM ai_credit_transactions
+      WHERE type = 'usage'
+        AND created_at > NOW() - INTERVAL '30 days'
       GROUP BY office_id
-    `).catch(() => []);
+    `);
     const aiMap: Record<string, any> = {};
     for (const r of aiUsage) aiMap[r.office_id] = r;
 
@@ -229,42 +234,47 @@ router.get("/pcc/event-stream", pccOnly, async (req, res) => {
 ══════════════════════════════════════════════════ */
 router.get("/pcc/ai-ops", pccOnly, async (_req, res) => {
   try {
+    /* Migration 039: ai_credit_transactions — amount/type/model usage accounting */
     const byOffice = await q(sql`
       SELECT
         l.office_id, o.name AS office_name, l.model,
-        COUNT(*) AS calls, SUM(l.credits_used) AS credits
-      FROM ai_credit_log l
+        COUNT(*)::int AS calls, COALESCE(SUM(ABS(l.amount)), 0)::int AS credits
+      FROM ai_credit_transactions l
       LEFT JOIN offices o ON o.id = l.office_id
-      WHERE l.created_at > NOW() - INTERVAL '30 days'
+      WHERE l.type = 'usage'
+        AND l.created_at > NOW() - INTERVAL '30 days'
       GROUP BY l.office_id, o.name, l.model
       ORDER BY credits DESC
       LIMIT 100
-    `).catch(() => []);
+    `);
 
     const byModel = await q(sql`
-      SELECT model, COUNT(*) AS calls, SUM(credits_used) AS credits
-      FROM ai_credit_log
-      WHERE created_at > NOW() - INTERVAL '30 days'
+      SELECT model, COUNT(*)::int AS calls, COALESCE(SUM(ABS(amount)), 0)::int AS credits
+      FROM ai_credit_transactions
+      WHERE type = 'usage'
+        AND created_at > NOW() - INTERVAL '30 days'
       GROUP BY model
       ORDER BY calls DESC
-    `).catch(() => []);
+    `);
 
     const dailyTrend = await q(sql`
       SELECT
         DATE_TRUNC('day', created_at) AS day,
-        COUNT(*) AS calls,
-        SUM(credits_used) AS credits
-      FROM ai_credit_log
-      WHERE created_at > NOW() - INTERVAL '14 days'
+        COUNT(*)::int AS calls,
+        COALESCE(SUM(ABS(amount)), 0)::int AS credits
+      FROM ai_credit_transactions
+      WHERE type = 'usage'
+        AND created_at > NOW() - INTERVAL '14 days'
       GROUP BY 1
       ORDER BY 1
-    `).catch(() => []);
+    `);
 
     const [totals] = await q(sql`
-      SELECT COUNT(*) AS total_calls, SUM(credits_used) AS total_credits
-      FROM ai_credit_log
-      WHERE created_at > NOW() - INTERVAL '30 days'
-    `).catch(() => [{}]);
+      SELECT COUNT(*)::int AS total_calls, COALESCE(SUM(ABS(amount)), 0)::int AS total_credits
+      FROM ai_credit_transactions
+      WHERE type = 'usage'
+        AND created_at > NOW() - INTERVAL '30 days'
+    `);
 
     res.json({
       byOffice,

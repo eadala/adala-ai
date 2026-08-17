@@ -1,18 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
-import { getAuth, createClerkClient } from "@clerk/express";
 import { callAI } from "./aiChat";
 
 const router = Router();
 const cmdOnly = requireSuperAdmin;
 
-let _clerk: ReturnType<typeof createClerkClient> | null = null;
-const getClerk = () => {
-  if (!_clerk) _clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-  return _clerk;
-};
 /* ── Agent definitions ───────────────────────────────────────────────────── */
 export const AGENTS: Record<string, { id: string; name: string; nameEn: string; icon: string; color: string; description: string; systemPrompt: string }> = {
   legal: {
@@ -101,18 +94,9 @@ router.post("/ai-command/chat/:agentType", cmdOnly, async (req, res) => {
 
     const { reply, modelUsed } = await callAI(systemPrompt, message, history, "auto");
 
-    const newHistory = [...history, { role: "user", content: message }, { role: "assistant", content: reply }];
-
-    // Persist session
+    /* Session id for client continuity only — durable ai_command_sessions retired
+     * (table absent in production; live UI uses /api/cc/* in-memory memory). */
     const sid = sessionId ?? crypto.randomUUID();
-    const auth = getAuth(req);
-    await db.execute(sql`
-      INSERT INTO ai_command_sessions (id, user_id, agent_type, messages, title, updated_at)
-      VALUES (${sid}, ${auth?.userId ?? null}, ${agentType}, ${JSON.stringify(newHistory)}::jsonb,
-              ${message.substring(0, 80)}, NOW())
-      ON CONFLICT (id) DO UPDATE
-        SET messages = ${JSON.stringify(newHistory)}::jsonb, updated_at = NOW()
-    `);
 
     res.json({ reply, modelUsed, sessionId: sid });
   } catch (e: any) {
@@ -120,46 +104,19 @@ router.post("/ai-command/chat/:agentType", cmdOnly, async (req, res) => {
   }
 });
 
-/* ── GET /ai-command/sessions ────────────────────────────────────────────── */
-router.get("/ai-command/sessions", cmdOnly, async (req, res) => {
-  try {
-    const { agentType } = req.query;
-    const auth = getAuth(req);
-    const rows = await db.execute(
-      agentType
-        ? sql`SELECT id, agent_type, title, created_at, updated_at FROM ai_command_sessions WHERE user_id = ${auth?.userId} AND agent_type = ${agentType} ORDER BY updated_at DESC LIMIT 20`
-        : sql`SELECT id, agent_type, title, created_at, updated_at FROM ai_command_sessions WHERE user_id = ${auth?.userId} ORDER BY updated_at DESC LIMIT 50`
-    );
-    res.json(rows.rows);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+/* ── GET /ai-command/sessions — legacy; no durable store ─────────────────── */
+router.get("/ai-command/sessions", cmdOnly, async (_req, res) => {
+  res.json([]);
 });
 
-/* ── GET /ai-command/sessions/:id ────────────────────────────────────────── */
-router.get("/ai-command/sessions/:id", cmdOnly, async (req, res) => {
-  try {
-    const { id } = req.params as Record<string, string>;
-    const auth = getAuth(req);
-    const rows = await db.execute(sql`
-      SELECT * FROM ai_command_sessions WHERE id = ${id} AND user_id = ${auth?.userId}
-    `);
-    if (!rows.rows[0]) return res.status(404).json({ error: "الجلسة غير موجودة" });
-    res.json(rows.rows[0]);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+/* ── GET /ai-command/sessions/:id — legacy; no durable store ─────────────── */
+router.get("/ai-command/sessions/:id", cmdOnly, async (_req, res) => {
+  res.status(404).json({ error: "الجلسة غير موجودة" });
 });
 
-/* ── DELETE /ai-command/sessions/:id ─────────────────────────────────────── */
-router.delete("/ai-command/sessions/:id", cmdOnly, async (req, res) => {
-  try {
-    const { id } = req.params as Record<string, string>;
-    await db.execute(sql`DELETE FROM ai_command_sessions WHERE id = ${id}`);
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
+/* ── DELETE /ai-command/sessions/:id — legacy no-op ──────────────────────── */
+router.delete("/ai-command/sessions/:id", cmdOnly, async (_req, res) => {
+  res.json({ ok: true });
 });
 
 export default router;

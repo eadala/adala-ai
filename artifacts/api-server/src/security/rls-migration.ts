@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Zero Trust — Row Level Security Migration
  * Enables RLS on all tenant-scoped tables and creates isolation policies.
@@ -10,7 +11,7 @@ const TENANT_TABLES = [
   "cases", "clients", "contracts", "client_invoices", "documents",
   "ai_tasks", "tasks", "reminders", "case_sessions", "employees",
   "payroll", "revenues", "expenses", "bank_accounts", "cash_advances",
-  "audit_logs", "login_logs", "ai_command_sessions", "storage_files",
+  "audit_logs", "login_logs", "storage_files",
   "org_units", "org_members", "office_messages", "message_recipients",
   "legal_documents", "document_signatures", "employee_leaves",
   "performance_evaluations", "employee_incentives",

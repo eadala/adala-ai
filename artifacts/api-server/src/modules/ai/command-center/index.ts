@@ -1,17 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 import { Router } from "express";
-import { randomUUID } from "crypto";
 import { requireAuthWithTenant } from "../../../middlewares/requireAuth";
 import { aiTenantGuard } from "./middleware/ai-tenant-guard";
 import { aiOrchestrator } from "./orchestrator";
 import { IsolatedMemory } from "./memory/isolated-memory";
 import { generateDailyReport, computeOfficeHealth, runAutonomousForAllOffices } from "./autonomous";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import type { AIAgentType } from "./types";
 
 const router = Router();
-
-function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
 /* ── POST /api/cc/chat/:agentType — main chat ──────────────────────────── */
 router.post(
@@ -70,13 +66,7 @@ router.get("/cc/sessions", requireAuthWithTenant, async (req, res) => {
   const officeId = (req as any).tenantId as string;
   const userId   = (req as any).userId   as string;
   try {
-    const r = await db.execute(sql`
-      SELECT id, agent_type, title, updated_at
-      FROM ai_command_sessions
-      WHERE office_id = ${officeId} AND user_id = ${userId}
-      ORDER BY updated_at DESC LIMIT 30
-    `);
-    res.json(rows(r));
+    res.json(IsolatedMemory.listSessions(officeId, userId));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -95,9 +85,6 @@ router.delete("/cc/sessions/:id", requireAuthWithTenant, async (req, res) => {
   const officeId  = (req as any).tenantId as string;
   const sessionId = String(req.params.id);
   IsolatedMemory.clear(officeId, sessionId);
-  await db.execute(sql`
-    DELETE FROM ai_command_sessions WHERE id = ${sessionId} AND office_id = ${officeId}
-  `).catch(() => {});
   res.json({ success: true });
 });
 
