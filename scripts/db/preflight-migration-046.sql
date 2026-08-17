@@ -17,32 +17,38 @@
 --     (partial), idx_sta_ticket, idx_stau_ticket, idx_sm_ticket
 --
 -- support_tickets and support_messages are the 003-owned BASE tables that
--- this migration extends/indexes but never creates. On a database that has
--- not yet run Migration 003, support_tickets is absent and Migration 046
--- CANNOT safely repair that gap (SAFE_AUTO_REPAIR cannot invent a 003 base
--- table) — this is reported as a hard BLOCK (MISSING_BASE_TABLE), not
--- TABLE_MISSING/SAFE. The three satellites (support_ticket_attachments,
--- support_ticket_audit, support_visitor_profiles) ARE owned by 046 and CAN
--- be SAFE_AUTO_REPAIR TABLE_MISSING on their own.
+-- this migration extends/indexes but never creates. missing_base_table :=
+-- true if support_tickets OR support_messages missing (046 cannot invent
+-- 003 bases; idx_sm_ticket needs support_messages) — this is reported as a
+-- hard BLOCK (MISSING_BASE_TABLE), not TABLE_MISSING/SAFE. The three
+-- satellites (support_ticket_attachments, support_ticket_audit,
+-- support_visitor_profiles) ARE owned by 046 and CAN be SAFE_AUTO_REPAIR
+-- TABLE_MISSING on their own.
 --
 -- ticket_id (TEXT) is never UUID-validated.
+--
+-- Contractually nullable columns (support_tickets' 19 EXTENSIONS; satellite
+-- optionals) that are already NOT NULL in the database are collected into
+-- incompatible_nullables and BLOCK as INCOMPATIBLE_NULLABLE — never
+-- ALREADY_CORRECT, never a silent DROP NOT NULL.
 --
 -- Blockers are collected before the decision ladder. Any blocker wins over
 -- every safe repair, including missing tables. Decision ladder order
 -- (highest priority first):
---   MISSING_BASE_TABLE > INCOMPATIBLE_TYPE (objects|types) > INCOMPATIBLE_PK
---   > INCOMPATIBLE_FK (wrong FK shape) > ORPHAN_FK > INCOMPATIBLE_UNIQUE
---   > DUPLICATE_UNIQUE_KEY > INCOMPATIBLE_INDEX > NULL_REQUIRED
+--   MISSING_BASE_TABLE > INCOMPATIBLE_TYPE (objects|types|numeric typmod)
+--   > INCOMPATIBLE_NULLABLE > INCOMPATIBLE_PK > INCOMPATIBLE_FK (wrong FK
+--   shape) > ORPHAN_FK > INCOMPATIBLE_UNIQUE > DUPLICATE_UNIQUE_KEY
+--   > INCOMPATIBLE_INDEX > NULL_REQUIRED
 --   > SAFE: TABLE_MISSING, PARTIAL_SCHEMA (cols/pks/uniques/fks/indexes),
 --     MISSING_COLUMN_DEFAULTS, SET_NOT_NULL_PENDING
 --   > ALREADY_CORRECT (reason_code=SUPPORT_ENTERPRISE_SCHEMA_READY)
 --
 -- Reason codes:
---   MISSING_BASE_TABLE, INCOMPATIBLE_TYPE, INCOMPATIBLE_PK, INCOMPATIBLE_FK,
---   ORPHAN_FK, INCOMPATIBLE_UNIQUE, DUPLICATE_UNIQUE_KEY, INCOMPATIBLE_INDEX,
---   NULL_REQUIRED, TABLE_MISSING, PARTIAL_SCHEMA, MISSING_COLUMN_DEFAULTS,
---   SET_NOT_NULL_PENDING. SUPPORT_ENTERPRISE_SCHEMA_READY means
---   ALREADY_CORRECT.
+--   MISSING_BASE_TABLE, INCOMPATIBLE_TYPE, INCOMPATIBLE_NULLABLE,
+--   INCOMPATIBLE_PK, INCOMPATIBLE_FK, ORPHAN_FK, INCOMPATIBLE_UNIQUE,
+--   DUPLICATE_UNIQUE_KEY, INCOMPATIBLE_INDEX, NULL_REQUIRED, TABLE_MISSING,
+--   PARTIAL_SCHEMA, MISSING_COLUMN_DEFAULTS, SET_NOT_NULL_PENDING.
+--   SUPPORT_ENTERPRISE_SCHEMA_READY means ALREADY_CORRECT.
 --
 -- On BLOCK: RAISE EXCEPTION so ON_ERROR_STOP scripts fail closed.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -74,6 +80,7 @@ DECLARE
   pending_fk_validation TEXT[] := ARRAY[]::TEXT[];
   incompatible_objects TEXT[] := ARRAY[]::TEXT[];
   incompatible_types TEXT[] := ARRAY[]::TEXT[];
+  incompatible_nullables TEXT[] := ARRAY[]::TEXT[];
   incompatible_pks TEXT[] := ARRAY[]::TEXT[];
   incompatible_uniques TEXT[] := ARRAY[]::TEXT[];
   incompatible_fks TEXT[] := ARRAY[]::TEXT[];
@@ -97,6 +104,8 @@ DECLARE
   actual_relkind "char";
   actual_udt TEXT;
   actual_nullable TEXT;
+  actual_precision INT;
+  actual_scale INT;
   actual_default TEXT;
   normalized_default TEXT;
   row_count BIGINT;
@@ -127,13 +136,20 @@ DECLARE
   idx_pred TEXT;
   desc_ok BOOLEAN;
   pred_ok BOOLEAN;
+  pred_norm TEXT;
+  status_literals TEXT[];
   opts_i INT;
 
   empty_text TEXT := '<none>';
   rows_notice TEXT := '';
 BEGIN
-  -- ── 0) Base table guard (support_tickets is 003-owned; 046 cannot repair) ─
-  IF to_regclass('public.support_tickets') IS NULL THEN
+  -- ── 0) Base table guard (support_tickets AND support_messages are
+  -- 003-owned; 046 cannot repair either gap) ──────────────────────────────
+  -- missing_base_table := true if support_tickets OR support_messages
+  -- missing (046 cannot invent 003 bases; idx_sm_ticket needs
+  -- support_messages).
+  IF to_regclass('public.support_tickets') IS NULL
+     OR to_regclass('public.support_messages') IS NULL THEN
     missing_base_table := true;
   END IF;
 
@@ -157,57 +173,62 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- ── 2) Column type/default/not-null contract probe ───────────────────────
+  -- ── 2) Column type/default/nullable/not-null contract probe ──────────────
   -- support_tickets EXTENSIONS are all nullable (required_not_null=FALSE);
   -- satellite required columns are the only required_not_null=TRUE entries.
-  -- ticket_id is intentionally excluded from any UUID-shape check.
+  -- ticket_id is intentionally excluded from any UUID-shape check. Every
+  -- required_not_null=FALSE column that already exists as NOT NULL is a
+  -- BLOCK (incompatible_nullables / INCOMPATIBLE_NULLABLE) — never a silent
+  -- DROP NOT NULL. ai_score additionally carries expected numeric(4,2)
+  -- precision/scale (NULL for every other column).
   FOR column_spec IN
     SELECT * FROM (VALUES
-      ('support_tickets','office_id','text',FALSE,NULL,NULL),
-      ('support_tickets','case_id','text',FALSE,NULL,NULL),
-      ('support_tickets','invoice_id','text',FALSE,NULL,NULL),
-      ('support_tickets','conversation_id','text',FALSE,NULL,NULL),
-      ('support_tickets','visitor_id','text',FALSE,NULL,NULL),
-      ('support_tickets','visitor_phone','text',FALSE,NULL,NULL),
-      ('support_tickets','department','text',FALSE,NULL,NULL),
-      ('support_tickets','assigned_to_name','text',FALSE,NULL,NULL),
-      ('support_tickets','internal_notes','text',FALSE,NULL,NULL),
-      ('support_tickets','source','text',FALSE,'literal','user'),
-      ('support_tickets','sla_response_deadline','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','sla_resolution_deadline','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','first_response_at','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','closed_at','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','reopened_at','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','waiting_since','timestamptz',FALSE,NULL,NULL),
-      ('support_tickets','tags','_text',FALSE,'empty_arr',NULL),
-      ('support_tickets','satisfaction_score','int4',FALSE,NULL,NULL),
-      ('support_tickets','ai_score','numeric',FALSE,NULL,NULL),
-      ('support_ticket_attachments','id','uuid',TRUE,'gen_uuid',NULL),
-      ('support_ticket_attachments','ticket_id','text',TRUE,NULL,NULL),
-      ('support_ticket_attachments','file_name','text',TRUE,NULL,NULL),
-      ('support_ticket_attachments','file_url','text',TRUE,NULL,NULL),
-      ('support_ticket_attachments','file_size','int4',FALSE,'literal','0'),
-      ('support_ticket_attachments','file_type','text',FALSE,NULL,NULL),
-      ('support_ticket_attachments','uploaded_by','text',TRUE,NULL,NULL),
-      ('support_ticket_attachments','created_at','timestamptz',FALSE,'now',NULL),
-      ('support_ticket_audit','id','uuid',TRUE,'gen_uuid',NULL),
-      ('support_ticket_audit','ticket_id','text',TRUE,NULL,NULL),
-      ('support_ticket_audit','user_id','text',FALSE,NULL,NULL),
-      ('support_ticket_audit','user_name','text',FALSE,NULL,NULL),
-      ('support_ticket_audit','action','text',TRUE,NULL,NULL),
-      ('support_ticket_audit','old_value','text',FALSE,NULL,NULL),
-      ('support_ticket_audit','new_value','text',FALSE,NULL,NULL),
-      ('support_ticket_audit','ip_address','text',FALSE,NULL,NULL),
-      ('support_ticket_audit','created_at','timestamptz',FALSE,'now',NULL),
-      ('support_visitor_profiles','id','uuid',TRUE,'gen_uuid',NULL),
-      ('support_visitor_profiles','email','text',FALSE,NULL,NULL),
-      ('support_visitor_profiles','phone','text',FALSE,NULL,NULL),
-      ('support_visitor_profiles','name','text',TRUE,NULL,NULL),
-      ('support_visitor_profiles','first_visit','timestamptz',FALSE,'now',NULL),
-      ('support_visitor_profiles','last_visit','timestamptz',FALSE,'now',NULL),
-      ('support_visitor_profiles','ticket_count','int4',FALSE,'literal','1')
+      ('support_tickets','office_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','case_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','invoice_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','conversation_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','visitor_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','visitor_phone','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','department','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','assigned_to_name','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','internal_notes','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','source','text',FALSE,'literal','user',NULL,NULL),
+      ('support_tickets','sla_response_deadline','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','sla_resolution_deadline','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','first_response_at','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','closed_at','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','reopened_at','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','waiting_since','timestamptz',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','tags','_text',FALSE,'empty_arr',NULL,NULL,NULL),
+      ('support_tickets','satisfaction_score','int4',FALSE,NULL,NULL,NULL,NULL),
+      ('support_tickets','ai_score','numeric',FALSE,NULL,NULL,4,2),
+      ('support_ticket_attachments','id','uuid',TRUE,'gen_uuid',NULL,NULL,NULL),
+      ('support_ticket_attachments','ticket_id','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_attachments','file_name','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_attachments','file_url','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_attachments','file_size','int4',FALSE,'literal','0',NULL,NULL),
+      ('support_ticket_attachments','file_type','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_attachments','uploaded_by','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_attachments','created_at','timestamptz',FALSE,'now',NULL,NULL,NULL),
+      ('support_ticket_audit','id','uuid',TRUE,'gen_uuid',NULL,NULL,NULL),
+      ('support_ticket_audit','ticket_id','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','user_id','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','user_name','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','action','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','old_value','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','new_value','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','ip_address','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_ticket_audit','created_at','timestamptz',FALSE,'now',NULL,NULL,NULL),
+      ('support_visitor_profiles','id','uuid',TRUE,'gen_uuid',NULL,NULL,NULL),
+      ('support_visitor_profiles','email','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_visitor_profiles','phone','text',FALSE,NULL,NULL,NULL,NULL),
+      ('support_visitor_profiles','name','text',TRUE,NULL,NULL,NULL,NULL),
+      ('support_visitor_profiles','first_visit','timestamptz',FALSE,'now',NULL,NULL,NULL),
+      ('support_visitor_profiles','last_visit','timestamptz',FALSE,'now',NULL,NULL,NULL),
+      ('support_visitor_profiles','ticket_count','int4',FALSE,'literal','1',NULL,NULL)
     ) AS expected_column(
-      table_name,column_name,expected_udt,required_not_null,default_kind,expected_default
+      table_name,column_name,expected_udt,required_not_null,default_kind,expected_default,
+      expected_precision,expected_scale
     )
   LOOP
     SELECT c.relkind INTO actual_relkind
@@ -217,13 +238,27 @@ BEGIN
       CONTINUE;
     END IF;
 
-    SELECT c.udt_name,c.is_nullable,c.column_default
-      INTO actual_udt,actual_nullable,actual_default
+    SELECT c.udt_name,c.is_nullable,c.column_default,c.numeric_precision,c.numeric_scale
+      INTO actual_udt,actual_nullable,actual_default,actual_precision,actual_scale
     FROM information_schema.columns c
     WHERE c.table_schema='public' AND c.table_name=column_spec.table_name
       AND c.column_name=column_spec.column_name;
     IF NOT FOUND THEN
-      missing_columns := array_append(missing_columns,format('%s.%s',column_spec.table_name,column_spec.column_name));
+      -- A required_not_null column that is entirely MISSING while the table
+      -- already has rows is NOT a SAFE partial-schema gap: ADD COLUMN would
+      -- leave existing rows NULL, and SET NOT NULL could never then succeed.
+      IF column_spec.required_not_null
+         AND coalesce(estimated_rows[array_position(owned_satellite_tables, column_spec.table_name)], 0) > 0 THEN
+        null_required_count := null_required_count
+          + estimated_rows[array_position(owned_satellite_tables, column_spec.table_name)];
+        null_required_details := array_append(
+          null_required_details,
+          format('%s.%s=MISSING_COLUMN_WITH_EXISTING_ROWS(rows=%s)',column_spec.table_name,column_spec.column_name,
+            estimated_rows[array_position(owned_satellite_tables, column_spec.table_name)])
+        );
+      ELSE
+        missing_columns := array_append(missing_columns,format('%s.%s',column_spec.table_name,column_spec.column_name));
+      END IF;
       CONTINUE;
     END IF;
     IF actual_udt IS DISTINCT FROM column_spec.expected_udt THEN
@@ -231,6 +266,28 @@ BEGIN
         incompatible_types,
         format('%s.%s(expected=%s,actual=%s)',column_spec.table_name,column_spec.column_name,
           column_spec.expected_udt,coalesce(actual_udt,'<null>'))
+      );
+    END IF;
+    -- ai_score is NUMERIC(4,2) — udt_name='numeric' alone is not enough;
+    -- require the exact information_schema typmod-derived precision/scale.
+    IF column_spec.expected_precision IS NOT NULL AND (
+      actual_precision IS DISTINCT FROM column_spec.expected_precision
+      OR actual_scale IS DISTINCT FROM column_spec.expected_scale
+    ) THEN
+      incompatible_types := array_append(
+        incompatible_types,
+        format('%s.%s(expected=numeric(%s,%s),actual=numeric(%s,%s))',column_spec.table_name,column_spec.column_name,
+          column_spec.expected_precision,column_spec.expected_scale,
+          coalesce(actual_precision::text,'<null>'),coalesce(actual_scale::text,'<null>'))
+      );
+    END IF;
+    -- Nullable contract: a column the Runtime contract requires nullable
+    -- must never already be NOT NULL — BLOCK rather than SAFE/ALREADY.
+    IF NOT column_spec.required_not_null AND actual_nullable IS DISTINCT FROM 'YES' THEN
+      incompatible_nullables := array_append(
+        incompatible_nullables,
+        format('%s.%s(is_nullable=%s)',column_spec.table_name,column_spec.column_name,
+          coalesce(actual_nullable,'<null>'))
       );
     END IF;
     IF column_spec.required_not_null THEN
@@ -329,7 +386,20 @@ BEGIN
           format('%s(expected={id},actual=%s)',tbl,coalesce(pk_cols::TEXT,'<null>')));
       END IF;
     ELSE
-      missing_pks := array_append(missing_pks, format('%s(id)', tbl));
+      -- PK missing: duplicate ids would make ADD CONSTRAINT PRIMARY KEY fail
+      -- (and it is not something 046 can repair) — BLOCK, don't SAFE.
+      BEGIN
+        EXECUTE format('SELECT count(*) FROM (SELECT id FROM public.%I GROUP BY id HAVING COUNT(*) > 1) d', tbl)
+          INTO row_count;
+      EXCEPTION WHEN undefined_table OR undefined_column THEN
+        row_count := 0;
+      END;
+      IF row_count > 0 THEN
+        incompatible_pks := array_append(incompatible_pks,
+          format('%s(duplicate_id_groups=%s)', tbl, row_count));
+      ELSE
+        missing_pks := array_append(missing_pks, format('%s(id)', tbl));
+      END IF;
     END IF;
   END LOOP;
 
@@ -346,11 +416,13 @@ BEGIN
         WHERE c.conrelid = 'public.support_visitor_profiles'::regclass AND c.contype = 'u'
           AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*email\s*\)'
           AND pg_get_constraintdef(c.oid) !~* ','
+          AND NOT EXISTS (SELECT 1 FROM pg_index xi WHERE xi.indexrelid = c.conindid AND xi.indnullsnotdistinct)
       ) OR EXISTS (
         SELECT 1 FROM pg_index x
         WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
           AND x.indisunique AND NOT x.indisprimary
           AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+          AND x.indnullsnotdistinct IS DISTINCT FROM TRUE
           AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
                FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
                JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
@@ -364,9 +436,13 @@ BEGIN
           AND (
             pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\(\s*email\s*\)'
             OR pg_get_constraintdef(c.oid) ~* ','
+            OR EXISTS (SELECT 1 FROM pg_index xi WHERE xi.indexrelid = c.conindid AND xi.indnullsnotdistinct)
           )
       ) INTO wrong_uq;
 
+      -- Always probed regardless of has_uq: an exact email-only unique index
+      -- that is partial/invalid/expression/NULLS NOT DISTINCT is a hard
+      -- INCOMPATIBLE_UNIQUE, never a false SAFE/READY.
       SELECT EXISTS (
         SELECT 1 FROM pg_index x
         WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
@@ -378,6 +454,7 @@ BEGIN
           AND (
             x.indisvalid IS DISTINCT FROM TRUE OR x.indisready IS DISTINCT FROM TRUE
             OR x.indpred IS NOT NULL OR x.indexprs IS NOT NULL
+            OR x.indnullsnotdistinct IS TRUE
           )
       ) INTO bad_exact_uq;
 
@@ -447,11 +524,10 @@ BEGIN
     IF child_attnum IS NOT NULL AND ref_attnum IS NOT NULL THEN
       SELECT EXISTS (
         SELECT 1 FROM pg_constraint c
-        JOIN pg_class ref ON ref.oid = c.confrelid
         WHERE c.conrelid = 'public.support_ticket_attachments'::regclass
           AND c.contype = 'f'
           AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
-          AND ref.relname = 'support_tickets'
+          AND c.confrelid = 'public.support_tickets'::regclass
           AND c.confdeltype = 'c'
           AND c.convalidated
           AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
@@ -473,7 +549,7 @@ BEGIN
               AND c.contype = 'f'
               AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
               AND NOT (
-                EXISTS (SELECT 1 FROM pg_class ref WHERE ref.oid = c.confrelid AND ref.relname = 'support_tickets')
+                c.confrelid = 'public.support_tickets'::regclass
                 AND c.confdeltype = 'c'
                 AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
                 AND array_length(c.confkey, 1) = 1 AND c.confkey[1] = ref_attnum
@@ -562,13 +638,29 @@ BEGIN
 
       pred_ok := true;
       IF index_spec.expect_partial AND index_spec.partial_kind = 'closed_resolved' THEN
-        -- Postgres canonicalizes "status NOT IN ('closed','resolved')" to
-        -- "status <> ALL (ARRAY['closed','resolved'])" internally — accept
-        -- either surface form as long as both literals are negated on status.
-        pred_ok := coalesce(idx_pred,'') ~* 'status'
-          AND coalesce(idx_pred,'') ~* 'closed'
-          AND coalesce(idx_pred,'') ~* 'resolved'
-          AND (coalesce(idx_pred,'') ~* 'not\s+in' OR coalesce(idx_pred,'') ~* '<>\s*all');
+        -- Exact-equivalent check for `WHERE status NOT IN ('closed','resolved')`.
+        -- Postgres canonicalizes this to e.g.
+        -- `((status)::text <> ALL ('{closed,resolved}'::text[]))` — accept that
+        -- surface form and the raw NOT IN / <> ALL (ARRAY[...]) forms too, in
+        -- either closed/resolved order. Reject extra AND/OR conjunctions and
+        -- any status-value set other than exactly {closed,resolved}. Same
+        -- logic as the migration's index-creation and post-apply DO blocks.
+        pred_norm := lower(regexp_replace(coalesce(idx_pred,''), '\s+', ' ', 'g'));
+        pred_ok := pred_norm ~ 'status'
+          AND (pred_norm ~ 'not\s+in' OR pred_norm ~ '<>\s*all')
+          AND pred_norm !~ ' and '
+          AND pred_norm !~ ' or ';
+        IF pred_ok THEN
+          SELECT array_agg(DISTINCT tok ORDER BY tok) INTO status_literals
+          FROM (
+            SELECT unnest(string_to_array(trim(both '{}' from m[1]), ',')) AS tok
+            FROM regexp_matches(pred_norm, $rx$'([a-z_,{}]+)'$rx$, 'g') AS m
+          ) s
+          WHERE tok <> '';
+          pred_ok := status_literals IS NOT NULL
+            AND cardinality(status_literals) = 2
+            AND status_literals = ARRAY['closed','resolved'];
+        END IF;
       END IF;
 
       IF idx_relkind NOT IN ('i','I')
@@ -601,6 +693,8 @@ BEGIN
     action := 'BLOCK_AND_MANUAL_REVIEW'; reason_code := 'MISSING_BASE_TABLE'; lock_risk := 'HIGH';
   ELSIF cardinality(incompatible_objects)>0 OR cardinality(incompatible_types)>0 THEN
     action := 'BLOCK_AND_MANUAL_REVIEW'; reason_code := 'INCOMPATIBLE_TYPE'; lock_risk := 'HIGH';
+  ELSIF cardinality(incompatible_nullables)>0 THEN
+    action := 'BLOCK_AND_MANUAL_REVIEW'; reason_code := 'INCOMPATIBLE_NULLABLE'; lock_risk := 'HIGH';
   ELSIF cardinality(incompatible_pks)>0 THEN
     action := 'BLOCK_AND_MANUAL_REVIEW'; reason_code := 'INCOMPATIBLE_PK'; lock_risk := 'HIGH';
   ELSIF cardinality(incompatible_fks)>0 THEN
@@ -649,6 +743,8 @@ BEGIN
   RAISE NOTICE '046_preflight: incompatible_objects=% incompatible_types=%',
     coalesce(nullif(array_to_string(incompatible_objects,','),''),empty_text),
     coalesce(nullif(array_to_string(incompatible_types,','),''),empty_text);
+  RAISE NOTICE '046_preflight: incompatible_nullables=%',
+    coalesce(nullif(array_to_string(incompatible_nullables,','),''),empty_text);
   RAISE NOTICE '046_preflight: incompatible_pks=% incompatible_uniques=% incompatible_fks=%',
     coalesce(nullif(array_to_string(incompatible_pks,','),''),empty_text),
     coalesce(nullif(array_to_string(incompatible_uniques,','),''),empty_text),

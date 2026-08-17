@@ -131,64 +131,71 @@ ALTER TABLE support_visitor_profiles ADD COLUMN IF NOT EXISTS last_visit TIMESTA
 ALTER TABLE support_visitor_profiles ADD COLUMN IF NOT EXISTS ticket_count INTEGER;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- Type validation + NULL required probes
+-- Type validation + nullable-contract + NULL required probes
 -- support_tickets EXTENSIONS are all nullable (never SET NOT NULL below);
--- only satellite required columns are probed for NULLs here.
+-- only satellite required columns are probed for NULLs here. Every
+-- contractually nullable column (nullable_contract=TRUE below) that already
+-- exists as NOT NULL in the database is a BLOCK — we never DROP NOT NULL /
+-- rewrite data to force it back to nullable.
 -- ═══════════════════════════════════════════════════════════════════════════
 DO $$
 DECLARE
   spec RECORD;
   actual_udt TEXT;
+  actual_nullable TEXT;
+  actual_precision INT;
+  actual_scale INT;
   null_cnt BIGINT;
 BEGIN
   FOR spec IN
     SELECT * FROM (VALUES
-      ('support_tickets','office_id','text'),
-      ('support_tickets','case_id','text'),
-      ('support_tickets','invoice_id','text'),
-      ('support_tickets','conversation_id','text'),
-      ('support_tickets','visitor_id','text'),
-      ('support_tickets','visitor_phone','text'),
-      ('support_tickets','department','text'),
-      ('support_tickets','assigned_to_name','text'),
-      ('support_tickets','internal_notes','text'),
-      ('support_tickets','source','text'),
-      ('support_tickets','sla_response_deadline','timestamptz'),
-      ('support_tickets','sla_resolution_deadline','timestamptz'),
-      ('support_tickets','first_response_at','timestamptz'),
-      ('support_tickets','closed_at','timestamptz'),
-      ('support_tickets','reopened_at','timestamptz'),
-      ('support_tickets','waiting_since','timestamptz'),
-      ('support_tickets','tags','_text'),
-      ('support_tickets','satisfaction_score','int4'),
-      ('support_tickets','ai_score','numeric'),
-      ('support_ticket_attachments','id','uuid'),
-      ('support_ticket_attachments','ticket_id','text'),
-      ('support_ticket_attachments','file_name','text'),
-      ('support_ticket_attachments','file_url','text'),
-      ('support_ticket_attachments','file_size','int4'),
-      ('support_ticket_attachments','file_type','text'),
-      ('support_ticket_attachments','uploaded_by','text'),
-      ('support_ticket_attachments','created_at','timestamptz'),
-      ('support_ticket_audit','id','uuid'),
-      ('support_ticket_audit','ticket_id','text'),
-      ('support_ticket_audit','user_id','text'),
-      ('support_ticket_audit','user_name','text'),
-      ('support_ticket_audit','action','text'),
-      ('support_ticket_audit','old_value','text'),
-      ('support_ticket_audit','new_value','text'),
-      ('support_ticket_audit','ip_address','text'),
-      ('support_ticket_audit','created_at','timestamptz'),
-      ('support_visitor_profiles','id','uuid'),
-      ('support_visitor_profiles','email','text'),
-      ('support_visitor_profiles','phone','text'),
-      ('support_visitor_profiles','name','text'),
-      ('support_visitor_profiles','first_visit','timestamptz'),
-      ('support_visitor_profiles','last_visit','timestamptz'),
-      ('support_visitor_profiles','ticket_count','int4')
-    ) AS t(table_name, column_name, udt_name)
+      ('support_tickets','office_id','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','case_id','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','invoice_id','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','conversation_id','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','visitor_id','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','visitor_phone','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','department','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','assigned_to_name','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','internal_notes','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','source','text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','sla_response_deadline','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','sla_resolution_deadline','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','first_response_at','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','closed_at','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','reopened_at','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','waiting_since','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_tickets','tags','_text',TRUE,NULL::int,NULL::int),
+      ('support_tickets','satisfaction_score','int4',TRUE,NULL::int,NULL::int),
+      ('support_tickets','ai_score','numeric',TRUE,4,2),
+      ('support_ticket_attachments','id','uuid',FALSE,NULL::int,NULL::int),
+      ('support_ticket_attachments','ticket_id','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_attachments','file_name','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_attachments','file_url','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_attachments','file_size','int4',TRUE,NULL::int,NULL::int),
+      ('support_ticket_attachments','file_type','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_attachments','uploaded_by','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_attachments','created_at','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','id','uuid',FALSE,NULL::int,NULL::int),
+      ('support_ticket_audit','ticket_id','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_audit','user_id','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','user_name','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','action','text',FALSE,NULL::int,NULL::int),
+      ('support_ticket_audit','old_value','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','new_value','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','ip_address','text',TRUE,NULL::int,NULL::int),
+      ('support_ticket_audit','created_at','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_visitor_profiles','id','uuid',FALSE,NULL::int,NULL::int),
+      ('support_visitor_profiles','email','text',TRUE,NULL::int,NULL::int),
+      ('support_visitor_profiles','phone','text',TRUE,NULL::int,NULL::int),
+      ('support_visitor_profiles','name','text',FALSE,NULL::int,NULL::int),
+      ('support_visitor_profiles','first_visit','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_visitor_profiles','last_visit','timestamptz',TRUE,NULL::int,NULL::int),
+      ('support_visitor_profiles','ticket_count','int4',TRUE,NULL::int,NULL::int)
+    ) AS t(table_name, column_name, udt_name, nullable_contract, expected_precision, expected_scale)
   LOOP
-    SELECT c.udt_name INTO actual_udt
+    SELECT c.udt_name, c.is_nullable, c.numeric_precision, c.numeric_scale
+      INTO actual_udt, actual_nullable, actual_precision, actual_scale
     FROM information_schema.columns c
     WHERE c.table_schema = 'public'
       AND c.table_name = spec.table_name
@@ -197,6 +204,26 @@ BEGIN
       RAISE EXCEPTION
         '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — %.% has udt %, expected %',
         spec.table_name, spec.column_name, coalesce(actual_udt, '<missing>'), spec.udt_name;
+    END IF;
+
+    -- ai_score is NUMERIC(4,2) — udt_name='numeric' alone is not enough;
+    -- require the exact information_schema typmod-derived precision/scale.
+    IF spec.expected_precision IS NOT NULL AND (
+      actual_precision IS DISTINCT FROM spec.expected_precision
+      OR actual_scale IS DISTINCT FROM spec.expected_scale
+    ) THEN
+      RAISE EXCEPTION
+        '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_TYPE) — %.% is numeric(%,%), expected numeric(%,%) (atttypmod mismatch)',
+        spec.table_name, spec.column_name, coalesce(actual_precision::text,'<null>'),
+        coalesce(actual_scale::text,'<null>'), spec.expected_precision, spec.expected_scale;
+    END IF;
+
+    -- Nullable contract: contractually nullable columns must never already be
+    -- NOT NULL in the database — BLOCK rather than DROP NOT NULL / rewrite.
+    IF spec.nullable_contract AND actual_nullable IS DISTINCT FROM 'YES' THEN
+      RAISE EXCEPTION
+        '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_NULLABLE) — %.% is NOT NULL but the Runtime contract requires it nullable (no DROP NOT NULL performed)',
+        spec.table_name, spec.column_name;
     END IF;
   END LOOP;
 
@@ -253,7 +280,7 @@ BEGIN
       AND c.contype = 'f'
       AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
       AND NOT (
-        EXISTS (SELECT 1 FROM pg_class ref WHERE ref.oid = c.confrelid AND ref.relname = 'support_tickets')
+        c.confrelid = 'public.support_tickets'::regclass
         AND c.confdeltype = 'c'
         AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
         AND array_length(c.confkey, 1) = 1 AND c.confkey[1] = ref_attnum
@@ -381,9 +408,10 @@ BEGIN
       AND (
         pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\(\s*email\s*\)'
         OR pg_get_constraintdef(c.oid) ~* ','
+        OR EXISTS (SELECT 1 FROM pg_index xi WHERE xi.indexrelid = c.conindid AND xi.indnullsnotdistinct)
       )
   ) THEN
-    RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles_email_key wrong shape';
+    RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles_email_key wrong shape or NULLS NOT DISTINCT';
   END IF;
 
   SELECT EXISTS (
@@ -391,17 +419,21 @@ BEGIN
     WHERE c.conrelid = 'public.support_visitor_profiles'::regclass AND c.contype = 'u'
       AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*email\s*\)'
       AND pg_get_constraintdef(c.oid) !~* ','
+      AND NOT EXISTS (SELECT 1 FROM pg_index xi WHERE xi.indexrelid = c.conindid AND xi.indnullsnotdistinct)
   ) OR EXISTS (
     SELECT 1 FROM pg_index x
     WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
       AND x.indisunique AND NOT x.indisprimary
       AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND x.indnullsnotdistinct IS DISTINCT FROM TRUE
       AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
            JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
           = ARRAY['email']::text[]
   ) INTO has_uq;
 
+  -- Always probed regardless of has_uq: an exact email-only unique index that
+  -- is partial/invalid/expression/NULLS NOT DISTINCT is never auto-repairable.
   IF EXISTS (
     SELECT 1 FROM pg_index x
     WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
@@ -413,9 +445,10 @@ BEGIN
       AND (
         x.indisvalid IS DISTINCT FROM TRUE OR x.indisready IS DISTINCT FROM TRUE
         OR x.indpred IS NOT NULL OR x.indexprs IS NOT NULL
+        OR x.indnullsnotdistinct IS TRUE
       )
   ) THEN
-    RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles UNIQUE(email) index invalid/not-ready/partial/expression';
+    RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles UNIQUE(email) index invalid/not-ready/partial/expression/nulls-not-distinct';
   END IF;
 
   IF NOT has_uq THEN
@@ -474,11 +507,10 @@ BEGIN
 
   SELECT EXISTS (
     SELECT 1 FROM pg_constraint c
-    JOIN pg_class ref ON ref.oid = c.confrelid
     WHERE c.conrelid = 'public.support_ticket_attachments'::regclass
       AND c.contype = 'f'
       AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
-      AND ref.relname = 'support_tickets'
+      AND c.confrelid = 'public.support_tickets'::regclass
       AND c.confdeltype = 'c'
       AND c.convalidated
       AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
@@ -495,7 +527,7 @@ BEGIN
       AND c.contype = 'f'
       AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
       AND NOT (
-        EXISTS (SELECT 1 FROM pg_class ref WHERE ref.oid = c.confrelid AND ref.relname = 'support_tickets')
+        c.confrelid = 'public.support_tickets'::regclass
         AND c.confdeltype = 'c'
         AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
         AND array_length(c.confkey, 1) = 1 AND c.confkey[1] = ref_attnum
@@ -549,6 +581,8 @@ DECLARE
   index_pred TEXT;
   desc_ok BOOLEAN;
   pred_ok BOOLEAN;
+  pred_norm TEXT;
+  status_literals TEXT[];
   opt_i INT;
 BEGIN
   FOR spec IN
@@ -600,13 +634,28 @@ BEGIN
 
       pred_ok := true;
       IF spec.expect_partial AND spec.partial_kind = 'closed_resolved' THEN
-        -- Postgres canonicalizes "status NOT IN ('closed','resolved')" to
-        -- "status <> ALL (ARRAY['closed','resolved'])" internally — accept
-        -- either surface form as long as both literals are negated on status.
-        pred_ok := coalesce(index_pred,'') ~* 'status'
-          AND coalesce(index_pred,'') ~* 'closed'
-          AND coalesce(index_pred,'') ~* 'resolved'
-          AND (coalesce(index_pred,'') ~* 'not\s+in' OR coalesce(index_pred,'') ~* '<>\s*all');
+        -- Exact-equivalent check for `WHERE status NOT IN ('closed','resolved')`.
+        -- Postgres canonicalizes this to e.g.
+        -- `((status)::text <> ALL ('{closed,resolved}'::text[]))` — accept that
+        -- surface form and the raw NOT IN / <> ALL (ARRAY[...]) forms too, in
+        -- either closed/resolved order. Reject extra AND/OR conjunctions and
+        -- any status-value set other than exactly {closed,resolved}.
+        pred_norm := lower(regexp_replace(coalesce(index_pred,''), '\s+', ' ', 'g'));
+        pred_ok := pred_norm ~ 'status'
+          AND (pred_norm ~ 'not\s+in' OR pred_norm ~ '<>\s*all')
+          AND pred_norm !~ ' and '
+          AND pred_norm !~ ' or ';
+        IF pred_ok THEN
+          SELECT array_agg(DISTINCT tok ORDER BY tok) INTO status_literals
+          FROM (
+            SELECT unnest(string_to_array(trim(both '{}' from m[1]), ',')) AS tok
+            FROM regexp_matches(pred_norm, $rx$'([a-z_,{}]+)'$rx$, 'g') AS m
+          ) s
+          WHERE tok <> '';
+          pred_ok := status_literals IS NOT NULL
+            AND cardinality(status_literals) = 2
+            AND status_literals = ARRAY['closed','resolved'];
+        END IF;
       END IF;
 
       IF actual_table_oid IS DISTINCT FROM expected_table_oid
@@ -650,6 +699,8 @@ DECLARE
   index_pred TEXT;
   desc_ok BOOLEAN;
   pred_ok BOOLEAN;
+  pred_norm TEXT;
+  status_literals TEXT[];
   opt_i INT;
 BEGIN
   IF to_regclass('public.support_tickets') IS NULL THEN
@@ -689,9 +740,9 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema='public' AND table_name='support_tickets' AND column_name='ai_score'
-      AND udt_name='numeric'
+      AND udt_name='numeric' AND numeric_precision=4 AND numeric_scale=2
   ) THEN
-    RAISE EXCEPTION '046_support_enterprise: POST_APPLY_READINESS_FAILED — support_tickets.ai_score NUMERIC missing';
+    RAISE EXCEPTION '046_support_enterprise: POST_APPLY_READINESS_FAILED — support_tickets.ai_score NUMERIC(4,2) missing or wrong precision/scale';
   END IF;
 
   -- UNIQUE(email)
@@ -700,17 +751,19 @@ BEGIN
     WHERE c.conrelid='public.support_visitor_profiles'::regclass AND c.contype='u'
       AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*email\s*\)'
       AND pg_get_constraintdef(c.oid) !~* ','
+      AND NOT EXISTS (SELECT 1 FROM pg_index xi WHERE xi.indexrelid = c.conindid AND xi.indnullsnotdistinct)
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_index x
     WHERE x.indrelid='public.support_visitor_profiles'::regclass
       AND x.indisunique AND NOT x.indisprimary
       AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+      AND x.indnullsnotdistinct IS DISTINCT FROM TRUE
       AND (SELECT array_agg(a.attname::text ORDER BY k.ordinality)
            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
            JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped)
           = ARRAY['email']::text[]
   ) THEN
-    RAISE EXCEPTION '046_support_enterprise: POST_APPLY_READINESS_FAILED — support_visitor_profiles UNIQUE(email) missing';
+    RAISE EXCEPTION '046_support_enterprise: POST_APPLY_READINESS_FAILED — support_visitor_profiles UNIQUE(email) missing or NULLS NOT DISTINCT';
   END IF;
 
   -- FK CASCADE validated
@@ -725,11 +778,10 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
-    JOIN pg_class ref ON ref.oid = c.confrelid
     WHERE c.conrelid = 'public.support_ticket_attachments'::regclass
       AND c.contype = 'f'
       AND c.conname = 'support_ticket_attachments_ticket_id_fkey'
-      AND ref.relname = 'support_tickets'
+      AND c.confrelid = 'public.support_tickets'::regclass
       AND c.confdeltype = 'c'
       AND c.convalidated
       AND array_length(c.conkey, 1) = 1 AND c.conkey[1] = child_attnum
@@ -785,10 +837,23 @@ BEGIN
 
     pred_ok := true;
     IF spec.expect_partial AND spec.partial_kind = 'closed_resolved' THEN
-      pred_ok := coalesce(index_pred,'') ~* 'status'
-        AND coalesce(index_pred,'') ~* 'closed'
-        AND coalesce(index_pred,'') ~* 'resolved'
-        AND (coalesce(index_pred,'') ~* 'not\s+in' OR coalesce(index_pred,'') ~* '<>\s*all');
+      -- Same exact-equivalent check as the index-creation DO block above.
+      pred_norm := lower(regexp_replace(coalesce(index_pred,''), '\s+', ' ', 'g'));
+      pred_ok := pred_norm ~ 'status'
+        AND (pred_norm ~ 'not\s+in' OR pred_norm ~ '<>\s*all')
+        AND pred_norm !~ ' and '
+        AND pred_norm !~ ' or ';
+      IF pred_ok THEN
+        SELECT array_agg(DISTINCT tok ORDER BY tok) INTO status_literals
+        FROM (
+          SELECT unnest(string_to_array(trim(both '{}' from m[1]), ',')) AS tok
+          FROM regexp_matches(pred_norm, $rx$'([a-z_,{}]+)'$rx$, 'g') AS m
+        ) s
+        WHERE tok <> '';
+        pred_ok := status_literals IS NOT NULL
+          AND cardinality(status_literals) = 2
+          AND status_literals = ARRAY['closed','resolved'];
+      END IF;
     END IF;
 
     IF index_columns IS DISTINCT FROM spec.columns
