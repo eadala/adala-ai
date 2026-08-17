@@ -1624,6 +1624,9 @@ assert.match(mig046, /UNIQUE\s*\(\s*email\s*\)/i);
 assert.match(mig046, /idx_st_sla_res/);
 assert.match(mig046, /idx_sm_ticket/);
 assert.match(mig046, /INCOMPATIBLE_INDEX/);
+assert.match(mig046, /INCOMPATIBLE_NULLABLE/);
+assert.match(mig046, /confrelid = 'public\.support_tickets'::regclass/);
+assert.match(mig046, /indnullsnotdistinct/);
 assert.match(mig046, /ORPHAN_FK/);
 assert.match(mig046, /POST_APPLY_READINESS_FAILED|SUPPORT_ENTERPRISE_SCHEMA_READY/);
 {

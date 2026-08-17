@@ -451,26 +451,26 @@ BEGIN
     RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles UNIQUE(email) index invalid/not-ready/partial/expression/nulls-not-distinct';
   END IF;
 
-  IF NOT has_uq THEN
-    SELECT EXISTS (
-      SELECT 1
-      FROM pg_index x
-      CROSS JOIN LATERAL (
-        SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
-        FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-        JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
-      ) c
-      WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
-        AND x.indisunique AND NOT x.indisprimary
-        AND cardinality(c.cols) > 1
-        AND ARRAY['email']::text[] <@ c.cols
-    ) INTO near_miss_uq;
-    IF near_miss_uq THEN
-      RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles has wider UNIQUE containing email; exact UNIQUE(email) required';
-    END IF;
+  -- Always probe wider/expression uniqueness even when an exact UNIQUE(email)
+  -- already exists — coexistence of near-miss shapes is never READY.
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_index x
+    CROSS JOIN LATERAL (
+      SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
+      FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+      JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
+    ) c
+    WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
+      AND x.indisunique AND NOT x.indisprimary
+      AND cardinality(c.cols) > 1
+      AND ARRAY['email']::text[] <@ c.cols
+  ) INTO near_miss_uq;
+  IF near_miss_uq THEN
+    RAISE EXCEPTION '046_support_enterprise: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — support_visitor_profiles has wider UNIQUE containing email; exact UNIQUE(email) required';
   END IF;
 
-  IF NOT has_uq AND EXISTS (
+  IF EXISTS (
     SELECT 1 FROM pg_index x
     WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
       AND x.indisunique AND NOT x.indisprimary

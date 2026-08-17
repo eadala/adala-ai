@@ -458,33 +458,29 @@ BEGIN
           )
       ) INTO bad_exact_uq;
 
-      near_miss_uq := false;
-      IF NOT has_uq THEN
-        SELECT EXISTS (
-          SELECT 1
-          FROM pg_index x
-          CROSS JOIN LATERAL (
-            SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
-            FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
-            JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
-          ) c
-          WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
-            AND x.indisunique AND NOT x.indisprimary
-            AND cardinality(c.cols) > 1
-            AND ARRAY['email']::text[] <@ c.cols
-        ) INTO near_miss_uq;
-      END IF;
+      -- Always probe wider/expression uniqueness even when has_uq — coexistence
+      -- of near-miss shapes must never report SAFE/ALREADY.
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_index x
+        CROSS JOIN LATERAL (
+          SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
+          FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
+          JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
+        ) c
+        WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
+          AND x.indisunique AND NOT x.indisprimary
+          AND cardinality(c.cols) > 1
+          AND ARRAY['email']::text[] <@ c.cols
+      ) INTO near_miss_uq;
 
-      expression_uq := false;
-      IF NOT has_uq THEN
-        SELECT EXISTS (
-          SELECT 1 FROM pg_index x
-          WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
-            AND x.indisunique AND NOT x.indisprimary
-            AND x.indexprs IS NOT NULL
-            AND pg_get_indexdef(x.indexrelid) ~* 'email'
-        ) INTO expression_uq;
-      END IF;
+      SELECT EXISTS (
+        SELECT 1 FROM pg_index x
+        WHERE x.indrelid = 'public.support_visitor_profiles'::regclass
+          AND x.indisunique AND NOT x.indisprimary
+          AND x.indexprs IS NOT NULL
+          AND pg_get_indexdef(x.indexrelid) ~* 'email'
+      ) INTO expression_uq;
 
       IF wrong_uq OR bad_exact_uq OR near_miss_uq OR expression_uq THEN
         incompatible_uniques := array_append(

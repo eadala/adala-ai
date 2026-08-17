@@ -57,10 +57,20 @@ assert.match(mig, /INCOMPATIBLE_PK/);
 assert.match(mig, /INCOMPATIBLE_TYPE/);
 assert.match(mig, /INCOMPATIBLE_FK/);
 assert.match(mig, /INCOMPATIBLE_INDEX/);
+assert.match(mig, /INCOMPATIBLE_NULLABLE/);
 assert.match(mig, /ORPHAN_FK/);
 assert.match(mig, /DUPLICATE_UNIQUE_KEY/);
 assert.match(mig, /NULL_REQUIRED/);
 assert.match(mig, /gen_random_uuid/);
+assert.match(mig, /confrelid = 'public\.support_tickets'::regclass/);
+assert.match(mig, /numeric_precision\s*=\s*4|expected_precision/);
+assert.match(mig, /indnullsnotdistinct/);
+assert.match(pre, /INCOMPATIBLE_NULLABLE/);
+assert.match(pre, /confrelid = 'public\.support_tickets'::regclass/);
+assert.match(pre, /support_messages/);
+assert.match(pre, /MISSING_COLUMN_WITH_EXISTING_ROWS|null_required_count/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig046_nullable_nn|mig046_typmod|mig046_fk_oid|mig046_miss_messages|mig046_nulls_not_distinct/);
+
 {
   const sqlOnly = stripComments(mig);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+TABLE\b/im);

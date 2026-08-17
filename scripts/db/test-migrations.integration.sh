@@ -6259,6 +6259,288 @@ scenario_migration_046_support_enterprise() {
   trap - EXIT
   teardown_db
 
+  # P2: extra AND on idx_st_sla_res predicate BLOCK (exact predicate only)
+  setup_db "mig046_sla_extra_and"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_st_sla_res;
+    CREATE INDEX idx_st_sla_res ON support_tickets (sla_resolution_deadline)
+      WHERE status NOT IN ('closed','resolved') AND office_id IS NOT NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-sla-and.log 2>&1; then
+    bad "P2: preflight should BLOCK extra AND predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-sla-and.log \
+      && ok "P2: preflight BLOCK extra AND on sla predicate" || bad "P2: preflight reason"
+    grep -q 'ALREADY_CORRECT\|SUPPORT_ENTERPRISE_SCHEMA_READY' /tmp/preflight046-sla-and.log \
+      && bad "P2: must never ALREADY with extra AND" \
+      || ok "P2: no ALREADY for extra AND"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-sla-and.log 2>&1; then
+    bad "P2: migration should BLOCK extra AND predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig046-sla-and.log \
+      && ok "P2: migration BLOCK INCOMPATIBLE_INDEX extra AND" || bad "P2: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # P3: extra status value in idx_st_sla_res predicate BLOCK
+  setup_db "mig046_sla_extra_status"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_st_sla_res;
+    CREATE INDEX idx_st_sla_res ON support_tickets (sla_resolution_deadline)
+      WHERE status NOT IN ('closed','resolved','waiting');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-sla-extra.log 2>&1; then
+    bad "P3: preflight should BLOCK extra status value"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-sla-extra.log \
+      && ok "P3: preflight BLOCK extra status in sla predicate" || bad "P3: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-sla-extra.log 2>&1; then
+    bad "P3: migration should BLOCK extra status value"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig046-sla-extra.log \
+      && ok "P3: migration BLOCK INCOMPATIBLE_INDEX extra status" || bad "P3: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # U: unexpected NOT NULL on nullable office_id → BLOCK (not ALREADY)
+  setup_db "mig046_nullable_nn"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    UPDATE support_tickets SET office_id = 'off-nn' WHERE office_id IS NULL;
+    ALTER TABLE support_tickets ALTER COLUMN office_id SET NOT NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-nullable.log 2>&1; then
+    bad "U: preflight should BLOCK unexpected NOT NULL office_id"
+  else
+    grep -q 'INCOMPATIBLE_NULLABLE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-nullable.log \
+      && ok "U: preflight BLOCK INCOMPATIBLE_NULLABLE" || bad "U: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-nullable.log \
+      && bad "U: must never ALREADY with unexpected NOT NULL" \
+      || ok "U: no ALREADY_CORRECT for unexpected NOT NULL"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-nullable.log 2>&1; then
+    bad "U: migration should BLOCK unexpected NOT NULL"
+  else
+    grep -q 'INCOMPATIBLE_NULLABLE' /tmp/mig046-nullable.log \
+      && ok "U: migration BLOCK INCOMPATIBLE_NULLABLE" || bad "U: mig reason=$(tail -3 /tmp/mig046-nullable.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # V: ai_score wrong typmod NUMERIC(5,2) → BLOCK
+  setup_db "mig046_typmod"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_tickets DROP COLUMN ai_score;
+    ALTER TABLE support_tickets ADD COLUMN ai_score NUMERIC(5,2);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-typmod.log 2>&1; then
+    bad "V: preflight should BLOCK wrong ai_score typmod"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-typmod.log \
+      && ok "V: preflight BLOCK wrong NUMERIC typmod" || bad "V: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-typmod.log \
+      && bad "V: must never ALREADY with wrong typmod" \
+      || ok "V: no ALREADY for wrong typmod"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-typmod.log 2>&1; then
+    bad "V: migration should BLOCK wrong typmod"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig046-typmod.log \
+      && ok "V: migration BLOCK INCOMPATIBLE_TYPE typmod" || bad "V: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # W: FK bound to non-public decoy.support_tickets → BLOCK (OID exactness)
+  setup_db "mig046_fk_oid"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE SCHEMA IF NOT EXISTS decoy;
+    CREATE TABLE decoy.support_tickets (id TEXT PRIMARY KEY);
+    INSERT INTO decoy.support_tickets (id)
+      SELECT id FROM support_tickets
+      ON CONFLICT DO NOTHING;
+    INSERT INTO decoy.support_tickets (id)
+      SELECT DISTINCT ticket_id FROM support_ticket_attachments a
+      WHERE NOT EXISTS (SELECT 1 FROM decoy.support_tickets d WHERE d.id = a.ticket_id);
+    ALTER TABLE support_ticket_attachments
+      DROP CONSTRAINT IF EXISTS support_ticket_attachments_ticket_id_fkey;
+    ALTER TABLE support_ticket_attachments
+      ADD CONSTRAINT support_ticket_attachments_ticket_id_fkey
+      FOREIGN KEY (ticket_id) REFERENCES decoy.support_tickets(id) ON DELETE CASCADE;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-fkoid.log 2>&1; then
+    bad "W: preflight should BLOCK FK to decoy.support_tickets"
+  else
+    grep -q 'INCOMPATIBLE_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-fkoid.log \
+      && ok "W: preflight BLOCK wrong-schema FK" || bad "W: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-fkoid.log \
+      && bad "W: must never ALREADY with decoy FK" \
+      || ok "W: no ALREADY for decoy FK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-fkoid.log 2>&1; then
+    bad "W: migration should BLOCK wrong-schema FK"
+  else
+    grep -q 'INCOMPATIBLE_FK' /tmp/mig046-fkoid.log \
+      && ok "W: migration BLOCK INCOMPATIBLE_FK (OID)" || bad "W: mig reason=$(tail -3 /tmp/mig046-fkoid.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # X: missing support_messages → BLOCK MISSING_BASE_TABLE (not SAFE)
+  setup_db "mig046_miss_messages"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE support_messages CASCADE;" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-missmsg.log 2>&1; then
+    bad "X: preflight should BLOCK missing support_messages"
+  else
+    grep -q 'MISSING_BASE_TABLE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-missmsg.log \
+      && ok "X: preflight BLOCK MISSING_BASE_TABLE (messages)" || bad "X: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight046-missmsg.log \
+      && bad "X: must never SAFE when support_messages missing" \
+      || ok "X: no SAFE for missing support_messages"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-missmsg.log 2>&1; then
+    bad "X: migration should BLOCK missing support_messages"
+  else
+    grep -q 'MISSING_BASE_TABLE\|INCOMPATIBLE_INDEX' /tmp/mig046-missmsg.log \
+      && ok "X: migration BLOCK missing support_messages" || bad "X: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # Y: missing required satellite column with existing rows → BLOCK NULL_REQUIRED
+  setup_db "mig046_miss_req_col_rows"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO support_tickets (id, subject, body, user_email, user_name)
+    VALUES ('t-y-seed', 'subj', 'body', 'y@example.com', 'Y')
+    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO support_ticket_attachments (ticket_id, file_name, file_url, uploaded_by)
+    VALUES ('t-y-seed', 'f.txt', 'https://example/f', 'u1');
+    ALTER TABLE support_ticket_attachments DROP COLUMN uploaded_by;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-missreq.log 2>&1; then
+    bad "Y: preflight should BLOCK missing required col with rows"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-missreq.log \
+      && ok "Y: preflight BLOCK NULL_REQUIRED (missing col+rows)" || bad "Y: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight046-missreq.log \
+      && bad "Y: must never SAFE for missing required col with rows" \
+      || ok "Y: no SAFE for missing required col with rows"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-missreq.log 2>&1; then
+    bad "Y: migration should BLOCK missing required col with rows"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig046-missreq.log \
+      && ok "Y: migration BLOCK NULL_REQUIRED" || bad "Y: mig reason=$(tail -3 /tmp/mig046-missreq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # Z: missing PK with duplicate ids → BLOCK INCOMPATIBLE_PK (rows preserved)
+  setup_db "mig046_dup_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ticket_audit DROP CONSTRAINT support_ticket_audit_pkey;
+    INSERT INTO support_ticket_audit (id, ticket_id, action) VALUES
+      ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 't-z', 'note-a'),
+      ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 't-z', 'note-b');
+  " >/dev/null
+  local dup_before
+  dup_before=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT id FROM support_ticket_audit GROUP BY id HAVING COUNT(*) > 1
+    ) d")
+  [[ "$dup_before" -ge 1 ]] && ok "Z: duplicate id groups present before apply" \
+    || bad "Z: failed to seed duplicate ids"
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-duppk.log 2>&1; then
+    bad "Z: preflight should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-duppk.log \
+      && ok "Z: preflight BLOCK INCOMPATIBLE_PK (dup ids)" || bad "Z: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight046-duppk.log \
+      && bad "Z: must never SAFE for dup ids missing PK" \
+      || ok "Z: no SAFE for dup ids missing PK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-duppk.log 2>&1; then
+    bad "Z: migration should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig046-duppk.log \
+      && ok "Z: migration BLOCK INCOMPATIBLE_PK" || bad "Z: mig reason"
+  fi
+  local dup_after
+  dup_after=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT id FROM support_ticket_audit GROUP BY id HAVING COUNT(*) > 1
+    ) d")
+  [[ "$dup_after" == "$dup_before" ]] && ok "Z: duplicate rows preserved (no delete)" \
+    || bad "Z: rows changed dup_before=$dup_before dup_after=$dup_after"
+  trap - EXIT
+  teardown_db
+
+  # AA: NULLS NOT DISTINCT UNIQUE(email) → BLOCK
+  setup_db "mig046_nulls_not_distinct"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+    CREATE UNIQUE INDEX support_visitor_profiles_email_key
+      ON support_visitor_profiles (email) NULLS NOT DISTINCT;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-nnd.log 2>&1; then
+    bad "AA: preflight should BLOCK NULLS NOT DISTINCT unique"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-nnd.log \
+      && ok "AA: preflight BLOCK NULLS NOT DISTINCT" || bad "AA: preflight reason"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-nnd.log \
+      && bad "AA: must never ALREADY with NULLS NOT DISTINCT" \
+      || ok "AA: no ALREADY for NULLS NOT DISTINCT"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-nnd.log 2>&1; then
+    bad "AA: migration should BLOCK NULLS NOT DISTINCT"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig046-nnd.log \
+      && ok "AA: migration BLOCK INCOMPATIBLE_UNIQUE NND" || bad "AA: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # A/Q strengthen: greenfield FK confrelid is public.support_tickets OID
+  # (covered in A after apply_all — assert here as dedicated check on fresh DB)
+  setup_db "mig046_fk_public_oid"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local fk_oid_ok
+  fk_oid_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conname='support_ticket_attachments_ticket_id_fkey'
+        AND c.contype='f'
+        AND c.confrelid = 'public.support_tickets'::regclass
+        AND c.confdeltype='c'
+        AND c.convalidated
+    )")
+  [[ "$fk_oid_ok" == "t" ]] && ok "A2: FK confrelid = public.support_tickets OID + CASCADE" \
+    || bad "A2: FK public OID binding missing"
+  trap - EXIT
+  teardown_db
+
   # R: Runtime CREATE/ALTER/INDEX absent; readiness + DML present
   if grep -qE 'CREATE TABLE IF NOT EXISTS (support_ticket_attachments|support_ticket_audit|support_visitor_profiles)' "$ENT_SRC"; then
     bad "R: Runtime CREATE still present in support-enterprise.ts"
