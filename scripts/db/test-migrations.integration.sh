@@ -54,6 +54,7 @@ MIGRATION_042="$ROOT/artifacts/api-server/migrations/042_ai_agents_schema_author
 MIGRATION_043="$ROOT/artifacts/api-server/migrations/043_case_ai_insights_schema_authority.sql"
 MIGRATION_044="$ROOT/artifacts/api-server/migrations/044_ai_coo_notif_settings_schema_authority.sql"
 MIGRATION_045="$ROOT/artifacts/api-server/migrations/045_support_ai_schema_authority.sql"
+MIGRATION_046="$ROOT/artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -237,7 +238,8 @@ apply_migration_033() {
 # 036 owns JLWM Reliability 5 tables (Stage 4D).
 # 039 owns AI credits/usage; 040 owns AI provider engine tables; 041 owns ai_events;
 # 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights;
-# 044 owns ai_coo_notif_settings; 045 owns support_ai_analysis / support_knowledge_base.
+# 044 owns ai_coo_notif_settings; 045 owns support_ai_analysis / support_knowledge_base;
+# 046 owns support_ticket_attachments / support_ticket_audit / support_visitor_profiles.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -261,6 +263,7 @@ verify_p0_schema() {
   apply_migration_043
   apply_migration_044
   apply_migration_045
+  apply_migration_046
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -312,6 +315,10 @@ apply_migration_045() {
   psql_db -f "$MIGRATION_045" >/dev/null
 }
 
+apply_migration_046() {
+  psql_db -f "$MIGRATION_046" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -359,11 +366,12 @@ apply_all_migrations() {
   apply_migration_043
   apply_migration_044
   apply_migration_045
+  apply_migration_046
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…045 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…046 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -5736,6 +5744,597 @@ scenario_migration_045_support_ai() {
   else
     grep -qi 'category\|support_knowledge_base' /tmp/mig045-p0-col.log \
       && ok "Q: P0 verify fails when critical column missing" || bad "Q: verify log missing column"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_046_support_enterprise() {
+  log "Scenario 046 — Support Enterprise: greenfield / SAFE / BLOCK / indexes / FK CASCADE / Runtime / P0"
+  local PREFLIGHT_046="$ROOT/scripts/db/preflight-migration-046.sql"
+  local ENT_SRC="$ROOT/artifacts/api-server/src/modules/platform/support-enterprise.ts"
+
+  # A/Q: greenfield READY + idempotent + ALREADY + FK CASCADE + UNIQUE(email) + 7 indexes
+  setup_db "mig046_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt fk_cascade uq_ok idx_ok
+  tbl_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('support_ticket_attachments','support_ticket_audit','support_visitor_profiles')")
+  [[ "$tbl_cnt" == "3" ]] && ok "A: 3 satellites present" || bad "A: satellite count=$tbl_cnt"
+  fk_cascade=$(psql_db -At -c "
+    SELECT confdeltype FROM pg_constraint
+    WHERE conname='support_ticket_attachments_ticket_id_fkey' AND contype='f'")
+  [[ "$fk_cascade" == "c" ]] && ok "A/Q: FK ON DELETE CASCADE (confdeltype=c)" || bad "A/Q: FK confdeltype=$fk_cascade"
+  uq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.support_visitor_profiles'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*email[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUE(email) exact single-col" || bad "A: UNIQUE(email) missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_tickets'
+        AND i.relname='idx_st_user'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['user_id']::text[]
+        AND (x.indoption[0] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_st_user (user_id ASC non-unique)" || bad "A: idx_st_user missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_tickets'
+        AND i.relname='idx_st_status'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['status','created_at']::text[]
+        AND (x.indoption[0] & 1) = 0 AND (x.indoption[1] & 1) = 1
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_st_status (status, created_at DESC)" || bad "A: idx_st_status missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_tickets'
+        AND i.relname='idx_st_office'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['office_id','status']::text[]
+        AND (x.indoption[0] & 1) = 0 AND (x.indoption[1] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_st_office (office_id, status)" || bad "A: idx_st_office missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_tickets'
+        AND i.relname='idx_st_sla_res'
+        AND x.indisvalid AND x.indisready AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND x.indpred IS NOT NULL
+        AND pg_get_expr(x.indpred, x.indrelid) ~* 'status'
+        AND pg_get_expr(x.indpred, x.indrelid) ~* 'closed'
+        AND pg_get_expr(x.indpred, x.indrelid) ~* 'resolved'
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['sla_resolution_deadline']::text[]
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_st_sla_res partial WHERE status NOT IN (closed,resolved)" \
+    || bad "A: idx_st_sla_res missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_ticket_attachments'
+        AND i.relname='idx_sta_ticket'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['ticket_id']::text[]
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_sta_ticket (ticket_id)" || bad "A: idx_sta_ticket missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_ticket_audit'
+        AND i.relname='idx_stau_ticket'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['ticket_id','created_at']::text[]
+        AND (x.indoption[0] & 1) = 0 AND (x.indoption[1] & 1) = 1
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_stau_ticket (ticket_id, created_at DESC)" \
+    || bad "A: idx_stau_ticket missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='support_messages'
+        AND i.relname='idx_sm_ticket'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['ticket_id','created_at']::text[]
+        AND (x.indoption[0] & 1) = 0 AND (x.indoption[1] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_sm_ticket (ticket_id, created_at ASC)" \
+    || bad "A: idx_sm_ticket missing/wrong"
+  apply_migration_046
+  ok "A: re-run 046 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight046-ready.log | tail -1)"
+  grep -q 'SUPPORT_ENTERPRISE_SCHEMA_READY' /tmp/preflight046-ready.log \
+    && ok "A: SUPPORT_ENTERPRISE_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig046_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE support_visitor_profiles CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-misstbl.log 2>&1
+  grep -q 'SAFE_AUTO_REPAIR\|TABLE_MISSING\|PARTIAL_SCHEMA' /tmp/preflight046-misstbl.log \
+    && ok "B: missing table → SAFE" || bad "B: preflight"
+  apply_migration_046
+  local restored
+  restored=$(psql_db -At -c "SELECT to_regclass('public.support_visitor_profiles') IS NOT NULL")
+  [[ "$restored" == "t" ]] && ok "B: support_visitor_profiles restored" || bad "B: still missing"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig046_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE support_tickets DROP COLUMN ai_score;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-misscol.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-misscol.log \
+    && bad "C: missing column must not be ALREADY_CORRECT" \
+    || ok "C: missing column not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|ai_score' /tmp/preflight046-misscol.log \
+    && ok "C: missing ai_score → SAFE" || bad "C: preflight"
+  apply_migration_046
+  local col_ok
+  col_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='support_tickets' AND column_name='ai_score'
+    )")
+  [[ "$col_ok" == "t" ]] && ok "C: ai_score restored" || bad "C: column still missing"
+  trap - EXIT
+  teardown_db
+
+  # D: missing index SAFE + restore
+  setup_db "mig046_miss_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_st_user;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-missidx.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-missidx.log \
+    && bad "D: missing index must not be ALREADY_CORRECT" \
+    || ok "D: missing index not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|MISSING_INDEXES|idx_st_user' /tmp/preflight046-missidx.log \
+    && ok "D: missing index → SAFE" || bad "D: preflight"
+  apply_migration_046
+  local idx_restored
+  idx_restored=$(psql_db -At -c "SELECT to_regclass('public.idx_st_user') IS NOT NULL")
+  [[ "$idx_restored" == "t" ]] && ok "D: idx_st_user restored" || bad "D: index still missing"
+  trap - EXIT
+  teardown_db
+
+  # E: missing FK SAFE (clean) + CASCADE restore
+  setup_db "mig046_miss_fk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ticket_attachments
+      DROP CONSTRAINT IF EXISTS support_ticket_attachments_ticket_id_fkey;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-missfk.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-missfk.log \
+    && bad "E: missing FK must not be ALREADY_CORRECT" \
+    || ok "E: missing FK not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|MISSING_FKS|support_ticket_attachments_ticket_id_fkey' /tmp/preflight046-missfk.log \
+    && ok "E: missing FK → SAFE" || bad "E: preflight"
+  apply_migration_046
+  fk_cascade=$(psql_db -At -c "
+    SELECT confdeltype FROM pg_constraint
+    WHERE conname='support_ticket_attachments_ticket_id_fkey' AND contype='f'")
+  [[ "$fk_cascade" == "c" ]] && ok "E: CASCADE FK restored" || bad "E: FK confdeltype=$fk_cascade"
+  trap - EXIT
+  teardown_db
+
+  # F: missing UNIQUE clean → SAFE apply restores
+  setup_db "mig046_miss_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-missuq.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight046-missuq.log \
+    && bad "F: missing UNIQUE must not be ALREADY_CORRECT" \
+    || ok "F: missing UNIQUE not ALREADY_CORRECT"
+  grep -qE 'SAFE_AUTO_REPAIR|PARTIAL_SCHEMA|MISSING|email' /tmp/preflight046-missuq.log \
+    && ok "F: missing UNIQUE → SAFE" || bad "F: preflight"
+  apply_migration_046
+  uq_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.support_visitor_profiles'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*email[[:space:]]*\\)'
+        AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$uq_ok" == "t" ]] && ok "F: UNIQUE(email) restored" || bad "F: UNIQUE still missing"
+  trap - EXIT
+  teardown_db
+
+  # G: wrong type BLOCK
+  setup_db "mig046_badtype"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_tickets DROP COLUMN ai_score;
+    ALTER TABLE support_tickets ADD COLUMN ai_score TEXT;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-type.log 2>&1; then
+    bad "G: preflight should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-type.log \
+      && ok "G: preflight BLOCK INCOMPATIBLE_TYPE" || bad "G: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-type.log 2>&1; then
+    bad "G: migration should BLOCK incompatible type"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig046-type.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_TYPE" || bad "G: mig reason=$(tail -3 /tmp/mig046-type.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: wrong PK BLOCK
+  setup_db "mig046_wrongpk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ticket_audit DROP CONSTRAINT support_ticket_audit_pkey;
+    ALTER TABLE support_ticket_audit ADD PRIMARY KEY (id, ticket_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-pk.log 2>&1; then
+    bad "H: preflight should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-pk.log \
+      && ok "H: preflight BLOCK INCOMPATIBLE_PK" || bad "H: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-pk.log 2>&1; then
+    bad "H: migration should BLOCK wrong PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig046-pk.log \
+      && ok "H: migration BLOCK INCOMPATIBLE_PK" || bad "H: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: duplicate visitor email BLOCK + rows preserved
+  setup_db "mig046_dup_email"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+    INSERT INTO support_visitor_profiles (email, name)
+    VALUES ('dup046@example.com', 'a'), ('dup046@example.com', 'b');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-dup.log 2>&1; then
+    bad "I: preflight should BLOCK duplicate email"
+  else
+    grep -qE 'DUPLICATE_UNIQUE_KEY|INCOMPATIBLE_UNIQUE|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-dup.log \
+      && ok "I: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "I: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-dup.log 2>&1; then
+    bad "I: migration should BLOCK duplicate email"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|INCOMPATIBLE_UNIQUE' /tmp/mig046-dup.log \
+      && ok "I: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "I: mig reason=$(tail -3 /tmp/mig046-dup.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_visitor_profiles WHERE email='dup046@example.com'")" == "2" ]] \
+    && ok "I: duplicate email rows preserved" || bad "I: rows not preserved"
+  trap - EXIT
+  teardown_db
+
+  # J: wrong/wider same-name UNIQUE BLOCK
+  setup_db "mig046_wronguq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+    ALTER TABLE support_visitor_profiles ADD CONSTRAINT support_visitor_profiles_email_key
+      UNIQUE (email, phone);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-wuniq.log 2>&1; then
+    bad "J: preflight should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-wuniq.log \
+      && ok "J: preflight BLOCK INCOMPATIBLE_UNIQUE (wider)" || bad "J: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-wuniq.log 2>&1; then
+    bad "J: migration should BLOCK wider UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig046-wuniq.log \
+      && ok "J: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "J: mig reason=$(tail -3 /tmp/mig046-wuniq.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: partial UNIQUE(email) WHERE … BLOCK
+  setup_db "mig046_partial_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+    CREATE UNIQUE INDEX support_visitor_profiles_email_key
+      ON support_visitor_profiles (email) WHERE email IS NOT NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-partial.log 2>&1; then
+    bad "K: preflight should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-partial.log \
+      && ok "K: preflight BLOCK INCOMPATIBLE_UNIQUE (partial)" || bad "K: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-partial.log 2>&1; then
+    bad "K: migration should BLOCK partial UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig046-partial.log \
+      && ok "K: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "K: mig reason=$(tail -3 /tmp/mig046-partial.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # L: expression UNIQUE(lower(email)) BLOCK
+  setup_db "mig046_expr_uq"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_visitor_profiles DROP CONSTRAINT IF EXISTS support_visitor_profiles_email_key;
+    CREATE UNIQUE INDEX support_visitor_profiles_email_expr
+      ON support_visitor_profiles (lower(email));
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-expr.log 2>&1; then
+    bad "L: preflight should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-expr.log \
+      && ok "L: preflight BLOCK INCOMPATIBLE_UNIQUE (expression)" || bad "L: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-expr.log 2>&1; then
+    bad "L: migration should BLOCK expression UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig046-expr.log \
+      && ok "L: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "L: mig reason=$(tail -3 /tmp/mig046-expr.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: orphan attachment ticket_id BLOCK + rows preserved
+  setup_db "mig046_orphan"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE support_ticket_attachments
+      DROP CONSTRAINT IF EXISTS support_ticket_attachments_ticket_id_fkey;
+    INSERT INTO support_ticket_attachments (ticket_id, file_name, file_url, uploaded_by)
+    VALUES ('orphan-ticket-046', 'orphan.txt', 'http://orphan', 'uploader');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-orphan.log 2>&1; then
+    bad "M: preflight should BLOCK orphan FK"
+  else
+    grep -qE 'ORPHAN_FK|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-orphan.log \
+      && ok "M: preflight BLOCK ORPHAN_FK" || bad "M: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-orphan.log 2>&1; then
+    bad "M: migration should BLOCK orphan FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig046-orphan.log \
+      && ok "M: migration BLOCK ORPHAN_FK" || bad "M: mig reason=$(tail -3 /tmp/mig046-orphan.log)"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM support_ticket_attachments WHERE ticket_id='orphan-ticket-046'")" == "1" ]] \
+    && ok "M: orphan attachment row preserved" || bad "M: row not preserved"
+  trap - EXIT
+  teardown_db
+
+  # N: stolen index name on wrong table BLOCK
+  setup_db "mig046_stolen"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_st_user;
+    CREATE INDEX idx_st_user ON support_messages(id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-stolen.log 2>&1; then
+    bad "N: preflight should BLOCK stolen same-name index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-stolen.log \
+      && ok "N: preflight BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "N: preflight reason"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight046-stolen.log \
+      && bad "N: must never SAFE when same-name index incompatible" \
+      || ok "N: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-stolen.log 2>&1; then
+    bad "N: migration should BLOCK stolen index name"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig046-stolen.log \
+      && ok "N: migration BLOCK INCOMPATIBLE_INDEX" || bad "N: mig reason=$(tail -3 /tmp/mig046-stolen.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # O: wrong DESC on idx_stau_ticket BLOCK
+  setup_db "mig046_wrongdesc"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_stau_ticket;
+    CREATE INDEX idx_stau_ticket ON support_ticket_audit(ticket_id, created_at);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-wrongdesc.log 2>&1; then
+    bad "O: preflight must BLOCK ASC-only (missing DESC)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-wrongdesc.log \
+      && ok "O: preflight BLOCK wrong DESC" || bad "O: preflight reason"
+    grep -q 'ALREADY_CORRECT\|SUPPORT_ENTERPRISE_SCHEMA_READY' /tmp/preflight046-wrongdesc.log \
+      && bad "O: must never ALREADY with wrong DESC" \
+      || ok "O: no ALREADY_CORRECT for wrong DESC"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-wrongdesc.log 2>&1; then
+    bad "O: migration should BLOCK wrong DESC"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig046-wrongdesc.log \
+      && ok "O: migration BLOCK INCOMPATIBLE_INDEX wrong DESC" || bad "O: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # P: wrong/missing partial predicate on idx_st_sla_res BLOCK
+  setup_db "mig046_partial_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_st_sla_res;
+    CREATE INDEX idx_st_sla_res ON support_tickets(sla_resolution_deadline);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_046" >/tmp/preflight046-partialidx.log 2>&1; then
+    bad "P: preflight should BLOCK missing partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight046-partialidx.log \
+      && ok "P: preflight BLOCK wrong partial predicate" || bad "P: preflight reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_046" >/tmp/mig046-partialidx.log 2>&1; then
+    bad "P: migration should BLOCK missing partial predicate"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig046-partialidx.log \
+      && ok "P: migration BLOCK INCOMPATIBLE_INDEX" || bad "P: mig reason=$(tail -3 /tmp/mig046-partialidx.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # R: Runtime CREATE/ALTER/INDEX absent; readiness + DML present
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (support_ticket_attachments|support_ticket_audit|support_visitor_profiles)' "$ENT_SRC"; then
+    bad "R: Runtime CREATE still present in support-enterprise.ts"
+  else
+    ok "R: Runtime CREATE absent for 3 satellites"
+  fi
+  if grep -qE 'ALTER TABLE support_tickets ADD COLUMN' "$ENT_SRC"; then
+    bad "R: Runtime ALTER support_tickets still present"
+  else
+    ok "R: Runtime ALTER support_tickets absent"
+  fi
+  if grep -q 'CREATE INDEX IF NOT EXISTS idx_st_' "$ENT_SRC"; then
+    bad "R: Runtime CREATE INDEX idx_st_ still present"
+  else
+    ok "R: Runtime CREATE INDEX idx_st_ absent"
+  fi
+  grep -q "to_regclass('public.support_tickets')" "$ENT_SRC" \
+    && grep -q "to_regclass('public.support_ticket_attachments')" "$ENT_SRC" \
+    && grep -q "to_regclass('public.support_ticket_audit')" "$ENT_SRC" \
+    && grep -q "to_regclass('public.support_visitor_profiles')" "$ENT_SRC" \
+    && ok "R: to_regclass readiness present" \
+    || bad "R: to_regclass readiness missing"
+  grep -q 'INSERT INTO support_ticket_audit' "$ENT_SRC" \
+    && ok "R: audit INSERT DML preserved" \
+    || bad "R: audit INSERT missing"
+
+  # S: prior 039–045 tables still present; 046 does not CREATE AI tables
+  setup_db "mig046_prior_still"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local prior_cnt
+  prior_cnt=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN (
+        'support_ai_analysis','support_knowledge_base','ai_coo_notif_settings',
+        'case_ai_insights','ai_agents')")
+  [[ "$prior_cnt" == "5" ]] && ok "S: prior 039–045 tables still present" || bad "S: prior count=$prior_cnt"
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (support_ai_analysis|support_knowledge_base|ai_coo_notif_settings|case_ai_insights|ai_agents)' "$MIGRATION_046"; then
+    bad "S: 046 must not CREATE 039–045 AI tables"
+  else
+    ok "S: 046 does not CREATE 039–045 AI tables"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # T: P0 verify fails without owned table / critical column; 046 restores
+  setup_db "mig046_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig046-p0-present.log 2>&1; then
+    ok "T: verify-schema passes with 046 objects"
+  else
+    bad "T: verify-schema failed after full chain"; tail -20 /tmp/mig046-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE support_ticket_attachments CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig046-p0.log 2>&1; then
+    bad "T: verify-schema should fail without support_ticket_attachments"
+  else
+    grep -qi 'support_ticket_attachments' /tmp/mig046-p0.log \
+      && ok "T: P0 verify fails when support_ticket_attachments absent" || bad "T: verify log missing table"
+  fi
+  apply_migration_046
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig046-p0-restored.log 2>&1; then
+    ok "T: verify-schema passes after 046 restore"
+  else
+    bad "T: verify failed after restore"; tail -20 /tmp/mig046-p0-restored.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE support_tickets DROP COLUMN office_id;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig046-p0-col.log 2>&1; then
+    bad "T: verify-schema should fail without support_tickets.office_id"
+  else
+    grep -qi 'office_id\|support_tickets' /tmp/mig046-p0-col.log \
+      && ok "T: P0 verify fails when critical column missing" || bad "T: verify log missing column"
   fi
   trap - EXIT
   teardown_db
@@ -12396,6 +12995,7 @@ scenario_migration_042_ai_agents
 scenario_migration_043_case_ai_insights
 scenario_migration_044_ai_coo_notif_settings
 scenario_migration_045_support_ai
+scenario_migration_046_support_enterprise
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
