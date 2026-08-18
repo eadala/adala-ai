@@ -444,3 +444,10 @@ support_ticket_audit.ticket_id
 support_visitor_profiles.id
 support_visitor_profiles.email
 support_visitor_profiles.name
+
+events.id
+events.office_id
+events.start_at
+events.event_type
+event_reminders.id
+event_reminders.event_id

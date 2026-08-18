@@ -139,3 +139,7 @@ support_knowledge_base
 support_ticket_attachments
 support_ticket_audit
 support_visitor_profiles
+
+# Migration 047 — Calendar
+events
+event_reminders

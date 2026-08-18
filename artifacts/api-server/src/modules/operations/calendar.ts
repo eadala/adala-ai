@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
+/**
+ * Legal calendar — schema owned by Migration 047.
+ * Runtime CREATE removed; ensureTables() is read-only readiness.
+ */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
@@ -15,38 +19,23 @@ async function dbRows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
+/* ── readiness — schema owned by Migration 047 ── */
+let calendarSchemaReady = false;
 async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS events (
-      id           TEXT PRIMARY KEY,
-      user_id      TEXT NOT NULL,
-      office_id    TEXT NOT NULL DEFAULT 'default',
-      title        TEXT NOT NULL,
-      event_type   TEXT NOT NULL DEFAULT 'other',
-      start_at     TIMESTAMPTZ NOT NULL,
-      end_at       TIMESTAMPTZ,
-      all_day      BOOLEAN NOT NULL DEFAULT FALSE,
-      case_id      TEXT,
-      client_id    TEXT,
-      location     TEXT,
-      description  TEXT,
-      status       TEXT NOT NULL DEFAULT 'upcoming',
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS event_reminders (
-      id                     TEXT PRIMARY KEY,
-      event_id               TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-      notify_before_minutes  INTEGER NOT NULL DEFAULT 60,
-      notification_type      TEXT NOT NULL DEFAULT 'email',
-      email                  TEXT,
-      sent                   BOOLEAN NOT NULL DEFAULT FALSE,
-      sent_at                TIMESTAMPTZ,
-      created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
+  if (calendarSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.events') IS NOT NULL AS events_present,
+        to_regclass('public.event_reminders') IS NOT NULL AS reminders_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.events_present || !row.reminders_present) {
+      console.error("[calendar] Migration 047 schema not ready — events / event_reminders missing");
+      return;
+    }
+    calendarSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 function escapeIcal(s: string): string {

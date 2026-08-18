@@ -52,6 +52,7 @@
 - ~~Runtime `CREATE` for `ai_coo_notif_settings`~~ — removed via migration **044**; `aiCoo` keeps readiness (`to_regclass`) + GET/PATCH/notify DML
 - ~~Runtime `CREATE` for `support_ai_analysis` / `support_knowledge_base`~~ — removed via migration **045**; `support-ai` keeps readiness (`to_regclass`) + analysis/KB DML (KB seed duplicate follow-up)
 - ~~Runtime `CREATE`/`ALTER`/`INDEX` from `ensureEnterpriseSchema`~~ — removed via migration **046**; `support-enterprise` keeps readiness (`to_regclass`) + ticket/audit/visitor DML
+- ~~Runtime `CREATE` from `calendar.ensureTables`~~ — removed via migration **047**; `calendar` keeps readiness (`to_regclass`) + event/reminder DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -127,6 +128,7 @@
 | `ai_coo_notif_settings` (+ `UNIQUE(office_id)`) | **044** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/notify DML + ON CONFLICT preserved; TEXT office_id; no invented FK) |
 | `support_ai_analysis` (+ `UNIQUE(ticket_id)`) / `support_knowledge_base` (PK only) | **045** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; analysis ON CONFLICT + KB DML preserved; no invented KB UNIQUE/FK; `ai_score` deferred to Enterprise) |
 | `support_tickets` extensions (+ `ai_score`) / `support_ticket_attachments` (+ FK CASCADE) / `support_ticket_audit` / `support_visitor_profiles` (+ `UNIQUE(email)`) + 7 indexes | **046** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/ALTER/INDEX removed; DML preserved; no office_id backfill; orphans/wrong UNIQUE/INDEX fail-closed) |
+| `events` / `event_reminders` (+ FK CASCADE) + `idx_events_case_id` / `idx_events_office_start` | **047** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; calendar/cases/AI DML preserved; 020 index shapes; no invented UNIQUE/case_id FK) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

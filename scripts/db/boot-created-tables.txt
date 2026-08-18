@@ -26,8 +26,6 @@ engineering_logs
 engineering_scans
 engineering_tasks
 event_daily_counts
-event_reminders
-events
 generated_documents
 ghost_access_log
 go_live_certificates
