@@ -12,7 +12,7 @@
  *   7. AI Metrics                 — stats & performance
  *
  * Schema owned by Migration 045 — Runtime CREATE removed.
- * KB seed INSERT preserved (known duplicate-seed follow-up; no invented UNIQUE).
+ * KB seed INSERT uses WHERE NOT EXISTS (category, issue); no invented UNIQUE.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -47,21 +47,33 @@ export async function ensureSupportAITables(): Promise<void> {
     } catch { /* non-blocking */ }
   }
 
-  /* Seed knowledge base — preserved app behavior (bare ON CONFLICT DO NOTHING
-   * has no useful arbiter without a business UNIQUE; de-dupe is a follow-up). */
+  /* Canonical KB seed — PK-only table (no invented UNIQUE). Logical identity
+   * is the full canonical tuple (category, issue, fix, tags). INSERT … SELECT
+   * … WHERE NOT EXISTS so re-runs and process restarts never duplicate the
+   * canonical rows, while operator/admin rows with different fix/tags are
+   * preserved and do not suppress the canonical entry. */
   await db.execute(sql`
-    INSERT INTO support_knowledge_base (category, issue, fix, tags) VALUES
-      ('security', 'cross-tenant data leak', 'Add office_id filter + enable RLS on all tables', ARRAY['security','rls','office_id']),
-      ('security', 'auth bypass', 'Check middleware order + JWT validation + requireAuthWithTenant', ARRAY['auth','jwt','middleware']),
-      ('security', 'unauthorized access', 'Verify Clerk session + check role permissions in hr_memberships', ARRAY['clerk','auth','rbac']),
-      ('bug', 'missing data in dashboard', 'Check SQL WHERE office_id filter + verify tenantId resolution', ARRAY['sql','tenant','filter']),
-      ('bug', 'invoice not appearing', 'Verify office_id on client_invoices + check status filter', ARRAY['invoice','billing']),
-      ('bug', 'ai not responding', 'Check GEMINI_API_KEY env var + callAI() error fallback', ARRAY['ai','gemini','api']),
-      ('billing', 'payment failed', 'Check Stripe webhook handler + office_stripe_accounts entry', ARRAY['stripe','payment','webhook']),
-      ('billing', 'subscription not active', 'Check office_subscriptions table + plan expiry date', ARRAY['subscription','plan']),
-      ('performance', 'slow loading', 'Check query staleTime + QueryClient config + add SQL indexes', ARRAY['performance','react-query','sql']),
-      ('feature', 'request new feature', 'Log in product backlog + estimate priority based on plan tier', ARRAY['feature','product'])
-    ON CONFLICT DO NOTHING
+    INSERT INTO support_knowledge_base (category, issue, fix, tags)
+    SELECT v.category, v.issue, v.fix, v.tags
+    FROM (VALUES
+      ('security'::text, 'cross-tenant data leak'::text, 'Add office_id filter + enable RLS on all tables'::text, ARRAY['security','rls','office_id']::text[]),
+      ('security'::text, 'auth bypass'::text, 'Check middleware order + JWT validation + requireAuthWithTenant'::text, ARRAY['auth','jwt','middleware']::text[]),
+      ('security'::text, 'unauthorized access'::text, 'Verify Clerk session + check role permissions in hr_memberships'::text, ARRAY['clerk','auth','rbac']::text[]),
+      ('bug'::text, 'missing data in dashboard'::text, 'Check SQL WHERE office_id filter + verify tenantId resolution'::text, ARRAY['sql','tenant','filter']::text[]),
+      ('bug'::text, 'invoice not appearing'::text, 'Verify office_id on client_invoices + check status filter'::text, ARRAY['invoice','billing']::text[]),
+      ('bug'::text, 'ai not responding'::text, 'Check GEMINI_API_KEY env var + callAI() error fallback'::text, ARRAY['ai','gemini','api']::text[]),
+      ('billing'::text, 'payment failed'::text, 'Check Stripe webhook handler + office_stripe_accounts entry'::text, ARRAY['stripe','payment','webhook']::text[]),
+      ('billing'::text, 'subscription not active'::text, 'Check office_subscriptions table + plan expiry date'::text, ARRAY['subscription','plan']::text[]),
+      ('performance'::text, 'slow loading'::text, 'Check query staleTime + QueryClient config + add SQL indexes'::text, ARRAY['performance','react-query','sql']::text[]),
+      ('feature'::text, 'request new feature'::text, 'Log in product backlog + estimate priority based on plan tier'::text, ARRAY['feature','product']::text[])
+    ) AS v(category, issue, fix, tags)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM support_knowledge_base k
+      WHERE k.category = v.category
+        AND k.issue = v.issue
+        AND k.fix = v.fix
+        AND coalesce(k.tags, ARRAY[]::text[]) = v.tags
+    )
   `).catch(() => {});
 }
 
