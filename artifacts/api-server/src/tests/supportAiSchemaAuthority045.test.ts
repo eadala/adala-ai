@@ -89,7 +89,8 @@ assert.match(supportAi, /to_regclass\('public\.support_knowledge_base'\)/);
 assert.match(supportAi, /ensureSupportAITables/);
 assert.match(supportAi, /ON CONFLICT \(ticket_id\) DO UPDATE/);
 assert.match(supportAi, /INSERT INTO support_knowledge_base/);
-assert.match(supportAi, /ON CONFLICT DO NOTHING/);
+assert.match(supportAi, /WHERE NOT EXISTS/);
+assert.doesNotMatch(supportAi, /ON CONFLICT DO NOTHING/);
 assert.match(supportAi, /Migration 045/);
 console.log("  ✅ Runtime CREATE gone; readiness + analysis/KB DML kept");
 

@@ -78,6 +78,7 @@
     "test:case-ai-insights-043": "node --import tsx src/tests/caseAiInsightsSchemaAuthority043.test.ts",
     "test:ai-coo-notif-044": "node --import tsx src/tests/aiCooNotifSettingsSchemaAuthority044.test.ts",
     "test:support-ai-045": "node --import tsx src/tests/supportAiSchemaAuthority045.test.ts",
+    "test:kb-seed-dedupe": "node --import tsx src/tests/kbSeedDedupe.test.ts",
     "test:support-enterprise-046": "node --import tsx src/tests/supportEnterpriseSchemaAuthority046.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
