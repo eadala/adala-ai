@@ -5755,7 +5755,7 @@ scenario_migration_045_support_ai() {
 }
 
 scenario_kb_seed_dedupe() {
-  log "Scenario KB seed de-dupe — NOT EXISTS (category, issue); no invented UNIQUE"
+  log "Scenario KB seed de-dupe — NOT EXISTS full canonical content; no invented UNIQUE"
   local SUPPORT_AI_SRC="$ROOT/artifacts/api-server/src/modules/platform/support-ai.ts"
   local seed_sql
   seed_sql=$(python3 - "$SUPPORT_AI_SRC" <<'PY'
@@ -5766,7 +5766,10 @@ m = re.search(
     r"INSERT INTO support_knowledge_base \(category, issue, fix, tags\)\s*"
     r"SELECT[\s\S]+?"
     r"WHERE NOT EXISTS \(\s*SELECT 1 FROM support_knowledge_base k\s*"
-    r"WHERE k\.category = v\.category AND k\.issue = v\.issue\s*\)",
+    r"WHERE k\.category = v\.category\s*"
+    r"AND k\.issue = v\.issue\s*"
+    r"AND k\.fix = v\.fix\s*"
+    r"AND coalesce\(k\.tags, ARRAY\[\]::text\[\]\) = v\.tags\s*\)",
     src,
 )
 if not m:
@@ -5787,8 +5790,11 @@ PY
     ok "seed has no ON CONFLICT DO NOTHING"
   fi
   grep -q 'WHERE NOT EXISTS' "$SUPPORT_AI_SRC" \
-    && grep -q 'k.category = v.category AND k.issue = v.issue' "$SUPPORT_AI_SRC" \
-    && ok "seed identity is (category, issue)" \
+    && grep -q 'k.category = v.category' "$SUPPORT_AI_SRC" \
+    && grep -q 'k.issue = v.issue' "$SUPPORT_AI_SRC" \
+    && grep -q 'k.fix = v.fix' "$SUPPORT_AI_SRC" \
+    && grep -q 'coalesce(k.tags, ARRAY\[\]::text\[\]) = v.tags' "$SUPPORT_AI_SRC" \
+    && ok "seed identity is full canonical content" \
     || bad "seed NOT EXISTS identity missing"
 
   # 1–2: empty table — first seed inserts 10; second seed inserts none
@@ -5812,7 +5818,8 @@ PY
   trap - EXIT
   teardown_db
 
-  # 3–4: matching logical row + unrelated admin row preserved (no delete/rewrite)
+  # 3–5: matching operator row with different fix does not suppress canonical;
+  # operator row and unrelated admin row are preserved unchanged
   setup_db "kbseed_preserve"
   trap teardown_db EXIT
   apply_all_migrations
@@ -5825,30 +5832,42 @@ PY
        'leave-me', ARRAY['admin']::text[]);
   " >/dev/null
   psql_db -v ON_ERROR_STOP=1 -c "$seed_sql" >/dev/null
-  local total_after bypass_fix admin_fix admin_id bypass_id
+  local total_after bypass_fix admin_fix admin_id bypass_id bypass_rows canonical_rows
   total_after=$(psql_db -At -c "SELECT COUNT(*) FROM support_knowledge_base")
   bypass_fix=$(psql_db -At -c "
     SELECT fix FROM support_knowledge_base
-    WHERE category='security' AND issue='auth bypass'")
+    WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'")
   bypass_id=$(psql_db -At -c "
     SELECT id::text FROM support_knowledge_base
+    WHERE fix='preserved-operator-fix'")
+  bypass_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM support_knowledge_base
     WHERE category='security' AND issue='auth bypass'")
+  canonical_rows=$(psql_db -At -c "
+    SELECT COUNT(*) FROM support_knowledge_base
+    WHERE category='security'
+      AND issue='auth bypass'
+      AND fix='Check middleware order + JWT validation + requireAuthWithTenant'
+      AND coalesce(tags, ARRAY[]::text[]) = ARRAY['auth','jwt','middleware']::text[]")
   admin_fix=$(psql_db -At -c "
     SELECT fix FROM support_knowledge_base WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'")
   admin_id=$(psql_db -At -c "
     SELECT COUNT(*) FROM support_knowledge_base WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'")
-  # 9 remaining canonical + 1 preserved matching + 1 admin = 11
-  [[ "$total_after" == "11" && "$bypass_fix" == "preserved-operator-fix" \
+  # 10 canonical + 1 preserved operator match + 1 unrelated admin = 12
+  [[ "$total_after" == "12" && "$canonical_rows" == "1" && "$bypass_rows" == "2" ]] \
+    && ok "3: matching operator row with different fix does not block canonical insert" \
+    || bad "3: total=$total_after canonical_rows=$canonical_rows bypass_rows=$bypass_rows"
+  [[ "$bypass_fix" == "preserved-operator-fix" \
       && "$bypass_id" == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" ]] \
-    && ok "3: existing matching (category, issue) row preserved (no rewrite)" \
-    || bad "3: total=$total_after fix=$bypass_fix id=$bypass_id"
+    && ok "4: matching operator row preserved unchanged" \
+    || bad "4: fix=$bypass_fix id=$bypass_id"
   [[ "$admin_id" == "1" && "$admin_fix" == "leave-me" ]] \
-    && ok "4: admin/operator row not deleted or rewritten" \
-    || bad "4: admin_id=$admin_id admin_fix=$admin_fix"
+    && ok "5: unrelated admin row remains untouched" \
+    || bad "5: admin_id=$admin_id admin_fix=$admin_fix"
   psql_db -v ON_ERROR_STOP=1 -c "$seed_sql" >/dev/null
   local total_re
   total_re=$(psql_db -At -c "SELECT COUNT(*) FROM support_knowledge_base")
-  [[ "$total_re" == "11" ]] && ok "4b: re-seed still does not duplicate" || bad "4b: total=$total_re"
+  [[ "$total_re" == "12" ]] && ok "5b: re-seed still does not duplicate" || bad "5b: total=$total_re"
   trap - EXIT
   teardown_db
 }

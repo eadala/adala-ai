@@ -48,10 +48,10 @@ export async function ensureSupportAITables(): Promise<void> {
   }
 
   /* Canonical KB seed — PK-only table (no invented UNIQUE). Logical identity
-   * is (category, issue). INSERT … SELECT … WHERE NOT EXISTS so re-runs and
-   * process restarts never duplicate those tuples; existing matching rows
-   * (including operator-edited fix/tags) and unrelated admin rows are left
-   * untouched. */
+   * is the full canonical tuple (category, issue, fix, tags). INSERT … SELECT
+   * … WHERE NOT EXISTS so re-runs and process restarts never duplicate the
+   * canonical rows, while operator/admin rows with different fix/tags are
+   * preserved and do not suppress the canonical entry. */
   await db.execute(sql`
     INSERT INTO support_knowledge_base (category, issue, fix, tags)
     SELECT v.category, v.issue, v.fix, v.tags
@@ -69,7 +69,10 @@ export async function ensureSupportAITables(): Promise<void> {
     ) AS v(category, issue, fix, tags)
     WHERE NOT EXISTS (
       SELECT 1 FROM support_knowledge_base k
-      WHERE k.category = v.category AND k.issue = v.issue
+      WHERE k.category = v.category
+        AND k.issue = v.issue
+        AND k.fix = v.fix
+        AND coalesce(k.tags, ARRAY[]::text[]) = v.tags
     )
   `).catch(() => {});
 }

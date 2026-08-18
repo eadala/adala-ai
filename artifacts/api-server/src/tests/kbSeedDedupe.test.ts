@@ -34,11 +34,14 @@ const CANONICAL_ISSUES = [
   "request new feature",
 ];
 
-console.log("\n═══ KB seed uses NOT EXISTS (category, issue); PK-only ═══");
+console.log("\n═══ KB seed uses NOT EXISTS full canonical content; PK-only ═══");
 const supportAi = readSrc("modules/platform/support-ai.ts");
 assert.match(supportAi, /INSERT INTO support_knowledge_base/);
 assert.match(supportAi, /WHERE NOT EXISTS/);
-assert.match(supportAi, /k\.category = v\.category AND k\.issue = v\.issue/);
+assert.match(supportAi, /k\.category = v\.category/);
+assert.match(supportAi, /k\.issue = v\.issue/);
+assert.match(supportAi, /k\.fix = v\.fix/);
+assert.match(supportAi, /coalesce\(k\.tags, ARRAY\[\]::text\[\]\) = v\.tags/);
 assert.doesNotMatch(supportAi, /ON CONFLICT DO NOTHING/);
 {
   const seedBlock = supportAi.slice(
@@ -53,7 +56,7 @@ for (const issue of CANONICAL_ISSUES) {
   assert.ok(supportAi.includes(issue), `canonical issue missing: ${issue}`);
 }
 assert.equal(CANONICAL_ISSUES.length, 10);
-console.log("  ✅ seed INSERT … SELECT … WHERE NOT EXISTS (category, issue); 10 canonical issues");
+console.log("  ✅ seed INSERT … SELECT … WHERE NOT EXISTS full canonical content; 10 canonical issues");
 
 console.log("\n═══ Migration 045 remains PK-only (no invented KB UNIQUE) ═══");
 const mig045 = readRepo("artifacts/api-server/migrations/045_support_ai_schema_authority.sql");
