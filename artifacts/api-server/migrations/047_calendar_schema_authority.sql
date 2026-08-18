@@ -204,7 +204,9 @@ BEGIN
           '047_calendar: BLOCK_AND_MANUAL_REVIEW (reason_code=NULL_REQUIRED) — NULL id blocks PK on %', tbl;
       END IF;
       EXECUTE format(
-        $q$SELECT COUNT(*) FROM (SELECT id FROM public.%I GROUP BY id HAVING COUNT(*) > 1) d$q$, tbl)
+        $q$SELECT COUNT(*) FROM (
+             SELECT id FROM public.%I WHERE id IS NOT NULL GROUP BY id HAVING COUNT(*) > 1
+           ) d$q$, tbl)
         INTO dup_cnt;
       IF dup_cnt > 0 THEN
         RAISE EXCEPTION

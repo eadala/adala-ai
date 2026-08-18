@@ -18,6 +18,8 @@
 --
 -- Blockers are collected before the decision ladder. Any blocker wins over
 -- every safe repair, including missing tables.
+-- Missing PK(id) + duplicate non-null id groups → INCOMPATIBLE_PK (never SAFE).
+-- event_reminders with rows while events is missing → ORPHAN_FK (never TABLE_MISSING SAFE).
 --
 -- Reason codes:
 --   INCOMPATIBLE_TYPE, INCOMPATIBLE_PK, INCOMPATIBLE_FK, INCOMPATIBLE_INDEX,
@@ -243,7 +245,22 @@ BEGIN
           format('%s(expected={id},actual=%s)',tbl,coalesce(pk_cols::TEXT,'<null>')));
       END IF;
     ELSE
-      missing_pks := array_append(missing_pks,format('%s(id)',tbl));
+      -- PK missing: duplicate non-null ids cannot be repaired by ADD PRIMARY KEY (id).
+      BEGIN
+        EXECUTE format(
+          $q$SELECT count(*) FROM (
+               SELECT id FROM public.%I WHERE id IS NOT NULL GROUP BY id HAVING COUNT(*) > 1
+             ) d$q$, tbl)
+          INTO row_count;
+      EXCEPTION WHEN undefined_table OR undefined_column THEN
+        row_count := 0;
+      END;
+      IF row_count > 0 THEN
+        incompatible_pks := array_append(incompatible_pks,
+          format('%s(duplicate_id_groups=%s)', tbl, row_count));
+      ELSE
+        missing_pks := array_append(missing_pks,format('%s(id)',tbl));
+      END IF;
     END IF;
   END LOOP;
 
@@ -364,7 +381,18 @@ BEGIN
     END;
   ELSIF to_regclass('public.event_reminders') IS NOT NULL
         AND to_regclass('public.events') IS NULL THEN
-    missing_fks := array_append(missing_fks, 'event_reminders_event_id_fkey');
+    -- Parent missing: any reminder rows are unrepairable orphans (never TABLE_MISSING SAFE).
+    BEGIN
+      SELECT COUNT(*) INTO row_count FROM event_reminders;
+      IF row_count > 0 THEN
+        orphan_fk_details := array_append(orphan_fk_details,
+          format('event_reminders.rows=%s events=missing', row_count));
+      ELSE
+        missing_fks := array_append(missing_fks, 'event_reminders_event_id_fkey');
+      END IF;
+    EXCEPTION WHEN undefined_table OR undefined_column THEN
+      missing_fks := array_append(missing_fks, 'event_reminders_event_id_fkey');
+    END;
   END IF;
 
   -- Any blocker wins over every safe repair, including missing tables.

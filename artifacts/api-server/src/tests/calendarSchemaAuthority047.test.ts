@@ -71,6 +71,9 @@ assert.match(pre, /Any blocker wins|blocker wins over every safe repair/i);
 assert.match(pre, /INCOMPATIBLE_INDEX/);
 assert.match(pre, /INCOMPATIBLE_FK/);
 assert.match(pre, /ORPHAN_FK/);
+assert.match(pre, /duplicate_id_groups/);
+assert.match(pre, /WHERE id IS NOT NULL GROUP BY id HAVING COUNT\(\*\) > 1/);
+assert.match(pre, /event_reminders\.rows=%s events=missing|events=missing/);
 assert.match(pre, /idx_events_case_id/);
 assert.match(pre, /idx_events_office_start/);
 assert.match(pre, /asc_ok/);
@@ -116,6 +119,8 @@ assert.match(readRepo(".github/workflows/ci.yml"), /test:calendar-047/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /MIGRATION_047|scenario_migration_047/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_stolen|stolen index/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_orphan|ORPHAN_FK/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_dup_pk/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_orphan_parent_missing/);
 assert.match(readRepo("artifacts/api-server/migrations/README.md"), /047_calendar_schema_authority/);
 console.log("  ✅ package/CI/integration/README wired");
 

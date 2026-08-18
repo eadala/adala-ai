@@ -7120,6 +7120,86 @@ scenario_migration_047_calendar() {
   trap - EXIT
   teardown_db
 
+  # R: missing PK + duplicate non-null ids → BLOCK INCOMPATIBLE_PK (rows preserved)
+  setup_db "mig047_dup_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    ALTER TABLE events DROP CONSTRAINT events_pkey;
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES
+      ('dup-047', 'u1', 'o1', 'A', 'other', NOW(), false, 'upcoming'),
+      ('dup-047', 'u2', 'o1', 'B', 'other', NOW(), false, 'upcoming');
+  " >/dev/null
+  local dup_before
+  dup_before=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT id FROM events WHERE id IS NOT NULL GROUP BY id HAVING COUNT(*) > 1
+    ) d")
+  [[ "$dup_before" -ge 1 ]] && ok "R: duplicate non-null id groups present before apply" \
+    || bad "R: failed to seed duplicate ids"
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-r.log 2>&1; then
+    bad "R: preflight should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-r.log \
+      && ok "R: preflight BLOCK INCOMPATIBLE_PK (dup ids)" || bad "R: expected INCOMPATIBLE_PK"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight047-r.log \
+      && bad "R: must never SAFE for dup ids missing PK" \
+      || ok "R: no SAFE for dup ids missing PK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-r.log 2>&1; then
+    bad "R: migration should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig047-r.log \
+      && ok "R: migration BLOCK INCOMPATIBLE_PK" || bad "R: mig reason=$(tail -3 /tmp/mig047-r.log)"
+  fi
+  local dup_after
+  dup_after=$(psql_db -At -c "SELECT COUNT(*) FROM events WHERE id='dup-047';")
+  [[ "$dup_after" == "2" ]] && ok "R: duplicate event rows preserved" || bad "R: row count=$dup_after"
+  trap - EXIT
+  teardown_db
+
+  # S: event_reminders rows while events missing → BLOCK ORPHAN_FK (rows preserved)
+  setup_db "mig047_orphan_parent_missing"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES ('evt-parent-047', 'u1', 'o1', 'Keep', 'other', NOW(), false, 'upcoming');
+    INSERT INTO event_reminders (id, event_id, notify_before_minutes, notification_type, sent)
+    VALUES ('keep-rem-047', 'evt-parent-047', 60, 'email', false);
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    DROP TABLE events;
+  " >/dev/null
+  local rem_before
+  rem_before=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='keep-rem-047';")
+  [[ "$rem_before" == "1" ]] && ok "S: reminder row present with events missing" \
+    || bad "S: failed to seed reminder after DROP events"
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-s.log 2>&1; then
+    bad "S: preflight should BLOCK ORPHAN_FK when events missing and reminders have rows"
+  else
+    grep -q 'ORPHAN_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-s.log \
+      && ok "S: preflight BLOCK ORPHAN_FK (events missing)" || bad "S: expected ORPHAN_FK"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight047-s.log \
+      && bad "S: must never TABLE_MISSING SAFE when reminder rows exist without events" \
+      || ok "S: no SAFE/TABLE_MISSING over populated reminders"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight047-s.log \
+      && bad "S: must never ALREADY when events missing and reminders have rows" \
+      || ok "S: no ALREADY for parent-missing orphans"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-s.log 2>&1; then
+    bad "S: migration should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig047-s.log \
+      && ok "S: migration BLOCK ORPHAN_FK (row preserved)" || bad "S: mig reason=$(tail -3 /tmp/mig047-s.log)"
+  fi
+  local rem_after
+  rem_after=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='keep-rem-047';")
+  [[ "$rem_after" == "1" ]] && ok "S: orphan reminder row preserved" || bad "S: row count=$rem_after"
+  trap - EXIT
+  teardown_db
+
   # N: extra live column preserved
   setup_db "mig047_extra_col"
   trap teardown_db EXIT
