@@ -3,7 +3,7 @@
  * Enterprise Support Center — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
  * Full-stack support ticket system:
- *   1. Extended DB schema (office_id, case_id, SLA, visitor, attachments, audit)
+ *   1. Schema owned by Migration 046 — Runtime DDL removed (readiness only)
  *   2. User CRUD routes  (POST/GET /support/tickets, replies, close, reopen)
  *   3. Admin routes      (analytics, assign, workflow, SLA violations)
  *   4. Visitor contact   (public POST /support/contact → auto-ticket)
@@ -56,86 +56,28 @@ function computeSLA(priority: string) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   STARTUP MIGRATIONS
+   Schema readiness — owned by Migration 046 (Runtime DDL removed)
 ══════════════════════════════════════════════════════════════════════════ */
+let enterpriseSchemaReady = false;
 async function ensureEnterpriseSchema(): Promise<void> {
-  /* 1. Extend support_tickets */
-  const cols = [
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS office_id TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS case_id TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS invoice_id TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS conversation_id TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS visitor_id TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS visitor_phone TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS department TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS assigned_to_name TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'user'`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS sla_response_deadline TIMESTAMPTZ`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS sla_resolution_deadline TIMESTAMPTZ`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS first_response_at TIMESTAMPTZ`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS reopened_at TIMESTAMPTZ`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS internal_notes TEXT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS satisfaction_score INT`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_score NUMERIC(4,2)`,
-    `ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS waiting_since TIMESTAMPTZ`,
-  ];
-  for (const c of cols) await db.execute(sql.raw(c)).catch(() => {});
-
-  /* 2. support_ticket_attachments */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_ticket_attachments (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      ticket_id   TEXT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
-      file_name   TEXT NOT NULL,
-      file_url    TEXT NOT NULL,
-      file_size   INT  DEFAULT 0,
-      file_type   TEXT,
-      uploaded_by TEXT NOT NULL,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* 3. support_ticket_audit */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_ticket_audit (
-      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      ticket_id  TEXT NOT NULL,
-      user_id    TEXT,
-      user_name  TEXT,
-      action     TEXT NOT NULL,
-      old_value  TEXT,
-      new_value  TEXT,
-      ip_address TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  /* 4. support_visitor_profiles */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_visitor_profiles (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      email        TEXT UNIQUE,
-      phone        TEXT,
-      name         TEXT NOT NULL,
-      first_visit  TIMESTAMPTZ DEFAULT NOW(),
-      last_visit   TIMESTAMPTZ DEFAULT NOW(),
-      ticket_count INT DEFAULT 1
-    )
-  `).catch(() => {});
-
-  /* 5. Indexes */
-  const indexes = [
-    `CREATE INDEX IF NOT EXISTS idx_st_user    ON support_tickets (user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_st_status  ON support_tickets (status, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_st_office  ON support_tickets (office_id, status)`,
-    `CREATE INDEX IF NOT EXISTS idx_st_sla_res ON support_tickets (sla_resolution_deadline) WHERE status NOT IN ('closed','resolved')`,
-    `CREATE INDEX IF NOT EXISTS idx_sta_ticket ON support_ticket_attachments (ticket_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_stau_ticket ON support_ticket_audit (ticket_id, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_sm_ticket  ON support_messages (ticket_id, created_at ASC)`,
-  ];
-  for (const idx of indexes) await db.execute(sql.raw(idx)).catch(() => {});
+  if (enterpriseSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.support_tickets') IS NOT NULL AS tickets_present,
+        to_regclass('public.support_ticket_attachments') IS NOT NULL AS attachments_present,
+        to_regclass('public.support_ticket_audit') IS NOT NULL AS audit_present,
+        to_regclass('public.support_visitor_profiles') IS NOT NULL AS visitors_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.tickets_present || !row.attachments_present || !row.audit_present || !row.visitors_present) {
+      console.error(
+        "[support-enterprise] Migration 046 schema not ready — support_tickets extensions / satellites missing",
+      );
+      return;
+    }
+    enterpriseSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 ensureEnterpriseSchema();
 

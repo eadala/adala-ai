@@ -1613,6 +1613,50 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:support-ai-045
 assert.match(readRepo(".github/workflows/ci.yml"), /test:support-ai-045/);
 console.log("  ✅ migration 045 owns Support AI tables + UNIQUE(ticket_id); Runtime CREATE absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: Support Enterprise (046) ═══");
+assert.ok(migrationFiles.includes("046_support_enterprise_schema_authority.sql"));
+const mig046 = readRepo("artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql");
+assert.match(mig046, /CREATE TABLE IF NOT EXISTS support_ticket_attachments/);
+assert.match(mig046, /CREATE TABLE IF NOT EXISTS support_ticket_audit/);
+assert.match(mig046, /CREATE TABLE IF NOT EXISTS support_visitor_profiles/);
+assert.match(mig046, /ON DELETE CASCADE/);
+assert.match(mig046, /UNIQUE\s*\(\s*email\s*\)/i);
+assert.match(mig046, /idx_st_sla_res/);
+assert.match(mig046, /idx_sm_ticket/);
+assert.match(mig046, /INCOMPATIBLE_INDEX/);
+assert.match(mig046, /INCOMPATIBLE_NULLABLE/);
+assert.match(mig046, /confrelid = 'public\.support_tickets'::regclass/);
+assert.match(mig046, /indnullsnotdistinct/);
+assert.match(mig046, /ORPHAN_FK/);
+assert.match(mig046, /POST_APPLY_READINESS_FAILED|SUPPORT_ENTERPRISE_SCHEMA_READY/);
+{
+  const sqlOnly046 = mig046.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly046, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly046, /(?:^|;)\s*DELETE\s+FROM\b/im);
+  assert.doesNotMatch(sqlOnly046, /CREATE TABLE IF NOT EXISTS support_ai_analysis\b/);
+  assert.doesNotMatch(sqlOnly046, /CREATE TABLE IF NOT EXISTS support_knowledge_base\b/);
+  assert.doesNotMatch(sqlOnly046, /UPDATE\s+support_tickets\s+SET\s+office_id/i);
+}
+const preflight046 = readRepo("scripts/db/preflight-migration-046.sql");
+assert.match(preflight046, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight046, /SUPPORT_ENTERPRISE_SCHEMA_READY/);
+assert.match(preflight046, /SAFE_AUTO_REPAIR/);
+assert.match(preflight046, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight046, /Any blocker wins|blocker wins over every safe repair/i);
+assert.doesNotMatch(readSrc("modules/platform/support-enterprise.ts"), /CREATE TABLE IF NOT EXISTS support_ticket_attachments/);
+assert.doesNotMatch(readSrc("modules/platform/support-enterprise.ts"), /CREATE INDEX IF NOT EXISTS idx_st_/);
+assert.match(readSrc("modules/platform/support-enterprise.ts"), /to_regclass\('public\.support_ticket_attachments'\)/);
+assert.match(readSrc("modules/platform/support-enterprise.ts"), /ensureEnterpriseSchema/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_046|MIGRATION_046/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig046_orphan|mig046_stolen|mig046_dup_email/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^support_ticket_attachments$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^support_visitor_profiles$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^support_tickets\.office_id$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^support_ticket_attachments$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:support-enterprise-046/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:support-enterprise-046/);
+console.log("  ✅ migration 046 owns Support Enterprise extensions+satellites+indexes; Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

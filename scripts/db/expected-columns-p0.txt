@@ -432,3 +432,15 @@ support_knowledge_base.id
 support_knowledge_base.category
 support_knowledge_base.issue
 support_knowledge_base.fix
+
+support_tickets.office_id
+support_tickets.source
+support_tickets.sla_resolution_deadline
+support_tickets.ai_score
+support_ticket_attachments.id
+support_ticket_attachments.ticket_id
+support_ticket_audit.id
+support_ticket_audit.ticket_id
+support_visitor_profiles.id
+support_visitor_profiles.email
+support_visitor_profiles.name
