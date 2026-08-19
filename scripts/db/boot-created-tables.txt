@@ -20,7 +20,6 @@ dr_test_runs
 email_notification_logs
 email_notification_settings
 employee_incentives
-employee_requests
 engineering_ip_whitelist
 engineering_logs
 engineering_scans
@@ -31,7 +30,6 @@ ghost_access_log
 go_live_certificates
 governance_action_log
 high_risk_op_log
-hr_announcements
 hr_audit_logs
 hr_memberships
 hr_roles
@@ -39,7 +37,6 @@ hr_settings
 hr_workflows
 integration_requests
 launch_events
-leave_balances
 legal_holds
 marketing_leads
 message_conversations

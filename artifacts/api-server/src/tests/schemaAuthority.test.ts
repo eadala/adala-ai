@@ -1703,6 +1703,43 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:calendar-047/)
 assert.match(readRepo(".github/workflows/ci.yml"), /test:calendar-047/);
 console.log("  ✅ migration 047 owns Calendar events+reminders+FK CASCADE+020 indexes; Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: HR Internal (048) ═══");
+assert.ok(migrationFiles.includes("048_hr_internal_schema_authority.sql"));
+const mig048 = readRepo("artifacts/api-server/migrations/048_hr_internal_schema_authority.sql");
+assert.match(mig048, /CREATE TABLE IF NOT EXISTS hr_announcements/);
+assert.match(mig048, /CREATE TABLE IF NOT EXISTS employee_requests/);
+assert.match(mig048, /CREATE TABLE IF NOT EXISTS leave_balances/);
+assert.match(mig048, /UNIQUE\s*\(\s*employee_id\s*,\s*leave_type\s*,\s*year\s*\)/);
+assert.match(mig048, /DUPLICATE_UNIQUE_KEY/);
+assert.match(mig048, /INCOMPATIBLE_UNIQUE/);
+assert.match(mig048, /POST_APPLY_READINESS_FAILED|HR_INTERNAL_SCHEMA_READY/);
+{
+  const sqlOnly048 = mig048.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly048, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly048, /FOREIGN\s+KEY/i);
+  assert.doesNotMatch(sqlOnly048, /CREATE TABLE IF NOT EXISTS hr_roles\b/);
+}
+const preflight048 = readRepo("scripts/db/preflight-migration-048.sql");
+assert.match(preflight048, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight048, /HR_INTERNAL_SCHEMA_READY/);
+assert.match(preflight048, /SAFE_AUTO_REPAIR/);
+assert.match(preflight048, /BLOCK_AND_MANUAL_REVIEW/);
+assert.doesNotMatch(readSrc("modules/operations/hrInternal.ts"), /CREATE TABLE IF NOT EXISTS hr_announcements/);
+assert.doesNotMatch(readSrc("modules/operations/hrInternal.ts"), /CREATE TABLE IF NOT EXISTS employee_requests/);
+assert.doesNotMatch(readSrc("modules/operations/hrInternal.ts"), /CREATE TABLE IF NOT EXISTS leave_balances/);
+assert.match(readSrc("modules/operations/hrInternal.ts"), /to_regclass\('public\.hr_announcements'\)/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_048|MIGRATION_048/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig048_dup_unique|mig048_wrong_unique/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_announcements$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^employee_requests$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^leave_balances$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^hr_announcements$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^employee_requests$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^leave_balances$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-internal-048/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-internal-048/);
+console.log("  ✅ migration 048 owns HR Internal tables + exact leave_balances UNIQUE; Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

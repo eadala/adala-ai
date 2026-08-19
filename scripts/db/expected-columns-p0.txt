@@ -451,3 +451,10 @@ events.start_at
 events.event_type
 event_reminders.id
 event_reminders.event_id
+hr_announcements.id
+hr_announcements.office_id
+employee_requests.id
+employee_requests.employee_id
+leave_balances.id
+leave_balances.employee_id
+leave_balances.leave_type
