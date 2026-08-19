@@ -1657,6 +1657,52 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:support-enterp
 assert.match(readRepo(".github/workflows/ci.yml"), /test:support-enterprise-046/);
 console.log("  ✅ migration 046 owns Support Enterprise extensions+satellites+indexes; Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: Calendar (047) ═══");
+assert.ok(migrationFiles.includes("047_calendar_schema_authority.sql"));
+const mig047 = readRepo("artifacts/api-server/migrations/047_calendar_schema_authority.sql");
+assert.match(mig047, /CREATE TABLE IF NOT EXISTS events/);
+assert.match(mig047, /CREATE TABLE IF NOT EXISTS event_reminders/);
+assert.match(mig047, /ON DELETE CASCADE/);
+assert.match(mig047, /idx_events_case_id/);
+assert.match(mig047, /idx_events_office_start/);
+assert.match(mig047, /INCOMPATIBLE_INDEX/);
+assert.match(mig047, /INCOMPATIBLE_FK/);
+assert.match(mig047, /ORPHAN_FK/);
+assert.match(mig047, /confrelid = 'public\.events'::regclass/);
+assert.match(mig047, /POST_APPLY_READINESS_FAILED|CALENDAR_SCHEMA_READY/);
+{
+  const sqlOnly047 = mig047.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly047, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly047, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly047, /CREATE TABLE IF NOT EXISTS hr_announcements\b/);
+  assert.doesNotMatch(sqlOnly047, /CREATE TABLE IF NOT EXISTS hr_roles\b/);
+  assert.doesNotMatch(sqlOnly047, /CREATE TABLE IF NOT EXISTS office_notification_settings\b/);
+}
+const preflight047 = readRepo("scripts/db/preflight-migration-047.sql");
+assert.match(preflight047, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|does not\s+CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight047, /CALENDAR_SCHEMA_READY/);
+assert.match(preflight047, /SAFE_AUTO_REPAIR/);
+assert.match(preflight047, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight047, /Any blocker wins|blocker wins over every safe repair/i);
+assert.doesNotMatch(readSrc("modules/operations/calendar.ts"), /CREATE TABLE IF NOT EXISTS events/);
+assert.doesNotMatch(readSrc("modules/operations/calendar.ts"), /CREATE TABLE IF NOT EXISTS event_reminders/);
+assert.match(readSrc("modules/operations/calendar.ts"), /to_regclass\('public\.events'\)/);
+assert.match(readSrc("modules/operations/calendar.ts"), /ensureTables/);
+assert.match(readSrc("modules/operations/calendar.ts"), /INSERT INTO events/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_047|MIGRATION_047/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_orphan|mig047_stolen/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig047_dup_pk|mig047_orphan_parent_missing/);
+assert.match(preflight047, /duplicate_id_groups/);
+assert.match(preflight047, /events=missing/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^events$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^event_reminders$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^events\.office_id$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^events$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^event_reminders$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:calendar-047/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:calendar-047/);
+console.log("  ✅ migration 047 owns Calendar events+reminders+FK CASCADE+020 indexes; Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

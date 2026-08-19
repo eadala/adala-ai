@@ -55,6 +55,7 @@ MIGRATION_043="$ROOT/artifacts/api-server/migrations/043_case_ai_insights_schema
 MIGRATION_044="$ROOT/artifacts/api-server/migrations/044_ai_coo_notif_settings_schema_authority.sql"
 MIGRATION_045="$ROOT/artifacts/api-server/migrations/045_support_ai_schema_authority.sql"
 MIGRATION_046="$ROOT/artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql"
+MIGRATION_047="$ROOT/artifacts/api-server/migrations/047_calendar_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -240,6 +241,7 @@ apply_migration_033() {
 # 042 owns ai_agents / agent_actions / agent_job_logs; 043 owns case_ai_insights;
 # 044 owns ai_coo_notif_settings; 045 owns support_ai_analysis / support_knowledge_base;
 # 046 owns support_ticket_attachments / support_ticket_audit / support_visitor_profiles.
+# 047 owns events / event_reminders + idx_events_case_id / idx_events_office_start.
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -264,6 +266,7 @@ verify_p0_schema() {
   apply_migration_044
   apply_migration_045
   apply_migration_046
+  apply_migration_047
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -319,6 +322,10 @@ apply_migration_046() {
   psql_db -f "$MIGRATION_046" >/dev/null
 }
 
+apply_migration_047() {
+  psql_db -f "$MIGRATION_047" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -367,11 +374,12 @@ apply_all_migrations() {
   apply_migration_044
   apply_migration_045
   apply_migration_046
+  apply_migration_047
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…046 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…047 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -6740,6 +6748,525 @@ scenario_migration_046_support_enterprise() {
   else
     grep -qi 'office_id\|support_tickets' /tmp/mig046-p0-col.log \
       && ok "T: P0 verify fails when critical column missing" || bad "T: verify log missing column"
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_047_calendar() {
+  log "Scenario 047 — Calendar: greenfield / SAFE / BLOCK / FK CASCADE / ASC indexes / Runtime / P0"
+  local PREFLIGHT_047="$ROOT/scripts/db/preflight-migration-047.sql"
+  local CAL_SRC="$ROOT/artifacts/api-server/src/modules/operations/calendar.ts"
+  local CASES_SRC="$ROOT/artifacts/api-server/src/modules/legal-core/cases.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + FK CASCADE + ASC indexes + DML
+  setup_db "mig047_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local ev_tbl rem_tbl ev_pk rem_pk fk_ok idx_ok office_default
+  ev_tbl=$(psql_db -At -c "SELECT to_regclass('public.events') IS NOT NULL;")
+  rem_tbl=$(psql_db -At -c "SELECT to_regclass('public.event_reminders') IS NOT NULL;")
+  [[ "$ev_tbl" == "t" && "$rem_tbl" == "t" ]] && ok "A: events + event_reminders present" || bad "A: tables missing"
+  ev_pk=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.events'::regclass AND c.contype='p'
+        AND pg_get_constraintdef(c.oid) ~* '\\(id\\)' AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  rem_pk=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.event_reminders'::regclass AND c.contype='p'
+        AND pg_get_constraintdef(c.oid) ~* '\\(id\\)' AND pg_get_constraintdef(c.oid) !~* ','
+    )")
+  [[ "$ev_pk" == "t" && "$rem_pk" == "t" ]] && ok "A: PRIMARY KEY (id) on both tables" || bad "A: PK ev=$ev_pk rem=$rem_pk"
+  fk_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conname='event_reminders_event_id_fkey' AND c.contype='f'
+        AND c.conrelid='public.event_reminders'::regclass
+        AND c.confrelid='public.events'::regclass
+        AND c.confdeltype='c'
+    )")
+  [[ "$fk_ok" == "t" ]] && ok "A: event_reminders_event_id_fkey ON DELETE CASCADE" || bad "A: FK missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='events'
+        AND i.relname='idx_events_case_id'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['case_id']::text[]
+        AND (x.indoption[0] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_events_case_id (case_id ASC non-unique)" || bad "A: idx_events_case_id missing/wrong"
+  idx_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_class t
+      JOIN pg_namespace n ON n.oid=t.relnamespace
+      JOIN pg_index x ON x.indrelid=t.oid
+      JOIN pg_class i ON i.oid=x.indexrelid
+      WHERE n.nspname='public' AND t.relname='events'
+        AND i.relname='idx_events_office_start'
+        AND x.indisvalid AND x.indisready AND x.indpred IS NULL AND x.indexprs IS NULL
+        AND x.indisunique IS DISTINCT FROM TRUE
+        AND (SELECT array_agg(a.attname::text ORDER BY ord.ordinality)
+             FROM unnest(x.indkey::smallint[]) WITH ORDINALITY AS ord(attnum, ordinality)
+             JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=ord.attnum AND NOT a.attisdropped)
+            = ARRAY['office_id','start_at']::text[]
+        AND (x.indoption[0] & 1) = 0 AND (x.indoption[1] & 1) = 0
+    )")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_events_office_start (office_id, start_at ASC)" || bad "A: idx_events_office_start missing/wrong"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO events (id, user_id, title, event_type, start_at, all_day, status)
+    VALUES ('cal-omit-office', 'u1', 'Hearing', 'hearing', NOW(), false, 'upcoming');
+  " >/dev/null
+  office_default=$(psql_db -At -c "SELECT office_id FROM events WHERE id='cal-omit-office';")
+  [[ "$office_default" == "default" ]] && ok "A: omitted office_id uses DEFAULT 'default'" || bad "A: office_id=$office_default"
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES ('cal-upsert', 'u1', 'off-1', 'Original', 'other', NOW(), false, 'upcoming')
+    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW();
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES ('cal-upsert', 'u1', 'off-1', 'Updated', 'other', NOW(), false, 'upcoming')
+    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW();
+    INSERT INTO event_reminders (id, event_id)
+    VALUES ('cal-rem-1', 'cal-upsert');
+    DELETE FROM events WHERE id='cal-upsert';
+  " >/dev/null
+  local upsert_cnt cascade_cnt
+  upsert_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM events WHERE id='cal-upsert';")
+  cascade_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='cal-rem-1';")
+  [[ "$upsert_cnt" == "0" && "$cascade_cnt" == "0" ]] \
+    && ok "A: ON CONFLICT (id) + ON DELETE CASCADE work" \
+    || bad "A: upsert=$upsert_cnt cascade_rem=$cascade_cnt"
+  psql_db -f "$MIGRATION_047" >/tmp/mig047.log 2>&1
+  ok "A: re-run 047 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight047-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight047-ready.log | tail -1)"
+  grep -q 'CALENDAR_SCHEMA_READY' /tmp/preflight047-ready.log \
+    && ok "A: CALENDAR_SCHEMA_READY" || bad "A: ready reason"
+  grep -q 'CALENDAR_SCHEMA_READY' /tmp/mig047.log \
+    && ok "A: migration RAISE NOTICE CALENDAR_SCHEMA_READY" || bad "A: missing CALENDAR_SCHEMA_READY notice"
+  trap - EXIT
+  teardown_db
+
+  # B: missing tables SAFE + restore
+  setup_db "mig047_missing_tables"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS event_reminders CASCADE; DROP TABLE IF EXISTS events CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-b.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight047-b.log \
+    && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight047-b.log \
+    && bad "B: missing tables must not be ALREADY_CORRECT" \
+    || ok "B: not ALREADY_CORRECT when tables missing"
+  apply_migration_047
+  ev_tbl=$(psql_db -At -c "SELECT to_regclass('public.events') IS NOT NULL;")
+  rem_tbl=$(psql_db -At -c "SELECT to_regclass('public.event_reminders') IS NOT NULL;")
+  [[ "$ev_tbl" == "t" && "$rem_tbl" == "t" ]] && ok "B: 047 restores both tables" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig047_missing_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE events DROP COLUMN IF EXISTS location;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-c.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|SAFE_AUTO_REPAIR' /tmp/preflight047-c.log \
+    && ok "C: preflight SAFE PARTIAL_SCHEMA" || bad "C: preflight"
+  apply_migration_047
+  local loc
+  loc=$(psql_db -At -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='events' AND column_name='location';")
+  [[ "$loc" == "1" ]] && ok "C: location restored" || bad "C: location=$loc"
+  trap - EXIT
+  teardown_db
+
+  # D: missing indexes SAFE + restore
+  setup_db "mig047_missing_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_events_case_id; DROP INDEX IF EXISTS idx_events_office_start;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-d.log 2>&1
+  grep -q 'MISSING_INDEXES\|SAFE_AUTO_REPAIR' /tmp/preflight047-d.log \
+    && ok "D: preflight SAFE MISSING_INDEXES" || bad "D: preflight"
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight047-d.log \
+    && bad "D: missing indexes must not be ALREADY_CORRECT" \
+    || ok "D: not ALREADY_CORRECT when indexes missing"
+  apply_migration_047
+  idx_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class i
+    JOIN pg_namespace n ON n.oid=i.relnamespace
+    WHERE n.nspname='public' AND i.relname IN ('idx_events_case_id','idx_events_office_start');")
+  [[ "$idx_ok" == "2" ]] && ok "D: both indexes restored" || bad "D: idx count=$idx_ok"
+  trap - EXIT
+  teardown_db
+
+  # E: missing FK SAFE + restore
+  setup_db "mig047_missing_fk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-e.log 2>&1
+  grep -q 'MISSING_FKS\|SAFE_AUTO_REPAIR' /tmp/preflight047-e.log \
+    && ok "E: preflight SAFE MISSING_FKS" || bad "E: preflight"
+  apply_migration_047
+  fk_ok=$(psql_db -At -c "SELECT COUNT(*) FROM pg_constraint WHERE conname='event_reminders_event_id_fkey';")
+  [[ "$fk_ok" == "1" ]] && ok "E: FK restored" || bad "E: FK=$fk_ok"
+  trap - EXIT
+  teardown_db
+
+  # F: incompatible type
+  setup_db "mig047_bad_type"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE events ALTER COLUMN all_day DROP DEFAULT;
+    ALTER TABLE events ALTER COLUMN all_day TYPE text USING all_day::text;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-f.log 2>&1; then
+    bad "F: preflight should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-f.log \
+      && ok "F: preflight BLOCK INCOMPATIBLE_TYPE" || bad "F: expected INCOMPATIBLE_TYPE"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-f.log 2>&1; then
+    bad "F: migration should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig047-f.log \
+      && ok "F: migration BLOCK INCOMPATIBLE_TYPE" || bad "F: mig reason=$(tail -3 /tmp/mig047-f.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: incompatible PK
+  setup_db "mig047_bad_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    ALTER TABLE events DROP CONSTRAINT events_pkey;
+    ALTER TABLE events ADD PRIMARY KEY (id, office_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-g.log 2>&1; then
+    bad "G: preflight should BLOCK INCOMPATIBLE_PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-g.log \
+      && ok "G: preflight BLOCK INCOMPATIBLE_PK" || bad "G: expected INCOMPATIBLE_PK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-g.log 2>&1; then
+    bad "G: migration should BLOCK INCOMPATIBLE_PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig047-g.log \
+      && ok "G: migration BLOCK INCOMPATIBLE_PK" || bad "G: mig reason=$(tail -3 /tmp/mig047-g.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: stolen index name
+  setup_db "mig047_stolen"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_events_case_id;
+    CREATE TABLE IF NOT EXISTS mig047_dummy (case_id text);
+    CREATE INDEX idx_events_case_id ON mig047_dummy (case_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-h.log 2>&1; then
+    bad "H: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-h.log \
+      && ok "H: preflight BLOCK stolen idx_events_case_id" || bad "H: expected INCOMPATIBLE_INDEX"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight047-h.log \
+      && bad "H: must never SAFE when same-name index incompatible" \
+      || ok "H: no SAFE_AUTO_REPAIR over stolen index"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-h.log 2>&1; then
+    bad "H: migration should BLOCK stolen index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig047-h.log \
+      && ok "H: migration BLOCK stolen index (no DROP INDEX)" || bad "H: mig reason=$(tail -3 /tmp/mig047-h.log)"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # I: DESC instead of ASC
+  setup_db "mig047_desc"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_events_office_start;
+    CREATE INDEX idx_events_office_start ON events (office_id, start_at DESC);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-i.log 2>&1; then
+    bad "I: preflight should BLOCK DESC idx_events_office_start"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-i.log \
+      && ok "I: preflight BLOCK DESC idx_events_office_start" || bad "I: expected INCOMPATIBLE_INDEX"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-i.log 2>&1; then
+    bad "I: migration should BLOCK DESC index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig047-i.log \
+      && ok "I: migration BLOCK DESC index" || bad "I: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # J: partial index
+  setup_db "mig047_partial"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX IF EXISTS idx_events_case_id;
+    CREATE INDEX idx_events_case_id ON events (case_id) WHERE case_id IS NOT NULL;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-j.log 2>&1; then
+    bad "J: preflight should BLOCK partial idx_events_case_id"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-j.log \
+      && ok "J: preflight BLOCK partial idx_events_case_id" || bad "J: expected INCOMPATIBLE_INDEX"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-j.log 2>&1; then
+    bad "J: migration should BLOCK partial index"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig047-j.log \
+      && ok "J: migration BLOCK partial index" || bad "J: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # K: orphan FK
+  setup_db "mig047_orphan"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    INSERT INTO event_reminders (id, event_id, notify_before_minutes, notification_type, sent)
+    VALUES ('orphan-047', 'missing-event-047', 60, 'email', false);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-k.log 2>&1; then
+    bad "K: preflight should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-k.log \
+      && ok "K: preflight BLOCK ORPHAN_FK" || bad "K: expected ORPHAN_FK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-k.log 2>&1; then
+    bad "K: migration should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig047-k.log \
+      && ok "K: migration BLOCK ORPHAN_FK (row preserved)" || bad "K: mig reason=$(tail -3 /tmp/mig047-k.log)"
+  fi
+  local orphan_cnt
+  orphan_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='orphan-047';")
+  [[ "$orphan_cnt" == "1" ]] && ok "K: orphan reminder row preserved" || bad "K: row count=$orphan_cnt"
+  trap - EXIT
+  teardown_db
+
+  # L: incompatible FK (RESTRICT)
+  setup_db "mig047_bad_fk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE event_reminders DROP CONSTRAINT event_reminders_event_id_fkey;
+    ALTER TABLE event_reminders ADD CONSTRAINT event_reminders_event_id_fkey
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT;
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-l.log 2>&1; then
+    bad "L: preflight should BLOCK INCOMPATIBLE_FK"
+  else
+    grep -q 'INCOMPATIBLE_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-l.log \
+      && ok "L: preflight BLOCK INCOMPATIBLE_FK RESTRICT" || bad "L: expected INCOMPATIBLE_FK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-l.log 2>&1; then
+    bad "L: migration should BLOCK INCOMPATIBLE_FK"
+  else
+    grep -q 'INCOMPATIBLE_FK' /tmp/mig047-l.log \
+      && ok "L: migration BLOCK INCOMPATIBLE_FK" || bad "L: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # M: NULL in required column
+  setup_db "mig047_nulls"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE events ALTER COLUMN title DROP NOT NULL;
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES ('null-title-047', 'u1', 'o1', NULL, 'other', NOW(), false, 'upcoming');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-m.log 2>&1; then
+    bad "M: preflight should BLOCK NULL_REQUIRED"
+  else
+    grep -q 'NULL_REQUIRED\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-m.log \
+      && ok "M: preflight BLOCK NULL_REQUIRED" || bad "M: expected NULL_REQUIRED"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-m.log 2>&1; then
+    bad "M: migration should BLOCK NULL_REQUIRED"
+  else
+    grep -q 'NULL_REQUIRED' /tmp/mig047-m.log \
+      && ok "M: migration BLOCK NULL_REQUIRED" || bad "M: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # R: missing PK + duplicate non-null ids → BLOCK INCOMPATIBLE_PK (rows preserved)
+  setup_db "mig047_dup_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    ALTER TABLE events DROP CONSTRAINT events_pkey;
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES
+      ('dup-047', 'u1', 'o1', 'A', 'other', NOW(), false, 'upcoming'),
+      ('dup-047', 'u2', 'o1', 'B', 'other', NOW(), false, 'upcoming');
+  " >/dev/null
+  local dup_before
+  dup_before=$(psql_db -At -c "
+    SELECT COUNT(*) FROM (
+      SELECT id FROM events WHERE id IS NOT NULL GROUP BY id HAVING COUNT(*) > 1
+    ) d")
+  [[ "$dup_before" -ge 1 ]] && ok "R: duplicate non-null id groups present before apply" \
+    || bad "R: failed to seed duplicate ids"
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-r.log 2>&1; then
+    bad "R: preflight should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-r.log \
+      && ok "R: preflight BLOCK INCOMPATIBLE_PK (dup ids)" || bad "R: expected INCOMPATIBLE_PK"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight047-r.log \
+      && bad "R: must never SAFE for dup ids missing PK" \
+      || ok "R: no SAFE for dup ids missing PK"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-r.log 2>&1; then
+    bad "R: migration should BLOCK missing PK with duplicate ids"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig047-r.log \
+      && ok "R: migration BLOCK INCOMPATIBLE_PK" || bad "R: mig reason=$(tail -3 /tmp/mig047-r.log)"
+  fi
+  local dup_after
+  dup_after=$(psql_db -At -c "SELECT COUNT(*) FROM events WHERE id='dup-047';")
+  [[ "$dup_after" == "2" ]] && ok "R: duplicate event rows preserved" || bad "R: row count=$dup_after"
+  trap - EXIT
+  teardown_db
+
+  # S: event_reminders rows while events missing → BLOCK ORPHAN_FK (rows preserved)
+  setup_db "mig047_orphan_parent_missing"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO events (id, user_id, office_id, title, event_type, start_at, all_day, status)
+    VALUES ('evt-parent-047', 'u1', 'o1', 'Keep', 'other', NOW(), false, 'upcoming');
+    INSERT INTO event_reminders (id, event_id, notify_before_minutes, notification_type, sent)
+    VALUES ('keep-rem-047', 'evt-parent-047', 60, 'email', false);
+    ALTER TABLE event_reminders DROP CONSTRAINT IF EXISTS event_reminders_event_id_fkey;
+    DROP TABLE events;
+  " >/dev/null
+  local rem_before
+  rem_before=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='keep-rem-047';")
+  [[ "$rem_before" == "1" ]] && ok "S: reminder row present with events missing" \
+    || bad "S: failed to seed reminder after DROP events"
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_047" >/tmp/preflight047-s.log 2>&1; then
+    bad "S: preflight should BLOCK ORPHAN_FK when events missing and reminders have rows"
+  else
+    grep -q 'ORPHAN_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight047-s.log \
+      && ok "S: preflight BLOCK ORPHAN_FK (events missing)" || bad "S: expected ORPHAN_FK"
+    grep -q 'chosen_action=SAFE_AUTO_REPAIR' /tmp/preflight047-s.log \
+      && bad "S: must never TABLE_MISSING SAFE when reminder rows exist without events" \
+      || ok "S: no SAFE/TABLE_MISSING over populated reminders"
+    grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight047-s.log \
+      && bad "S: must never ALREADY when events missing and reminders have rows" \
+      || ok "S: no ALREADY for parent-missing orphans"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_047" >/tmp/mig047-s.log 2>&1; then
+    bad "S: migration should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig047-s.log \
+      && ok "S: migration BLOCK ORPHAN_FK (row preserved)" || bad "S: mig reason=$(tail -3 /tmp/mig047-s.log)"
+  fi
+  local rem_after
+  rem_after=$(psql_db -At -c "SELECT COUNT(*) FROM event_reminders WHERE id='keep-rem-047';")
+  [[ "$rem_after" == "1" ]] && ok "S: orphan reminder row preserved" || bad "S: row count=$rem_after"
+  trap - EXIT
+  teardown_db
+
+  # N: extra live column preserved
+  setup_db "mig047_extra_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE events ADD COLUMN extra_live_047 text;" >/dev/null
+  apply_migration_047
+  local extra
+  extra=$(psql_db -At -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='events' AND column_name='extra_live_047';")
+  [[ "$extra" == "1" ]] && ok "N: extra live column extra_live_047 preserved" || bad "N: extra dropped"
+  trap - EXIT
+  teardown_db
+
+  # O: calendar.ts Runtime CREATE removed; DML + tenant predicates preserved
+  if grep -nE 'CREATE TABLE[[:space:]]+(IF NOT EXISTS[[:space:]]+)?(events|event_reminders)\b' "$CAL_SRC" >/dev/null; then
+    bad "O: calendar.ts still contains Runtime CREATE TABLE"
+  else
+    ok "O: calendar.ts has no Runtime CREATE TABLE"
+  fi
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_events_' "$CAL_SRC"; then
+    bad "O: calendar.ts still contains Runtime CREATE INDEX"
+  else
+    ok "O: calendar.ts has no Runtime CREATE INDEX"
+  fi
+  grep -q "INSERT INTO events" "$CAL_SRC" \
+    && grep -q "INSERT INTO event_reminders" "$CAL_SRC" \
+    && grep -q "UPDATE events SET" "$CAL_SRC" \
+    && grep -q "DELETE FROM events" "$CAL_SRC" \
+    && ok "O: calendar DML preserved" \
+    || bad "O: calendar DML missing"
+  grep -q 'user_id =' "$CAL_SRC" \
+    && ok "O: calendar tenant/user predicates preserved" \
+    || bad "O: calendar predicates missing"
+  grep -q 'ON CONFLICT (id)' "$CASES_SRC" \
+    && grep -q 'INSERT INTO events' "$CASES_SRC" \
+    && ok "O: cases.syncHearingToCalendar ON CONFLICT (id) preserved" \
+    || bad "O: cases calendar upsert missing"
+
+  # P: 047 does not CREATE unrelated tables
+  if grep -nE 'CREATE TABLE.*(hr_announcements|hr_roles|office_notification_settings|ai_events|support_ticket_attachments)' \
+       "$MIGRATION_047" >/dev/null; then
+    bad "P: 047 must not CREATE unrelated tables"
+  else
+    ok "P: 047 scoped to events + event_reminders"
+  fi
+
+  # Q: P0 fails without events; 047 restores
+  setup_db "mig047_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig047-p0-present.log 2>&1; then
+    ok "Q: verify-schema passes with 047 objects"
+  else
+    bad "Q: verify-schema failed after full chain"; tail -20 /tmp/mig047-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS event_reminders CASCADE; DROP TABLE IF EXISTS events CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig047-p0.log 2>&1; then
+    bad "Q: verify-schema should fail without events"
+  else
+    grep -qiE 'events|event_reminders' /tmp/mig047-p0.log \
+      && ok "Q: P0 verify fails when events absent" || bad "Q: verify log missing events"
+  fi
+  apply_migration_047
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig047-p0-restored.log 2>&1; then
+    ok "Q: verify-schema passes after 047 restore"
+  else
+    bad "Q: verify failed after restore"; tail -20 /tmp/mig047-p0-restored.log
   fi
   trap - EXIT
   teardown_db
@@ -13363,6 +13890,14 @@ scenario_migration_033_document_v2() {
 require_cmd
 ensure_test_role
 log "DB migration integration tests (local PostgreSQL only)"
+if [[ "${FOCUS_SCENARIO:-}" == "047" ]]; then
+  scenario_migration_047_calendar
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -13402,6 +13937,7 @@ scenario_migration_044_ai_coo_notif_settings
 scenario_migration_045_support_ai
 scenario_kb_seed_dedupe
 scenario_migration_046_support_enterprise
+scenario_migration_047_calendar
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
