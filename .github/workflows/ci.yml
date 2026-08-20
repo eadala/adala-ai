@@ -76,6 +76,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:kb-seed-dedupe
           pnpm --filter @workspace/api-server run test:support-enterprise-046
           pnpm --filter @workspace/api-server run test:calendar-047
+          pnpm --filter @workspace/api-server run test:hr-internal-048
           pnpm --filter @workspace/api-server run test:orphan-ai-refs
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests

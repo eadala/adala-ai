@@ -143,3 +143,8 @@ support_visitor_profiles
 # Migration 047 — Calendar
 events
 event_reminders
+
+# Migration 048 — HR Internal
+hr_announcements
+employee_requests
+leave_balances

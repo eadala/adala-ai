@@ -11,47 +11,24 @@ import {
 
 const router = Router();
 
+/** HR Internal schema owned by Migration 048; ensureTables() is readiness-only. */
+let hrInternalSchemaReady = false;
 async function ensureTables() {
-  const tables = [
-    sql`CREATE TABLE IF NOT EXISTS hr_announcements (
-      id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      title       TEXT NOT NULL,
-      content     TEXT NOT NULL,
-      priority    TEXT NOT NULL DEFAULT 'normal',
-      target_dept TEXT,
-      author_name TEXT,
-      author_id   TEXT,
-      expires_at  DATE,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS employee_requests (
-      id           SERIAL PRIMARY KEY,
-      office_id    TEXT NOT NULL DEFAULT 'default',
-      employee_id  TEXT NOT NULL,
-      type         TEXT NOT NULL DEFAULT 'document',
-      subject      TEXT NOT NULL,
-      body         TEXT,
-      status       TEXT NOT NULL DEFAULT 'pending',
-      response     TEXT,
-      resolved_by  TEXT,
-      resolved_at  TIMESTAMPTZ,
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS leave_balances (
-      id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      employee_id TEXT NOT NULL,
-      leave_type  TEXT NOT NULL DEFAULT 'annual',
-      year        INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::int,
-      quota       INTEGER NOT NULL DEFAULT 21,
-      used        INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(employee_id, leave_type, year)
-    )`,
-  ];
-  for (const q of tables) {
-    try { await db.execute(q); } catch { /* table already exists — ignore */ }
-  }
+  if (hrInternalSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.hr_announcements') IS NOT NULL AS hr_announcements_present,
+        to_regclass('public.employee_requests') IS NOT NULL AS employee_requests_present,
+        to_regclass('public.leave_balances') IS NOT NULL AS leave_balances_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.hr_announcements_present || !row.employee_requests_present || !row.leave_balances_present) {
+      console.error("[hrInternal] Migration 048 schema not ready — hr_announcements / employee_requests / leave_balances missing");
+      return;
+    }
+    hrInternalSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 async function sqlAll(q: any): Promise<any[]> {

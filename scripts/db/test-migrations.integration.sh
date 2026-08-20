@@ -56,6 +56,7 @@ MIGRATION_044="$ROOT/artifacts/api-server/migrations/044_ai_coo_notif_settings_s
 MIGRATION_045="$ROOT/artifacts/api-server/migrations/045_support_ai_schema_authority.sql"
 MIGRATION_046="$ROOT/artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql"
 MIGRATION_047="$ROOT/artifacts/api-server/migrations/047_calendar_schema_authority.sql"
+MIGRATION_048="$ROOT/artifacts/api-server/migrations/048_hr_internal_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -242,6 +243,7 @@ apply_migration_033() {
 # 044 owns ai_coo_notif_settings; 045 owns support_ai_analysis / support_knowledge_base;
 # 046 owns support_ticket_attachments / support_ticket_audit / support_visitor_profiles.
 # 047 owns events / event_reminders + idx_events_case_id / idx_events_office_start.
+# 048 owns hr_announcements / employee_requests / leave_balances + exact UNIQUE(employee_id, leave_type, year).
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -267,6 +269,7 @@ verify_p0_schema() {
   apply_migration_045
   apply_migration_046
   apply_migration_047
+  apply_migration_048
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -326,6 +329,10 @@ apply_migration_047() {
   psql_db -f "$MIGRATION_047" >/dev/null
 }
 
+apply_migration_048() {
+  psql_db -f "$MIGRATION_048" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -375,11 +382,12 @@ apply_all_migrations() {
   apply_migration_045
   apply_migration_046
   apply_migration_047
+  apply_migration_048
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…047 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…048 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7272,6 +7280,195 @@ scenario_migration_047_calendar() {
   teardown_db
 }
 
+
+scenario_migration_048_hr_internal() {
+  log "Scenario 048 — HR Internal: greenfield / SAFE / BLOCK / UNIQUE / Runtime / P0"
+  local PREFLIGHT_048="$ROOT/scripts/db/preflight-migration-048.sql"
+  local HRI_SRC="$ROOT/artifacts/api-server/src/modules/operations/hrInternal.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + exact unique
+  setup_db "mig048_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt pk_ok uq_ok
+  tbl_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname IN ('hr_announcements','employee_requests','leave_balances')")
+  [[ "$tbl_cnt" == "3" ]] && ok "A: 3 HR Internal tables present" || bad "A: table count=$tbl_cnt"
+  pk_ok=$(psql_db -At -c "SELECT COUNT(*) FROM pg_constraint c WHERE c.contype='p' AND c.conrelid IN ('public.hr_announcements'::regclass,'public.employee_requests'::regclass,'public.leave_balances'::regclass) AND pg_get_constraintdef(c.oid)='PRIMARY KEY (id)'")
+  [[ "$pk_ok" == "3" ]] && ok "A: PRIMARY KEY (id) on all three tables" || bad "A: pk count=$pk_ok"
+  uq_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.leave_balances'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*employee_id[[:space:]]*,[[:space:]]*leave_type[[:space:]]*,[[:space:]]*year[[:space:]]*\\)' AND pg_get_constraintdef(c.oid) !~* 'UNIQUE[[:space:]]*\\([^)]*,[^)]*,[^)]*,' )")
+  [[ "$uq_ok" == "t" ]] && ok "A: leave_balances UNIQUE(employee_id, leave_type, year) exact" || bad "A: UNIQUE missing/wrong"
+  apply_migration_048
+  ok "A: re-run 048 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight048-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight048-ready.log | tail -1)"
+  grep -q 'HR_INTERNAL_SCHEMA_READY' /tmp/preflight048-ready.log && ok "A: HR_INTERNAL_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig048_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE employee_requests CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight048-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_048
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.employee_requests') IS NOT NULL")" == "t" ]] && ok "B: employee_requests restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: missing column SAFE + restore
+  setup_db "mig048_miss_col"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE hr_announcements DROP COLUMN IF EXISTS author_name;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-misscol.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|SAFE_AUTO_REPAIR' /tmp/preflight048-misscol.log && ok "C: preflight SAFE PARTIAL_SCHEMA" || bad "C: preflight"
+  apply_migration_048
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='hr_announcements' AND column_name='author_name'")" == "1" ]] && ok "C: author_name restored" || bad "C: author_name missing"
+  trap - EXIT
+  teardown_db
+
+  # D: wrong type BLOCK
+  setup_db "mig048_bad_type"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE employee_requests ALTER COLUMN subject DROP DEFAULT; ALTER TABLE employee_requests ALTER COLUMN subject TYPE integer USING 1;" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-type.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-type.log && ok "D: preflight BLOCK INCOMPATIBLE_TYPE" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-type.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig048-type.log && ok "D: migration BLOCK INCOMPATIBLE_TYPE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: wrong PK BLOCK
+  setup_db "mig048_wrong_pk"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE hr_announcements DROP CONSTRAINT hr_announcements_pkey; ALTER TABLE hr_announcements ADD PRIMARY KEY (id, office_id);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-pk.log 2>&1; then
+    bad "E: preflight should BLOCK INCOMPATIBLE_PK"
+  else
+    grep -q 'INCOMPATIBLE_PK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-pk.log && ok "E: preflight BLOCK INCOMPATIBLE_PK" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-pk.log 2>&1; then
+    bad "E: migration should BLOCK INCOMPATIBLE_PK"
+  else
+    grep -q 'INCOMPATIBLE_PK' /tmp/mig048-pk.log && ok "E: migration BLOCK INCOMPATIBLE_PK" || bad "E: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F: wrong unique BLOCK
+  setup_db "mig048_wrong_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE leave_balances DROP CONSTRAINT leave_balances_employee_id_leave_type_year_key; ALTER TABLE leave_balances ADD CONSTRAINT leave_balances_employee_id_year_key UNIQUE (employee_id, year);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-uq.log 2>&1; then
+    bad "F: preflight should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-uq.log && ok "F: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "F: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-uq.log 2>&1; then
+    bad "F: migration should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig048-uq.log && ok "F: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # F2: approved UNIQUE + extra incompatible UNIQUE BLOCK, rows preserved
+  setup_db "mig048_extra_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO leave_balances (office_id, employee_id, leave_type, year, quota, used)
+    VALUES ('o1','emp-extra-048','annual',2026,21,0);
+    ALTER TABLE leave_balances ADD CONSTRAINT leave_balances_employee_id_year_key UNIQUE (employee_id, year);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-extra-uq.log 2>&1; then
+    bad "F2: preflight should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-extra-uq.log && ok "F2: preflight BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "F2: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-extra-uq.log 2>&1; then
+    bad "F2: migration should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig048-extra-uq.log && ok "F2: migration BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "F2: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM leave_balances WHERE employee_id='emp-extra-048'")" == "1" ]] && ok "F2: leave_balances rows preserved" || bad "F2: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # G: duplicate leave balance unique keys BLOCK, rows preserved
+  setup_db "mig048_dup_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE leave_balances DROP CONSTRAINT leave_balances_employee_id_leave_type_year_key; INSERT INTO leave_balances (office_id, employee_id, leave_type, year, quota, used) VALUES ('o1','emp-1','annual',2026,21,0), ('o2','emp-1','annual',2026,30,2);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-dup.log 2>&1; then
+    bad "G: preflight should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-dup.log && ok "G: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "G: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-dup.log 2>&1; then
+    bad "G: migration should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig048-dup.log && ok "G: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "G: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM leave_balances WHERE employee_id='emp-1' AND leave_type='annual' AND year=2026")" == "2" ]] && ok "G: duplicate leave_balances rows preserved" || bad "G: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # H: Runtime CREATE removed; DML and tenant predicates preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (hr_announcements|employee_requests|leave_balances)' "$HRI_SRC"; then
+    bad "H: hrInternal.ts still contains Runtime CREATE TABLE"
+  else
+    ok "H: hrInternal.ts has no Runtime CREATE TABLE"
+  fi
+  grep -q "to_regclass('public.hr_announcements')" "$HRI_SRC" \
+    && grep -q "to_regclass('public.employee_requests')" "$HRI_SRC" \
+    && grep -q "to_regclass('public.leave_balances')" "$HRI_SRC" \
+    && ok "H: readiness checks present" \
+    || bad "H: readiness checks missing"
+  grep -q 'INSERT INTO employee_requests' "$HRI_SRC" \
+    && grep -q 'INSERT INTO leave_balances' "$HRI_SRC" \
+    && grep -q 'ON CONFLICT (employee_id, leave_type, year) DO NOTHING' "$HRI_SRC" \
+    && grep -q 'WHERE office_id = ${tid}' "$HRI_SRC" \
+    && ok "H: DML and tenant predicates preserved" \
+    || bad "H: DML or tenant predicates missing"
+
+  # I: P0 fails without owned table / restores
+  setup_db "mig048_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig048-p0-present.log 2>&1; then
+    ok "I: verify-schema passes with 048 objects"
+  else
+    bad "I: verify failed after full chain"; tail -20 /tmp/mig048-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE hr_announcements CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig048-p0.log 2>&1; then
+    bad "I: verify-schema should fail without hr_announcements"
+  else
+    grep -qi 'hr_announcements' /tmp/mig048-p0.log && ok "I: P0 verify fails when hr_announcements absent" || bad "I: verify log missing table"
+  fi
+  apply_migration_048
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig048-p0-restored.log 2>&1; then
+    ok "I: verify-schema passes after 048 restore"
+  else
+    bad "I: verify failed after restore"; tail -20 /tmp/mig048-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -13898,6 +14095,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "047" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "048" ]]; then
+  scenario_migration_048_hr_internal
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -13938,6 +14143,7 @@ scenario_migration_045_support_ai
 scenario_kb_seed_dedupe
 scenario_migration_046_support_enterprise
 scenario_migration_047_calendar
+scenario_migration_048_hr_internal
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
