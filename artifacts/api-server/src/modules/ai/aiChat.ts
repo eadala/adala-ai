@@ -137,19 +137,59 @@ async function callGeminiAI(systemPrompt: string, userMessage: string, history: 
     })),
     { role: "user", parts: [{ text: userMessage }] },
   ];
-  const res = await fetch(
-    geminiGenerateContentUrl("gemini-2.5-flash"),
-    {
-      method: "POST",
-      headers: geminiApiHeaders(apiKey),
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
-      }),
+  const url = geminiGenerateContentUrl("gemini-2.5-flash");
+  const headers = geminiApiHeaders(apiKey);
+  /* TEMP Stage 12.6 — debug capture of outgoing Gemini request (mask secrets). Remove after investigation. */
+  {
+    const headerNames = Object.keys(headers);
+    const maskedHeaders: Record<string, string> = {};
+    for (const [k, v] of Object.entries(headers)) {
+      const lk = k.toLowerCase();
+      if (lk === "x-goog-api-key" || lk === "authorization") {
+        maskedHeaders[k] = v ? `[REDACTED len=${v.length} prefix=${v.slice(0, 4)}]` : "";
+      } else {
+        maskedHeaders[k] = v;
+      }
     }
-  );
-  const data = await res.json() as any;
+    const capture = {
+      finalRequestUrl: url,
+      requestHeaders: maskedHeaders,
+      hasXGoogApiKey: headerNames.some((k) => k.toLowerCase() === "x-goog-api-key"),
+      hasAuthorization: headerNames.some((k) => k.toLowerCase() === "authorization"),
+    };
+    console.log("[STAGE-12.6-GEMINI-REQUEST]", JSON.stringify(capture));
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+    }),
+  });
+  const rawBody = await res.text();
+  /* TEMP Stage 12.7 — debug capture of raw Google response. Remove after investigation. */
+  {
+    const responseHeaders: Record<string, string> = {};
+    res.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log(
+      "[STAGE-12.7-GEMINI-RESPONSE]",
+      JSON.stringify({
+        httpStatus: res.status,
+        responseHeaders,
+        rawBody,
+      }),
+    );
+  }
+  let data: any;
+  try {
+    data = JSON.parse(rawBody);
+  } catch {
+    throw new Error(`Gemini returned non-JSON (HTTP ${res.status})`);
+  }
   if (data.error) throw new Error(data.error.message ?? "خطأ Gemini");
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "عذراً، لم أتمكن من معالجة الطلب.";
 }
