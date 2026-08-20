@@ -193,7 +193,7 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
 router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
-  /* performance_evaluations has no office_id — verify ownership via employee join */
+  /* tenant ownership via office_id + employee join */
   await db.execute(sql`
     DELETE FROM performance_evaluations
     WHERE id = ${parseInt(String(req.params.id))}
@@ -240,7 +240,7 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
-  /* employee_incentives has no office_id — verify via employee join */
+  /* tenant ownership via office_id + employee join */
   await db.execute(sql`
     DELETE FROM employee_incentives
     WHERE id = ${parseInt(String(req.params.id))}
