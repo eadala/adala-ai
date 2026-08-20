@@ -57,6 +57,7 @@ MIGRATION_045="$ROOT/artifacts/api-server/migrations/045_support_ai_schema_autho
 MIGRATION_046="$ROOT/artifacts/api-server/migrations/046_support_enterprise_schema_authority.sql"
 MIGRATION_047="$ROOT/artifacts/api-server/migrations/047_calendar_schema_authority.sql"
 MIGRATION_048="$ROOT/artifacts/api-server/migrations/048_hr_internal_schema_authority.sql"
+MIGRATION_049="$ROOT/artifacts/api-server/migrations/049_hr_performance_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -270,6 +271,7 @@ verify_p0_schema() {
   apply_migration_046
   apply_migration_047
   apply_migration_048
+  apply_migration_049
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -333,6 +335,10 @@ apply_migration_048() {
   psql_db -f "$MIGRATION_048" >/dev/null
 }
 
+apply_migration_049() {
+  psql_db -f "$MIGRATION_049" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -383,11 +389,12 @@ apply_all_migrations() {
   apply_migration_046
   apply_migration_047
   apply_migration_048
+  apply_migration_049
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…048 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…049 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7469,6 +7476,188 @@ scenario_migration_048_hr_internal() {
   teardown_db
 }
 
+scenario_migration_049_hr_performance() {
+  log "Scenario 049 — HR Performance: greenfield / office_id repair / UNIQUE(key) / Runtime / P0"
+  local PREFLIGHT_049="$ROOT/scripts/db/preflight-migration-049.sql"
+  local HRP_SRC="$ROOT/artifacts/api-server/src/modules/operations/hrPerformance.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + office_id + UNIQUE(key)
+  setup_db "mig049_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt pk_ok uq_ok office_ok
+  tbl_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname IN ('performance_evaluations','employee_incentives','hr_settings')")
+  [[ "$tbl_cnt" == "3" ]] && ok "A: 3 HR Performance tables present" || bad "A: table count=$tbl_cnt"
+  pk_ok=$(psql_db -At -c "SELECT COUNT(*) FROM pg_constraint c WHERE c.contype='p' AND c.conrelid IN ('public.performance_evaluations'::regclass,'public.employee_incentives'::regclass,'public.hr_settings'::regclass) AND pg_get_constraintdef(c.oid)='PRIMARY KEY (id)'")
+  [[ "$pk_ok" == "3" ]] && ok "A: PRIMARY KEY (id) on all three tables" || bad "A: pk count=$pk_ok"
+  office_ok=$(psql_db -At -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND column_name='office_id' AND is_nullable='NO' AND udt_name='text' AND table_name IN ('performance_evaluations','employee_incentives')")
+  [[ "$office_ok" == "2" ]] && ok "A: office_id TEXT NOT NULL on evaluations + incentives" || bad "A: office_id count=$office_ok"
+  uq_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.hr_settings'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*key[[:space:]]*\\)' AND pg_get_constraintdef(c.oid) !~* 'UNIQUE[[:space:]]*\\([^)]*,' )")
+  [[ "$uq_ok" == "t" ]] && ok "A: hr_settings UNIQUE(key) exact" || bad "A: UNIQUE missing/wrong"
+  apply_migration_049
+  ok "A: re-run 049 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_049" >/tmp/preflight049-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight049-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight049-ready.log | tail -1)"
+  grep -q 'HR_PERFORMANCE_SCHEMA_READY' /tmp/preflight049-ready.log && ok "A: HR_PERFORMANCE_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: legacy Runtime shape without office_id → SAFE + backfill
+  setup_db "mig049_legacy_no_office"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP TABLE IF EXISTS performance_evaluations CASCADE;
+    DROP TABLE IF EXISTS employee_incentives CASCADE;
+    CREATE TABLE performance_evaluations (
+      id SERIAL PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      period TEXT NOT NULL,
+      cases_closed INTEGER NOT NULL DEFAULT 0,
+      cases_delayed INTEGER NOT NULL DEFAULT 0,
+      tasks_completed INTEGER NOT NULL DEFAULT 0,
+      errors INTEGER NOT NULL DEFAULT 0,
+      on_time_days INTEGER NOT NULL DEFAULT 0,
+      late_days INTEGER NOT NULL DEFAULT 0,
+      absent_days INTEGER NOT NULL DEFAULT 0,
+      clients_handled INTEGER NOT NULL DEFAULT 0,
+      data_errors INTEGER NOT NULL DEFAULT 0,
+      ops_handled INTEGER NOT NULL DEFAULT 0,
+      incidents_resolved INTEGER NOT NULL DEFAULT 0,
+      system_errors INTEGER NOT NULL DEFAULT 0,
+      role TEXT NOT NULL DEFAULT 'lawyer',
+      performance_score NUMERIC(5,2) NOT NULL DEFAULT 0,
+      notes TEXT,
+      evaluator_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE employee_incentives (
+      id SERIAL PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'bonus',
+      amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      reason TEXT NOT NULL DEFAULT '',
+      period TEXT,
+      is_applied BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    INSERT INTO employees (id, employee_no, full_name, job_title, office_id, status)
+    VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491'::uuid, 'E049', 'Legacy Emp', 'Lawyer', 'office-049', 'active')
+    ON CONFLICT (id) DO UPDATE SET office_id=EXCLUDED.office_id;
+    INSERT INTO performance_evaluations (employee_id, period)
+    VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491', '2026-Q1');
+    INSERT INTO employee_incentives (employee_id, amount)
+    VALUES ('aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491', 100);
+  " >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_049" >/tmp/preflight049-legacy.log 2>&1
+  grep -q 'PARTIAL_SCHEMA\|SAFE_AUTO_REPAIR\|SET_NOT_NULL_PENDING' /tmp/preflight049-legacy.log && ok "B: preflight SAFE for missing office_id" || bad "B: preflight $(grep chosen_action /tmp/preflight049-legacy.log | tail -1)"
+  apply_migration_049
+  [[ "$(psql_db -At -c "SELECT office_id FROM performance_evaluations WHERE employee_id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491'")" == "office-049" ]] && ok "B: performance_evaluations.office_id backfilled" || bad "B: pe office_id"
+  [[ "$(psql_db -At -c "SELECT office_id FROM employee_incentives WHERE employee_id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491'")" == "office-049" ]] && ok "B: employee_incentives.office_id backfilled" || bad "B: ei office_id"
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM performance_evaluations WHERE employee_id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0491'")" == "1" ]] && ok "B: rows preserved" || bad "B: rows lost"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong type BLOCK
+  setup_db "mig049_bad_type"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE performance_evaluations ALTER COLUMN period DROP DEFAULT; ALTER TABLE performance_evaluations ALTER COLUMN period TYPE integer USING 1;" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_049" >/tmp/preflight049-type.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight049-type.log && ok "C: preflight BLOCK INCOMPATIBLE_TYPE" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_049" >/tmp/mig049-type.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_TYPE"
+  else
+    grep -q 'INCOMPATIBLE_TYPE' /tmp/mig049-type.log && ok "C: migration BLOCK INCOMPATIBLE_TYPE" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: wrong unique BLOCK
+  setup_db "mig049_wrong_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE hr_settings DROP CONSTRAINT hr_settings_key_key; ALTER TABLE hr_settings ADD CONSTRAINT hr_settings_key_val_key UNIQUE (key, val);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_049" >/tmp/preflight049-uq.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight049-uq.log && ok "D: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_049" >/tmp/mig049-uq.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig049-uq.log && ok "D: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: duplicate key BLOCK, rows preserved
+  setup_db "mig049_dup_key"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE hr_settings DROP CONSTRAINT hr_settings_key_key; INSERT INTO hr_settings (key, val) VALUES ('dup-049','a'), ('dup-049','b');" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_049" >/tmp/preflight049-dup.log 2>&1; then
+    bad "E: preflight should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight049-dup.log && ok "E: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_049" >/tmp/mig049-dup.log 2>&1; then
+    bad "E: migration should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig049-dup.log && ok "E: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM hr_settings WHERE key='dup-049'")" == "2" ]] && ok "E: duplicate hr_settings rows preserved" || bad "E: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # F: Runtime CREATE removed; DML / seed / tenant predicates preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (performance_evaluations|employee_incentives|hr_settings)' "$HRP_SRC"; then
+    bad "F: hrPerformance.ts still contains Runtime CREATE TABLE"
+  else
+    ok "F: hrPerformance.ts has no Runtime CREATE TABLE"
+  fi
+  grep -q "to_regclass('public.performance_evaluations')" "$HRP_SRC" \
+    && grep -q "to_regclass('public.employee_incentives')" "$HRP_SRC" \
+    && grep -q "to_regclass('public.hr_settings')" "$HRP_SRC" \
+    && ok "F: readiness checks present" \
+    || bad "F: readiness checks missing"
+  grep -q 'ON CONFLICT (key) DO NOTHING' "$HRP_SRC" \
+    && grep -q 'ON CONFLICT (key) DO UPDATE SET val' "$HRP_SRC" \
+    && grep -q 'INSERT INTO performance_evaluations' "$HRP_SRC" \
+    && grep -q 'INSERT INTO employee_incentives (office_id, employee_id' "$HRP_SRC" \
+    && grep -q 'e.office_id = ${tid}' "$HRP_SRC" \
+    && ok "F: seed/DML and tenant predicates preserved" \
+    || bad "F: DML or tenant predicates missing"
+
+  # G: P0 fails without owned table / restores
+  setup_db "mig049_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig049-p0-present.log 2>&1; then
+    ok "G: verify-schema passes with 049 objects"
+  else
+    bad "G: verify failed after full chain"; tail -20 /tmp/mig049-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE performance_evaluations CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig049-p0.log 2>&1; then
+    bad "G: verify-schema should fail without performance_evaluations"
+  else
+    grep -qi 'performance_evaluations' /tmp/mig049-p0.log && ok "G: P0 verify fails when performance_evaluations absent" || bad "G: verify log missing table"
+  fi
+  apply_migration_049
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig049-p0-restored.log 2>&1; then
+    ok "G: verify-schema passes after 049 restore"
+  else
+    bad "G: verify failed after restore"; tail -20 /tmp/mig049-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -14103,6 +14292,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "048" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "049" ]]; then
+  scenario_migration_049_hr_performance
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -14144,6 +14341,7 @@ scenario_kb_seed_dedupe
 scenario_migration_046_support_enterprise
 scenario_migration_047_calendar
 scenario_migration_048_hr_internal
+scenario_migration_049_hr_performance
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

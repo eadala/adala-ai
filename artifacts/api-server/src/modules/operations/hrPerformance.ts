@@ -15,53 +15,28 @@ import {
 const router = Router();
 
 /* ══════════════════════════════════════════════
-   ENSURE TABLES
+   ENSURE TABLES — Migration 049 owns DDL; readiness + seed only
 ══════════════════════════════════════════════ */
+let hrPerformanceSchemaReady = false;
 async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS performance_evaluations (
-      id              SERIAL PRIMARY KEY,
-      employee_id     TEXT NOT NULL,
-      period          TEXT NOT NULL,
-      cases_closed    INTEGER NOT NULL DEFAULT 0,
-      cases_delayed   INTEGER NOT NULL DEFAULT 0,
-      tasks_completed INTEGER NOT NULL DEFAULT 0,
-      errors          INTEGER NOT NULL DEFAULT 0,
-      on_time_days    INTEGER NOT NULL DEFAULT 0,
-      late_days       INTEGER NOT NULL DEFAULT 0,
-      absent_days     INTEGER NOT NULL DEFAULT 0,
-      clients_handled INTEGER NOT NULL DEFAULT 0,
-      data_errors     INTEGER NOT NULL DEFAULT 0,
-      ops_handled     INTEGER NOT NULL DEFAULT 0,
-      incidents_resolved INTEGER NOT NULL DEFAULT 0,
-      system_errors   INTEGER NOT NULL DEFAULT 0,
-      role            TEXT NOT NULL DEFAULT 'lawyer',
-      performance_score NUMERIC(5,2) NOT NULL DEFAULT 0,
-      notes           TEXT,
-      evaluator_id    TEXT,
-      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS employee_incentives (
-      id          SERIAL PRIMARY KEY,
-      employee_id TEXT NOT NULL,
-      type        TEXT NOT NULL DEFAULT 'bonus',
-      amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
-      reason      TEXT NOT NULL DEFAULT '',
-      period      TEXT,
-      is_applied  BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_settings (
-      id   SERIAL PRIMARY KEY,
-      key  TEXT UNIQUE NOT NULL,
-      val  TEXT NOT NULL
-    )
-  `);
-  /* seed defaults */
+  if (!hrPerformanceSchemaReady) {
+    try {
+      const r = await db.execute(sql`
+        SELECT
+          to_regclass('public.performance_evaluations') IS NOT NULL AS performance_evaluations_present,
+          to_regclass('public.employee_incentives') IS NOT NULL AS employee_incentives_present,
+          to_regclass('public.hr_settings') IS NOT NULL AS hr_settings_present
+      `).catch(() => ({ rows: [{}] }));
+      const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+      if (!row.performance_evaluations_present || !row.employee_incentives_present || !row.hr_settings_present) {
+        console.error("[hrPerformance] Migration 049 schema not ready — performance_evaluations / employee_incentives / hr_settings missing");
+        return;
+      }
+      hrPerformanceSchemaReady = true;
+    } catch { /* non-blocking */ }
+  }
+  if (!hrPerformanceSchemaReady) return;
+  /* seed defaults — requires hr_settings UNIQUE(key) from Migration 049 */
   await db.execute(sql`
     INSERT INTO hr_settings (key, val) VALUES
       ('bonus_rate_excellent', '0.30'),
@@ -79,7 +54,7 @@ async function ensureTables() {
       ('gosi_rate',            '0.10'),
       ('allowance_rate',       '0.15')
     ON CONFLICT (key) DO NOTHING
-  `);
+  `).catch(() => undefined);
 }
 
 async function sqlAll(q: any): Promise<any[]> {
@@ -218,7 +193,7 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
 router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
-  /* performance_evaluations has no office_id — verify ownership via employee join */
+  /* tenant ownership via office_id + employee join */
   await db.execute(sql`
     DELETE FROM performance_evaluations
     WHERE id = ${parseInt(String(req.params.id))}
@@ -265,7 +240,7 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   const tid = (req as any).tenantId as string;
-  /* employee_incentives has no office_id — verify via employee join */
+  /* tenant ownership via office_id + employee join */
   await db.execute(sql`
     DELETE FROM employee_incentives
     WHERE id = ${parseInt(String(req.params.id))}

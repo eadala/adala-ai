@@ -148,3 +148,6 @@ event_reminders
 hr_announcements
 employee_requests
 leave_balances
+performance_evaluations
+employee_incentives
+hr_settings

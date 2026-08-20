@@ -19,7 +19,6 @@ dr_restore_points
 dr_test_runs
 email_notification_logs
 email_notification_settings
-employee_incentives
 engineering_ip_whitelist
 engineering_logs
 engineering_scans
@@ -33,7 +32,6 @@ high_risk_op_log
 hr_audit_logs
 hr_memberships
 hr_roles
-hr_settings
 hr_workflows
 integration_requests
 launch_events
@@ -50,7 +48,6 @@ organization_units
 os_action_queue
 os_events
 pcc_command_log
-performance_evaluations
 plan_cms
 platform_integrations
 prod_heal_log
