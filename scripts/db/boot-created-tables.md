@@ -54,6 +54,7 @@
 - ~~Runtime `CREATE`/`ALTER`/`INDEX` from `ensureEnterpriseSchema`~~ — removed via migration **046**; `support-enterprise` keeps readiness (`to_regclass`) + ticket/audit/visitor DML
 - ~~Runtime `CREATE` from `calendar.ensureTables`~~ — removed via migration **047**; `calendar` keeps readiness (`to_regclass`) + event/reminder DML
 - ~~Runtime `CREATE` from `hrInternal.ensureTables`~~ — removed via migration **048**; `hrInternal` keeps readiness (`to_regclass`) + announcements/requests/leave-balance DML
+- ~~Runtime `CREATE` from `hrPerformance.ensureTables`~~ — removed via migration **049**; `hrPerformance` keeps readiness (`to_regclass`) + hr_settings seed (`ON CONFLICT (key)`) + evaluation/incentive DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -131,6 +132,7 @@
 | `support_tickets` extensions (+ `ai_score`) / `support_ticket_attachments` (+ FK CASCADE) / `support_ticket_audit` / `support_visitor_profiles` (+ `UNIQUE(email)`) + 7 indexes | **046** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/ALTER/INDEX removed; DML preserved; no office_id backfill; orphans/wrong UNIQUE/INDEX fail-closed) |
 | `events` / `event_reminders` (+ FK CASCADE) + `idx_events_case_id` / `idx_events_office_start` | **047** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; calendar/cases/AI DML preserved; 020 index shapes; no invented UNIQUE/case_id FK) |
 | `hr_announcements` / `employee_requests` / `leave_balances` (+ exact `UNIQUE(employee_id, leave_type, year)`) | **048** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; HR Internal DML + tenant predicates preserved; no invented FK/index/extra UNIQUE) |
+| `performance_evaluations` / `employee_incentives` (+ `office_id`) / `hr_settings` (+ exact `UNIQUE(key)`) | **049** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; office_id from live DML; hr_settings seed ON CONFLICT preserved; no invented FK/index) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

@@ -1742,6 +1742,46 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-internal-04
 assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-internal-048/);
 console.log("  ✅ migration 048 owns HR Internal tables + exact leave_balances UNIQUE; Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: HR Performance (049) ═══");
+assert.ok(migrationFiles.includes("049_hr_performance_schema_authority.sql"));
+const mig049 = readRepo("artifacts/api-server/migrations/049_hr_performance_schema_authority.sql");
+assert.match(mig049, /CREATE TABLE IF NOT EXISTS performance_evaluations/);
+assert.match(mig049, /CREATE TABLE IF NOT EXISTS employee_incentives/);
+assert.match(mig049, /CREATE TABLE IF NOT EXISTS hr_settings/);
+assert.match(mig049, /office_id\s+TEXT\s+NOT\s+NULL/);
+assert.match(mig049, /UNIQUE\s*\(\s*key\s*\)/);
+assert.match(mig049, /DUPLICATE_UNIQUE_KEY/);
+assert.match(mig049, /INCOMPATIBLE_UNIQUE/);
+assert.match(mig049, /POST_APPLY_READINESS_FAILED|HR_PERFORMANCE_SCHEMA_READY/);
+{
+  const sqlOnly049 = mig049.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly049, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly049, /FOREIGN\s+KEY/i);
+  assert.doesNotMatch(sqlOnly049, /CREATE TABLE IF NOT EXISTS hr_announcements\b/);
+}
+const preflight049 = readRepo("scripts/db/preflight-migration-049.sql");
+assert.match(preflight049, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight049, /HR_PERFORMANCE_SCHEMA_READY/);
+assert.match(preflight049, /SAFE_AUTO_REPAIR/);
+assert.match(preflight049, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(preflight049, /GROUP BY x\.indexrelid/);
+assert.doesNotMatch(readSrc("modules/operations/hrPerformance.ts"), /CREATE TABLE IF NOT EXISTS performance_evaluations/);
+assert.doesNotMatch(readSrc("modules/operations/hrPerformance.ts"), /CREATE TABLE IF NOT EXISTS employee_incentives/);
+assert.doesNotMatch(readSrc("modules/operations/hrPerformance.ts"), /CREATE TABLE IF NOT EXISTS hr_settings/);
+assert.match(readSrc("modules/operations/hrPerformance.ts"), /to_regclass\('public\.performance_evaluations'\)/);
+assert.match(readSrc("modules/operations/hrPerformance.ts"), /ON CONFLICT \(key\) DO NOTHING/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_049|MIGRATION_049/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig049_legacy_no_office|mig049_wrong_unique|mig049_dup_key/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^performance_evaluations$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^employee_incentives$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_settings$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^performance_evaluations$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^employee_incentives$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^hr_settings$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-performance-049/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-performance-049/);
+console.log("  ✅ migration 049 owns HR Performance + office_id + hr_settings UNIQUE(key); Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

@@ -550,7 +550,27 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-048.sql
 
-# 49) تحقق بعد التنفيذ
+# 49) Migration 049 — HR Performance schema authority (Stage 8)
+#    Ops:
+#      a) run preflight-migration-049.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 049
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: performance_evaluations, employee_incentives (+ office_id from live
+#    INSERT DML), hr_settings (+ exact UNIQUE(key) for ON CONFLICT (key)).
+#    Fixes Runtime CREATE that omitted office_id while DML required it.
+#    Runtime CREATE removed from hrPerformance.ensureTables; readiness + seed
+#    DML + tenant predicates preserved.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-049.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/049_hr_performance_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-049.sql
+
+# 50) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -604,6 +624,7 @@ bash scripts/db/verify-schema.sh
 | `046_support_enterprise_schema_authority.sql` | Support Enterprise Runtime schema authority (Stage 7). Owns former Runtime DDL from `support-enterprise.ensureEnterpriseSchema`: 19 `support_tickets` extensions (incl. nullable `ai_score` / `source` DEFAULT `'user'` / `tags` DEFAULT `'{}'`), `support_ticket_attachments` (+ exact FK `ticket_id` → `support_tickets(id)` ON DELETE CASCADE), `support_ticket_audit` (no invented FK), `support_visitor_profiles` (+ exact `UNIQUE(email)`, nullable), and 7 indexes (`idx_st_user` / `idx_st_status` DESC / `idx_st_office` / partial `idx_st_sla_res` / `idx_sta_ticket` / `idx_stau_ticket` DESC / `idx_sm_ticket` ASC on `support_messages`). Does **not** recreate 003 base tickets/messages or 045 AI tables. No office_id backfill. BLOCK on incompatible types/NULL/PK/FK/UNIQUE/INDEX, orphan attachment rows, duplicate non-null visitor emails (rows preserved). Runtime CREATE/ALTER/INDEX removed; readiness + DML preserved. Preflight: `scripts/db/preflight-migration-046.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 046 → re-preflight → verify-schema → deploy API. |
 | `047_calendar_schema_authority.sql` | Calendar Runtime schema authority (Stage 8). Owns former Runtime CREATE from `calendar.ensureTables`: `events` (TEXT PK `id`, `office_id TEXT NOT NULL DEFAULT 'default'`, `start_at TIMESTAMPTZ NOT NULL`) + `event_reminders` (TEXT PK + exact FK `event_id` → `events(id)` ON DELETE CASCADE) + `idx_events_case_id` `(case_id)` ASC + `idx_events_office_start` `(office_id, start_at)` ASC (same 020 shapes; 020 not rewritten). No invented UNIQUE / case_id FK. Extra live columns left alone. BLOCK on incompatible types/NULL/PK/FK/INDEX (stolen name + DESC bits) and orphan reminder rows (preserved). Runtime CREATE removed; readiness + calendar/cases/AI DML preserved. Preflight: `scripts/db/preflight-migration-047.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 047 → re-preflight → verify-schema → deploy API. |
 | `048_hr_internal_schema_authority.sql` | HR Internal Runtime schema authority (Stage 8). Owns former Runtime CREATE from `hrInternal.ensureTables`: `hr_announcements`, `employee_requests`, and `leave_balances` (+ exact `UNIQUE(employee_id, leave_type, year)` for leave-balance seed `ON CONFLICT DO NOTHING`). `id` remains `SERIAL PRIMARY KEY` on all three; existing defaults/nullability preserved; no invented FK / UNIQUE / index. BLOCK on incompatible types/NULL/PK/UNIQUE and duplicate leave-balance unique-key groups (rows preserved). Runtime CREATE removed; readiness + HR Internal DML/tenant predicates preserved. Preflight: `scripts/db/preflight-migration-048.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 048 → re-preflight → verify-schema → deploy API. |
+| `049_hr_performance_schema_authority.sql` | HR Performance Runtime schema authority (Stage 8). Owns former Runtime CREATE from `hrPerformance.ensureTables`, corrected to proven live DML: `performance_evaluations` + `employee_incentives` require `office_id TEXT NOT NULL` (Runtime CREATE omitted it); `hr_settings` requires exact `UNIQUE(key)` for seed/PATCH `ON CONFLICT (key)`. Legacy `office_id` NULLs backfilled from `employees` when possible; BLOCK on unresolvable NULL/incompatible type/PK/UNIQUE (rows preserved). Runtime CREATE removed; readiness + hr_settings seed DML + tenant predicates preserved. Preflight: `scripts/db/preflight-migration-049.sql`. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

@@ -458,3 +458,11 @@ employee_requests.employee_id
 leave_balances.id
 leave_balances.employee_id
 leave_balances.leave_type
+performance_evaluations.id
+performance_evaluations.office_id
+performance_evaluations.employee_id
+employee_incentives.id
+employee_incentives.office_id
+employee_incentives.employee_id
+hr_settings.id
+hr_settings.key
