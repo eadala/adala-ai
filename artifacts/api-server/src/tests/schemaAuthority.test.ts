@@ -1729,7 +1729,9 @@ assert.doesNotMatch(readSrc("modules/operations/hrInternal.ts"), /CREATE TABLE I
 assert.doesNotMatch(readSrc("modules/operations/hrInternal.ts"), /CREATE TABLE IF NOT EXISTS leave_balances/);
 assert.match(readSrc("modules/operations/hrInternal.ts"), /to_regclass\('public\.hr_announcements'\)/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_048|MIGRATION_048/);
-assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig048_dup_unique|mig048_wrong_unique/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig048_dup_unique|mig048_wrong_unique|mig048_extra_unique/);
+assert.match(mig048, /has incompatible UNIQUE index\(es\)/);
+assert.match(preflight048, /GROUP BY x\.indexrelid/);
 assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_announcements$/m);
 assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^employee_requests$/m);
 assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^leave_balances$/m);

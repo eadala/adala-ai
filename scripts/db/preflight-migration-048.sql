@@ -46,6 +46,9 @@ DECLARE
   normalized_default TEXT;
   row_count BIGINT;
   pk_cols TEXT[];
+  uq_rec RECORD;
+  approved_unique_found BOOLEAN;
+  leave_balances_incompatible BOOLEAN;
   rows_notice TEXT := '';
   empty_text TEXT := '<none>';
 BEGIN
@@ -215,8 +218,10 @@ BEGIN
     ) THEN
       incompatible_uniques := array_append(incompatible_uniques, 'leave_balances(unique_index_invalid_or_partial_or_expression)');
     ELSE
-      SELECT (
-        SELECT array_agg(a.attname::TEXT ORDER BY k.ordinality)
+      approved_unique_found := FALSE;
+      leave_balances_incompatible := FALSE;
+      FOR uq_rec IN
+        SELECT array_agg(a.attname::TEXT ORDER BY k.ordinality) AS cols
         FROM pg_index x
         CROSS JOIN LATERAL unnest(x.indkey::SMALLINT[]) WITH ORDINALITY AS k(attnum, ordinality)
         JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
@@ -224,24 +229,30 @@ BEGIN
           AND x.indisunique AND NOT x.indisprimary
           AND x.indpred IS NULL AND x.indexprs IS NULL
           AND x.indisvalid AND x.indisready
-        LIMIT 1
-      ) INTO pk_cols;
-      IF pk_cols IS NOT NULL AND pk_cols IS DISTINCT FROM ARRAY['employee_id','leave_type','year']::TEXT[] THEN
-        incompatible_uniques := array_append(incompatible_uniques, format('leave_balances(expected={employee_id,leave_type,year},actual=%s)', pk_cols::TEXT));
-      ELSIF pk_cols IS NULL THEN
-      SELECT COUNT(*) INTO row_count
-      FROM (
-        SELECT employee_id, leave_type, year
-        FROM leave_balances
-        GROUP BY employee_id, leave_type, year
-        HAVING COUNT(*) > 1
-      ) d;
-      IF row_count > 0 THEN
-        duplicate_count := row_count;
-        duplicate_details := array_append(duplicate_details, format('leave_balances(employee_id,leave_type,year)=%s', row_count));
-      ELSE
-        missing_uniques := array_append(missing_uniques, 'leave_balances(employee_id,leave_type,year)');
-      END IF;
+        GROUP BY x.indexrelid
+      LOOP
+        IF uq_rec.cols IS DISTINCT FROM ARRAY['employee_id','leave_type','year']::TEXT[] THEN
+          leave_balances_incompatible := TRUE;
+          incompatible_uniques := array_append(incompatible_uniques,
+            format('leave_balances(expected={employee_id,leave_type,year},actual=%s)', uq_rec.cols::TEXT));
+        ELSE
+          approved_unique_found := TRUE;
+        END IF;
+      END LOOP;
+      IF NOT approved_unique_found AND NOT leave_balances_incompatible THEN
+        SELECT COUNT(*) INTO row_count
+        FROM (
+          SELECT employee_id, leave_type, year
+          FROM leave_balances
+          GROUP BY employee_id, leave_type, year
+          HAVING COUNT(*) > 1
+        ) d;
+        IF row_count > 0 THEN
+          duplicate_count := row_count;
+          duplicate_details := array_append(duplicate_details, format('leave_balances(employee_id,leave_type,year)=%s', row_count));
+        ELSE
+          missing_uniques := array_append(missing_uniques, 'leave_balances(employee_id,leave_type,year)');
+        END IF;
       END IF;
     END IF;
   END IF;

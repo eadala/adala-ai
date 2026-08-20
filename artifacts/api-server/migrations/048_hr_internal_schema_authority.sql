@@ -275,7 +275,9 @@ END $$;
 DO $$
 DECLARE
   dup_cnt BIGINT;
-  uq_cols TEXT[];
+  uq_rec RECORD;
+  approved_unique_found BOOLEAN := FALSE;
+  has_incompatible_unique BOOLEAN := FALSE;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_index x
@@ -292,8 +294,8 @@ BEGIN
       '048_hr_internal: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — leave_balances UNIQUE index invalid/not-ready/partial/expression';
   END IF;
 
-  SELECT (
-    SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+  FOR uq_rec IN
+    SELECT array_agg(a.attname::text ORDER BY k.ordinality) AS cols
     FROM pg_index x
     CROSS JOIN LATERAL unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality)
     JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum AND NOT a.attisdropped
@@ -301,15 +303,21 @@ BEGIN
       AND x.indisunique AND NOT x.indisprimary
       AND x.indpred IS NULL AND x.indexprs IS NULL
       AND x.indisvalid AND x.indisready
-    LIMIT 1
-  ) INTO uq_cols;
+    GROUP BY x.indexrelid
+  LOOP
+    IF uq_rec.cols IS DISTINCT FROM ARRAY['employee_id','leave_type','year']::TEXT[] THEN
+      has_incompatible_unique := TRUE;
+    ELSE
+      approved_unique_found := TRUE;
+    END IF;
+  END LOOP;
 
-  IF uq_cols IS NOT NULL AND uq_cols IS DISTINCT FROM ARRAY['employee_id','leave_type','year']::TEXT[] THEN
+  IF has_incompatible_unique THEN
     RAISE EXCEPTION
-      '048_hr_internal: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — leave_balances UNIQUE is not exactly (employee_id, leave_type, year)';
+      '048_hr_internal: BLOCK_AND_MANUAL_REVIEW (reason_code=INCOMPATIBLE_UNIQUE) — leave_balances has incompatible UNIQUE index(es); require exactly UNIQUE(employee_id, leave_type, year)';
   END IF;
 
-  IF uq_cols IS NULL THEN
+  IF NOT approved_unique_found THEN
     SELECT COUNT(*) INTO dup_cnt
     FROM (
       SELECT employee_id, leave_type, year

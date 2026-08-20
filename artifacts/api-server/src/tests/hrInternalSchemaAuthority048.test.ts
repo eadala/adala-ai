@@ -73,7 +73,9 @@ console.log("\n═══ Wiring ═══");
 assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-internal-048/);
 assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-internal-048/);
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /MIGRATION_048|scenario_migration_048/);
-assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig048_dup_unique|mig048_wrong_unique/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig048_dup_unique|mig048_wrong_unique|mig048_extra_unique/);
+assert.match(mig, /has incompatible UNIQUE index\(es\)/);
+assert.match(pre, /GROUP BY x\.indexrelid/);
 assert.match(readRepo("artifacts/api-server/migrations/README.md"), /048_hr_internal_schema_authority/);
 console.log("  ✅ package/CI/integration/README wired");
 

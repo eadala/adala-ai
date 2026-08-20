@@ -7383,6 +7383,29 @@ scenario_migration_048_hr_internal() {
   trap - EXIT
   teardown_db
 
+  # F2: approved UNIQUE + extra incompatible UNIQUE BLOCK, rows preserved
+  setup_db "mig048_extra_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO leave_balances (office_id, employee_id, leave_type, year, quota, used)
+    VALUES ('o1','emp-extra-048','annual',2026,21,0);
+    ALTER TABLE leave_balances ADD CONSTRAINT leave_balances_employee_id_year_key UNIQUE (employee_id, year);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_048" >/tmp/preflight048-extra-uq.log 2>&1; then
+    bad "F2: preflight should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight048-extra-uq.log && ok "F2: preflight BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "F2: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_048" >/tmp/mig048-extra-uq.log 2>&1; then
+    bad "F2: migration should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig048-extra-uq.log && ok "F2: migration BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "F2: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM leave_balances WHERE employee_id='emp-extra-048'")" == "1" ]] && ok "F2: leave_balances rows preserved" || bad "F2: rows changed"
+  trap - EXIT
+  teardown_db
+
   # G: duplicate leave balance unique keys BLOCK, rows preserved
   setup_db "mig048_dup_unique"
   trap teardown_db EXIT
