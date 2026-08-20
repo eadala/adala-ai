@@ -1782,6 +1782,44 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-performance
 assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-performance-049/);
 console.log("  ✅ migration 049 owns HR Performance + office_id + hr_settings UNIQUE(key); Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: HR Enterprise (050) ═══");
+assert.ok(migrationFiles.includes("050_hr_enterprise_schema_authority.sql"));
+const mig050 = readRepo("artifacts/api-server/migrations/050_hr_enterprise_schema_authority.sql");
+assert.match(mig050, /CREATE TABLE IF NOT EXISTS hr_roles/);
+assert.match(mig050, /CREATE TABLE IF NOT EXISTS hr_memberships/);
+assert.match(mig050, /CREATE TABLE IF NOT EXISTS hr_workflows/);
+assert.match(mig050, /CREATE TABLE IF NOT EXISTS hr_audit_logs/);
+assert.match(mig050, /UNIQUE\s*\(\s*office_id\s*,\s*name\s*\)/);
+assert.match(mig050, /UNIQUE\s*\(\s*office_id\s*,\s*user_id\s*\)/);
+assert.match(mig050, /idx_hrwf_office/);
+assert.match(mig050, /idx_hral_office/);
+assert.match(mig050, /INCOMPATIBLE_INDEX/);
+assert.match(mig050, /POST_APPLY_READINESS_FAILED|HR_ENTERPRISE_SCHEMA_READY/);
+{
+  const sqlOnly050 = mig050.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly050, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly050, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly050, /FOREIGN\s+KEY/i);
+}
+const preflight050 = readRepo("scripts/db/preflight-migration-050.sql");
+assert.match(preflight050, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight050, /HR_ENTERPRISE_SCHEMA_READY/);
+assert.match(preflight050, /GROUP BY x\.indexrelid/);
+assert.doesNotMatch(readSrc("modules/operations/hr-enterprise.ts"), /CREATE TABLE IF NOT EXISTS hr_roles/);
+assert.doesNotMatch(readSrc("modules/operations/hr-enterprise.ts"), /CREATE INDEX IF NOT EXISTS idx_hrwf_office/);
+assert.match(readSrc("modules/operations/hr-enterprise.ts"), /to_regclass\('public\.hr_roles'\)/);
+assert.match(readSrc("modules/operations/hr-enterprise.ts"), /ON CONFLICT \(office_id, name\) DO NOTHING/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_050|MIGRATION_050/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig050_wrong_unique|mig050_dup_key|mig050_wrong_idx|mig050_extra_unique/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_roles$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_memberships$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_workflows$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^hr_audit_logs$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^hr_roles$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-enterprise-050/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-enterprise-050/);
+console.log("  ✅ migration 050 owns HR Enterprise tables+UNIQUEs+indexes; Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
