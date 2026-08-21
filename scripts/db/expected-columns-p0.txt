@@ -466,3 +466,14 @@ employee_incentives.office_id
 employee_incentives.employee_id
 hr_settings.id
 hr_settings.key
+hr_roles.id
+hr_roles.office_id
+hr_roles.name
+hr_memberships.id
+hr_memberships.office_id
+hr_memberships.user_id
+hr_workflows.id
+hr_workflows.office_id
+hr_audit_logs.id
+hr_audit_logs.office_id
+hr_audit_logs.action

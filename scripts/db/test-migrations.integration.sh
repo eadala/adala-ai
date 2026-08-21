@@ -58,6 +58,7 @@ MIGRATION_046="$ROOT/artifacts/api-server/migrations/046_support_enterprise_sche
 MIGRATION_047="$ROOT/artifacts/api-server/migrations/047_calendar_schema_authority.sql"
 MIGRATION_048="$ROOT/artifacts/api-server/migrations/048_hr_internal_schema_authority.sql"
 MIGRATION_049="$ROOT/artifacts/api-server/migrations/049_hr_performance_schema_authority.sql"
+MIGRATION_050="$ROOT/artifacts/api-server/migrations/050_hr_enterprise_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -272,6 +273,7 @@ verify_p0_schema() {
   apply_migration_047
   apply_migration_048
   apply_migration_049
+  apply_migration_050
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -339,6 +341,10 @@ apply_migration_049() {
   psql_db -f "$MIGRATION_049" >/dev/null
 }
 
+apply_migration_050() {
+  psql_db -f "$MIGRATION_050" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -390,11 +396,12 @@ apply_all_migrations() {
   apply_migration_047
   apply_migration_048
   apply_migration_049
+  apply_migration_050
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…049 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…050 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7658,6 +7665,178 @@ scenario_migration_049_hr_performance() {
   teardown_db
 }
 
+scenario_migration_050_hr_enterprise() {
+  log "Scenario 050 — HR Enterprise: greenfield / UNIQUE / INDEX / Runtime / P0"
+  local PREFLIGHT_050="$ROOT/scripts/db/preflight-migration-050.sql"
+  local HRE_SRC="$ROOT/artifacts/api-server/src/modules/operations/hr-enterprise.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUEs + indexes
+  setup_db "mig050_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt pk_ok uq_roles uq_mem idx_ok
+  tbl_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname IN ('hr_roles','hr_memberships','hr_workflows','hr_audit_logs')")
+  [[ "$tbl_cnt" == "4" ]] && ok "A: 4 HR Enterprise tables present" || bad "A: table count=$tbl_cnt"
+  pk_ok=$(psql_db -At -c "SELECT COUNT(*) FROM pg_constraint c WHERE c.contype='p' AND c.conrelid IN ('public.hr_roles'::regclass,'public.hr_memberships'::regclass,'public.hr_workflows'::regclass,'public.hr_audit_logs'::regclass) AND pg_get_constraintdef(c.oid)='PRIMARY KEY (id)'")
+  [[ "$pk_ok" == "4" ]] && ok "A: PRIMARY KEY (id) on all four tables" || bad "A: pk count=$pk_ok"
+  uq_roles=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.hr_roles'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*,[[:space:]]*name[[:space:]]*\\)' AND pg_get_constraintdef(c.oid) !~* 'UNIQUE[[:space:]]*\\([^)]*,[^)]*,')")
+  [[ "$uq_roles" == "t" ]] && ok "A: hr_roles UNIQUE(office_id, name)" || bad "A: roles UNIQUE"
+  uq_mem=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.hr_memberships'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*,[[:space:]]*user_id[[:space:]]*\\)' AND pg_get_constraintdef(c.oid) !~* 'UNIQUE[[:space:]]*\\([^)]*,[^)]*,')")
+  [[ "$uq_mem" == "t" ]] && ok "A: hr_memberships UNIQUE(office_id, user_id)" || bad "A: memberships UNIQUE"
+  idx_ok=$(psql_db -At -c "SELECT (to_regclass('public.idx_hrwf_office') IS NOT NULL AND to_regclass('public.idx_hral_office') IS NOT NULL)")
+  [[ "$idx_ok" == "t" ]] && ok "A: idx_hrwf_office + idx_hral_office present" || bad "A: indexes"
+  apply_migration_050
+  ok "A: re-run 050 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight050-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight050-ready.log | tail -1)"
+  grep -q 'HR_ENTERPRISE_SCHEMA_READY' /tmp/preflight050-ready.log && ok "A: HR_ENTERPRISE_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig050_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE hr_workflows CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight050-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_050
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.hr_workflows') IS NOT NULL")" == "t" ]] && ok "B: hr_workflows restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong unique BLOCK
+  setup_db "mig050_wrong_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE hr_roles DROP CONSTRAINT hr_roles_office_id_name_key; ALTER TABLE hr_roles ADD CONSTRAINT hr_roles_office_id_key UNIQUE (office_id);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-uq.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight050-uq.log && ok "C: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_050" >/tmp/mig050-uq.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig050-uq.log && ok "C: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: approved UNIQUE + extra incompatible UNIQUE BLOCK, rows preserved
+  setup_db "mig050_extra_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO hr_roles (office_id, name, display_name, permissions)
+    VALUES ('o-050','role-extra','Extra', '[]'::jsonb);
+    ALTER TABLE hr_roles ADD CONSTRAINT hr_roles_name_only_key UNIQUE (name);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-extra.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight050-extra.log && ok "D: preflight BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_050" >/tmp/mig050-extra.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig050-extra.log && ok "D: migration BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM hr_roles WHERE name='role-extra'")" == "1" ]] && ok "D: hr_roles rows preserved" || bad "D: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # E: duplicate unique key BLOCK, rows preserved
+  setup_db "mig050_dup_key"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE hr_memberships DROP CONSTRAINT hr_memberships_office_id_user_id_key;
+    INSERT INTO hr_memberships (office_id, user_id, role_name) VALUES
+      ('o1','user-dup-050','lawyer'),
+      ('o1','user-dup-050','partner');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-dup.log 2>&1; then
+    bad "E: preflight should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight050-dup.log && ok "E: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_050" >/tmp/mig050-dup.log 2>&1; then
+    bad "E: migration should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig050-dup.log && ok "E: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM hr_memberships WHERE user_id='user-dup-050'")" == "2" ]] && ok "E: duplicate membership rows preserved" || bad "E: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # F: wrong index shape BLOCK
+  setup_db "mig050_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX idx_hral_office; CREATE INDEX idx_hral_office ON hr_audit_logs(office_id, created_at ASC);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_050" >/tmp/preflight050-idx.log 2>&1; then
+    bad "F: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight050-idx.log && ok "F: preflight BLOCK INCOMPATIBLE_INDEX" || bad "F: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_050" >/tmp/mig050-idx.log 2>&1; then
+    bad "F: migration should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig050-idx.log && ok "F: migration BLOCK INCOMPATIBLE_INDEX" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: Runtime CREATE/INDEX removed; DML + tenant predicates preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (hr_roles|hr_memberships|hr_workflows|hr_audit_logs)' "$HRE_SRC"; then
+    bad "G: hr-enterprise.ts still contains Runtime CREATE TABLE"
+  else
+    ok "G: hr-enterprise.ts has no Runtime CREATE TABLE"
+  fi
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_hr(wf|al)_office' "$HRE_SRC"; then
+    bad "G: hr-enterprise.ts still contains Runtime CREATE INDEX"
+  else
+    ok "G: hr-enterprise.ts has no Runtime CREATE INDEX"
+  fi
+  grep -q "to_regclass('public.hr_roles')" "$HRE_SRC" \
+    && grep -q "to_regclass('public.hr_memberships')" "$HRE_SRC" \
+    && grep -q "to_regclass('public.hr_workflows')" "$HRE_SRC" \
+    && grep -q "to_regclass('public.hr_audit_logs')" "$HRE_SRC" \
+    && ok "G: readiness checks present" \
+    || bad "G: readiness checks missing"
+  grep -q 'ON CONFLICT (office_id, name) DO NOTHING' "$HRE_SRC" \
+    && grep -q 'ON CONFLICT (office_id, user_id) DO UPDATE' "$HRE_SRC" \
+    && grep -q 'WHERE r.office_id = ${tid}' "$HRE_SRC" \
+    && ok "G: seed/DML and tenant predicates preserved" \
+    || bad "G: DML or tenant predicates missing"
+
+  # H: P0 fails without owned table / restores
+  setup_db "mig050_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig050-p0-present.log 2>&1; then
+    ok "H: verify-schema passes with 050 objects"
+  else
+    bad "H: verify failed after full chain"; tail -20 /tmp/mig050-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE hr_roles CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig050-p0.log 2>&1; then
+    bad "H: verify-schema should fail without hr_roles"
+  else
+    grep -qi 'hr_roles' /tmp/mig050-p0.log && ok "H: P0 verify fails when hr_roles absent" || bad "H: verify log missing table"
+  fi
+  apply_migration_050
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig050-p0-restored.log 2>&1; then
+    ok "H: verify-schema passes after 050 restore"
+  else
+    bad "H: verify failed after restore"; tail -20 /tmp/mig050-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -14300,6 +14479,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "049" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "050" ]]; then
+  scenario_migration_050_hr_enterprise
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -14342,6 +14529,7 @@ scenario_migration_046_support_enterprise
 scenario_migration_047_calendar
 scenario_migration_048_hr_internal
 scenario_migration_049_hr_performance
+scenario_migration_050_hr_enterprise
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

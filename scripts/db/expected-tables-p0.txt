@@ -151,3 +151,7 @@ leave_balances
 performance_evaluations
 employee_incentives
 hr_settings
+hr_roles
+hr_memberships
+hr_workflows
+hr_audit_logs

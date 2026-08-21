@@ -29,10 +29,6 @@ ghost_access_log
 go_live_certificates
 governance_action_log
 high_risk_op_log
-hr_audit_logs
-hr_memberships
-hr_roles
-hr_workflows
 integration_requests
 launch_events
 legal_holds

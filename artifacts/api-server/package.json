@@ -83,6 +83,7 @@
     "test:calendar-047": "node --import tsx src/tests/calendarSchemaAuthority047.test.ts",
     "test:hr-internal-048": "node --import tsx src/tests/hrInternalSchemaAuthority048.test.ts",
     "test:hr-performance-049": "node --import tsx src/tests/hrPerformanceSchemaAuthority049.test.ts",
+    "test:hr-enterprise-050": "node --import tsx src/tests/hrEnterpriseSchemaAuthority050.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
