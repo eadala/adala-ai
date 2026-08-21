@@ -590,7 +590,27 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-050.sql
 
-# 51) تحقق بعد التنفيذ
+# 51) Migration 051 — office_notification_settings schema authority (Stage 8)
+#    Ops:
+#      a) run preflight-migration-051.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 051
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns: office_notification_settings
+#    (+ exact UNIQUE(office_id, event_type) for ON CONFLICT upsert).
+#    Runtime CREATE removed from notifications.ts boot IIFE;
+#    readiness + GET/PATCH/listener DML + office predicates preserved.
+#    updated_at remains TIMESTAMP (without time zone) per Runtime contract.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-051.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-051.sql
+
+# 52) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -646,6 +666,7 @@ bash scripts/db/verify-schema.sh
 | `048_hr_internal_schema_authority.sql` | HR Internal Runtime schema authority (Stage 8). Owns former Runtime CREATE from `hrInternal.ensureTables`: `hr_announcements`, `employee_requests`, and `leave_balances` (+ exact `UNIQUE(employee_id, leave_type, year)` for leave-balance seed `ON CONFLICT DO NOTHING`). `id` remains `SERIAL PRIMARY KEY` on all three; existing defaults/nullability preserved; no invented FK / UNIQUE / index. BLOCK on incompatible types/NULL/PK/UNIQUE and duplicate leave-balance unique-key groups (rows preserved). Runtime CREATE removed; readiness + HR Internal DML/tenant predicates preserved. Preflight: `scripts/db/preflight-migration-048.sql`. Ops: preflight → BLOCK=stop → SAFE/ALREADY apply 048 → re-preflight → verify-schema → deploy API. |
 | `049_hr_performance_schema_authority.sql` | HR Performance Runtime schema authority (Stage 8). Owns former Runtime CREATE from `hrPerformance.ensureTables`, corrected to proven live DML: `performance_evaluations` + `employee_incentives` require `office_id TEXT NOT NULL` (Runtime CREATE omitted it); `hr_settings` requires exact `UNIQUE(key)` for seed/PATCH `ON CONFLICT (key)`. Legacy `office_id` NULLs backfilled from `employees` when possible; BLOCK on unresolvable NULL/incompatible type/PK/UNIQUE (rows preserved). Runtime CREATE removed; readiness + hr_settings seed DML + tenant predicates preserved. Preflight: `scripts/db/preflight-migration-049.sql`. |
 | `050_hr_enterprise_schema_authority.sql` | HR Enterprise Runtime schema authority (Stage 8). Owns former Runtime CREATE/INDEX from `ensureHREnterpriseTables`: `hr_roles` (+ exact `UNIQUE(office_id, name)`), `hr_memberships` (+ exact `UNIQUE(office_id, user_id)`), `hr_workflows` (+ `idx_hrwf_office`), `hr_audit_logs` (+ `idx_hral_office` on `(office_id, created_at DESC)`). BLOCK on incompatible type/PK/UNIQUE/INDEX and duplicate unique-key groups (rows preserved). Runtime CREATE/INDEX removed; readiness + seed/ON CONFLICT + tenant DML preserved. Preflight: `scripts/db/preflight-migration-050.sql`. |
+| `051_office_notification_settings_schema_authority.sql` | Stage 8. Owns former Runtime CREATE from `notifications.ts` boot IIFE: `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)` for ON CONFLICT upsert). `updated_at` remains `TIMESTAMP` (without time zone). BLOCK on incompatible type/PK/UNIQUE and duplicate unique-key groups (rows preserved). Runtime CREATE removed; readiness + GET/PATCH/listener DML + office predicates preserved. Preflight: `scripts/db/preflight-migration-051.sql`. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

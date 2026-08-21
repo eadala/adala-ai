@@ -1820,6 +1820,35 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:hr-enterprise-
 assert.match(readRepo(".github/workflows/ci.yml"), /test:hr-enterprise-050/);
 console.log("  ✅ migration 050 owns HR Enterprise tables+UNIQUEs+indexes; Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: office_notification_settings (051) ═══");
+assert.ok(migrationFiles.includes("051_office_notification_settings_schema_authority.sql"));
+const mig051 = readRepo("artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql");
+assert.match(mig051, /CREATE TABLE IF NOT EXISTS office_notification_settings/);
+assert.match(mig051, /UNIQUE\s*\(\s*office_id\s*,\s*event_type\s*\)/);
+assert.match(mig051, /updated_at\s+TIMESTAMP\b/);
+assert.match(mig051, /INCOMPATIBLE_UNIQUE/);
+assert.match(mig051, /POST_APPLY_READINESS_FAILED|OFFICE_NOTIFICATION_SETTINGS_SCHEMA_READY/);
+{
+  const sqlOnly051 = mig051.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly051, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly051, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly051, /FOREIGN\s+KEY/i);
+}
+const preflight051 = readRepo("scripts/db/preflight-migration-051.sql");
+assert.match(preflight051, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight051, /OFFICE_NOTIFICATION_SETTINGS_SCHEMA_READY/);
+assert.match(preflight051, /GROUP BY x\.indexrelid/);
+assert.doesNotMatch(readSrc("modules/operations/notifications.ts"), /CREATE TABLE IF NOT EXISTS office_notification_settings/);
+assert.match(readSrc("modules/operations/notifications.ts"), /to_regclass\('public\.office_notification_settings'\)/);
+assert.match(readSrc("modules/operations/notifications.ts"), /ON CONFLICT \(office_id, event_type\) DO UPDATE/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_051|MIGRATION_051/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig051_wrong_unique|mig051_dup_key|mig051_extra_unique/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^office_notification_settings$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^office_notification_settings$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:office-notif-051/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:office-notif-051/);
+console.log("  ✅ migration 051 owns office_notification_settings + UNIQUE(office_id, event_type); Runtime DDL absent; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");
