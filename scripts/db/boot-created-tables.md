@@ -56,6 +56,7 @@
 - ~~Runtime `CREATE` from `hrInternal.ensureTables`~~ — removed via migration **048**; `hrInternal` keeps readiness (`to_regclass`) + announcements/requests/leave-balance DML
 - ~~Runtime `CREATE` from `hrPerformance.ensureTables`~~ — removed via migration **049**; `hrPerformance` keeps readiness (`to_regclass`) + hr_settings seed (`ON CONFLICT (key)`) + evaluation/incentive DML
 - ~~Runtime `CREATE`/`INDEX` from `ensureHREnterpriseTables`~~ — removed via migration **050**; `hr-enterprise` keeps readiness (`to_regclass`) + role seed/ON CONFLICT + membership/workflow/audit DML
+- ~~Runtime `CREATE` for `office_notification_settings`~~ — removed via migration **051**; `notifications` keeps readiness (`to_regclass`) + GET/PATCH upsert (`ON CONFLICT (office_id, event_type)`) + listener reads
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -135,6 +136,7 @@
 | `hr_announcements` / `employee_requests` / `leave_balances` (+ exact `UNIQUE(employee_id, leave_type, year)`) | **048** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; HR Internal DML + tenant predicates preserved; no invented FK/index/extra UNIQUE) |
 | `performance_evaluations` / `employee_incentives` (+ `office_id`) / `hr_settings` (+ exact `UNIQUE(key)`) | **049** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; office_id from live DML; hr_settings seed ON CONFLICT preserved; no invented FK/index) |
 | `hr_roles` / `hr_memberships` / `hr_workflows` / `hr_audit_logs` (+ UNIQUEs + `idx_hrwf_office` / `idx_hral_office`) | **050** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; ON CONFLICT + tenant DML preserved; no invented FK) |
+| `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)`) | **051** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/listener DML + ON CONFLICT preserved; TIMESTAMP updated_at; no invented FK) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

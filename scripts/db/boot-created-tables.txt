@@ -37,7 +37,6 @@ message_conversations
 mfa_status_cache
 office_integration_status
 office_isolation_config
-office_notification_settings
 office_themes
 onboarding_state
 organization_units

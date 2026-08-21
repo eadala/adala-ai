@@ -477,3 +477,9 @@ hr_workflows.office_id
 hr_audit_logs.id
 hr_audit_logs.office_id
 hr_audit_logs.action
+office_notification_settings.id
+office_notification_settings.office_id
+office_notification_settings.event_type
+office_notification_settings.push_enabled
+office_notification_settings.in_app_enabled
+office_notification_settings.email_enabled

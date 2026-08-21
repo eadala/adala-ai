@@ -155,3 +155,4 @@ hr_roles
 hr_memberships
 hr_workflows
 hr_audit_logs
+office_notification_settings

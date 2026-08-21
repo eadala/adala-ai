@@ -59,6 +59,7 @@ MIGRATION_047="$ROOT/artifacts/api-server/migrations/047_calendar_schema_authori
 MIGRATION_048="$ROOT/artifacts/api-server/migrations/048_hr_internal_schema_authority.sql"
 MIGRATION_049="$ROOT/artifacts/api-server/migrations/049_hr_performance_schema_authority.sql"
 MIGRATION_050="$ROOT/artifacts/api-server/migrations/050_hr_enterprise_schema_authority.sql"
+MIGRATION_051="$ROOT/artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -274,6 +275,7 @@ verify_p0_schema() {
   apply_migration_048
   apply_migration_049
   apply_migration_050
+  apply_migration_051
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -345,6 +347,10 @@ apply_migration_050() {
   psql_db -f "$MIGRATION_050" >/dev/null
 }
 
+apply_migration_051() {
+  psql_db -f "$MIGRATION_051" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -397,11 +403,12 @@ apply_all_migrations() {
   apply_migration_048
   apply_migration_049
   apply_migration_050
+  apply_migration_051
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…050 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…051 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7837,6 +7844,150 @@ scenario_migration_050_hr_enterprise() {
   teardown_db
 }
 
+scenario_migration_051_office_notification_settings() {
+  log "Scenario 051 — office_notification_settings: greenfield / UNIQUE / Runtime / P0"
+  local PREFLIGHT_051="$ROOT/scripts/db/preflight-migration-051.sql"
+  local NOTIF_SRC="$ROOT/artifacts/api-server/src/modules/operations/notifications.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUE
+  setup_db "mig051_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok pk_ok uq_ok
+  tbl_ok=$(psql_db -At -c "SELECT to_regclass('public.office_notification_settings') IS NOT NULL")
+  [[ "$tbl_ok" == "t" ]] && ok "A: office_notification_settings present" || bad "A: table missing"
+  pk_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.office_notification_settings'::regclass AND c.contype='p' AND pg_get_constraintdef(c.oid)='PRIMARY KEY (id)')")
+  [[ "$pk_ok" == "t" ]] && ok "A: PRIMARY KEY (id)" || bad "A: pk"
+  uq_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.office_notification_settings'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*office_id[[:space:]]*,[[:space:]]*event_type[[:space:]]*\\)' AND pg_get_constraintdef(c.oid) !~* 'UNIQUE[[:space:]]*\\([^)]*,[^)]*,')")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUE(office_id, event_type)" || bad "A: UNIQUE"
+  local ts_ok
+  ts_ok=$(psql_db -At -c "SELECT udt_name FROM information_schema.columns WHERE table_schema='public' AND table_name='office_notification_settings' AND column_name='updated_at'")
+  [[ "$ts_ok" == "timestamp" ]] && ok "A: updated_at TIMESTAMP (without tz)" || bad "A: updated_at udt=$ts_ok"
+  apply_migration_051
+  ok "A: re-run 051 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_051" >/tmp/preflight051-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight051-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight051-ready.log | tail -1)"
+  grep -q 'OFFICE_NOTIFICATION_SETTINGS_SCHEMA_READY' /tmp/preflight051-ready.log && ok "A: OFFICE_NOTIFICATION_SETTINGS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig051_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE office_notification_settings CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_051" >/tmp/preflight051-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight051-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_051
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.office_notification_settings') IS NOT NULL")" == "t" ]] && ok "B: table restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong unique BLOCK
+  setup_db "mig051_wrong_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE office_notification_settings DROP CONSTRAINT office_notification_settings_office_id_event_type_key; ALTER TABLE office_notification_settings ADD CONSTRAINT office_notification_settings_office_id_key UNIQUE (office_id);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_051" >/tmp/preflight051-uq.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight051-uq.log && ok "C: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_051" >/tmp/mig051-uq.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig051-uq.log && ok "C: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: approved UNIQUE + extra incompatible UNIQUE BLOCK, rows preserved
+  setup_db "mig051_extra_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO office_notification_settings (office_id, event_type, push_enabled, in_app_enabled, email_enabled)
+    VALUES ('o-051','evt-extra', true, true, false);
+    ALTER TABLE office_notification_settings ADD CONSTRAINT office_notification_settings_event_type_key UNIQUE (event_type);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_051" >/tmp/preflight051-extra.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight051-extra.log && ok "D: preflight BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_051" >/tmp/mig051-extra.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig051-extra.log && ok "D: migration BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM office_notification_settings WHERE event_type='evt-extra'")" == "1" ]] && ok "D: rows preserved" || bad "D: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # E: duplicate unique key BLOCK, rows preserved
+  setup_db "mig051_dup_key"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE office_notification_settings DROP CONSTRAINT office_notification_settings_office_id_event_type_key;
+    INSERT INTO office_notification_settings (office_id, event_type, push_enabled, in_app_enabled, email_enabled) VALUES
+      ('o1','dup-evt', true, true, false),
+      ('o1','dup-evt', false, true, false);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_051" >/tmp/preflight051-dup.log 2>&1; then
+    bad "E: preflight should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight051-dup.log && ok "E: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_051" >/tmp/mig051-dup.log 2>&1; then
+    bad "E: migration should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig051-dup.log && ok "E: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM office_notification_settings WHERE event_type='dup-evt'")" == "2" ]] && ok "E: duplicate rows preserved" || bad "E: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # F: Runtime CREATE removed; DML + office predicates preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS office_notification_settings' "$NOTIF_SRC"; then
+    bad "F: notifications.ts still contains Runtime CREATE TABLE"
+  else
+    ok "F: notifications.ts has no Runtime CREATE TABLE"
+  fi
+  grep -q "to_regclass('public.office_notification_settings')" "$NOTIF_SRC" \
+    && ok "F: readiness check present" \
+    || bad "F: readiness check missing"
+  grep -q 'ON CONFLICT (office_id, event_type) DO UPDATE' "$NOTIF_SRC" \
+    && grep -q 'WHERE office_id = ${officeId}' "$NOTIF_SRC" \
+    && ok "F: upsert DML and office predicates preserved" \
+    || bad "F: DML or office predicates missing"
+
+  # G: P0 fails without owned table / restores
+  setup_db "mig051_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig051-p0-present.log 2>&1; then
+    ok "G: verify-schema passes with 051 objects"
+  else
+    bad "G: verify failed after full chain"; tail -20 /tmp/mig051-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE office_notification_settings CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig051-p0.log 2>&1; then
+    bad "G: verify-schema should fail without office_notification_settings"
+  else
+    grep -qi 'office_notification_settings' /tmp/mig051-p0.log && ok "G: P0 verify fails when table absent" || bad "G: verify log missing table"
+  fi
+  apply_migration_051
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig051-p0-restored.log 2>&1; then
+    ok "G: verify-schema passes after 051 restore"
+  else
+    bad "G: verify failed after restore"; tail -20 /tmp/mig051-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -14487,6 +14638,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "050" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "051" ]]; then
+  scenario_migration_051_office_notification_settings
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -14530,6 +14689,7 @@ scenario_migration_047_calendar
 scenario_migration_048_hr_internal
 scenario_migration_049_hr_performance
 scenario_migration_050_hr_enterprise
+scenario_migration_051_office_notification_settings
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
