@@ -57,6 +57,7 @@
 - ~~Runtime `CREATE` from `hrPerformance.ensureTables`~~ — removed via migration **049**; `hrPerformance` keeps readiness (`to_regclass`) + hr_settings seed (`ON CONFLICT (key)`) + evaluation/incentive DML
 - ~~Runtime `CREATE`/`INDEX` from `ensureHREnterpriseTables`~~ — removed via migration **050**; `hr-enterprise` keeps readiness (`to_regclass`) + role seed/ON CONFLICT + membership/workflow/audit DML
 - ~~Runtime `CREATE` for `office_notification_settings`~~ — removed via migration **051**; `notifications` keeps readiness (`to_regclass`) + GET/PATCH upsert (`ON CONFLICT (office_id, event_type)`) + listener reads
+- ~~Runtime `CREATE INDEX` IIFE (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`)~~ — removed via migration **052**; `internal-messages` keeps readiness (`to_regclass`) + folder/tenant DML
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -137,6 +138,7 @@
 | `performance_evaluations` / `employee_incentives` (+ `office_id`) / `hr_settings` (+ exact `UNIQUE(key)`) | **049** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; office_id from live DML; hr_settings seed ON CONFLICT preserved; no invented FK/index) |
 | `hr_roles` / `hr_memberships` / `hr_workflows` / `hr_audit_logs` (+ UNIQUEs + `idx_hrwf_office` / `idx_hral_office`) | **050** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; ON CONFLICT + tenant DML preserved; no invented FK) |
 | `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)`) | **051** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/listener DML + ON CONFLICT preserved; TIMESTAMP updated_at; no invented FK) |
+| Messaging Runtime indexes (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`) | **052** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → deploy; Runtime CREATE INDEX IIFE removed; re-asserts 020 shapes + `idx_msgs_office_folder`; skip when recipients/attachments tables absent; no DROP INDEX) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

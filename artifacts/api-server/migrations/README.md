@@ -610,7 +610,28 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-051.sql
 
-# 52) تحقق بعد التنفيذ
+# 52) Migration 052 — Messaging Runtime indexes schema authority (Stage 8)
+#    Ops:
+#      a) run preflight-migration-052.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 052
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns former internal-messages Runtime CREATE INDEX IIFE:
+#      idx_msgs_sender_date / idx_msgs_office_date / idx_msgs_office_folder
+#      idx_rcpt_user_unread (partial) / idx_rcpt_msg / idx_attach_msg
+#    Re-asserts 020 shapes fail-closed; adds folder index gap; skips when
+#    recipients/attachments tables absent (no invented CREATE TABLE).
+#    Runtime CREATE INDEX removed; readiness + DML preserved.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-052.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-052.sql
+
+# 53) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -667,6 +688,7 @@ bash scripts/db/verify-schema.sh
 | `049_hr_performance_schema_authority.sql` | HR Performance Runtime schema authority (Stage 8). Owns former Runtime CREATE from `hrPerformance.ensureTables`, corrected to proven live DML: `performance_evaluations` + `employee_incentives` require `office_id TEXT NOT NULL` (Runtime CREATE omitted it); `hr_settings` requires exact `UNIQUE(key)` for seed/PATCH `ON CONFLICT (key)`. Legacy `office_id` NULLs backfilled from `employees` when possible; BLOCK on unresolvable NULL/incompatible type/PK/UNIQUE (rows preserved). Runtime CREATE removed; readiness + hr_settings seed DML + tenant predicates preserved. Preflight: `scripts/db/preflight-migration-049.sql`. |
 | `050_hr_enterprise_schema_authority.sql` | HR Enterprise Runtime schema authority (Stage 8). Owns former Runtime CREATE/INDEX from `ensureHREnterpriseTables`: `hr_roles` (+ exact `UNIQUE(office_id, name)`), `hr_memberships` (+ exact `UNIQUE(office_id, user_id)`), `hr_workflows` (+ `idx_hrwf_office`), `hr_audit_logs` (+ `idx_hral_office` on `(office_id, created_at DESC)`). BLOCK on incompatible type/PK/UNIQUE/INDEX and duplicate unique-key groups (rows preserved). Runtime CREATE/INDEX removed; readiness + seed/ON CONFLICT + tenant DML preserved. Preflight: `scripts/db/preflight-migration-050.sql`. |
 | `051_office_notification_settings_schema_authority.sql` | Stage 8. Owns former Runtime CREATE from `notifications.ts` boot IIFE: `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)` for ON CONFLICT upsert). `updated_at` remains `TIMESTAMP` (without time zone). BLOCK on incompatible type/PK/UNIQUE and duplicate unique-key groups (rows preserved). Runtime CREATE removed; readiness + GET/PATCH/listener DML + office predicates preserved. Preflight: `scripts/db/preflight-migration-051.sql`. |
+| `052_messaging_runtime_indexes_schema_authority.sql` | Stage 8. Owns former Runtime CREATE INDEX IIFE from `internal-messages.ts`: `idx_msgs_sender_date` / `idx_msgs_office_date` / `idx_msgs_office_folder` / `idx_rcpt_user_unread` (partial) / `idx_rcpt_msg` / `idx_attach_msg`. Re-asserts overlapping 020 shapes fail-closed; adds `idx_msgs_office_folder` gap; skips when recipients/attachments tables absent. Runtime CREATE INDEX removed; readiness preserved. Preflight: `scripts/db/preflight-migration-052.sql`. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.

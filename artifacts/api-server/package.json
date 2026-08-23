@@ -85,6 +85,7 @@
     "test:hr-performance-049": "node --import tsx src/tests/hrPerformanceSchemaAuthority049.test.ts",
     "test:hr-enterprise-050": "node --import tsx src/tests/hrEnterpriseSchemaAuthority050.test.ts",
     "test:office-notif-051": "node --import tsx src/tests/officeNotificationSettingsSchemaAuthority051.test.ts",
+    "test:messaging-indexes-052": "node --import tsx src/tests/messagingRuntimeIndexesSchemaAuthority052.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
