@@ -132,7 +132,7 @@ const getByIdBlock = sliceRoute(
 );
 const aiToolsBlock = sliceRoute(
   "/* ══════════════════════════════════════════════════════\n   AI TOOLS",
-  "/* ── Additional indexes",
+  "/* ── Messaging Runtime indexes",
 );
 
 console.log("\n═══ schema: cases.id TEXT vs office_messages.case_id ═══");
