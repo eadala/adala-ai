@@ -60,6 +60,7 @@ MIGRATION_048="$ROOT/artifacts/api-server/migrations/048_hr_internal_schema_auth
 MIGRATION_049="$ROOT/artifacts/api-server/migrations/049_hr_performance_schema_authority.sql"
 MIGRATION_050="$ROOT/artifacts/api-server/migrations/050_hr_enterprise_schema_authority.sql"
 MIGRATION_051="$ROOT/artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql"
+MIGRATION_052="$ROOT/artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -276,6 +277,7 @@ verify_p0_schema() {
   apply_migration_049
   apply_migration_050
   apply_migration_051
+  apply_migration_052
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -351,6 +353,10 @@ apply_migration_051() {
   psql_db -f "$MIGRATION_051" >/dev/null
 }
 
+apply_migration_052() {
+  psql_db -f "$MIGRATION_052" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -404,11 +410,12 @@ apply_all_migrations() {
   apply_migration_049
   apply_migration_050
   apply_migration_051
+  apply_migration_052
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…051 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…052 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -7988,6 +7995,123 @@ scenario_migration_051_office_notification_settings() {
   teardown_db
 }
 
+scenario_migration_052_messaging_runtime_indexes() {
+  log "Scenario 052 — Messaging Runtime indexes: greenfield / BLOCK / Runtime / restore"
+  local PREFLIGHT_052="$ROOT/scripts/db/preflight-migration-052.sql"
+  local IM_SRC="$ROOT/artifacts/api-server/src/modules/operations/internal-messages.ts"
+
+  # A: greenfield — office_messages indexes present; folder index gap closed; idempotent
+  setup_db "mig052_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local idx_ok
+  idx_ok=$(psql_db -At -c "SELECT (to_regclass('public.idx_msgs_sender_date') IS NOT NULL AND to_regclass('public.idx_msgs_office_date') IS NOT NULL AND to_regclass('public.idx_msgs_office_folder') IS NOT NULL)")
+  [[ "$idx_ok" == "t" ]] && ok "A: office_messages Runtime indexes present" || bad "A: msgs indexes missing"
+  local folder_cols
+  folder_cols=$(psql_db -At -c "SELECT array_agg(a.attname::text ORDER BY k.ordinality)::text FROM pg_class i JOIN pg_namespace n ON n.oid=i.relnamespace JOIN pg_index x ON x.indexrelid=i.oid CROSS JOIN LATERAL unnest(x.indkey::smallint[]) WITH ORDINALITY AS k(attnum, ordinality) JOIN pg_attribute a ON a.attrelid=x.indrelid AND a.attnum=k.attnum WHERE n.nspname='public' AND i.relname='idx_msgs_office_folder'")
+  [[ "$folder_cols" == "{office_id,folder}" ]] && ok "A: idx_msgs_office_folder (office_id, folder)" || bad "A: folder cols=$folder_cols"
+  apply_migration_052
+  ok "A: re-run 052 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_052" >/tmp/preflight052-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight052-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight052-ready.log | tail -1)"
+  grep -q 'MESSAGING_RUNTIME_INDEXES_READY' /tmp/preflight052-ready.log && ok "A: MESSAGING_RUNTIME_INDEXES_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing folder index SAFE + restore
+  setup_db "mig052_miss_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX IF EXISTS idx_msgs_office_folder;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_052" >/tmp/preflight052-miss.log 2>&1
+  grep -q 'MISSING_INDEXES\|SAFE_AUTO_REPAIR' /tmp/preflight052-miss.log && ok "B: preflight SAFE MISSING_INDEXES" || bad "B: preflight"
+  apply_migration_052
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.idx_msgs_office_folder') IS NOT NULL")" == "t" ]] && ok "B: idx_msgs_office_folder restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong DESC on idx_msgs_office_date BLOCK
+  setup_db "mig052_wrong_desc"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX idx_msgs_office_date; CREATE INDEX idx_msgs_office_date ON office_messages (office_id, created_at ASC);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_052" >/tmp/preflight052-desc.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight052-desc.log && ok "C: preflight BLOCK INCOMPATIBLE_INDEX" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_052" >/tmp/mig052-desc.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig052-desc.log && ok "C: migration BLOCK INCOMPATIBLE_INDEX" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: stolen index name on wrong table BLOCK
+  setup_db "mig052_stolen"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX idx_msgs_office_folder;
+    CREATE TABLE IF NOT EXISTS mig052_dummy (office_id text, folder text);
+    CREATE INDEX idx_msgs_office_folder ON mig052_dummy (office_id, folder);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_052" >/tmp/preflight052-stolen.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight052-stolen.log && ok "D: preflight BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_052" >/tmp/mig052-stolen.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig052-stolen.log && ok "D: migration BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: Runtime CREATE INDEX removed; tenant predicates preserved
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_msgs_(sender_date|office_date|office_folder)' "$IM_SRC"; then
+    bad "E: internal-messages.ts still contains Runtime CREATE INDEX for msgs"
+  else
+    ok "E: no Runtime CREATE INDEX for msgs indexes"
+  fi
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_(rcpt_user_unread|rcpt_msg|attach_msg)' "$IM_SRC"; then
+    bad "E: internal-messages.ts still contains Runtime CREATE INDEX for rcpt/attach"
+  else
+    ok "E: no Runtime CREATE INDEX for rcpt/attach"
+  fi
+  grep -q "to_regclass('public.idx_msgs_office_folder')" "$IM_SRC" \
+    && grep -q 'ensureMessagingRuntimeIndexes' "$IM_SRC" \
+    && ok "E: readiness checks present" \
+    || bad "E: readiness missing"
+  grep -q 'WHERE m.office_id = ${tenantId}' "$IM_SRC" \
+    && grep -q 'ORDER BY m.created_at DESC' "$IM_SRC" \
+    && ok "E: tenant/folder query predicates preserved" \
+    || bad "E: DML predicates missing"
+
+  # F: recipients present → indexes applied
+  setup_db "mig052_rcpt"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    CREATE TABLE IF NOT EXISTS office_message_recipients (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id UUID, user_id TEXT, user_name TEXT, is_read BOOLEAN DEFAULT FALSE
+    );
+    CREATE TABLE IF NOT EXISTS office_message_attachments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id UUID, file_name TEXT, file_url TEXT, file_size INT
+    );
+  " >/dev/null
+  apply_migration_052
+  local rcpt_ok
+  rcpt_ok=$(psql_db -At -c "SELECT (to_regclass('public.idx_rcpt_user_unread') IS NOT NULL AND to_regclass('public.idx_rcpt_msg') IS NOT NULL AND to_regclass('public.idx_attach_msg') IS NOT NULL)")
+  [[ "$rcpt_ok" == "t" ]] && ok "F: rcpt/attach indexes created when tables exist" || bad "F: rcpt/attach indexes missing"
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -14646,6 +14770,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "051" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
+  scenario_migration_052_messaging_runtime_indexes
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -14690,6 +14822,7 @@ scenario_migration_048_hr_internal
 scenario_migration_049_hr_performance
 scenario_migration_050_hr_enterprise
 scenario_migration_051_office_notification_settings
+scenario_migration_052_messaging_runtime_indexes
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

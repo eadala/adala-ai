@@ -662,19 +662,44 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
   }
 });
 
-/* ── Additional indexes (non-blocking startup) ───────────────────────────
+/* ── Messaging Runtime indexes — Migration 052 owns DDL; readiness only ──
    office_messages.deleted_at / conversation_id owned by migration 016 — no ALTER.
-   idx_conv_updated / conversation table indexes owned by migration 031 — no Runtime CREATE. */
-(async () => {
-  const extras = [
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_sender_date ON office_messages (sender_id, created_at DESC)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_date ON office_messages (office_id, created_at DESC)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_folder ON office_messages (office_id, folder)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_user_unread  ON office_message_recipients (user_id, is_read) WHERE is_read = FALSE`,
-    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_msg         ON office_message_recipients (message_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_attach_msg       ON office_message_attachments (message_id)`,
-  ];
-  for (const m of extras) await db.execute(m).catch(() => {});
-})();
+   idx_conv_updated / conversation table indexes owned by migration 031 — no Runtime CREATE.
+   idx_msgs_* / idx_rcpt_* / idx_attach_msg owned by migration 052 (re-asserts 020 shapes
+   + idx_msgs_office_folder). */
+let messagingRuntimeIndexesReady = false;
+export async function ensureMessagingRuntimeIndexes(): Promise<void> {
+  if (messagingRuntimeIndexesReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.idx_msgs_sender_date') IS NOT NULL AS idx_msgs_sender_date,
+        to_regclass('public.idx_msgs_office_date') IS NOT NULL AS idx_msgs_office_date,
+        to_regclass('public.idx_msgs_office_folder') IS NOT NULL AS idx_msgs_office_folder,
+        to_regclass('public.office_message_recipients') IS NOT NULL AS recipients_present,
+        to_regclass('public.idx_rcpt_user_unread') IS NOT NULL AS idx_rcpt_user_unread,
+        to_regclass('public.idx_rcpt_msg') IS NOT NULL AS idx_rcpt_msg,
+        to_regclass('public.office_message_attachments') IS NOT NULL AS attachments_present,
+        to_regclass('public.idx_attach_msg') IS NOT NULL AS idx_attach_msg
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.idx_msgs_sender_date || !row.idx_msgs_office_date || !row.idx_msgs_office_folder) {
+      console.error("[internal-messages] Migration 052 schema not ready — office_messages Runtime indexes missing");
+      return;
+    }
+    if (row.recipients_present && (!row.idx_rcpt_user_unread || !row.idx_rcpt_msg)) {
+      console.error("[internal-messages] Migration 052 schema not ready — recipient indexes missing");
+      return;
+    }
+    if (row.attachments_present && !row.idx_attach_msg) {
+      console.error("[internal-messages] Migration 052 schema not ready — attachment index missing");
+      return;
+    }
+    messagingRuntimeIndexesReady = true;
+  } catch { /* non-blocking */ }
+}
+
+/* Boot readiness probe (no CREATE INDEX) — Migration 052 owns DDL. */
+void ensureMessagingRuntimeIndexes();
 
 export default router;

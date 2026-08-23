@@ -1849,6 +1849,32 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:office-notif-0
 assert.match(readRepo(".github/workflows/ci.yml"), /test:office-notif-051/);
 console.log("  ✅ migration 051 owns office_notification_settings + UNIQUE(office_id, event_type); Runtime DDL absent; P0 gated");
 
+console.log("\n═══ schemaAuthority: Messaging Runtime indexes (052) ═══");
+assert.ok(migrationFiles.includes("052_messaging_runtime_indexes_schema_authority.sql"));
+const mig052 = readRepo("artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql");
+assert.match(mig052, /idx_msgs_office_folder/);
+assert.match(mig052, /idx_rcpt_user_unread/);
+assert.match(mig052, /INCOMPATIBLE_INDEX/);
+assert.match(mig052, /MESSAGING_RUNTIME_INDEXES_READY|POST_APPLY_READINESS_FAILED/);
+{
+  const sqlOnly052 = mig052.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly052, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly052, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly052, /CREATE TABLE IF NOT EXISTS\b/i);
+}
+const preflight052 = readRepo("scripts/db/preflight-migration-052.sql");
+assert.match(preflight052, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight052, /MESSAGING_RUNTIME_INDEXES_READY/);
+assert.doesNotMatch(readSrc("modules/operations/internal-messages.ts"), /CREATE INDEX IF NOT EXISTS idx_msgs_office_folder/);
+assert.doesNotMatch(readSrc("modules/operations/internal-messages.ts"), /CREATE INDEX IF NOT EXISTS idx_rcpt_user_unread/);
+assert.match(readSrc("modules/operations/internal-messages.ts"), /to_regclass\('public\.idx_msgs_office_folder'\)/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_052|MIGRATION_052/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig052_wrong_desc|mig052_stolen|mig052_miss_idx/);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:messaging-indexes-052/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:messaging-indexes-052/);
+assert.doesNotMatch(readRepo("artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"), /idx_msgs_office_folder/);
+console.log("  ✅ migration 052 owns Messaging Runtime indexes + folder gap; Runtime CREATE INDEX absent; 020 not rewritten");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

@@ -80,6 +80,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:hr-performance-049
           pnpm --filter @workspace/api-server run test:hr-enterprise-050
           pnpm --filter @workspace/api-server run test:office-notif-051
+          pnpm --filter @workspace/api-server run test:messaging-indexes-052
           pnpm --filter @workspace/api-server run test:orphan-ai-refs
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
