@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema-authority touch-up only */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -350,23 +351,24 @@ router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (re
 });
 
 /* ══════════════════════════════════════════════════════════
-   PER-OFFICE NOTIFICATION SETTINGS
+   PER-OFFICE NOTIFICATION SETTINGS — Migration 051 owns DDL; readiness only
 ══════════════════════════════════════════════════════════ */
 
-(async () => {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_notification_settings (
-      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id      TEXT NOT NULL,
-      event_type     TEXT NOT NULL,
-      push_enabled   BOOLEAN NOT NULL DEFAULT true,
-      in_app_enabled BOOLEAN NOT NULL DEFAULT true,
-      email_enabled  BOOLEAN NOT NULL DEFAULT false,
-      updated_at     TIMESTAMP DEFAULT NOW(),
-      UNIQUE(office_id, event_type)
-    )
-  `).catch(() => {});
-})();
+let officeNotificationSettingsReady = false;
+export async function ensureOfficeNotificationSettingsTable(): Promise<void> {
+  if (officeNotificationSettingsReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.office_notification_settings') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      console.error("[notifications] Migration 051 schema not ready — office_notification_settings missing");
+      return;
+    }
+    officeNotificationSettingsReady = true;
+  } catch { /* non-blocking */ }
+}
 
 /* GET /api/notifications/settings */
 router.get("/notifications/settings", requireAuth, async (req, res) => {
@@ -376,6 +378,7 @@ router.get("/notifications/settings", requireAuth, async (req, res) => {
     const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
     const officeId = await resolveTenantId(userId);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    await ensureOfficeNotificationSettingsTable();
     const rows = await db.execute(sql`
       SELECT event_type, push_enabled, in_app_enabled, email_enabled
       FROM office_notification_settings
@@ -403,6 +406,7 @@ router.patch("/notifications/settings", requireAuth, async (req, res) => {
     }>;
     if (!Array.isArray(updates)) return res.status(400).json({ error: "settings must be array" });
 
+    await ensureOfficeNotificationSettingsTable();
     for (const s of updates) {
       await db.execute(sql`
         INSERT INTO office_notification_settings
