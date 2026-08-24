@@ -29,6 +29,7 @@ import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
 import { registerSwaggerDocs } from "./docs/swagger";
 import { prometheusMiddleware, registry } from "./observability/prometheus";
+import { isSensitiveDotPath } from "./lib/sensitiveStaticPath";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -333,6 +334,14 @@ app.use(preventionErrorHandler);
 /* ── Production: serve Vite frontend static files ─────────────────────── */
 if (process.env.NODE_ENV === "production") {
   const publicDir = process.env.PUBLIC_DIR ?? "./public";
+
+  /* Stage 9: never serve or SPA-fallback sensitive/.git/.env paths (HTTP 404) */
+  app.use((req, res, next) => {
+    if (isSensitiveDotPath(req.path)) {
+      return void res.status(404).end();
+    }
+    next();
+  });
 
   app.use(express.static(publicDir, {
     maxAge: "1d",
