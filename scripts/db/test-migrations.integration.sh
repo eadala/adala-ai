@@ -61,6 +61,7 @@ MIGRATION_049="$ROOT/artifacts/api-server/migrations/049_hr_performance_schema_a
 MIGRATION_050="$ROOT/artifacts/api-server/migrations/050_hr_enterprise_schema_authority.sql"
 MIGRATION_051="$ROOT/artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql"
 MIGRATION_052="$ROOT/artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql"
+MIGRATION_053="$ROOT/artifacts/api-server/migrations/053_security_centers_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -278,6 +279,7 @@ verify_p0_schema() {
   apply_migration_050
   apply_migration_051
   apply_migration_052
+  apply_migration_053
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -357,6 +359,10 @@ apply_migration_052() {
   psql_db -f "$MIGRATION_052" >/dev/null
 }
 
+apply_migration_053() {
+  psql_db -f "$MIGRATION_053" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -411,11 +417,12 @@ apply_all_migrations() {
   apply_migration_050
   apply_migration_051
   apply_migration_052
+  apply_migration_053
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…052 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…053 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -8112,6 +8119,232 @@ scenario_migration_052_messaging_runtime_indexes() {
   teardown_db
 }
 
+scenario_migration_053_security_centers() {
+  log "Scenario 053 — Security Centers: greenfield / UNIQUE / INDEX / FK / Runtime / P0"
+  local PREFLIGHT_053="$ROOT/scripts/db/preflight-migration-053.sql"
+  local SOC_SRC="$ROOT/artifacts/api-server/src/modules/security/soc.ts"
+  local AUDIT_SRC="$ROOT/artifacts/api-server/src/modules/security/auditCenter.ts"
+  local COMP_SRC="$ROOT/artifacts/api-server/src/modules/security/complianceCenter.ts"
+  local DR_SRC="$ROOT/artifacts/api-server/src/modules/security/drCenter.ts"
+  local MFA_SRC="$ROOT/artifacts/api-server/src/modules/security/mfaCenter.ts"
+
+  # A: greenfield READY + idempotent + ALREADY + UNIQUEs + indexes + FK
+  setup_db "mig053_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_cnt uq_ok idx_ok fk_ok pk_mfa
+  tbl_cnt=$(psql_db -At -c "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname IN ('security_sessions','security_alerts','blocked_ips','mfa_status_cache','audit_coverage_rules','audit_risk_scores','compliance_controls','data_requests','retention_policies','legal_holds','dr_restore_points','dr_test_runs','dr_health_checks','high_risk_op_log','recovery_codes')")
+  [[ "$tbl_cnt" == "15" ]] && ok "A: 15 Security Center tables present" || bad "A: table count=$tbl_cnt"
+  uq_ok=$(psql_db -At -c "SELECT (
+    EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.blocked_ips'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*ip_address[[:space:]]*\\)')
+    AND EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.compliance_controls'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*framework[[:space:]]*,[[:space:]]*control_id[[:space:]]*\\)')
+    AND EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.retention_policies'::regclass AND c.contype='u' AND pg_get_constraintdef(c.oid) ~* 'UNIQUE[[:space:]]*\\([[:space:]]*resource_type[[:space:]]*\\)')
+  )")
+  [[ "$uq_ok" == "t" ]] && ok "A: UNIQUEs for ON CONFLICT present" || bad "A: UNIQUEs"
+  pk_mfa=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.mfa_status_cache'::regclass AND c.contype='p' AND pg_get_constraintdef(c.oid)='PRIMARY KEY (user_id)')")
+  [[ "$pk_mfa" == "t" ]] && ok "A: mfa_status_cache PRIMARY KEY (user_id)" || bad "A: mfa PK"
+  idx_ok=$(psql_db -At -c "SELECT (to_regclass('public.idx_security_sessions_user') IS NOT NULL AND to_regclass('public.idx_audit_logs_created_at') IS NOT NULL AND to_regclass('public.idx_high_risk_op_user') IS NOT NULL)")
+  [[ "$idx_ok" == "t" ]] && ok "A: Runtime indexes present" || bad "A: indexes"
+  fk_ok=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conrelid='public.dr_test_runs'::regclass AND c.contype='f' AND c.conname='dr_test_runs_restore_point_id_fkey')")
+  [[ "$fk_ok" == "t" ]] && ok "A: dr_test_runs FK CASCADE present" || bad "A: FK"
+  apply_migration_053
+  ok "A: re-run 053 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight053-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight053-ready.log | tail -1)"
+  grep -q 'SECURITY_CENTERS_SCHEMA_READY' /tmp/preflight053-ready.log && ok "A: SECURITY_CENTERS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig053_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE data_requests CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight053-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_053
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.data_requests') IS NOT NULL")" == "t" ]] && ok "B: data_requests restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong unique BLOCK
+  setup_db "mig053_wrong_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE compliance_controls DROP CONSTRAINT compliance_controls_framework_control_id_key; ALTER TABLE compliance_controls ADD CONSTRAINT compliance_controls_control_id_key UNIQUE (control_id);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-uq.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-uq.log && ok "C: preflight BLOCK INCOMPATIBLE_UNIQUE" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-uq.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_UNIQUE"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig053-uq.log && ok "C: migration BLOCK INCOMPATIBLE_UNIQUE" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: approved UNIQUE + extra incompatible UNIQUE BLOCK, rows preserved
+  setup_db "mig053_extra_unique"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    INSERT INTO compliance_controls (framework, control_id, title) VALUES ('PDPL','PDPL-X','Extra');
+    ALTER TABLE compliance_controls ADD CONSTRAINT compliance_controls_title_key UNIQUE (title);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-extra.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-extra.log && ok "D: preflight BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-extra.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_UNIQUE (approved + extra)"
+  else
+    grep -q 'INCOMPATIBLE_UNIQUE' /tmp/mig053-extra.log && ok "D: migration BLOCK INCOMPATIBLE_UNIQUE (approved + extra)" || bad "D: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM compliance_controls WHERE control_id='PDPL-X'")" == "1" ]] && ok "D: compliance_controls rows preserved" || bad "D: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # E: duplicate unique key BLOCK, rows preserved
+  setup_db "mig053_dup_key"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE retention_policies DROP CONSTRAINT retention_policies_resource_type_key;
+    INSERT INTO retention_policies (resource_type, retention_days) VALUES
+      ('dup-res-053', 10),
+      ('dup-res-053', 20);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-dup.log 2>&1; then
+    bad "E: preflight should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-dup.log && ok "E: preflight BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-dup.log 2>&1; then
+    bad "E: migration should BLOCK DUPLICATE_UNIQUE_KEY"
+  else
+    grep -q 'DUPLICATE_UNIQUE_KEY' /tmp/mig053-dup.log && ok "E: migration BLOCK DUPLICATE_UNIQUE_KEY" || bad "E: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM retention_policies WHERE resource_type='dup-res-053'")" == "2" ]] && ok "E: duplicate retention rows preserved" || bad "E: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # F: wrong DESC on idx_audit_logs_created_at BLOCK
+  setup_db "mig053_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX idx_audit_logs_created_at; CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at ASC);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-idx.log 2>&1; then
+    bad "F: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-idx.log && ok "F: preflight BLOCK INCOMPATIBLE_INDEX" || bad "F: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-idx.log 2>&1; then
+    bad "F: migration should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig053-idx.log && ok "F: migration BLOCK INCOMPATIBLE_INDEX" || bad "F: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # G: stolen index name on wrong table BLOCK
+  setup_db "mig053_stolen"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX idx_security_sessions_user;
+    CREATE TABLE IF NOT EXISTS mig053_dummy (user_id text);
+    CREATE INDEX idx_security_sessions_user ON mig053_dummy (user_id);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-stolen.log 2>&1; then
+    bad "G: preflight should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-stolen.log && ok "G: preflight BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "G: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-stolen.log 2>&1; then
+    bad "G: migration should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig053-stolen.log && ok "G: migration BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "G: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # H: orphan FK BLOCK, rows preserved
+  setup_db "mig053_orphan"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    ALTER TABLE dr_test_runs DROP CONSTRAINT IF EXISTS dr_test_runs_restore_point_id_fkey;
+    INSERT INTO dr_test_runs (restore_point_id, status)
+    VALUES ('00000000-0000-0000-0000-000000000053', 'running');
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_053" >/tmp/preflight053-orphan.log 2>&1; then
+    bad "H: preflight should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight053-orphan.log && ok "H: preflight BLOCK ORPHAN_FK" || bad "H: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_053" >/tmp/mig053-orphan.log 2>&1; then
+    bad "H: migration should BLOCK ORPHAN_FK"
+  else
+    grep -q 'ORPHAN_FK' /tmp/mig053-orphan.log && ok "H: migration BLOCK ORPHAN_FK" || bad "H: mig reason"
+  fi
+  [[ "$(psql_db -At -c "SELECT COUNT(*) FROM dr_test_runs WHERE restore_point_id='00000000-0000-0000-0000-000000000053'")" == "1" ]] && ok "H: orphan dr_test_runs row preserved" || bad "H: rows changed"
+  trap - EXIT
+  teardown_db
+
+  # I: Runtime CREATE/INDEX removed; DML + seeds + SA preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS (security_sessions|blocked_ips|audit_coverage_rules|retention_policies|dr_restore_points|high_risk_op_log)' "$SOC_SRC" "$AUDIT_SRC" "$COMP_SRC" "$DR_SRC" "$MFA_SRC"; then
+    bad "I: security modules still contain Runtime CREATE TABLE"
+  else
+    ok "I: security modules have no Runtime CREATE TABLE"
+  fi
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_(security_|audit_logs_|data_requests_|compliance_controls_|high_risk_op_|recovery_codes_)' "$SOC_SRC" "$AUDIT_SRC" "$COMP_SRC" "$MFA_SRC"; then
+    bad "I: security modules still contain Runtime CREATE INDEX"
+  else
+    ok "I: security modules have no Runtime CREATE INDEX"
+  fi
+  grep -q "to_regclass('public.security_sessions')" "$SOC_SRC" \
+    && grep -q "to_regclass('public.retention_policies')" "$COMP_SRC" \
+    && grep -q "to_regclass('public.dr_restore_points')" "$DR_SRC" \
+    && grep -q "to_regclass('public.high_risk_op_log')" "$MFA_SRC" \
+    && ok "I: readiness checks present" \
+    || bad "I: readiness checks missing"
+  grep -q 'ON CONFLICT (framework, control_id) DO NOTHING' "$COMP_SRC" \
+    && grep -q 'ON CONFLICT (resource_type) DO NOTHING' "$COMP_SRC" \
+    && grep -q 'ON CONFLICT (ip_address)' "$SOC_SRC" \
+    && grep -q 'ON CONFLICT (user_id)' "$MFA_SRC" \
+    && grep -q 'requireSuperAdmin' "$SOC_SRC" \
+    && ok "I: seeds/ON CONFLICT/SA preserved" \
+    || bad "I: DML or SA missing"
+
+  # J: P0 fails without owned table / restores
+  setup_db "mig053_p0"
+  trap teardown_db EXIT
+  apply_all_migrations
+  export DATABASE_URL
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig053-p0-present.log 2>&1; then
+    ok "J: verify-schema passes with 053 objects"
+  else
+    bad "J: verify failed after full chain"; tail -20 /tmp/mig053-p0-present.log
+  fi
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE security_sessions CASCADE;" >/dev/null
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig053-p0.log 2>&1; then
+    bad "J: verify-schema should fail without security_sessions"
+  else
+    grep -qi 'security_sessions' /tmp/mig053-p0.log && ok "J: P0 verify fails when security_sessions absent" || bad "J: verify log missing table"
+  fi
+  apply_migration_053
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig053-p0-restored.log 2>&1; then
+    ok "J: verify-schema passes after 053 restore"
+  else
+    bad "J: verify failed after restore"; tail -20 /tmp/mig053-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -14778,6 +15011,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "053" ]]; then
+  scenario_migration_053_security_centers
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 scenario_empty_db
 scenario_partial_idempotent
 scenario_migration_006_idempotent
@@ -14823,6 +15064,7 @@ scenario_migration_049_hr_performance
 scenario_migration_050_hr_enterprise
 scenario_migration_051_office_notification_settings
 scenario_migration_052_messaging_runtime_indexes
+scenario_migration_053_security_centers
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

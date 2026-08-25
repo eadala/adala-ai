@@ -9,42 +9,19 @@ import { isObjectStorageConfigured } from "../../core/storage";
 const router = Router();
 const saGuard = requireSuperAdmin;
 
+/* Migration 053 owns DDL; readiness only */
 (async () => {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS dr_restore_points (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        label           TEXT NOT NULL,
-        backup_type     TEXT DEFAULT 'full',
-        size_bytes      BIGINT DEFAULT 0,
-        location        TEXT,
-        checksum        TEXT,
-        status          TEXT DEFAULT 'available',
-        test_status     TEXT DEFAULT 'untested',
-        tested_at       TIMESTAMPTZ,
-        rto_minutes     INTEGER DEFAULT 60,
-        rpo_minutes     INTEGER DEFAULT 240,
-        created_at      TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS dr_test_runs (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        restore_point_id UUID REFERENCES dr_restore_points(id) ON DELETE CASCADE,
-        initiated_by    TEXT,
-        status          TEXT DEFAULT 'running',
-        result          JSONB DEFAULT '{}',
-        duration_ms     INTEGER,
-        completed_at    TIMESTAMPTZ,
-        created_at      TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS dr_health_checks (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        component   TEXT NOT NULL,
-        status      TEXT DEFAULT 'healthy',
-        latency_ms  INTEGER,
-        details     JSONB DEFAULT '{}',
-        checked_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.dr_restore_points') IS NOT NULL AS dr_restore_points_present,
+        to_regclass('public.dr_test_runs') IS NOT NULL AS dr_test_runs_present,
+        to_regclass('public.dr_health_checks') IS NOT NULL AS dr_health_checks_present
+    `) as any;
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.dr_restore_points_present || !row.dr_test_runs_present || !row.dr_health_checks_present) {
+      console.error("[dr-center] Migration 053 schema not ready — dr_restore_points / dr_test_runs / dr_health_checks missing");
+    }
   } catch {}
 })();
 

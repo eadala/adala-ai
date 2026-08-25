@@ -138,7 +138,9 @@ console.log("  ✅ Runtime V2 DDL gone; DC uses document_retention_policies");
 
 console.log("\n═══ Compliance / 021 / CI wiring ═══");
 const compliance = readSrc("modules/security/complianceCenter.ts");
-assert.match(compliance, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.doesNotMatch(compliance, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.match(compliance, /to_regclass\('public\.retention_policies'\)/);
+assert.match(compliance, /INSERT INTO retention_policies/);
 assert.doesNotMatch(compliance, /document_retention_policies/);
 const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundation.sql");
 assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_center_files/);

@@ -58,6 +58,7 @@
 - ~~Runtime `CREATE`/`INDEX` from `ensureHREnterpriseTables`~~ — removed via migration **050**; `hr-enterprise` keeps readiness (`to_regclass`) + role seed/ON CONFLICT + membership/workflow/audit DML
 - ~~Runtime `CREATE` for `office_notification_settings`~~ — removed via migration **051**; `notifications` keeps readiness (`to_regclass`) + GET/PATCH upsert (`ON CONFLICT (office_id, event_type)`) + listener reads
 - ~~Runtime `CREATE INDEX` IIFE (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`)~~ — removed via migration **052**; `internal-messages` keeps readiness (`to_regclass`) + folder/tenant DML
+- ~~Runtime `CREATE`/`INDEX` IIFEs from `soc.ts` / `auditCenter.ts` / `complianceCenter.ts` / `drCenter.ts` / `mfaCenter.ts`~~ — removed via migration **053**; modules keep readiness (`to_regclass`) + SA DML, ON CONFLICT, and compliance/retention seeds
 - `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
@@ -123,7 +124,7 @@
 | `office_messages.case_id` TEXT | **030** (preflight → apply INTEGER→TEXT exact `::text` → preflight ALREADY_CORRECT; FK deferred; Runtime `ensureCaseIdColumn` removed) |
 | `message_conversations` / `conversation_members` | **031** (preflight → apply CREATE/repair + `case_id TEXT` + indexes; FK legacy-safe; Runtime `ensureConversationTables` removed; compatible with **020**) |
 | `document_center_files` / `document_ai_metadata` / `rag_chunks` | **021** |
-| `documents` V2 extension cols + `document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` | **033** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; compliance `retention_policies` untouched) |
+| `documents` V2 extension cols + `document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` | **033** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; compliance `retention_policies` owned by **053**, not 033) |
 | `client_accounts` / `client_sessions` / `client_case_links` / `client_portal_tokens` / `case_timeline` / `portal_uploads` / `marketplace_services` / `marketplace_orders` (+ `clients.client_account_id`) | **038** (preflight → apply → re-preflight ALREADY_CORRECT → verify-schema → deploy; `home_cms` owned by 038 but not P0; storefront 003/004/006 untouched) |
 | `office_ai_credits` / `ai_credit_transactions` / `ai_usage_logs` | **039** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; seed DML preserved; `usage_logs` remains **003**) |
 | `ai_provider_config` / `office_ai_settings` | **040** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; seed/upsert DML preserved) |
@@ -139,6 +140,7 @@
 | `hr_roles` / `hr_memberships` / `hr_workflows` / `hr_audit_logs` (+ UNIQUEs + `idx_hrwf_office` / `idx_hral_office`) | **050** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; ON CONFLICT + tenant DML preserved; no invented FK) |
 | `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)`) | **051** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE removed; GET/PATCH/listener DML + ON CONFLICT preserved; TIMESTAMP updated_at; no invented FK) |
 | Messaging Runtime indexes (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`) | **052** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → deploy; Runtime CREATE INDEX IIFE removed; re-asserts 020 shapes + `idx_msgs_office_folder`; skip when recipients/attachments tables absent; no DROP INDEX) |
+| Security Centers (`security_sessions` / `security_alerts` / `blocked_ips` / `mfa_status_cache` / `audit_coverage_rules` / `audit_risk_scores` / `compliance_controls` / `data_requests` / `retention_policies` / `legal_holds` / `dr_*` / `high_risk_op_log` / `recovery_codes` + UNIQUEs + `idx_audit_logs_*` + FK CASCADE) | **053** (preflight → BLOCK=stop → SAFE/ALREADY apply → re-preflight → verify-schema → deploy; Runtime CREATE/INDEX removed; seeds + ON CONFLICT + SA DML preserved; no DROP) |
 
 ## Docker Production — ماذا يحتوي الصورة؟
 

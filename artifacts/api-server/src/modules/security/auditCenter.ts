@@ -7,31 +7,18 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 const router = Router();
 const saGuard = requireSuperAdmin;
 
+/* Migration 053 owns DDL; readiness only */
 (async () => {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS audit_coverage_rules (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        resource    TEXT NOT NULL UNIQUE,
-        actions     TEXT[] DEFAULT '{}',
-        risk_level  TEXT DEFAULT 'medium',
-        enabled     BOOLEAN DEFAULT true,
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS audit_risk_scores (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     TEXT NOT NULL,
-        office_id   TEXT,
-        score       INTEGER DEFAULT 0,
-        factors     JSONB DEFAULT '[]',
-        computed_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_action     ON audit_logs(action);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_resource   ON audit_logs(resource);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id    ON audit_logs(user_id);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_office_id  ON audit_logs(office_id);
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.audit_coverage_rules') IS NOT NULL AS audit_coverage_rules_present,
+        to_regclass('public.audit_risk_scores') IS NOT NULL AS audit_risk_scores_present
+    `) as any;
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.audit_coverage_rules_present || !row.audit_risk_scores_present) {
+      console.error("[audit-center] Migration 053 schema not ready — audit_coverage_rules / audit_risk_scores missing");
+    }
   } catch {}
 })();
 
