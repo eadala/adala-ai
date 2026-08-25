@@ -156,6 +156,8 @@ assert.match(integ, /MISSING_ID_GENERATION|mig033_sml_nogen/);
 assert.match(integ, /mig033_mixed_block/);
 assert.match(integ, /mig033_ver10/);
 assert.match(integ, /DEFAULT_SEED_PENDING|mig033_seed_partial/);
-console.log("  ✅ compliance untouched; 021 unchanged; regression scenarios wired");
+assert.match(integ, /retention_policies owned by 053/);
+assert.match(integ, /document_retention_policies by 033/);
+console.log("  ✅ retention_policies=053 (no Runtime CREATE); document_retention_policies=033; 021 unchanged");
 
 console.log("\n✅ documentV2SchemaAuthority033 tests passed\n");

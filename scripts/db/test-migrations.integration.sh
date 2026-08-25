@@ -14647,11 +14647,19 @@ scenario_migration_033_document_v2() {
   else
     bad "J: Document Center still targets retention_policies"
   fi
-  if grep -q 'CREATE TABLE IF NOT EXISTS retention_policies' \
-      "$ROOT/artifacts/api-server/src/modules/security/complianceCenter.ts"; then
-    ok "J: complianceCenter Runtime retention_policies preserved"
+  # retention_policies owned by Migration 053; document_retention_policies remains 033.
+  # No Runtime CREATE expected in complianceCenter after Stage 9.
+  if ! grep -q 'CREATE TABLE IF NOT EXISTS retention_policies' \
+      "$ROOT/artifacts/api-server/src/modules/security/complianceCenter.ts" \
+     && grep -q "to_regclass('public.retention_policies')" \
+      "$ROOT/artifacts/api-server/src/modules/security/complianceCenter.ts" \
+     && grep -q 'CREATE TABLE IF NOT EXISTS retention_policies' \
+      "$ROOT/artifacts/api-server/migrations/053_security_centers_schema_authority.sql" \
+     && grep -q 'document_retention_policies' \
+      "$ROOT/artifacts/api-server/migrations/033_document_v2_schema_authority.sql"; then
+    ok "J: retention_policies owned by 053 (no Runtime CREATE); document_retention_policies by 033"
   else
-    bad "J: complianceCenter retention CREATE missing"
+    bad "J: retention ownership split incorrect (033 vs 053 / Runtime CREATE)"
   fi
   if grep -q 'CREATE TABLE IF NOT EXISTS document_center_files' \
       "$ROOT/artifacts/api-server/migrations/021_rag_schema_foundation.sql" \
@@ -14963,6 +14971,14 @@ scenario_migration_033_document_v2() {
 require_cmd
 ensure_test_role
 log "DB migration integration tests (local PostgreSQL only)"
+if [[ "${FOCUS_SCENARIO:-}" == "033" ]]; then
+  scenario_migration_033_document_v2
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 if [[ "${FOCUS_SCENARIO:-}" == "047" ]]; then
   scenario_migration_047_calendar
   echo ""
