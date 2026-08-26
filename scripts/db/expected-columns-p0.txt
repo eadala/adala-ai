@@ -513,3 +513,14 @@ high_risk_op_log.id
 high_risk_op_log.user_id
 recovery_codes.id
 recovery_codes.user_id
+
+# Migration 054 — Platform Runtime (DML-critical columns)
+ct_security_events.event_type
+ct_security_events.severity
+ct_security_events.message
+ct_security_events.resolved
+ct_security_events.office_id
+go_live_certificates.certificate_id
+engineering_ip_whitelist.ip_address
+governance_action_log.action_type
+system_audit_logs.admin_user_id

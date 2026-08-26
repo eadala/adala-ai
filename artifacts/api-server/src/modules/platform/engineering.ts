@@ -54,46 +54,27 @@ function getClientIp(req: any): string {
   );
 }
 
-/* ── Ensure tables ── */
-(async () => {
+/* ── readiness — schema owned by Migration 054 ── */
+let engineeringSchemaReady = false;
+async function ensureEngineeringSchemaReady() {
+  if (engineeringSchemaReady) return;
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS engineering_tasks (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title        TEXT NOT NULL,
-        description  TEXT,
-        status       TEXT DEFAULT 'pending',
-        priority     TEXT DEFAULT 'medium',
-        category     TEXT DEFAULT 'general',
-        result       JSONB,
-        created_at   TIMESTAMPTZ DEFAULT NOW(),
-        completed_at TIMESTAMPTZ
-      );
-      CREATE TABLE IF NOT EXISTS engineering_scans (
-        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        scan_type  TEXT NOT NULL,
-        status     TEXT DEFAULT 'pending',
-        findings   JSONB,
-        summary    TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS engineering_ip_whitelist (
-        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        ip_address TEXT NOT NULL UNIQUE,
-        label      TEXT,
-        added_by   TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS engineering_logs (
-        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        action     TEXT NOT NULL,
-        details    JSONB,
-        user_id    TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-  } catch {}
-})();
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.engineering_tasks') IS NOT NULL AS tasks_present,
+        to_regclass('public.engineering_scans') IS NOT NULL AS scans_present,
+        to_regclass('public.engineering_ip_whitelist') IS NOT NULL AS whitelist_present,
+        to_regclass('public.engineering_logs') IS NOT NULL AS logs_present
+    `) as { rows?: { tasks_present?: boolean; scans_present?: boolean; whitelist_present?: boolean; logs_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.tasks_present || !row.scans_present || !row.whitelist_present || !row.logs_present) {
+      console.error("[engineering] Migration 054 schema not ready — engineering_* tables missing");
+      return;
+    }
+    engineeringSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensureEngineeringSchemaReady().catch(() => {});
 
 async function logAction(action: string, details: any, userId: string) {
   try {

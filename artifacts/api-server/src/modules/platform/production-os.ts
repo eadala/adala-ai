@@ -31,33 +31,26 @@ const router = Router();
 function toRows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
 /* ══════════════════════════════════════════════
-   DB BOOTSTRAP
+   Readiness — schema owned by Migration 054
 ═══════════════════════════════════════════════ */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS prod_incidents (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      alerts        JSONB NOT NULL DEFAULT '[]',
-      severity      TEXT  NOT NULL DEFAULT 'low',
-      actions_taken JSONB NOT NULL DEFAULT '[]',
-      metrics_snap  JSONB NOT NULL DEFAULT '{}',
-      status        TEXT  NOT NULL DEFAULT 'open',
-      resolved_at   TIMESTAMPTZ,
-      created_at    TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS prod_heal_log (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      action      TEXT NOT NULL,
-      target      TEXT,
-      result      TEXT,
-      office_id   TEXT,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+let prodOsSchemaReady = false;
+async function ensureProdOsSchemaReady() {
+  if (prodOsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.prod_incidents') IS NOT NULL AS incidents_present,
+        to_regclass('public.prod_heal_log') IS NOT NULL AS heal_present
+    `) as { rows?: { incidents_present?: boolean; heal_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.incidents_present || !row.heal_present) {
+      console.error("[production-os] Migration 054 schema not ready — prod_incidents / prod_heal_log missing");
+      return;
+    }
+    prodOsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables().catch(() => {});
+ensureProdOsSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════
    1. METRICS PIPELINE

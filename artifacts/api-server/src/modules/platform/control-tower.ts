@@ -25,21 +25,23 @@ const router = Router();
 /* ── In-memory Frozen Tenants (persisted to system_events for audit) ──── */
 const frozenTenants = new Set<string>();
 
-/* ── Bootstrap CT security events table ─────────────────────────────── */
-async function ensureCtTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ct_security_events (
-      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id  TEXT,
-      event_type TEXT NOT NULL,
-      severity   TEXT NOT NULL DEFAULT 'LOW',
-      message    TEXT NOT NULL,
-      metadata   JSONB DEFAULT '{}',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+/* ── readiness — schema owned by Migration 054 ──────────────────────── */
+let ctSchemaReady = false;
+async function ensureCtSchemaReady() {
+  if (ctSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.ct_security_events') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[control-tower] Migration 054 schema not ready — ct_security_events missing");
+      return;
+    }
+    ctSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureCtTables().catch(() => {});
+ensureCtSchemaReady().catch(() => {});
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 async function getTenantMatrix() {

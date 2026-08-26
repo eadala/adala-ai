@@ -1278,25 +1278,22 @@ router.get("/landing-variant", async (_req, res) => {
    BANKRUPTCY SUPER ADMIN ROUTES  (isSuperAdmin — adminOnly)
 ══════════════════════════════════════════════════════════ */
 
-async function ensureSystemAuditLogs() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS system_audit_logs (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      admin_user_id TEXT NOT NULL,
-      office_id     TEXT,
-      action_type   TEXT NOT NULL,
-      resource_type TEXT,
-      resource_id   TEXT,
-      reason        TEXT,
-      ip_address    TEXT,
-      metadata      JSONB,
-      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_admin  ON system_audit_logs(admin_user_id, created_at DESC)`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_office ON system_audit_logs(office_id, created_at DESC)`);
+let systemAuditSchemaReady = false;
+async function ensureSystemAuditSchemaReady() {
+  if (systemAuditSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.system_audit_logs') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[admin] Migration 054 schema not ready — system_audit_logs missing");
+      return;
+    }
+    systemAuditSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureSystemAuditLogs().catch(() => {});
+ensureSystemAuditSchemaReady().catch(() => {});
 
 function saAll(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function saOne(r: any): any   { return saAll(r)[0] ?? null; }
