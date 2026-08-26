@@ -173,3 +173,18 @@ dr_test_runs
 dr_health_checks
 high_risk_op_log
 recovery_codes
+
+# Migration 054 — Platform Runtime
+ct_security_events
+governance_action_log
+go_live_certificates
+system_audit_logs
+engineering_tasks
+engineering_scans
+engineering_ip_whitelist
+engineering_logs
+prod_incidents
+prod_heal_log
+launch_events
+os_events
+os_action_queue

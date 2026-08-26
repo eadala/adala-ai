@@ -21,22 +21,23 @@ async function qOne(query: string): Promise<any> {
   return (await q(query))[0] ?? null;
 }
 
-/* ── ensure launch_events table ── */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS launch_events (
-      id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      launched_by   TEXT NOT NULL,
-      phase         TEXT NOT NULL DEFAULT 'production',
-      gate_score    INT,
-      decision      TEXT,
-      notes         TEXT,
-      docker_config TEXT,
-      launched_at   TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+/* ── readiness — schema owned by Migration 054 ── */
+let launchEventsSchemaReady = false;
+async function ensureLaunchEventsSchemaReady() {
+  if (launchEventsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.launch_events') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[productionLaunch] Migration 054 schema not ready — launch_events missing");
+      return;
+    }
+    launchEventsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables().catch(() => {});
+ensureLaunchEventsSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════════════════════════
    GET /api/production-launch/readiness

@@ -59,7 +59,7 @@
 - ~~Runtime `CREATE` for `office_notification_settings`~~ — removed via migration **051**; `notifications` keeps readiness (`to_regclass`) + GET/PATCH upsert (`ON CONFLICT (office_id, event_type)`) + listener reads
 - ~~Runtime `CREATE INDEX` IIFE (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`)~~ — removed via migration **052**; `internal-messages` keeps readiness (`to_regclass`) + folder/tenant DML
 - ~~Runtime `CREATE`/`INDEX` IIFEs from `soc.ts` / `auditCenter.ts` / `complianceCenter.ts` / `drCenter.ts` / `mfaCenter.ts`~~ — removed via migration **053**; modules keep readiness (`to_regclass`) + SA DML, ON CONFLICT, and compliance/retention seeds
-- `ensureTables` — `production-os.ts`, `control-tower.ts`, ...
+- ~~Runtime `CREATE`/`INDEX` IIFEs from `control-tower.ts` / `launchGate.ts` / `governanceKernel.ts` / `certification.ts` / `admin.ts` / `engineering.ts` / `production-os.ts` / `productionLaunch.ts` / `saas-os.ts`~~ — removed via migration **054**; modules keep readiness (`to_regclass`) + DML/SA preserved
 - `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)

@@ -11,28 +11,23 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
-/* ── Ensure ct_security_events table ── */
-async function ensureTables(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ct_security_events (
-      id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      event_type    TEXT NOT NULL,
-      severity      TEXT NOT NULL DEFAULT 'P3',
-      description   TEXT,
-      request_path  TEXT,
-      request_method TEXT,
-      client_ip     TEXT,
-      user_id       TEXT,
-      office_id     TEXT,
-      resolved      BOOLEAN DEFAULT false,
-      resolved_at   TIMESTAMPTZ,
-      created_at    TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ct_sec_events_severity ON ct_security_events(severity, resolved, created_at DESC)`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ct_sec_events_office ON ct_security_events(office_id, created_at DESC)`);
+/* ── readiness — schema owned by Migration 054 ── */
+let launchGateSchemaReady = false;
+async function ensureLaunchGateSchemaReady(): Promise<void> {
+  if (launchGateSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.ct_security_events') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[launchGate] Migration 054 schema not ready — ct_security_events missing");
+      return;
+    }
+    launchGateSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables().catch(() => {});
+ensureLaunchGateSchemaReady().catch(() => {});
 
 /* ─────────────────────────────────────────────────────────────────────────
    POST /api/launch-gate/run

@@ -87,6 +87,7 @@
     "test:office-notif-051": "node --import tsx src/tests/officeNotificationSettingsSchemaAuthority051.test.ts",
     "test:messaging-indexes-052": "node --import tsx src/tests/messagingRuntimeIndexesSchemaAuthority052.test.ts",
     "test:security-centers-053": "node --import tsx src/tests/securityCentersSchemaAuthority053.test.ts",
+    "test:platform-runtime-054": "node --import tsx src/tests/platformRuntimeSchemaAuthority054.test.ts",
     "test:stage9-security": "node --import tsx src/tests/stage9SecurityHardening.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",

@@ -62,6 +62,7 @@ MIGRATION_050="$ROOT/artifacts/api-server/migrations/050_hr_enterprise_schema_au
 MIGRATION_051="$ROOT/artifacts/api-server/migrations/051_office_notification_settings_schema_authority.sql"
 MIGRATION_052="$ROOT/artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql"
 MIGRATION_053="$ROOT/artifacts/api-server/migrations/053_security_centers_schema_authority.sql"
+MIGRATION_054="$ROOT/artifacts/api-server/migrations/054_platform_runtime_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -280,6 +281,7 @@ verify_p0_schema() {
   apply_migration_051
   apply_migration_052
   apply_migration_053
+  apply_migration_054
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -363,6 +365,10 @@ apply_migration_053() {
   psql_db -f "$MIGRATION_053" >/dev/null
 }
 
+apply_migration_054() {
+  psql_db -f "$MIGRATION_054" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -418,11 +424,12 @@ apply_all_migrations() {
   apply_migration_051
   apply_migration_052
   apply_migration_053
+  apply_migration_054
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…053 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…054 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -8345,6 +8352,138 @@ scenario_migration_053_security_centers() {
   teardown_db
 }
 
+scenario_migration_054_platform_runtime() {
+  log "Scenario 054 — Platform Runtime: greenfield / SAFE / BLOCK / Runtime / P0"
+  local PREFLIGHT_054="$ROOT/scripts/db/preflight-migration-054.sql"
+  local CT_SRC="$ROOT/artifacts/api-server/src/modules/platform/control-tower.ts"
+  local LG_SRC="$ROOT/artifacts/api-server/src/modules/platform/launchGate.ts"
+  local GOV_SRC="$ROOT/artifacts/api-server/src/core/governance/governanceKernel.ts"
+
+  # A: greenfield — platform tables + indexes present; idempotent
+  setup_db "mig054_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok idx_ok
+  tbl_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('ct_security_events','governance_action_log','go_live_certificates',
+                        'system_audit_logs','engineering_tasks','prod_incidents',
+                        'launch_events','os_events','os_action_queue')")
+  [[ "$tbl_ok" == "9" ]] && ok "A: platform core tables present" || bad "A: tables count=$tbl_ok"
+  idx_ok=$(psql_db -At -c "
+    SELECT (to_regclass('public.idx_ct_sec_events_severity') IS NOT NULL
+        AND to_regclass('public.idx_gov_log_created') IS NOT NULL
+        AND to_regclass('public.idx_sys_audit_admin') IS NOT NULL)")
+  [[ "$idx_ok" == "t" ]] && ok "A: platform Runtime indexes present" || bad "A: indexes missing"
+  apply_migration_054
+  ok "A: re-run 054 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_054" >/tmp/preflight054-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight054-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight054-ready.log | tail -1)"
+  grep -q 'PLATFORM_RUNTIME_SCHEMA_READY' /tmp/preflight054-ready.log && ok "A: PLATFORM_RUNTIME_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  # B: missing table SAFE + restore
+  setup_db "mig054_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE os_action_queue CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_054" >/tmp/preflight054-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight054-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_054
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.os_action_queue') IS NOT NULL")" == "t" ]] && ok "B: os_action_queue restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  # C: wrong DESC on idx_gov_log_created BLOCK
+  setup_db "mig054_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX idx_gov_log_created; CREATE INDEX idx_gov_log_created ON governance_action_log (created_at ASC);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_054" >/tmp/preflight054-idx.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight054-idx.log && ok "C: preflight BLOCK INCOMPATIBLE_INDEX" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_054" >/tmp/mig054-idx.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig054-idx.log && ok "C: migration BLOCK INCOMPATIBLE_INDEX" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # D: stolen index name BLOCK
+  setup_db "mig054_stolen"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP INDEX idx_sys_audit_admin;
+    CREATE TABLE IF NOT EXISTS mig054_dummy (admin_user_id text, created_at timestamptz);
+    CREATE INDEX idx_sys_audit_admin ON mig054_dummy (admin_user_id, created_at);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_054" >/tmp/preflight054-stolen.log 2>&1; then
+    bad "D: preflight should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight054-stolen.log && ok "D: preflight BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "D: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_054" >/tmp/mig054-stolen.log 2>&1; then
+    bad "D: migration should BLOCK INCOMPATIBLE_INDEX (stolen)"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig054-stolen.log && ok "D: migration BLOCK INCOMPATIBLE_INDEX (stolen)" || bad "D: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  # E: Runtime CREATE removed; DML preserved
+  if grep -qE 'CREATE TABLE IF NOT EXISTS ct_security_events' "$CT_SRC"; then
+    bad "E: control-tower.ts still contains Runtime CREATE ct_security_events"
+  else
+    ok "E: no Runtime CREATE in control-tower.ts"
+  fi
+  if grep -qE 'CREATE INDEX IF NOT EXISTS idx_ct_sec_events' "$LG_SRC"; then
+    bad "E: launchGate.ts still contains Runtime CREATE INDEX"
+  else
+    ok "E: no Runtime CREATE INDEX in launchGate.ts"
+  fi
+  if grep -qE 'CREATE TABLE IF NOT EXISTS governance_action_log' "$GOV_SRC"; then
+    bad "E: governanceKernel.ts still contains Runtime CREATE governance_action_log"
+  else
+    ok "E: no Runtime CREATE in governanceKernel.ts"
+  fi
+  grep -q 'INSERT INTO ct_security_events' "$CT_SRC" && ok "E: control-tower DML preserved" || bad "E: control-tower DML missing"
+  grep -q 'INSERT INTO governance_action_log' "$GOV_SRC" && ok "E: governance DML preserved" || bad "E: governance DML missing"
+
+  # J: P0 verify gates platform tables
+  setup_db "mig054_p0"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016; apply_migration_017; apply_migration_018; apply_migration_019
+  apply_migration_020; apply_migration_021; apply_migration_025; apply_migration_026
+  apply_migration_027; apply_migration_028; apply_migration_029; apply_migration_030
+  apply_migration_031; apply_migration_032; apply_migration_033; apply_migration_034
+  apply_migration_035; apply_migration_036; apply_migration_037; apply_migration_038
+  apply_migration_039; apply_migration_040; apply_migration_041; apply_migration_042
+  apply_migration_043; apply_migration_044; apply_migration_045; apply_migration_046
+  apply_migration_047; apply_migration_048; apply_migration_049; apply_migration_050
+  apply_migration_051; apply_migration_052; apply_migration_053
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig054-p0.log 2>&1; then
+    bad "J: verify-schema should fail without 054 platform tables"
+  else
+    grep -qi 'ct_security_events\|governance_action_log\|os_events' /tmp/mig054-p0.log && ok "J: P0 verify fails when 054 tables absent" || bad "J: verify log missing table"
+  fi
+  apply_migration_054
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig054-p0-restored.log 2>&1; then
+    ok "J: verify-schema passes after 054 restore"
+  else
+    bad "J: verify failed after restore"; tail -20 /tmp/mig054-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -15027,6 +15166,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "054" ]]; then
+  scenario_migration_054_platform_runtime
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 if [[ "${FOCUS_SCENARIO:-}" == "053" ]]; then
   scenario_migration_053_security_centers
   echo ""
@@ -15081,6 +15228,7 @@ scenario_migration_050_hr_enterprise
 scenario_migration_051_office_notification_settings
 scenario_migration_052_messaging_runtime_indexes
 scenario_migration_053_security_centers
+scenario_migration_054_platform_runtime
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

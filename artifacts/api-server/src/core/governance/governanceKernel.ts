@@ -258,22 +258,21 @@ export async function processQueue(): Promise<void> {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   DB Bootstrap — governance_action_log table
+   Readiness — governance_action_log owned by Migration 054
    ══════════════════════════════════════════════════════════════════ */
 
+let governanceSchemaReady = false;
 export async function ensureGovernanceTables(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS governance_action_log (
-      id          BIGSERIAL PRIMARY KEY,
-      action_type TEXT        NOT NULL,
-      source      TEXT        NOT NULL DEFAULT 'unknown',
-      status      TEXT        NOT NULL DEFAULT 'queued',
-      details     JSONB,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_gov_log_created
-    ON governance_action_log(created_at DESC)
-  `);
+  if (governanceSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.governance_action_log') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[governanceKernel] Migration 054 schema not ready — governance_action_log missing");
+      return;
+    }
+    governanceSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
