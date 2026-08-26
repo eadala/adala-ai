@@ -458,7 +458,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- Post-apply readiness
+-- Post-apply readiness (all 13 owned tables + 5 indexes)
 DO $$
 BEGIN
   IF to_regclass('public.ct_security_events') IS NULL
@@ -466,15 +466,21 @@ BEGIN
      OR to_regclass('public.go_live_certificates') IS NULL
      OR to_regclass('public.system_audit_logs') IS NULL
      OR to_regclass('public.engineering_tasks') IS NULL
+     OR to_regclass('public.engineering_scans') IS NULL
+     OR to_regclass('public.engineering_ip_whitelist') IS NULL
+     OR to_regclass('public.engineering_logs') IS NULL
      OR to_regclass('public.prod_incidents') IS NULL
+     OR to_regclass('public.prod_heal_log') IS NULL
      OR to_regclass('public.launch_events') IS NULL
      OR to_regclass('public.os_events') IS NULL
      OR to_regclass('public.os_action_queue') IS NULL THEN
-    RAISE EXCEPTION '054_platform_runtime: POST_APPLY_READINESS_FAILED — core platform tables missing';
+    RAISE EXCEPTION '054_platform_runtime: POST_APPLY_READINESS_FAILED — platform tables missing';
   END IF;
   IF to_regclass('public.idx_ct_sec_events_severity') IS NULL
+     OR to_regclass('public.idx_ct_sec_events_office') IS NULL
      OR to_regclass('public.idx_gov_log_created') IS NULL
-     OR to_regclass('public.idx_sys_audit_admin') IS NULL THEN
+     OR to_regclass('public.idx_sys_audit_admin') IS NULL
+     OR to_regclass('public.idx_sys_audit_office') IS NULL THEN
     RAISE EXCEPTION '054_platform_runtime: POST_APPLY_READINESS_FAILED — required indexes missing';
   END IF;
   RAISE NOTICE '054_platform_runtime: post-apply FULL READY (reason=PLATFORM_RUNTIME_SCHEMA_READY)';

@@ -47,8 +47,13 @@ assert.match(mig, /ip_address\s+TEXT NOT NULL UNIQUE/);
 assert.match(mig, /idx_ct_sec_events_severity/);
 assert.match(mig, /idx_gov_log_created/);
 assert.match(mig, /idx_sys_audit_admin/);
+assert.match(mig, /idx_ct_sec_events_office/);
+assert.match(mig, /idx_sys_audit_office/);
 assert.match(mig, /INCOMPATIBLE_INDEX/);
 assert.match(mig, /PLATFORM_RUNTIME_SCHEMA_READY/);
+assert.match(mig, /to_regclass\('public\.engineering_scans'\)/);
+assert.match(mig, /to_regclass\('public\.prod_heal_log'\)/);
+assert.match(mig, /to_regclass\('public\.idx_sys_audit_office'\)/);
 {
   const sqlOnly = stripComments(mig);
   assert.doesNotMatch(sqlOnly, /(?:^|;)\s*DROP\s+TABLE\b/im);
@@ -61,6 +66,7 @@ assert.match(pre, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-onl
 assert.match(pre, /PLATFORM_RUNTIME_SCHEMA_READY/);
 assert.match(pre, /SAFE_AUTO_REPAIR/);
 assert.match(pre, /BLOCK_AND_MANUAL_REVIEW/);
+assert.match(pre, /engineering_ip_whitelist\(ip_address\)/);
 {
   const sqlOnlyPre = stripComments(pre);
   assert.doesNotMatch(sqlOnlyPre, /(?:^|;)\s*CREATE\s+TABLE\b/im);
@@ -133,6 +139,10 @@ assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^governance_action_
 assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^os_action_queue$/m);
 assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ct_security_events$/m);
 assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^governance_action_log$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ct_security_events\.message$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^go_live_certificates\.certificate_id$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^engineering_ip_whitelist\.ip_address$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^system_audit_logs\.admin_user_id$/m);
 console.log("  ✅ wiring complete");
 
 console.log("\n✅ platformRuntimeSchemaAuthority054: all checks passed\n");

@@ -1934,6 +1934,8 @@ assert.match(readSrc("modules/platform/engineering.ts"), /INSERT INTO engineerin
 assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_054|MIGRATION_054/);
 assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^ct_security_events$/m);
 assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^ct_security_events$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^ct_security_events\.message$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^engineering_ip_whitelist\.ip_address$/m);
 assert.match(readRepo("artifacts/api-server/package.json"), /test:platform-runtime-054/);
 assert.match(readRepo(".github/workflows/ci.yml"), /test:platform-runtime-054/);
 console.log("  ✅ migration 054 owns Platform Runtime; Runtime DDL absent; DML/SA kept; P0 gated");

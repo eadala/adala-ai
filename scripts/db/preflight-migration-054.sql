@@ -150,6 +150,22 @@ BEGIN
     END IF;
   END IF;
 
+  IF to_regclass('public.engineering_ip_whitelist') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.engineering_ip_whitelist'::regclass AND c.contype='u'
+        AND pg_get_constraintdef(c.oid) ~* 'UNIQUE\s*\(\s*ip_address\s*\)'
+        AND pg_get_constraintdef(c.oid) !~* 'UNIQUE\s*\([^)]*,'
+    ) THEN
+      incompatible_uniques := array_append(incompatible_uniques, 'engineering_ip_whitelist(ip_address)');
+    END IF;
+    SELECT COUNT(*) INTO duplicate_count
+    FROM (SELECT ip_address FROM engineering_ip_whitelist GROUP BY ip_address HAVING COUNT(*) > 1) d;
+    IF duplicate_count > 0 THEN
+      duplicate_details := array_append(duplicate_details, format('ip_address groups=%s', duplicate_count));
+    END IF;
+  END IF;
+
   IF cardinality(incompatible_types) > 0 OR cardinality(incompatible_indexes) > 0
      OR cardinality(incompatible_uniques) > 0 OR cardinality(duplicate_details) > 0 THEN
     action := 'BLOCK_AND_MANUAL_REVIEW';
