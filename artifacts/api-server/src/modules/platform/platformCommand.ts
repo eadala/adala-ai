@@ -30,20 +30,22 @@ function getClerk() {
   return _clerk;
 }
 
-/* ── Ensure tables ── */
-(async () => {
+let pccSchemaReady = false;
+async function ensurePccSchemaReady() {
+  if (pccSchemaReady) return;
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS pcc_command_log (
-        id          BIGSERIAL PRIMARY KEY,
-        command     TEXT NOT NULL,
-        result      JSONB,
-        user_id     TEXT,
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-  } catch {}
-})();
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.pcc_command_log') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[platformCommand] Migration 055 schema not ready — pcc_command_log missing");
+      return;
+    }
+    pccSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensurePccSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════════
    1. SYSTEM HEALTH  — GET /pcc/system-health

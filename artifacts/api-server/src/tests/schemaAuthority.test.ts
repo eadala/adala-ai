@@ -1940,6 +1940,34 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:platform-runti
 assert.match(readRepo(".github/workflows/ci.yml"), /test:platform-runtime-054/);
 console.log("  ✅ migration 054 owns Platform Runtime; Runtime DDL absent; DML/SA kept; P0 gated");
 
+console.log("\n═══ schemaAuthority: Platform Runtime batch 2 (055) ═══");
+assert.ok(migrationFiles.includes("055_platform_runtime_b2_schema_authority.sql"));
+const mig055 = readRepo("artifacts/api-server/migrations/055_platform_runtime_b2_schema_authority.sql");
+assert.match(mig055, /CREATE TABLE IF NOT EXISTS developer_impersonation/);
+assert.match(mig055, /CREATE TABLE IF NOT EXISTS tenant_bindings/);
+assert.match(mig055, /idx_tenant_audit_time/);
+assert.match(mig055, /idx_taa_tenant_period/);
+assert.match(mig055, /PLATFORM_RUNTIME_B2_SCHEMA_READY/);
+{
+  const sqlOnly055 = mig055.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly055, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly055, /(?:^|;)\s*DROP\s+INDEX\b/im);
+}
+const preflight055 = readRepo("scripts/db/preflight-migration-055.sql");
+assert.match(preflight055, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight055, /PLATFORM_RUNTIME_B2_SCHEMA_READY/);
+assert.doesNotMatch(readSrc("modules/platform/developer.ts"), /CREATE TABLE IF NOT EXISTS developer_impersonation/);
+assert.doesNotMatch(readSrc("core/tenant/tenantVersioning.ts"), /CREATE TABLE IF NOT EXISTS tenant_bindings/);
+assert.match(readSrc("modules/platform/managedIntegrations.ts"), /ON CONFLICT \(key\) DO NOTHING/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_055|MIGRATION_055/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^tenant_bindings$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^tenant_bindings$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^developer_accounts\.email$/m);
+assert.match(readRepo("scripts/db/expected-columns-p0.txt"), /^tenant_bindings\.user_id$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:platform-runtime-055/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:platform-runtime-055/);
+console.log("  ✅ migration 055 owns Platform Runtime B2; Runtime DDL absent; DML/tenant kept; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

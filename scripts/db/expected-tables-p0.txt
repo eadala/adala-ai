@@ -188,3 +188,20 @@ prod_heal_log
 launch_events
 os_events
 os_action_queue
+
+# Migration 055 — Platform Runtime batch 2
+developer_impersonation
+ghost_access_log
+developer_accounts
+tenant_audit_logs
+office_isolation_config
+organization_units
+platform_integrations
+office_integration_status
+integration_requests
+demo_sync_log
+pcc_command_log
+office_themes
+tenant_bindings
+tenant_binding_history
+tenant_audit_archive

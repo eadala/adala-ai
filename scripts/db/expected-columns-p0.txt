@@ -524,3 +524,16 @@ go_live_certificates.certificate_id
 engineering_ip_whitelist.ip_address
 governance_action_log.action_type
 system_audit_logs.admin_user_id
+
+# Migration 055 — Platform Runtime batch 2 (DML-critical columns)
+developer_impersonation.super_admin_user_id
+developer_accounts.email
+tenant_audit_logs.user_id
+tenant_audit_logs.source
+office_isolation_config.office_id
+platform_integrations.key
+office_integration_status.office_id
+tenant_bindings.user_id
+tenant_bindings.tenant_id
+office_themes.tokens
+tenant_audit_archive.period

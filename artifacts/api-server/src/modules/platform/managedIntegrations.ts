@@ -186,64 +186,22 @@ function planIndex(slug: string) { return PLAN_ORDER.indexOf(slug.toLowerCase())
    DB SETUP
 ══════════════════════════════════════════════════════════════ */
 let tablesReady = false;
-async function ensureTables() {
+async function ensureIntegrationsSchemaReady() {
   if (tablesReady) return;
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS platform_integrations (
-        key          TEXT PRIMARY KEY,
-        name_ar      TEXT NOT NULL,
-        name_en      TEXT NOT NULL,
-        category     TEXT NOT NULL DEFAULT 'other',
-        icon         TEXT NOT NULL DEFAULT '🔌',
-        color        TEXT NOT NULL DEFAULT '#6B7280',
-        description  TEXT NOT NULL DEFAULT '',
-        plan_required TEXT NOT NULL DEFAULT 'free',
-        docs_url     TEXT,
-        features     JSONB DEFAULT '[]',
-        global_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        config       JSONB DEFAULT '{}',
-        notes        TEXT,
-        updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS office_integration_status (
-        id             SERIAL PRIMARY KEY,
-        office_id      TEXT NOT NULL,
-        integration_key TEXT NOT NULL,
-        is_active      BOOLEAN NOT NULL DEFAULT FALSE,
-        activated_at   TIMESTAMPTZ,
-        deactivated_at TIMESTAMPTZ,
-        config         JSONB DEFAULT '{}',
-        notes          TEXT,
-        updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE(office_id, integration_key)
-      )
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS idx_ois_office ON office_integration_status(office_id)
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS integration_requests (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        office_id       TEXT NOT NULL,
-        office_name     TEXT,
-        integration_key TEXT NOT NULL,
-        request_type    TEXT NOT NULL DEFAULT 'activate',
-        message         TEXT,
-        status          TEXT NOT NULL DEFAULT 'pending',
-        admin_notes     TEXT,
-        resolved_by     TEXT,
-        resolved_at     TIMESTAMPTZ,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS idx_ir_status ON integration_requests(status, created_at DESC)
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.platform_integrations') IS NOT NULL AS catalog_present,
+        to_regclass('public.office_integration_status') IS NOT NULL AS status_present,
+        to_regclass('public.integration_requests') IS NOT NULL AS requests_present
+    `) as { rows?: { catalog_present?: boolean; status_present?: boolean; requests_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.catalog_present || !row.status_present || !row.requests_present) {
+      console.error("[managedIntegrations] Migration 055 schema not ready — integration tables missing");
+      return;
+    }
 
-    /* Seed catalog from hardcoded list */
+    /* Seed catalog from hardcoded list (DML; not schema mutation) */
     for (const itg of INTEGRATION_CATALOG) {
       await db.execute(sql`
         INSERT INTO platform_integrations
@@ -258,7 +216,7 @@ async function ensureTables() {
     tablesReady = true;
   } catch { /* non-blocking */ }
 }
-ensureTables();
+ensureIntegrationsSchemaReady();
 
 /* ══════════════════════════════════════════════════════════════
    OFFICE — USER-FACING ROUTES
@@ -266,7 +224,7 @@ ensureTables();
 
 /** GET /api/integrations — list all integrations + this office's status */
 router.get("/integrations", requireAuth, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const officeId  = (req as any).tenantId ?? (req as any).userId ?? "unknown";
     const officePlan = await one(sql`
@@ -330,7 +288,7 @@ router.get("/integrations", requireAuth, async (req: Request, res: Response) => 
 
 /** POST /api/integrations/request — submit activation/help request */
 router.post("/integrations/request", requireAuth, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const officeId      = (req as any).tenantId ?? (req as any).userId ?? "unknown";
     const { integration_key, request_type = "activate", message } = req.body;
@@ -378,7 +336,7 @@ router.get("/integrations/my-requests", requireAuth, async (req: Request, res: R
 
 /** GET /api/admin/integrations — full catalog with global config */
 router.get("/admin/integrations", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const data = await rows(sql`
       SELECT pi.*,
@@ -396,7 +354,7 @@ router.get("/admin/integrations", adminOnly, async (_req, res) => {
 
 /** PUT /api/admin/integrations/:key — update integration (keys, toggle, notes) */
 router.put("/admin/integrations/:key", adminOnly, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const key = String(req.params.key ?? "");
     const { global_enabled, config, notes, plan_required } = req.body;
@@ -415,7 +373,7 @@ router.put("/admin/integrations/:key", adminOnly, async (req: Request, res: Resp
 
 /** GET /api/admin/integrations/office-matrix — per-office status matrix */
 router.get("/admin/integrations/office-matrix", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const statuses = await rows(sql`
       SELECT ois.*, pi.name_ar, pi.icon, pi.color, pi.category
@@ -435,7 +393,7 @@ router.get("/admin/integrations/office-matrix", adminOnly, async (_req, res) => 
 
 /** POST /api/admin/integrations/:key/offices/:officeId — activate/deactivate for office */
 router.post("/admin/integrations/:key/offices/:officeId", adminOnly, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const key      = String(req.params.key      ?? "");
     const officeId = String(req.params.officeId ?? "");
@@ -488,7 +446,7 @@ router.get("/admin/integration-requests", adminOnly, async (req: Request, res: R
 
 /** PUT /api/admin/integration-requests/:id — respond/resolve a request */
 router.put("/admin/integration-requests/:id", adminOnly, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureIntegrationsSchemaReady();
   try {
     const id = String(req.params.id ?? "");
     const { status, admin_notes, activate_office } = req.body;

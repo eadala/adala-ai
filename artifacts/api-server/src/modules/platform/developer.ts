@@ -152,21 +152,26 @@ router.delete("/developer/tokens/:id", devOnly, async (req, res) => {
    OFFICE IMPERSONATION (دخول كمدير المكتب)
 ══════════════════════════════════════════════════ */
 
-/* Ensure table exists */
-(async () => {
+/* Ensure readiness — schema owned by Migration 055 */
+let developerSchemaReady = false;
+async function ensureDeveloperSchemaReady() {
+  if (developerSchemaReady) return;
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS developer_impersonation (
-        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        super_admin_user_id TEXT NOT NULL UNIQUE,
-        impersonated_office_id TEXT NOT NULL,
-        office_name      TEXT DEFAULT '',
-        started_at       TIMESTAMPTZ DEFAULT NOW(),
-        expires_at       TIMESTAMPTZ
-      )
-    `);
-  } catch {}
-})();
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.developer_impersonation') IS NOT NULL AS impersonation_present,
+        to_regclass('public.ghost_access_log') IS NOT NULL AS ghost_present,
+        to_regclass('public.developer_accounts') IS NOT NULL AS accounts_present
+    `) as { rows?: { impersonation_present?: boolean; ghost_present?: boolean; accounts_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.impersonation_present || !row.ghost_present || !row.accounts_present) {
+      console.error("[developer] Migration 055 schema not ready — developer_* / ghost_access_log missing");
+      return;
+    }
+    developerSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensureDeveloperSchemaReady().catch(() => {});
 
 /* GET /api/developer/offices — list all offices with rich stats */
 router.get("/developer/offices", devOnly, async (_req, res) => {
@@ -229,16 +234,6 @@ router.post("/developer/impersonate/:officeId", devOnly, async (req: any, res) =
     `);
     /* Server-side only ghost log — never exposed to the office */
     try {
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS ghost_access_log (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          admin_user_id TEXT NOT NULL,
-          office_id TEXT NOT NULL,
-          office_name TEXT,
-          action TEXT NOT NULL,
-          logged_at TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
       await db.execute(sql`
         INSERT INTO ghost_access_log (admin_user_id, office_id, office_name, action)
         VALUES (${userId}, ${officeId}, ${officeName}, 'enter')
@@ -447,19 +442,7 @@ router.delete("/developer/platform-admins/:userId", devOnly, async (req: any, re
 ══════════════════════════════════════════════════ */
 
 async function ensureDevAccountsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS developer_accounts (
-      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      email       TEXT        NOT NULL UNIQUE,
-      name        TEXT        NOT NULL DEFAULT '',
-      clerk_user_id TEXT,
-      permissions JSONB       NOT NULL DEFAULT '{}',
-      is_active   BOOLEAN     NOT NULL DEFAULT true,
-      notes       TEXT        DEFAULT '',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
+  await ensureDeveloperSchemaReady();
 }
 
 /* GET /api/developer/dev-accounts */
