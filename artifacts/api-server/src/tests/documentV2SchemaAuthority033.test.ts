@@ -138,7 +138,9 @@ console.log("  ✅ Runtime V2 DDL gone; DC uses document_retention_policies");
 
 console.log("\n═══ Compliance / 021 / CI wiring ═══");
 const compliance = readSrc("modules/security/complianceCenter.ts");
-assert.match(compliance, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.doesNotMatch(compliance, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.match(compliance, /to_regclass\('public\.retention_policies'\)/);
+assert.match(compliance, /INSERT INTO retention_policies/);
 assert.doesNotMatch(compliance, /document_retention_policies/);
 const mig021 = readRepo("artifacts/api-server/migrations/021_rag_schema_foundation.sql");
 assert.match(mig021, /CREATE TABLE IF NOT EXISTS document_center_files/);
@@ -154,6 +156,8 @@ assert.match(integ, /MISSING_ID_GENERATION|mig033_sml_nogen/);
 assert.match(integ, /mig033_mixed_block/);
 assert.match(integ, /mig033_ver10/);
 assert.match(integ, /DEFAULT_SEED_PENDING|mig033_seed_partial/);
-console.log("  ✅ compliance untouched; 021 unchanged; regression scenarios wired");
+assert.match(integ, /retention_policies owned by 053/);
+assert.match(integ, /document_retention_policies by 033/);
+console.log("  ✅ retention_policies=053 (no Runtime CREATE); document_retention_policies=033; 021 unchanged");
 
 console.log("\n✅ documentV2SchemaAuthority033 tests passed\n");

@@ -631,7 +631,31 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f scripts/db/preflight-migration-052.sql
 
-# 53) تحقق بعد التنفيذ
+# 53) Migration 053 — Security Centers schema authority (Stage 9)
+#    Ops:
+#      a) run preflight-migration-053.sql
+#      b) if BLOCK_AND_MANUAL_REVIEW → stop
+#      c) if SAFE_AUTO_REPAIR or ALREADY_CORRECT → apply 053
+#      d) re-run preflight → expect ALREADY_CORRECT
+#      e) bash scripts/db/verify-schema.sh
+#      f) deploy API
+#    Owns former Runtime CREATE/INDEX from soc/auditCenter/complianceCenter/drCenter/mfaCenter:
+#      security_sessions / security_alerts / blocked_ips / mfa_status_cache
+#      audit_coverage_rules / audit_risk_scores
+#      compliance_controls / data_requests / retention_policies / legal_holds
+#      dr_restore_points / dr_test_runs / dr_health_checks
+#      high_risk_op_log / recovery_codes
+#      + UNIQUEs for ON CONFLICT + idx_audit_logs_* (skip if audit_logs missing)
+#      + proven FK dr_test_runs.restore_point_id → dr_restore_points(id) CASCADE
+#    Runtime CREATE/INDEX removed; readiness + seeds + SA DML preserved.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-053.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f artifacts/api-server/migrations/053_security_centers_schema_authority.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f scripts/db/preflight-migration-053.sql
+
+# 54) تحقق بعد التنفيذ
 bash scripts/db/verify-schema.sh
 ```
 
@@ -689,6 +713,7 @@ bash scripts/db/verify-schema.sh
 | `050_hr_enterprise_schema_authority.sql` | HR Enterprise Runtime schema authority (Stage 8). Owns former Runtime CREATE/INDEX from `ensureHREnterpriseTables`: `hr_roles` (+ exact `UNIQUE(office_id, name)`), `hr_memberships` (+ exact `UNIQUE(office_id, user_id)`), `hr_workflows` (+ `idx_hrwf_office`), `hr_audit_logs` (+ `idx_hral_office` on `(office_id, created_at DESC)`). BLOCK on incompatible type/PK/UNIQUE/INDEX and duplicate unique-key groups (rows preserved). Runtime CREATE/INDEX removed; readiness + seed/ON CONFLICT + tenant DML preserved. Preflight: `scripts/db/preflight-migration-050.sql`. |
 | `051_office_notification_settings_schema_authority.sql` | Stage 8. Owns former Runtime CREATE from `notifications.ts` boot IIFE: `office_notification_settings` (+ exact `UNIQUE(office_id, event_type)` for ON CONFLICT upsert). `updated_at` remains `TIMESTAMP` (without time zone). BLOCK on incompatible type/PK/UNIQUE and duplicate unique-key groups (rows preserved). Runtime CREATE removed; readiness + GET/PATCH/listener DML + office predicates preserved. Preflight: `scripts/db/preflight-migration-051.sql`. |
 | `052_messaging_runtime_indexes_schema_authority.sql` | Stage 8. Owns former Runtime CREATE INDEX IIFE from `internal-messages.ts`: `idx_msgs_sender_date` / `idx_msgs_office_date` / `idx_msgs_office_folder` / `idx_rcpt_user_unread` (partial) / `idx_rcpt_msg` / `idx_attach_msg`. Re-asserts overlapping 020 shapes fail-closed; adds `idx_msgs_office_folder` gap; skips when recipients/attachments tables absent. Runtime CREATE INDEX removed; readiness preserved. Preflight: `scripts/db/preflight-migration-052.sql`. |
+| `053_security_centers_schema_authority.sql` | Stage 9. Owns former Runtime CREATE/INDEX IIFEs from `soc.ts` / `auditCenter.ts` / `complianceCenter.ts` / `drCenter.ts` / `mfaCenter.ts` (15 tables + UNIQUEs for ON CONFLICT + Runtime indexes including `idx_audit_logs_*` on 003-owned `audit_logs` + proven FK `dr_test_runs.restore_point_id → dr_restore_points(id) ON DELETE CASCADE`). Does **not** CREATE `audit_logs` or `document_retention_policies`. BLOCK on incompatible type/PK/UNIQUE/FK/INDEX, duplicate unique-key groups, and orphan FK rows (preserved). Runtime CREATE/INDEX removed; readiness + compliance/retention seeds + SA DML preserved. Preflight: `scripts/db/preflight-migration-053.sql`. |
 
 > **Deferred indexes (not in 010):** `idx_tasks_office_due` and
 > `idx_tasks_status` are now owned by **015** with the formal `tasks` table.
@@ -758,7 +783,7 @@ bash scripts/db/verify-schema.sh
 (+ performance indexes من `ensurePerformanceIndexes`).
 `moyasar_settings` / `checkout_settings` owned by migration **032** (Runtime `ensureGatewaySettingsTables` removed).
 
-Document V2 (`document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` + `documents` extension columns including `file_size`) owned by migration **033** (Runtime V2 DDL removed from `ensureDocumentCenterSchema`). Compliance `retention_policies` remains Runtime in `complianceCenter.ts` and is intentionally separate.
+Document V2 (`document_versions` / `document_permissions` / `storage_migration_log` / `document_retention_policies` + `documents` extension columns including `file_size`) owned by migration **033** (Runtime V2 DDL removed from `ensureDocumentCenterSchema`). Compliance `retention_policies` is owned by migration **053** and remains intentionally separate from Document V2.
 
 JLWM Core (14 tables from former `ensureJLWMSchema`) owned by migration **034**. P0-gated minimum: `jlwm_config`, `jlwm_memory_nodes`, `jlwm_memory_edges`, `jlwm_case_twins`, `jlwm_client_twins`, `jlwm_firm_twin` (additional core tables are owned by 034 but not all are P0-gated to keep the deploy gate focused on rebuild/twin critical path).
 

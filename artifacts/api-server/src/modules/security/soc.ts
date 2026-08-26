@@ -8,63 +8,20 @@ import { getSaRateLimitStats } from "../../middlewares/requireAuth";
 const router = Router();
 const saGuard = requireSuperAdmin;
 
+/* Migration 053 owns DDL; readiness only */
 (async () => {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS security_sessions (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        session_id   TEXT NOT NULL,
-        user_id      TEXT NOT NULL,
-        office_id    TEXT,
-        ip_address   TEXT,
-        user_agent   TEXT,
-        device_type  TEXT DEFAULT 'unknown',
-        browser      TEXT,
-        os           TEXT,
-        geo_country  TEXT,
-        geo_city     TEXT,
-        status       TEXT DEFAULT 'active',
-        started_at   TIMESTAMPTZ DEFAULT NOW(),
-        last_seen    TIMESTAMPTZ DEFAULT NOW(),
-        revoked_at   TIMESTAMPTZ,
-        revoked_by   TEXT
-      );
-      CREATE TABLE IF NOT EXISTS security_alerts (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        alert_type   TEXT NOT NULL,
-        severity     TEXT DEFAULT 'medium',
-        title        TEXT NOT NULL,
-        description  TEXT,
-        user_id      TEXT,
-        office_id    TEXT,
-        ip_address   TEXT,
-        metadata     JSONB DEFAULT '{}',
-        status       TEXT DEFAULT 'open',
-        resolved_at  TIMESTAMPTZ,
-        resolved_by  TEXT,
-        created_at   TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS blocked_ips (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        ip_address   TEXT UNIQUE NOT NULL,
-        reason       TEXT,
-        blocked_by   TEXT,
-        blocked_at   TIMESTAMPTZ DEFAULT NOW(),
-        expires_at   TIMESTAMPTZ,
-        auto_blocked BOOLEAN DEFAULT false
-      );
-      CREATE TABLE IF NOT EXISTS mfa_status_cache (
-        user_id      TEXT PRIMARY KEY,
-        has_mfa      BOOLEAN DEFAULT false,
-        checked_at   TIMESTAMPTZ DEFAULT NOW(),
-        mfa_methods  JSONB DEFAULT '[]'
-      );
-      CREATE INDEX IF NOT EXISTS idx_security_sessions_user ON security_sessions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_security_sessions_status ON security_sessions(status);
-      CREATE INDEX IF NOT EXISTS idx_security_alerts_status ON security_alerts(status);
-      CREATE INDEX IF NOT EXISTS idx_security_alerts_severity ON security_alerts(severity);
-      CREATE INDEX IF NOT EXISTS idx_blocked_ips_ip ON blocked_ips(ip_address);
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.security_sessions') IS NOT NULL AS security_sessions_present,
+        to_regclass('public.security_alerts') IS NOT NULL AS security_alerts_present,
+        to_regclass('public.blocked_ips') IS NOT NULL AS blocked_ips_present,
+        to_regclass('public.mfa_status_cache') IS NOT NULL AS mfa_status_cache_present
+    `) as any;
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.security_sessions_present || !row.security_alerts_present || !row.blocked_ips_present || !row.mfa_status_cache_present) {
+      console.error("[soc] Migration 053 schema not ready — security_sessions / security_alerts / blocked_ips / mfa_status_cache missing");
+    }
   } catch {}
 })();
 

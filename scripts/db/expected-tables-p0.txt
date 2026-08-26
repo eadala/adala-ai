@@ -156,3 +156,20 @@ hr_memberships
 hr_workflows
 hr_audit_logs
 office_notification_settings
+
+# Migration 053 — Security Centers
+security_sessions
+security_alerts
+blocked_ips
+mfa_status_cache
+audit_coverage_rules
+audit_risk_scores
+compliance_controls
+data_requests
+retention_policies
+legal_holds
+dr_restore_points
+dr_test_runs
+dr_health_checks
+high_risk_op_log
+recovery_codes

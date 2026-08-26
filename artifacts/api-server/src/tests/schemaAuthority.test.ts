@@ -1034,7 +1034,8 @@ assert.doesNotMatch(docCenter033, /ALTER TABLE documents ADD COLUMN/);
 assert.match(docCenter033, /document_retention_policies/);
 assert.doesNotMatch(docCenter033, /INSERT INTO retention_policies/);
 const compliance033 = readSrc("modules/security/complianceCenter.ts");
-assert.match(compliance033, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.doesNotMatch(compliance033, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.match(compliance033, /to_regclass\('public\.retention_policies'\)/);
 assert.doesNotMatch(compliance033, /document_retention_policies/);
 const integ033 = readRepo("scripts/db/test-migrations.integration.sh");
 assert.match(integ033, /scenario_migration_033|MIGRATION_033/);
@@ -1874,6 +1875,40 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:messaging-inde
 assert.match(readRepo(".github/workflows/ci.yml"), /test:messaging-indexes-052/);
 assert.doesNotMatch(readRepo("artifacts/api-server/migrations/020_performance_hotpath_indexes.sql"), /idx_msgs_office_folder/);
 console.log("  ✅ migration 052 owns Messaging Runtime indexes + folder gap; Runtime CREATE INDEX absent; 020 not rewritten");
+
+console.log("\n═══ schemaAuthority: Security Centers (053) ═══");
+assert.ok(migrationFiles.includes("053_security_centers_schema_authority.sql"));
+const mig053 = readRepo("artifacts/api-server/migrations/053_security_centers_schema_authority.sql");
+assert.match(mig053, /CREATE TABLE IF NOT EXISTS security_sessions/);
+assert.match(mig053, /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.match(mig053, /CREATE TABLE IF NOT EXISTS dr_test_runs/);
+assert.match(mig053, /UNIQUE\s*\(\s*framework\s*,\s*control_id\s*\)/);
+assert.match(mig053, /idx_audit_logs_created_at/);
+assert.match(mig053, /dr_test_runs_restore_point_id_fkey/);
+assert.match(mig053, /INCOMPATIBLE_INDEX/);
+assert.match(mig053, /SECURITY_CENTERS_SCHEMA_READY|POST_APPLY_READINESS_FAILED/);
+{
+  const sqlOnly053 = mig053.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly053, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly053, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly053, /CREATE TABLE IF NOT EXISTS audit_logs\b/);
+}
+const preflight053 = readRepo("scripts/db/preflight-migration-053.sql");
+assert.match(preflight053, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight053, /SECURITY_CENTERS_SCHEMA_READY/);
+assert.match(preflight053, /GROUP BY x\.indexrelid/);
+assert.doesNotMatch(readSrc("modules/security/soc.ts"), /CREATE TABLE IF NOT EXISTS security_sessions/);
+assert.doesNotMatch(readSrc("modules/security/complianceCenter.ts"), /CREATE TABLE IF NOT EXISTS retention_policies/);
+assert.match(readSrc("modules/security/soc.ts"), /to_regclass\('public\.security_sessions'\)/);
+assert.match(readSrc("modules/security/complianceCenter.ts"), /ON CONFLICT \(framework, control_id\) DO NOTHING/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_053|MIGRATION_053/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /mig053_wrong_unique|mig053_dup_key|mig053_wrong_idx|mig053_stolen|mig053_orphan/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^security_sessions$/m);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^retention_policies$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^security_sessions$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:security-centers-053/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:security-centers-053/);
+console.log("  ✅ migration 053 owns Security Centers; Runtime DDL absent; seeds/ON CONFLICT kept; P0 gated");
 
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
