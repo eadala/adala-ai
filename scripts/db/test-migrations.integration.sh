@@ -65,6 +65,7 @@ MIGRATION_053="$ROOT/artifacts/api-server/migrations/053_security_centers_schema
 MIGRATION_054="$ROOT/artifacts/api-server/migrations/054_platform_runtime_schema_authority.sql"
 MIGRATION_055="$ROOT/artifacts/api-server/migrations/055_platform_runtime_b2_schema_authority.sql"
 MIGRATION_056="$ROOT/artifacts/api-server/migrations/056_rls_runtime_schema_authority.sql"
+MIGRATION_057="$ROOT/artifacts/api-server/migrations/057_monitoring_isolation_rls_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -328,6 +329,7 @@ verify_p0_schema() {
   apply_migration_054
   apply_migration_055
   apply_migration_056
+  apply_migration_057
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -423,6 +425,10 @@ apply_migration_056() {
   psql_db -f "$MIGRATION_056" >/dev/null
 }
 
+apply_migration_057() {
+  psql_db -f "$MIGRATION_057" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -481,11 +487,12 @@ apply_all_migrations() {
   apply_migration_054
   apply_migration_055
   apply_migration_056
+  apply_migration_057
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…056 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…057 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -8741,6 +8748,75 @@ scenario_migration_056_rls_runtime() {
   teardown_db
 }
 
+scenario_migration_057_monitoring_isolation_rls() {
+  log "Scenario 057 — Monitoring isolation rls_*: greenfield / BLOCK / Runtime / skip 056"
+  local PREFLIGHT_057="$ROOT/scripts/db/preflight-migration-057.sql"
+  local ISO_SRC="$ROOT/artifacts/api-server/src/modules/monitoring/isolation.ts"
+
+  setup_db "mig057_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local branch_ok
+  branch_ok=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename='office_branches'
+        AND policyname='rls_office_branches'
+    )")
+  [[ "$branch_ok" == "t" ]] && ok "A: rls_office_branches present" || bad "A: rls_office_branches missing"
+  apply_migration_057
+  ok "A: re-run 057 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_057" >/tmp/preflight057-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight057-ready.log \
+    && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight057-ready.log | tail -1)"
+  grep -q 'MONITORING_ISOLATION_RLS_SCHEMA_READY' /tmp/preflight057-ready.log \
+    && ok "A: MONITORING_ISOLATION_RLS_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig057_wrong_pol"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP POLICY IF EXISTS rls_office_branches ON office_branches;
+    CREATE POLICY rls_office_branches ON office_branches USING (true);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_057" >/tmp/preflight057-pol.log 2>&1; then
+    bad "B: preflight should BLOCK INCOMPATIBLE_POLICY"
+  else
+    grep -q 'INCOMPATIBLE_POLICY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight057-pol.log \
+      && ok "B: preflight BLOCK INCOMPATIBLE_POLICY" || bad "B: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_057" >/tmp/mig057-pol.log 2>&1; then
+    bad "B: migration should BLOCK INCOMPATIBLE_POLICY"
+  else
+    grep -q 'INCOMPATIBLE_POLICY' /tmp/mig057-pol.log && ok "B: migration BLOCK INCOMPATIBLE_POLICY" || bad "B: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  if grep -qE 'ALTER TABLE .* ENABLE ROW LEVEL SECURITY|CREATE POLICY|DROP POLICY' "$ISO_SRC"; then
+    bad "C: isolation.ts still contains Runtime RLS DDL"
+  else
+    ok "C: no Runtime RLS DDL in isolation.ts"
+  fi
+  grep -q 'verifyIsolationRlsReadiness' "$ISO_SRC" && ok "C: readiness verification present" || bad "C: readiness missing"
+  grep -q 'requireSuperAdmin' "$ISO_SRC" && ok "C: Super Admin guards preserved" || bad "C: SA guard missing"
+
+  setup_db "mig057_skip056"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local cases_rls_pol
+  cases_rls_pol=$(psql_db -At -c "
+    SELECT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename='cases' AND policyname='rls_cases'
+    )")
+  [[ "$cases_rls_pol" == "f" ]] && ok "D: 057 skips cases (056 zta/vault owns RLS)" || bad "D: rls_cases should not exist on cases"
+  trap - EXIT
+  teardown_db
+}
+
 scenario_migration_011_stripe_infra() {
   log "Scenario 3e — migration 011: fresh / complete / partial / duplicates / invalid status / idempotent"
 
@@ -15423,6 +15499,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "057" ]]; then
+  scenario_migration_057_monitoring_isolation_rls
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 if [[ "${FOCUS_SCENARIO:-}" == "056" ]]; then
   scenario_migration_056_rls_runtime
   echo ""
@@ -15504,6 +15588,7 @@ scenario_migration_053_security_centers
 scenario_migration_054_platform_runtime
 scenario_migration_055_platform_runtime_b2
 scenario_migration_056_rls_runtime
+scenario_migration_057_monitoring_isolation_rls
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
