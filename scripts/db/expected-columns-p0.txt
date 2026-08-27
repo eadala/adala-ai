@@ -537,3 +537,9 @@ tenant_bindings.user_id
 tenant_bindings.tenant_id
 office_themes.tokens
 tenant_audit_archive.period
+
+# Migration 056 — RLS Runtime (DML-critical columns)
+security_events.event_type
+security_events.severity
+rls_enablement_log.table_name
+rls_enablement_log.action

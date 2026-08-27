@@ -1968,6 +1968,35 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:platform-runti
 assert.match(readRepo(".github/workflows/ci.yml"), /test:platform-runtime-055/);
 console.log("  ✅ migration 055 owns Platform Runtime B2; Runtime DDL absent; DML/tenant kept; P0 gated");
 
+console.log("\n═══ schemaAuthority: RLS Runtime (056) ═══");
+assert.ok(migrationFiles.includes("056_rls_runtime_schema_authority.sql"));
+const mig056 = readRepo("artifacts/api-server/migrations/056_rls_runtime_schema_authority.sql");
+assert.match(mig056, /CREATE TABLE IF NOT EXISTS security_events/);
+assert.match(mig056, /CREATE TABLE IF NOT EXISTS rls_enablement_log/);
+assert.match(mig056, /FORCE ROW LEVEL SECURITY/);
+assert.match(mig056, /zta_tenant_isolation_/);
+assert.match(mig056, /vault_tenant_isolation/);
+assert.match(mig056, /RLS_RUNTIME_SCHEMA_READY/);
+{
+  const sqlOnly056 = mig056.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly056, /(?:^|;)\s*DROP\s+TABLE\b/im);
+  assert.doesNotMatch(sqlOnly056, /(?:^|;)\s*DROP\s+INDEX\b/im);
+  assert.doesNotMatch(sqlOnly056, /(?:^|;)\s*DROP\s+POLICY\b/im);
+}
+const preflight056 = readRepo("scripts/db/preflight-migration-056.sql");
+assert.match(preflight056, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight056, /RLS_RUNTIME_SCHEMA_READY/);
+assert.doesNotMatch(readSrc("security/rls-migration.ts"), /ALTER TABLE .* ENABLE ROW LEVEL SECURITY|FORCE ROW LEVEL SECURITY/);
+assert.doesNotMatch(readSrc("modules/platform/dataVault.ts"), /(?:^|[`'"])\s*CREATE POLICY\b|(?:^|[`'"])\s*DROP POLICY\b|ALTER TABLE .* ENABLE ROW LEVEL SECURITY/m);
+assert.match(readSrc("modules/platform/dataVault.ts"), /INSERT INTO rls_enablement_log/);
+assert.match(readSrc("security/zero-trust-router.ts"), /requireAuthWithTenant/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_056|MIGRATION_056/);
+assert.match(readRepo("scripts/db/expected-tables-p0.txt"), /^security_events$/m);
+assert.doesNotMatch(readRepo("scripts/db/boot-created-tables.txt"), /^security_events$/m);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:rls-runtime-056/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:rls-runtime-056/);
+console.log("  ✅ migration 056 owns RLS Runtime; Runtime DDL absent; DML/SA kept; P0 gated");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

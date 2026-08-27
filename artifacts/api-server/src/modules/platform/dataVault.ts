@@ -24,37 +24,23 @@ function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
 
 /* ── Super-Admin Guard ──────────────────────────────────────────── */
-/* ── Ensure security tables ─────────────────────────────────────── */
+/* ── readiness — security_events / rls_enablement_log owned by Migration 056 ── */
+let vaultSchemaReady = false;
 async function ensureSecurityTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS security_events (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      event_type  TEXT NOT NULL,
-      severity    TEXT NOT NULL DEFAULT 'medium',
-      description TEXT NOT NULL,
-      office_id   TEXT,
-      user_id     TEXT,
-      ip_address  TEXT,
-      meta        JSONB DEFAULT '{}',
-      created_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_security_events_type      ON security_events(event_type);
-    CREATE INDEX IF NOT EXISTS idx_security_events_created   ON security_events(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_security_events_office    ON security_events(office_id);
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS rls_enablement_log (
-      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      table_name TEXT NOT NULL,
-      action     TEXT NOT NULL,
-      enabled_by TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+  if (vaultSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.security_events') IS NOT NULL AS events_present,
+        to_regclass('public.rls_enablement_log') IS NOT NULL AS log_present
+    `) as { rows?: { events_present?: boolean; log_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.events_present || !row.log_present) {
+      console.error("[dataVault] Migration 056 schema not ready — security_events / rls_enablement_log missing");
+      return;
+    }
+    vaultSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── Tables that MUST have RLS ──────────────────────────────────── */
@@ -127,16 +113,14 @@ router.get("/admin/data-vault/rls-status", adminOnly, async (req, res) => {
 
 /* ══════════════════════════════════════════════════════════════════
    POST /admin/data-vault/enable-rls
-   Body: { tables?: string[] }  — omit to enable ALL critical tables
+   Body: { tables?: string[] }  — readiness verify (Migration 056 owns DDL)
 ══════════════════════════════════════════════════════════════════ */
 router.post("/admin/data-vault/enable-rls", adminOnly, async (req, res) => {
   try {
     await ensureSecurityTables();
 
-    /* Which tables to process */
     const requested: string[] = req.body.tables ?? CRITICAL_TABLES;
 
-    /* Filter to tables that actually exist in DB + have office_id */
     const existing = rows(await db.execute(sql`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema='public' AND table_type='BASE TABLE'
@@ -148,50 +132,32 @@ router.post("/admin/data-vault/enable-rls", adminOnly, async (req, res) => {
     `)).map((r: any) => r.table_name as string);
 
     const targets = requested.filter(t => existing.includes(t) && hasOfficeId.includes(t));
-
     const results: { table: string; status: string }[] = [];
 
     for (const tbl of targets) {
       try {
-        /* 1. Enable RLS */
-        await db.execute(sql.raw(`ALTER TABLE "${tbl}" ENABLE ROW LEVEL SECURITY`));
-
-        /* 2. Drop any conflicting policy name */
-        await db.execute(sql.raw(
-          `DROP POLICY IF EXISTS vault_tenant_isolation ON "${tbl}"`
-        )).catch(() => {});
-
-        /* 3. Create isolation policy using adala_tenant_ok() if it exists */
-        const fnExists = one(await db.execute(sql`
-          SELECT 1 FROM pg_proc WHERE proname='adala_tenant_ok' LIMIT 1
+        const st = one(await db.execute(sql`
+          SELECT
+            c.relrowsecurity AS rls_enabled,
+            EXISTS(
+              SELECT 1 FROM pg_policies p
+              WHERE p.schemaname = 'public'
+                AND p.tablename = ${tbl}
+                AND p.policyname = 'vault_tenant_isolation'
+            ) AS has_policy
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relname = ${tbl}
         `));
 
-        if (fnExists) {
-          await db.execute(sql.raw(`
-            CREATE POLICY vault_tenant_isolation ON "${tbl}"
-            FOR ALL USING (adala_tenant_ok(office_id))
-          `));
-        } else {
-          await db.execute(sql.raw(`
-            CREATE POLICY vault_tenant_isolation ON "${tbl}"
-            FOR ALL USING (
-              office_id::text = current_setting('app.current_tenant', true)
-              OR current_setting('app.current_tenant', true) IS NULL
-              OR current_setting('app.current_tenant', true) = ''
-              OR current_setting('app.bypass_rls', true) = 'on'
-            )
-          `));
+        if (!st?.rls_enabled || !st?.has_policy) {
+          results.push({ table: tbl, status: "error: Migration 056 RLS not ready" });
+          continue;
         }
 
-        /* 4. Create index on office_id if not exists */
-        await db.execute(sql.raw(
-          `CREATE INDEX IF NOT EXISTS "idx_${tbl}_office_id" ON "${tbl}"(office_id)`
-        )).catch(() => {});
-
-        /* 5. Log it */
         await db.execute(sql`
           INSERT INTO rls_enablement_log (table_name, action, enabled_by)
-          VALUES (${tbl}, 'ENABLED', 'super_admin')
+          VALUES (${tbl}, 'VERIFIED', 'super_admin')
         `).catch(() => {});
 
         results.push({ table: tbl, status: "enabled" });
@@ -200,7 +166,11 @@ router.post("/admin/data-vault/enable-rls", adminOnly, async (req, res) => {
       }
     }
 
-    res.json({ results, count: results.filter(r => r.status === "enabled").length });
+    res.json({
+      results,
+      count: results.filter(r => r.status === "enabled").length,
+      schemaAuthority: "Migration 056",
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
