@@ -6857,7 +6857,11 @@ scenario_migration_046_support_enterprise() {
   else
     bad "T: verify failed after restore"; tail -20 /tmp/mig046-p0-restored.log
   fi
-  psql_db -v ON_ERROR_STOP=1 -c "ALTER TABLE support_tickets DROP COLUMN office_id;" >/dev/null
+  # 057 rls_support_tickets references office_id; drop policy only for critical-column probe.
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP POLICY IF EXISTS rls_support_tickets ON support_tickets;
+    ALTER TABLE support_tickets DROP COLUMN office_id;
+  " >/dev/null
   if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig046-p0-col.log 2>&1; then
     bad "T: verify-schema should fail without support_tickets.office_id"
   else
