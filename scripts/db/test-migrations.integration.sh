@@ -4814,7 +4814,9 @@ scenario_migration_043_case_ai_insights() {
   setup_db "mig043_badtype"
   trap teardown_db EXIT
   apply_all_migrations
+  # 056 vault_tenant_isolation references office_id; drop policy only for wrong-type setup.
   psql_db -v ON_ERROR_STOP=1 -c "
+    DROP POLICY IF EXISTS vault_tenant_isolation ON case_ai_insights;
     ALTER TABLE case_ai_insights DROP COLUMN office_id;
     ALTER TABLE case_ai_insights ADD COLUMN office_id INTEGER;
   " >/dev/null
