@@ -15,9 +15,7 @@ onboarding_state
 plan_cms
 push_subscriptions
 reminders
-rls_enablement_log
 route_analytics
-security_events
 server_config
 system_events
 telegram_logs

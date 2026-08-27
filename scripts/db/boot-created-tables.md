@@ -62,6 +62,7 @@
 - ~~Runtime `CREATE`/`INDEX` IIFEs from `control-tower.ts` / `launchGate.ts` / `governanceKernel.ts` / `certification.ts` / `admin.ts` / `engineering.ts` / `production-os.ts` / `productionLaunch.ts` / `saas-os.ts`~~ — removed via migration **054**; modules keep readiness (`to_regclass`) + DML/SA preserved
 - ~~Runtime `CREATE`/`INDEX` IIFEs from `developer.ts` / `tenantDebug.ts` / `infrastructure.ts` / `orgStructure.ts` / `managedIntegrations.ts` / `demo-sync.ts` / `platformCommand.ts` / `themeBuilder.ts` / `tenantVersioning.ts`~~ — removed via migration **055**; modules keep readiness (`to_regclass`) + DML/SA/tenant predicates preserved
 - ~~`ensureVersioningTables` DDL~~ — removed via migration **055**; `tenantVersioning.ts` keeps readiness + binding/archive DML
+- ~~Runtime ENABLE/FORCE RLS + CREATE/DROP POLICY from `rls-migration.ts` / `dataVault.ts` (+ `security_events` / `rls_enablement_log`)~~ — removed via migration **056**; modules keep readiness + SA/tenant routes + DML; `zero-trust-router` keeps status/scan/red-team
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)
 - ~~`ensureAutopilotTable`~~ — removed; `case_autopilot_reports` via migration **028**

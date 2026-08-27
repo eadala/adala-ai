@@ -64,6 +64,7 @@ MIGRATION_052="$ROOT/artifacts/api-server/migrations/052_messaging_runtime_index
 MIGRATION_053="$ROOT/artifacts/api-server/migrations/053_security_centers_schema_authority.sql"
 MIGRATION_054="$ROOT/artifacts/api-server/migrations/054_platform_runtime_schema_authority.sql"
 MIGRATION_055="$ROOT/artifacts/api-server/migrations/055_platform_runtime_b2_schema_authority.sql"
+MIGRATION_056="$ROOT/artifacts/api-server/migrations/056_rls_runtime_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -326,6 +327,7 @@ verify_p0_schema() {
   apply_migration_053
   apply_migration_054
   apply_migration_055
+  apply_migration_056
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -417,6 +419,10 @@ apply_migration_055() {
   psql_db -f "$MIGRATION_055" >/dev/null
 }
 
+apply_migration_056() {
+  psql_db -f "$MIGRATION_056" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -474,11 +480,12 @@ apply_all_migrations() {
   apply_migration_053
   apply_migration_054
   apply_migration_055
+  apply_migration_056
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…055 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…056 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -8621,10 +8628,112 @@ scenario_migration_055_platform_runtime_b2() {
     grep -qi 'tenant_bindings\|platform_integrations\|developer_accounts' /tmp/mig055-p0.log && ok "J: P0 verify fails when 055 tables absent" || bad "J: verify log missing table"
   fi
   apply_migration_055
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig055-p0-restored.log 2>&1; then
-    ok "J: verify-schema passes after 055 restore"
+  if verify_p0_through_migration 056 /tmp/mig055-p0-restored.log; then
+    ok "J: P0 through 055 present after restore"
   else
     bad "J: verify failed after restore"; tail -20 /tmp/mig055-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_056_rls_runtime() {
+  log "Scenario 056 — RLS Runtime: greenfield / SAFE / BLOCK / Runtime / P0"
+  local PREFLIGHT_056="$ROOT/scripts/db/preflight-migration-056.sql"
+  local RLS_SRC="$ROOT/artifacts/api-server/src/security/rls-migration.ts"
+  local VAULT_SRC="$ROOT/artifacts/api-server/src/modules/platform/dataVault.ts"
+  local ZT_SRC="$ROOT/artifacts/api-server/src/security/zero-trust-router.ts"
+
+  setup_db "mig056_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local rls_ok
+  rls_ok=$(psql_db -At -c "
+    SELECT (to_regclass('public.security_events') IS NOT NULL
+        AND to_regclass('public.rls_enablement_log') IS NOT NULL
+        AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                    WHERE n.nspname='public' AND c.relname='cases' AND c.relrowsecurity AND c.relforcerowsecurity)
+        AND EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='cases'
+                    AND policyname='zta_tenant_isolation_cases')
+        AND EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='cases'
+                    AND policyname='vault_tenant_isolation'))")
+  [[ "$rls_ok" == "t" ]] && ok "A: supporting tables + cases RLS/FORCE/policies present" || bad "A: RLS readiness missing"
+  apply_migration_056
+  ok "A: re-run 056 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_056" >/tmp/preflight056-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight056-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight056-ready.log | tail -1)"
+  grep -q 'RLS_RUNTIME_SCHEMA_READY' /tmp/preflight056-ready.log && ok "A: RLS_RUNTIME_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig056_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE rls_enablement_log CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_056" >/tmp/preflight056-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight056-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_056
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.rls_enablement_log') IS NOT NULL")" == "t" ]] && ok "B: rls_enablement_log restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig056_wrong_pol"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "
+    DROP POLICY zta_tenant_isolation_cases ON cases;
+    CREATE POLICY zta_tenant_isolation_cases ON cases USING (true);
+  " >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_056" >/tmp/preflight056-pol.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_POLICY"
+  else
+    grep -q 'INCOMPATIBLE_POLICY\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight056-pol.log && ok "C: preflight BLOCK INCOMPATIBLE_POLICY" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_056" >/tmp/mig056-pol.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_POLICY"
+  else
+    grep -q 'INCOMPATIBLE_POLICY' /tmp/mig056-pol.log && ok "C: migration BLOCK INCOMPATIBLE_POLICY" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  if grep -qE 'ALTER TABLE .* ENABLE ROW LEVEL SECURITY' "$RLS_SRC"; then
+    bad "D: rls-migration.ts still contains Runtime ENABLE RLS"
+  else
+    ok "D: no Runtime ENABLE RLS in rls-migration.ts"
+  fi
+  if grep -qE 'CREATE POLICY|DROP POLICY|ENABLE ROW LEVEL SECURITY' "$VAULT_SRC"; then
+    bad "D: dataVault.ts still contains Runtime RLS DDL"
+  else
+    ok "D: no Runtime RLS DDL in dataVault.ts"
+  fi
+  grep -q 'requireAuthWithTenant' "$ZT_SRC" && ok "D: zero-trust SA/tenant guards preserved" || bad "D: guards missing"
+  grep -q 'INSERT INTO rls_enablement_log' "$VAULT_SRC" && ok "D: enablement log DML preserved" || bad "D: log DML missing"
+  grep -q 'INSERT INTO security_events' "$VAULT_SRC" && ok "D: security_events DML preserved" || bad "D: events DML missing"
+
+  setup_db "mig056_p0"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016; apply_migration_017; apply_migration_018; apply_migration_019
+  apply_migration_020; apply_migration_021; apply_migration_025; apply_migration_026
+  apply_migration_027; apply_migration_028; apply_migration_029; apply_migration_030
+  apply_migration_031; apply_migration_032; apply_migration_033; apply_migration_034
+  apply_migration_035; apply_migration_036; apply_migration_037; apply_migration_038
+  apply_migration_039; apply_migration_040; apply_migration_041; apply_migration_042
+  apply_migration_043; apply_migration_044; apply_migration_045; apply_migration_046
+  apply_migration_047; apply_migration_048; apply_migration_049; apply_migration_050
+  apply_migration_051; apply_migration_052; apply_migration_053; apply_migration_054
+  apply_migration_055
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig056-p0.log 2>&1; then
+    bad "J: verify-schema should fail without 056 tables"
+  else
+    grep -qi 'security_events\|rls_enablement_log' /tmp/mig056-p0.log && ok "J: P0 verify fails when 056 tables absent" || bad "J: verify log missing table"
+  fi
+  apply_migration_056
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig056-p0-restored.log 2>&1; then
+    ok "J: verify-schema passes after 056 restore"
+  else
+    bad "J: verify failed after restore"; tail -20 /tmp/mig056-p0-restored.log
   fi
   trap - EXIT
   teardown_db
@@ -15312,6 +15421,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "056" ]]; then
+  scenario_migration_056_rls_runtime
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 if [[ "${FOCUS_SCENARIO:-}" == "055" ]]; then
   scenario_migration_055_platform_runtime_b2
   echo ""
@@ -15384,6 +15501,7 @@ scenario_migration_052_messaging_runtime_indexes
 scenario_migration_053_security_centers
 scenario_migration_054_platform_runtime
 scenario_migration_055_platform_runtime_b2
+scenario_migration_056_rls_runtime
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
- * Zero Trust — Row Level Security Migration
- * Enables RLS on all tenant-scoped tables and creates isolation policies.
- * Run once (idempotent) via: POST /api/zero-trust/apply-rls (super_admin)
+ * Zero Trust — Row Level Security readiness
+ * Schema owned by Migration 056 (ENABLE/FORCE RLS + zta_tenant_isolation_*).
+ * Readiness / verification only — no Runtime ALTER/CREATE/DROP POLICY.
  */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -19,12 +19,12 @@ const TENANT_TABLES = [
 
 function policyName(table: string) { return `zta_tenant_isolation_${table}`; }
 
+/** Verify Migration 056 ZTA RLS readiness (no DDL). */
 export async function applyRLS(): Promise<{ applied: string[]; skipped: string[]; errors: string[] }> {
   const applied: string[] = [];
   const skipped: string[] = [];
   const errors:  string[] = [];
 
-  // Check which tables exist
   const existsRes = await db.execute(sql`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public'
   `) as any;
@@ -35,39 +35,43 @@ export async function applyRLS(): Promise<{ applied: string[]; skipped: string[]
   for (const table of TENANT_TABLES) {
     if (!existingTables.has(table)) { skipped.push(table); continue; }
     try {
-      // 1. Enable RLS (idempotent)
-      await db.execute(sql.raw(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`));
-      // 2. Force RLS even for table owner
-      await db.execute(sql.raw(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`));
-      // 3. Drop policy if exists to recreate cleanly
-      await db.execute(sql.raw(
-        `DROP POLICY IF EXISTS ${policyName(table)} ON ${table}`
-      ));
-      // 4. Create isolation policy — reads app.current_tenant set by requireAuth
-      await db.execute(sql.raw(`
-        CREATE POLICY ${policyName(table)} ON ${table}
-        USING (
-          office_id = NULLIF(current_setting('app.current_tenant', true), '')
-        )
-      `));
+      const r = await db.execute(sql`
+        SELECT
+          c.relrowsecurity AS rls_enabled,
+          c.relforcerowsecurity AS rls_forced,
+          EXISTS(
+            SELECT 1 FROM pg_policies p
+            WHERE p.schemaname = 'public'
+              AND p.tablename = ${table}
+              AND p.policyname = ${policyName(table)}
+          ) AS has_policy
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname = ${table}
+      `) as any;
+      const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+      if (!row.rls_enabled || !row.rls_forced || !row.has_policy) {
+        errors.push(`${table}: Migration 056 RLS not ready (rls/force/policy)`);
+        continue;
+      }
       applied.push(table);
     } catch (e: any) {
       errors.push(`${table}: ${e.message}`);
     }
   }
 
+  if (errors.length > 0) {
+    console.error("[rls-migration] Migration 056 schema not ready — ZTA RLS incomplete");
+  }
   return { applied, skipped, errors };
 }
 
-export async function disableRLS(): Promise<{ disabled: string[] }> {
-  const disabled: string[] = [];
-  for (const table of TENANT_TABLES) {
-    try {
-      await db.execute(sql.raw(`ALTER TABLE ${table} DISABLE ROW LEVEL SECURITY`));
-      disabled.push(table);
-    } catch { /* table may not exist */ }
-  }
-  return { disabled };
+/** Emergency disable is migration-owned; Runtime no longer issues DISABLE DDL. */
+export async function disableRLS(): Promise<{ disabled: string[]; errors: string[] }> {
+  return {
+    disabled: [],
+    errors: ["RLS disable is schema-authority owned (Migration 056) — Runtime DDL removed; use DBA/migration rollback path"],
+  };
 }
 
 export async function getRLSStatus(): Promise<{

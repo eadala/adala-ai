@@ -84,6 +84,7 @@ jobs:
           pnpm --filter @workspace/api-server run test:security-centers-053
           pnpm --filter @workspace/api-server run test:platform-runtime-054
           pnpm --filter @workspace/api-server run test:platform-runtime-055
+          pnpm --filter @workspace/api-server run test:rls-runtime-056
           pnpm --filter @workspace/api-server run test:stage9-security
           pnpm --filter @workspace/api-server run test:orphan-ai-refs
           pnpm --filter @workspace/api-server run test:stage152e

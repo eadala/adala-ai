@@ -58,19 +58,24 @@ router.get("/zero-trust/status", requireAuthWithTenant, superAdminOnly, async (_
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /zero-trust/apply-rls ─────────────────────────────────────────── */
+/* ── POST /zero-trust/apply-rls — readiness verify (Migration 056 owns DDL) ── */
 router.post("/zero-trust/apply-rls", requireAuthWithTenant, superAdminOnly, async (_req, res) => {
   try {
     const result = await applyRLS();
-    res.json({ success: true, ...result });
+    const ok = (result.errors?.length ?? 0) === 0;
+    res.json({ success: ok, schemaAuthority: "Migration 056", ...result });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /zero-trust/disable-rls (emergency rollback) ─────────────────── */
+/* ── POST /zero-trust/disable-rls — no Runtime DDL (schema authority) ───── */
 router.post("/zero-trust/disable-rls", requireAuthWithTenant, superAdminOnly, async (_req, res) => {
   try {
     const result = await disableRLS();
-    res.json({ success: true, warning: "RLS disabled — app-level filters now primary guard", ...result });
+    res.status(409).json({
+      success: false,
+      warning: "RLS disable DDL removed — Migration 056 owns ENABLE/FORCE/POLICY; app-level filters remain primary guard",
+      ...result,
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
