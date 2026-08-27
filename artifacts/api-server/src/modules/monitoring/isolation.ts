@@ -238,7 +238,7 @@ router.get("/isolation/summary", requireSuperAdmin, async (_req, res) => {
     ]);
 
     const rls = pgFirstRow(rlsRow);
-    const rlsCoverage = rls.rls_tables > 0
+    const rlsCoverage = Number(rls.rls_tables) > 0
       ? Math.round((Number(rls.rls_tables) / Math.max(Number(rls.tenant_columns), 1)) * 100)
       : 0;
 
