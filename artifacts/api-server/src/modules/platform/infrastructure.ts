@@ -27,26 +27,21 @@ const adminOnly = requireSuperAdmin;
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
 
-/* ── ensure tables ──────────────────────────────────────────── */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_isolation_config (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id       TEXT NOT NULL UNIQUE,
-      isolation_mode  TEXT NOT NULL DEFAULT 'shared',
-        -- shared | professional | enterprise
-      dedicated_db_url      TEXT,
-      dedicated_bucket      TEXT,
-      encryption_key_id     TEXT,
-      encryption_key_hint   TEXT,
-      backup_enabled        BOOLEAN DEFAULT FALSE,
-      backup_frequency      TEXT DEFAULT 'daily',
-      notes                 TEXT,
-      upgraded_at           TIMESTAMPTZ,
-      created_at            TIMESTAMPTZ DEFAULT NOW(),
-      updated_at            TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+/* ── readiness — schema owned by Migration 055 ──────────────────────────── */
+let infraSchemaReady = false;
+async function ensureInfraSchemaReady() {
+  if (infraSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.office_isolation_config') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[infrastructure] Migration 055 schema not ready — office_isolation_config missing");
+      return;
+    }
+    infraSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -54,7 +49,7 @@ async function ensureTables() {
 ══════════════════════════════════════════════════════════════ */
 router.get("/admin/infrastructure/overview", adminOnly, async (req, res) => {
   try {
-    await ensureTables();
+    await ensureInfraSchemaReady();
 
     const dbSize = one(await db.execute(sql`
       SELECT pg_size_pretty(pg_database_size(current_database())) AS size,
@@ -105,7 +100,7 @@ router.get("/admin/infrastructure/overview", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.get("/admin/infrastructure/offices", adminOnly, async (req, res) => {
   try {
-    await ensureTables();
+    await ensureInfraSchemaReady();
 
     const offices = rows(await db.execute(sql`
       SELECT
@@ -139,7 +134,7 @@ router.get("/admin/infrastructure/offices", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════════════ */
 router.post("/admin/infrastructure/offices/:id/isolation", adminOnly, async (req, res) => {
   try {
-    await ensureTables();
+    await ensureInfraSchemaReady();
     const officeId = String(req.params.id);
     const { isolation_mode, dedicated_bucket, dedicated_db_url, backup_enabled, notes } = req.body;
 
@@ -171,7 +166,7 @@ router.post("/admin/infrastructure/offices/:id/isolation", adminOnly, async (req
 ══════════════════════════════════════════════════════════════ */
 router.post("/admin/infrastructure/offices/:id/generate-key", adminOnly, async (req, res) => {
   try {
-    await ensureTables();
+    await ensureInfraSchemaReady();
     const officeId = String(req.params.id);
 
     /* Generate a unique key ID (we store only the hint, not the key itself) */

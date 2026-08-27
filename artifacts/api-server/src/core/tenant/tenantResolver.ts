@@ -261,27 +261,32 @@ export async function resolveTenantWithTrace(
 
 /* ── Audit logging (non-blocking) ───────────────────────────────────── */
 
+let tenantAuditLogReady = false;
+
+async function tenantAuditLogSchemaReady(): Promise<boolean> {
+  if (tenantAuditLogReady) return true;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.tenant_audit_logs') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) return false;
+    tenantAuditLogReady = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function auditTenantResolution(
   userId: string,
   trace: TenantResolutionTrace | null,
   error?: string,
   meta?: { ip?: string; userAgent?: string },
 ): void {
-  db.execute(sql`
-    CREATE TABLE IF NOT EXISTS tenant_audit_logs (
-      id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id     TEXT NOT NULL,
-      tenant_id   TEXT,
-      source      TEXT NOT NULL,
-      steps       JSONB NOT NULL DEFAULT '[]',
-      resolved    BOOLEAN NOT NULL DEFAULT false,
-      error_msg   TEXT,
-      ip_address  TEXT,
-      user_agent  TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).then(() =>
-    db.execute(sql`
+  tenantAuditLogSchemaReady().then((ready) => {
+    if (!ready) return;
+    return db.execute(sql`
       INSERT INTO tenant_audit_logs
         (user_id, tenant_id, source, steps, resolved, error_msg, ip_address, user_agent)
       VALUES (
@@ -294,6 +299,6 @@ export function auditTenantResolution(
         ${meta?.ip ?? null},
         ${meta?.userAgent?.slice(0, 200) ?? null}
       )
-    `)
-  ).catch(() => {});
+    `);
+  }).catch(() => {});
 }

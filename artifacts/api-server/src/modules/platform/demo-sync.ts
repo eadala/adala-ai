@@ -193,20 +193,22 @@ function getDemoCases(officeId: string) {
 }
 
 /* ── Ensure sync log table ──────────────────────────────────────── */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS demo_sync_log (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id    TEXT NOT NULL,
-      office_label TEXT NOT NULL,
-      synced_plan  TEXT,
-      actions_count INT DEFAULT 0,
-      triggered_by TEXT DEFAULT 'manual',
-      synced_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
+let demoSyncSchemaReady = false;
+async function ensureDemoSyncSchemaReady() {
+  if (demoSyncSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.demo_sync_log') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[demo-sync] Migration 055 schema not ready — demo_sync_log missing");
+      return;
+    }
+    demoSyncSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables();
+ensureDemoSyncSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════════════════════════
    ROUTES

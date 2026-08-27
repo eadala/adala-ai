@@ -60,7 +60,8 @@
 - ~~Runtime `CREATE INDEX` IIFE (`idx_msgs_*` / `idx_rcpt_*` / `idx_attach_msg`)~~ — removed via migration **052**; `internal-messages` keeps readiness (`to_regclass`) + folder/tenant DML
 - ~~Runtime `CREATE`/`INDEX` IIFEs from `soc.ts` / `auditCenter.ts` / `complianceCenter.ts` / `drCenter.ts` / `mfaCenter.ts`~~ — removed via migration **053**; modules keep readiness (`to_regclass`) + SA DML, ON CONFLICT, and compliance/retention seeds
 - ~~Runtime `CREATE`/`INDEX` IIFEs from `control-tower.ts` / `launchGate.ts` / `governanceKernel.ts` / `certification.ts` / `admin.ts` / `engineering.ts` / `production-os.ts` / `productionLaunch.ts` / `saas-os.ts`~~ — removed via migration **054**; modules keep readiness (`to_regclass`) + DML/SA preserved
-- `ensureVersioningTables` — `tenantVersioning.ts` (يحتاج `office_members`)
+- ~~Runtime `CREATE`/`INDEX` IIFEs from `developer.ts` / `tenantDebug.ts` / `infrastructure.ts` / `orgStructure.ts` / `managedIntegrations.ts` / `demo-sync.ts` / `platformCommand.ts` / `themeBuilder.ts` / `tenantVersioning.ts`~~ — removed via migration **055**; modules keep readiness (`to_regclass`) + DML/SA/tenant predicates preserved
+- ~~`ensureVersioningTables` DDL~~ — removed via migration **055**; `tenantVersioning.ts` keeps readiness + binding/archive DML
 - `ensureGovernanceTables` — `governanceKernel.ts`
 - `ensureJournalTables(officeId)` — CoA **seed only** (no DDL)
 - ~~`ensureAutopilotTable`~~ — removed; `case_autopilot_reports` via migration **028**

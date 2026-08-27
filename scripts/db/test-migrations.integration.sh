@@ -63,6 +63,7 @@ MIGRATION_051="$ROOT/artifacts/api-server/migrations/051_office_notification_set
 MIGRATION_052="$ROOT/artifacts/api-server/migrations/052_messaging_runtime_indexes_schema_authority.sql"
 MIGRATION_053="$ROOT/artifacts/api-server/migrations/053_security_centers_schema_authority.sql"
 MIGRATION_054="$ROOT/artifacts/api-server/migrations/054_platform_runtime_schema_authority.sql"
+MIGRATION_055="$ROOT/artifacts/api-server/migrations/055_platform_runtime_b2_schema_authority.sql"
 
 PASS=0
 FAIL=0
@@ -250,6 +251,48 @@ apply_migration_033() {
 # 046 owns support_ticket_attachments / support_ticket_audit / support_visitor_profiles.
 # 047 owns events / event_reminders + idx_events_case_id / idx_events_office_start.
 # 048 owns hr_announcements / employee_requests / leave_balances + exact UNIQUE(employee_id, leave_type, year).
+# Verify P0 inventory up to (but not including) migration NNN — for per-migration scenario gates.
+verify_p0_through_migration() {
+  local stop_at=$((10#${1}))
+  local log="${2:-/tmp/verify-p0-through.log}"
+  local fail=0
+  : >"$log"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^#\ Migration\ ([0-9]+) ]]; then
+      [[ $((10#${BASH_REMATCH[1]})) -ge "$stop_at" ]] && break
+      continue
+    fi
+    [[ "$line" =~ ^# ]] && continue
+    local exists
+    exists=$(psql_db -At -c "SELECT to_regclass('public.${line}') IS NOT NULL")
+    if [[ "$exists" != "t" ]]; then
+      echo "  ❌ $line MISSING" >>"$log"
+      fail=1
+    fi
+  done < "$ROOT/scripts/db/expected-tables-p0.txt"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^#\ Migration\ ([0-9]+) ]]; then
+      [[ $((10#${BASH_REMATCH[1]})) -ge "$stop_at" ]] && break
+      continue
+    fi
+    [[ "$line" =~ ^# ]] && continue
+    local table="${line%%.*}"
+    local column="${line#*.}"
+    local exists
+    exists=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='${table}' AND column_name='${column}')")
+    if [[ "$exists" != "t" ]]; then
+      echo "  ❌ $line MISSING" >>"$log"
+      fail=1
+    fi
+  done < "$ROOT/scripts/db/expected-columns-p0.txt"
+
+  [[ $fail -eq 0 ]]
+}
+
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -282,6 +325,7 @@ verify_p0_schema() {
   apply_migration_052
   apply_migration_053
   apply_migration_054
+  apply_migration_055
   bash "$ROOT/scripts/db/verify-schema.sh" >"$log" 2>&1
 }
 
@@ -369,6 +413,10 @@ apply_migration_054() {
   psql_db -f "$MIGRATION_054" >/dev/null
 }
 
+apply_migration_055() {
+  psql_db -f "$MIGRATION_055" >/dev/null
+}
+
 apply_migrations_through_013() {
   apply_migrations_base
   apply_migration_006
@@ -425,11 +473,12 @@ apply_all_migrations() {
   apply_migration_052
   apply_migration_053
   apply_migration_054
+  apply_migration_055
 }
 
 # ── Scenario 1: empty database ─────────────────────────────────────────────
 scenario_empty_db() {
-  log "Scenario 1 — empty DB → migrations 003…021 + 025…054 → verify-schema"
+  log "Scenario 1 — empty DB → migrations 003…021 + 025…055 → verify-schema"
   setup_db "empty"
   trap teardown_db EXIT
 
@@ -8475,10 +8524,107 @@ scenario_migration_054_platform_runtime() {
     grep -qi 'ct_security_events\|governance_action_log\|os_events' /tmp/mig054-p0.log && ok "J: P0 verify fails when 054 tables absent" || bad "J: verify log missing table"
   fi
   apply_migration_054
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig054-p0-restored.log 2>&1; then
-    ok "J: verify-schema passes after 054 restore"
+  if verify_p0_through_migration 055 /tmp/mig054-p0-restored.log; then
+    ok "J: P0 through 054 present after restore"
   else
     bad "J: verify failed after restore"; tail -20 /tmp/mig054-p0-restored.log
+  fi
+  trap - EXIT
+  teardown_db
+}
+
+scenario_migration_055_platform_runtime_b2() {
+  log "Scenario 055 — Platform Runtime B2: greenfield / SAFE / BLOCK / Runtime / P0"
+  local PREFLIGHT_055="$ROOT/scripts/db/preflight-migration-055.sql"
+  local DEV_SRC="$ROOT/artifacts/api-server/src/modules/platform/developer.ts"
+  local TV_SRC="$ROOT/artifacts/api-server/src/core/tenant/tenantVersioning.ts"
+
+  setup_db "mig055_fresh"
+  trap teardown_db EXIT
+  apply_all_migrations
+  local tbl_ok idx_ok
+  tbl_ok=$(psql_db -At -c "
+    SELECT COUNT(*) FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      AND c.relname IN ('developer_impersonation','tenant_audit_logs','platform_integrations',
+                        'tenant_bindings','tenant_audit_archive','organization_units')")
+  [[ "$tbl_ok" == "6" ]] && ok "A: platform B2 core tables present" || bad "A: tables count=$tbl_ok"
+  idx_ok=$(psql_db -At -c "
+    SELECT (to_regclass('public.idx_tenant_audit_time') IS NOT NULL
+        AND to_regclass('public.idx_ir_status') IS NOT NULL
+        AND to_regclass('public.idx_taa_tenant_period') IS NOT NULL)")
+  [[ "$idx_ok" == "t" ]] && ok "A: B2 Runtime indexes present" || bad "A: indexes missing"
+  apply_migration_055
+  ok "A: re-run 055 idempotent"
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_055" >/tmp/preflight055-ready.log 2>&1
+  grep -q 'chosen_action=ALREADY_CORRECT' /tmp/preflight055-ready.log && ok "A: preflight ALREADY_CORRECT" || bad "A: $(grep chosen_action /tmp/preflight055-ready.log | tail -1)"
+  grep -q 'PLATFORM_RUNTIME_B2_SCHEMA_READY' /tmp/preflight055-ready.log && ok "A: PLATFORM_RUNTIME_B2_SCHEMA_READY" || bad "A: ready reason"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig055_miss_tbl"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP TABLE tenant_audit_archive CASCADE;" >/dev/null
+  psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_055" >/tmp/preflight055-misstbl.log 2>&1
+  grep -q 'TABLE_MISSING\|SAFE_AUTO_REPAIR' /tmp/preflight055-misstbl.log && ok "B: preflight SAFE TABLE_MISSING" || bad "B: preflight"
+  apply_migration_055
+  [[ "$(psql_db -At -c "SELECT to_regclass('public.tenant_audit_archive') IS NOT NULL")" == "t" ]] && ok "B: tenant_audit_archive restored" || bad "B: restore failed"
+  trap - EXIT
+  teardown_db
+
+  setup_db "mig055_wrong_idx"
+  trap teardown_db EXIT
+  apply_all_migrations
+  psql_db -v ON_ERROR_STOP=1 -c "DROP INDEX idx_tenant_audit_time; CREATE INDEX idx_tenant_audit_time ON tenant_audit_logs (created_at ASC);" >/dev/null
+  if psql_db -v ON_ERROR_STOP=1 -f "$PREFLIGHT_055" >/tmp/preflight055-idx.log 2>&1; then
+    bad "C: preflight should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX\|BLOCK_AND_MANUAL_REVIEW' /tmp/preflight055-idx.log && ok "C: preflight BLOCK INCOMPATIBLE_INDEX" || bad "C: reason"
+  fi
+  if psql_db -v ON_ERROR_STOP=1 -f "$MIGRATION_055" >/tmp/mig055-idx.log 2>&1; then
+    bad "C: migration should BLOCK INCOMPATIBLE_INDEX"
+  else
+    grep -q 'INCOMPATIBLE_INDEX' /tmp/mig055-idx.log && ok "C: migration BLOCK INCOMPATIBLE_INDEX" || bad "C: mig reason"
+  fi
+  trap - EXIT
+  teardown_db
+
+  if grep -qE 'CREATE TABLE IF NOT EXISTS developer_impersonation' "$DEV_SRC"; then
+    bad "D: developer.ts still contains Runtime CREATE"
+  else
+    ok "D: no Runtime CREATE in developer.ts"
+  fi
+  if grep -qE 'CREATE TABLE IF NOT EXISTS tenant_bindings' "$TV_SRC"; then
+    bad "D: tenantVersioning.ts still contains Runtime CREATE"
+  else
+    ok "D: no Runtime CREATE in tenantVersioning.ts"
+  fi
+  grep -q 'ON CONFLICT (key) DO NOTHING' "$ROOT/artifacts/api-server/src/modules/platform/managedIntegrations.ts" && ok "D: integration seed DML preserved" || bad "D: seed missing"
+
+  setup_db "mig055_p0"
+  trap teardown_db EXIT
+  apply_migrations_through_015
+  apply_migration_016; apply_migration_017; apply_migration_018; apply_migration_019
+  apply_migration_020; apply_migration_021; apply_migration_025; apply_migration_026
+  apply_migration_027; apply_migration_028; apply_migration_029; apply_migration_030
+  apply_migration_031; apply_migration_032; apply_migration_033; apply_migration_034
+  apply_migration_035; apply_migration_036; apply_migration_037; apply_migration_038
+  apply_migration_039; apply_migration_040; apply_migration_041; apply_migration_042
+  apply_migration_043; apply_migration_044; apply_migration_045; apply_migration_046
+  apply_migration_047; apply_migration_048; apply_migration_049; apply_migration_050
+  apply_migration_051; apply_migration_052; apply_migration_053; apply_migration_054
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig055-p0.log 2>&1; then
+    bad "J: verify-schema should fail without 055 tables"
+  else
+    grep -qi 'tenant_bindings\|platform_integrations\|developer_accounts' /tmp/mig055-p0.log && ok "J: P0 verify fails when 055 tables absent" || bad "J: verify log missing table"
+  fi
+  apply_migration_055
+  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig055-p0-restored.log 2>&1; then
+    ok "J: verify-schema passes after 055 restore"
+  else
+    bad "J: verify failed after restore"; tail -20 /tmp/mig055-p0-restored.log
   fi
   trap - EXIT
   teardown_db
@@ -15166,6 +15312,14 @@ if [[ "${FOCUS_SCENARIO:-}" == "052" ]]; then
   echo "═══════════════════════════════════════════════════════════"
   [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 fi
+if [[ "${FOCUS_SCENARIO:-}" == "055" ]]; then
+  scenario_migration_055_platform_runtime_b2
+  echo ""
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  RESULTS: $PASS passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+fi
 if [[ "${FOCUS_SCENARIO:-}" == "054" ]]; then
   scenario_migration_054_platform_runtime
   echo ""
@@ -15229,6 +15383,7 @@ scenario_migration_051_office_notification_settings
 scenario_migration_052_messaging_runtime_indexes
 scenario_migration_053_security_centers
 scenario_migration_054_platform_runtime
+scenario_migration_055_platform_runtime_b2
 check_schema_alignment
 scenario_reported_endpoints
 scenario_incomplete_schema_no_runtime_ddl
