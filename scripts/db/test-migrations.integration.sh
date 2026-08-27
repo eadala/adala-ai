@@ -251,6 +251,48 @@ apply_migration_033() {
 # 046 owns support_ticket_attachments / support_ticket_audit / support_visitor_profiles.
 # 047 owns events / event_reminders + idx_events_case_id / idx_events_office_start.
 # 048 owns hr_announcements / employee_requests / leave_balances + exact UNIQUE(employee_id, leave_type, year).
+# Verify P0 inventory up to (but not including) migration NNN — for per-migration scenario gates.
+verify_p0_through_migration() {
+  local stop_at=$((10#${1}))
+  local log="${2:-/tmp/verify-p0-through.log}"
+  local fail=0
+  : >"$log"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^#\ Migration\ ([0-9]+) ]]; then
+      [[ $((10#${BASH_REMATCH[1]})) -ge "$stop_at" ]] && break
+      continue
+    fi
+    [[ "$line" =~ ^# ]] && continue
+    local exists
+    exists=$(psql_db -At -c "SELECT to_regclass('public.${line}') IS NOT NULL")
+    if [[ "$exists" != "t" ]]; then
+      echo "  ❌ $line MISSING" >>"$log"
+      fail=1
+    fi
+  done < "$ROOT/scripts/db/expected-tables-p0.txt"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    if [[ "$line" =~ ^#\ Migration\ ([0-9]+) ]]; then
+      [[ $((10#${BASH_REMATCH[1]})) -ge "$stop_at" ]] && break
+      continue
+    fi
+    [[ "$line" =~ ^# ]] && continue
+    local table="${line%%.*}"
+    local column="${line#*.}"
+    local exists
+    exists=$(psql_db -At -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='${table}' AND column_name='${column}')")
+    if [[ "$exists" != "t" ]]; then
+      echo "  ❌ $line MISSING" >>"$log"
+      fail=1
+    fi
+  done < "$ROOT/scripts/db/expected-columns-p0.txt"
+
+  [[ $fail -eq 0 ]]
+}
+
 verify_p0_schema() {
   local log="${1:-/tmp/verify-p0.log}"
   apply_migration_025
@@ -8482,8 +8524,8 @@ scenario_migration_054_platform_runtime() {
     grep -qi 'ct_security_events\|governance_action_log\|os_events' /tmp/mig054-p0.log && ok "J: P0 verify fails when 054 tables absent" || bad "J: verify log missing table"
   fi
   apply_migration_054
-  if bash "$ROOT/scripts/db/verify-schema.sh" >/tmp/mig054-p0-restored.log 2>&1; then
-    ok "J: verify-schema passes after 054 restore"
+  if verify_p0_through_migration 055 /tmp/mig054-p0-restored.log; then
+    ok "J: P0 through 054 present after restore"
   else
     bad "J: verify failed after restore"; tail -20 /tmp/mig054-p0-restored.log
   fi
