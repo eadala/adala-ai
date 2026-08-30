@@ -1997,6 +1997,29 @@ assert.match(readRepo("artifacts/api-server/package.json"), /test:rls-runtime-05
 assert.match(readRepo(".github/workflows/ci.yml"), /test:rls-runtime-056/);
 console.log("  ✅ migration 056 owns RLS Runtime; Runtime DDL absent; DML/SA kept; P0 gated");
 
+console.log("\n═══ schemaAuthority: Monitoring isolation rls_* (057) ═══");
+assert.ok(migrationFiles.includes("057_monitoring_isolation_rls_schema_authority.sql"));
+const mig057 = readRepo("artifacts/api-server/migrations/057_monitoring_isolation_rls_schema_authority.sql");
+assert.match(mig057, /'rls_' \|\| rec\.tablename/);
+assert.match(mig057, /MONITORING_ISOLATION_RLS_SCHEMA_READY/);
+assert.match(mig057, /vault_tenant_isolation/);
+assert.match(mig057, /zta_tenant_isolation_/);
+assert.doesNotMatch(mig057, /FORCE ROW LEVEL SECURITY/);
+{
+  const sqlOnly057 = mig057.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(sqlOnly057, /(?:^|;)\s*DROP\s+POLICY\b/im);
+}
+const preflight057 = readRepo("scripts/db/preflight-migration-057.sql");
+assert.match(preflight057, /READ-ONLY|Does not CREATE \/ ALTER \/ DROP durable|SELECT-only/i);
+assert.match(preflight057, /MONITORING_ISOLATION_RLS_SCHEMA_READY/);
+assert.doesNotMatch(readSrc("modules/monitoring/isolation.ts"), /ALTER TABLE .* ENABLE ROW LEVEL SECURITY|(?:^|[`'"])\s*CREATE POLICY\b|(?:^|[`'"])\s*DROP POLICY\b/m);
+assert.match(readSrc("modules/monitoring/isolation.ts"), /verifyIsolationRlsReadiness/);
+assert.match(readSrc("modules/monitoring/isolation.ts"), /requireSuperAdmin/);
+assert.match(readRepo("scripts/db/test-migrations.integration.sh"), /scenario_migration_057|MIGRATION_057/);
+assert.match(readRepo("artifacts/api-server/package.json"), /test:monitoring-isolation-057/);
+assert.match(readRepo(".github/workflows/ci.yml"), /test:monitoring-isolation-057/);
+console.log("  ✅ migration 057 owns rls_*; skips 056 zta/vault; Runtime DDL absent; SA kept");
+
 console.log("\n═══ schemaAuthority: Drizzle is ORM types, not production DDL ═══");
 
 const drizzleCfg = readRepo("lib/db/drizzle.config.ts");

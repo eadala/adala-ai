@@ -90,6 +90,7 @@
     "test:platform-runtime-054": "node --import tsx src/tests/platformRuntimeSchemaAuthority054.test.ts",
     "test:platform-runtime-055": "node --import tsx src/tests/platformRuntimeSchemaAuthority055.test.ts",
     "test:rls-runtime-056": "node --import tsx src/tests/rlsRuntimeSchemaAuthority056.test.ts",
+    "test:monitoring-isolation-057": "node --import tsx src/tests/monitoringIsolationRlsSchemaAuthority057.test.ts",
     "test:stage9-security": "node --import tsx src/tests/stage9SecurityHardening.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
