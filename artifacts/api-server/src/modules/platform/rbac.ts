@@ -1,7 +1,7 @@
 import { requireAuth, requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db, rolesTable, invitationsTable, auditLogsTable, usersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, and, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
@@ -10,6 +10,18 @@ const router = Router();
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+/** SEC-005: office may manage invites for its office_id; NULL historical via invited_by only. */
+function canManageInvitation(
+  tenantId: string | undefined,
+  userId: string,
+  inv: { officeId?: string | null; invitedBy?: string | null },
+): boolean {
+  if (tenantId === "platform") return true;
+  if (!tenantId) return false;
+  if (inv.officeId) return inv.officeId === tenantId;
+  return inv.invitedBy === userId;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -273,9 +285,9 @@ router.delete("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles
 });
 
 // ─── INVITATIONS ────────────────────────────────────────────────────────────
-// Schema has no office_id — fail-closed: office users only see/mutate rows they
-// created (invited_by = userId). Platform Super Admin may list all. Full tenant
-// scoping requires a future migration adding invitations.office_id.
+// Migration 058 adds invitations.office_id (nullable). New invites bind office_id
+// from trusted tenantId. Historical NULL rows remain invited_by-scoped only.
+// Platform Super Admin may list/manage all. Never trust client office_id.
 
 router.get("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
   try {
@@ -286,11 +298,18 @@ router.get("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
     const rows =
       tenantId === "platform"
         ? await db.select().from(invitationsTable).orderBy(desc(invitationsTable.createdAt))
-        : await db
-            .select()
-            .from(invitationsTable)
-            .where(eq(invitationsTable.invitedBy, userId))
-            .orderBy(desc(invitationsTable.createdAt));
+        : !tenantId
+          ? []
+          : await db
+              .select()
+              .from(invitationsTable)
+              .where(
+                or(
+                  eq(invitationsTable.officeId, tenantId),
+                  and(isNull(invitationsTable.officeId), eq(invitationsTable.invitedBy, userId)),
+                ),
+              )
+              .orderBy(desc(invitationsTable.createdAt));
 
     res.json(rows.map(i => ({
       ...i,
@@ -305,14 +324,23 @@ router.get("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
 router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
     const userId = (req as { userId?: string }).userId;
+    const tenantId = (req as { tenantId?: string }).tenantId;
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    if (!tenantId || tenantId === "platform") {
+      return res.status(403).json({ error: "الدعوات تتطلب سياق مكتب صالح" });
+    }
     const { email, role } = req.body as { email: string; role: string };
     if (!email || !role) return res.status(400).json({ error: "البريد الإلكتروني والدور مطلوبان" });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    /* Never trust client-supplied invitedBy — bind to authenticated user */
+    /* Never trust client-supplied invitedBy / officeId — bind from auth context */
     const [created] = await db.insert(invitationsTable).values({
-      email, role, invitedBy: userId, status: "pending", expiresAt,
+      email,
+      role,
+      invitedBy: userId,
+      officeId: tenantId,
+      status: "pending",
+      expiresAt,
     }).returning();
 
     await logAudit("invite", "user", undefined, `دعوة مستخدم: ${email} بدور ${role}`, userId);
@@ -330,8 +358,7 @@ router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, 
 
     const id = String(req.params.id);
     const [existing] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, id)).limit(1);
-    if (!existing) return res.status(404).json({ error: "الدعوة غير موجودة" });
-    if (tenantId !== "platform" && existing.invitedBy !== userId) {
+    if (!existing || !canManageInvitation(tenantId, userId, existing)) {
       return res.status(404).json({ error: "الدعوة غير موجودة" });
     }
 
@@ -355,8 +382,7 @@ router.delete("/rbac/invitations/:id", requireAuthWithTenant, requirePermission(
 
     const id = String(req.params.id);
     const [existing] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, id)).limit(1);
-    if (!existing) return res.status(404).json({ error: "الدعوة غير موجودة" });
-    if (tenantId !== "platform" && existing.invitedBy !== userId) {
+    if (!existing || !canManageInvitation(tenantId, userId, existing)) {
       return res.status(404).json({ error: "الدعوة غير موجودة" });
     }
 

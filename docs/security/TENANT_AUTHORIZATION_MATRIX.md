@@ -11,7 +11,7 @@
 | Notifications aggregate | GET `/api/notifications` | `requireAuthWithTenant` | `req.tenantId` | `office_id` / employee join; omit invitations/messages | Defense only | `test:notifications-tenant` | OK |
 | Plan notifications | GET `/office/plan-notifications` | `requireAuthWithTenant` | `req.tenantId` | `office_id` | Defense only | same | OK |
 | Plan notif mark-all | PATCH `/office/plan-notifications/read-all` | `requireAuthWithTenant` | `req.tenantId` | `WHERE office_id` | Defense only | same | OK |
-| Invitations list | GET `/rbac/invitations` | `requireAuthWithTenant` | userId + platform | `invited_by` interim (no `office_id`) | N/A (no office col) | `test:rbac-invitations` | WEAK→interim OK |
+| Invitations list | GET `/rbac/invitations` | `requireAuthWithTenant` | trusted tenantId | `office_id` (+ NULL/`invited_by` transitional) | N/A until RLS on invitations | `test:rbac-invitations` + `test:invitations-058` | OK (after 058) |
 | Mediator stats | GET `/mediators/stats` | `requireSuperAdmin` | SA only | Global COUNT intentional | N/A | contract | OK |
 | Storage signed-url | GET `/api/storage/files/:id/signed-url` | `requireAuthWithTenant` | office | Prior verification | Defense | `test:storage-signed-open` | OK (no reopen) |
 | Stripe webhook | POST `/api/stripe/webhook` | Signature (not user auth) | N/A | Event-driven | N/A | Code present | UNKNOWN live |

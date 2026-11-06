@@ -10,7 +10,7 @@
 
 ### **CONDITIONAL GO**
 
-Controlled production launch is possible **only after** the conditions below are satisfied. Critical code defect **SEC-001** (notification cross-tenant exposure) is fixed and regression-tested on this branch; Gate 1 TypeScript must stay green; production apply of migrations/credentials and backup restore remain human-gated.
+Controlled production launch is possible **only after** the conditions below are satisfied. SEC-001/005/007/008 mitigated in code; Migration **058** (invitations.office_id) prepared but **not** applied to production; Gate 5 criticals cleared in lockfile tip; fail-open RLS remains per **ADR-001** until approved; human-gated secrets/backup/deploy remain.
 
 ---
 

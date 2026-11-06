@@ -1,8 +1,10 @@
 # Engineering Baseline — Adalah AI Recovery
 
 **Generated:** 2026-11-07 02:45 Asia/Riyadh  
+**Updated:** 2026-11-07 03:00 Asia/Riyadh — precision remediation pass  
 **Evidence window:** Stage 1 read-only inspection before further remediation  
-**Gate A:** Documented — remediation may proceed after this file lands on the recovery branch
+**Gate A:** Documented — remediation may proceed after this file lands on the recovery branch  
+**Reference SHA (handoff):** `56e2815` — verified identical at start of precision pass
 
 ---
 
@@ -63,41 +65,23 @@ Source: `gh pr checks 138` / Actions runs `42313008619` (push) and `42313014302`
 | Gate 9 — License | **PASS** | |
 | Docker — production Dockerfile | **PASS** | |
 | Gate 10 — Commit Convention | PASS on PR run / SKIPPED on push | Expected |
-| **Gate 1 — TypeScript** | **FAIL** | See §4.1 |
-| **Gate 5 — Dependency Audit** | **FAIL** | See §4.2 |
-| DB Migrations — test:db-migrations | **PENDING** at baseline capture | Re-check before release |
+| **Gate 1 — TypeScript** | **PASS** on `56e2815` CI | Re-verify after tip |
+| **Gate 5 — Dependency Audit** | **FAIL** on `56e2815`; **remediated locally** (orval≥8.21, proxy-addr≥2.0.8) | Push tip then re-check CI |
+| DB Migrations — test:db-migrations | Was pending at baseline; re-check on tip | |
 
-### 4.1 Gate 1 — TypeScript (VERIFIED locally after CI-equivalent build)
+### 4.1 Gate 1 — TypeScript
 
-CI sequence: `lib/db` tsc → `lib/api-zod` tsc → adala typecheck → api-server typecheck.
+TS2538 on `rbac.ts` fixed in `56e2815`. After lockfile refresh, `dotenv` declared on `@workspace/api-server` so `runSeed.ts` resolves (hoisting loss). Local typecheck **PASS**.
 
-Local reproduction after building `lib/db` + `lib/api-zod`:
+### 4.2 Gate 5 — Dependency Audit
 
-```text
-src/modules/platform/rbac.ts(480,32): error TS2538: Type 'undefined' cannot be used as an index type.
-```
+Critical advisories cleared locally (`CRITICAL=0`):
 
-**Count:** 1 error.  
-**Attribution:** Introduced on this PR by SEC-005 typing change in `rbac.ts` (`roleMap[m.role]` when `m.role` may be `undefined`).  
-**Release impact:** **P1** — blocks green CI / merge confidence.  
-**adala typecheck:** PASS locally.
+- `orval` upgraded `8.9.1` → `8.46.0` (devDependency `@workspace/api-spec`; build-time RCE class)
+- `proxy-addr` forced `>=2.0.8` via root `pnpm.overrides` (express transitive)
+- Root override also pins `orval: ">=8.21.0"`
 
-### 4.2 Gate 5 — Dependency Audit (VERIFIED locally)
-
-```text
-pnpm audit --audit-level=critical
-→ 12 critical (grep count of "critical" in output includes advisory text lines)
-Severity rollup: 9 low | 64 moderate | 66 high | 12 critical
-```
-
-Notable critical packages observed:
-
-- `orval` (via `lib/api-spec`) — RCE advisories; build-time codegen tool
-- `proxy-addr` (via `express`) — IP spoofing advisory
-
-**Attribution:** Dependency tree on `main`; **no lockfile changes** in PR #138 commits. Likely **pre-existing** relative to this recovery branch.  
-**Release impact:** **P1** for CI gate; product risk depends on whether vulnerable packages are runtime-reachable (orval is typically build-time).  
-**Action:** Confirm on `main` whether Gate 5 already fails; triage runtime vs build-time before broad upgrades.
+Remaining: high/moderate advisories — **not** Gate 5 blockers.
 
 ---
 

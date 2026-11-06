@@ -63,12 +63,12 @@ Statuses: **VERIFIED** | **FIXED** | **OPEN** | **NOT VERIFIED** | **ACCEPTED RI
 | Field | Value |
 |-------|--------|
 | Severity | HIGH |
-| Status | **FIXED (interim)** on this branch — schema still lacks `office_id` |
+| Status | **FIXED** (durable schema + API) — Migration **058** additive |
 | Component | `GET|POST|PATCH|DELETE /rbac/invitations` |
 | Reproduction | Pre-fix: any authenticated office user listed/mutated all invitations |
-| Fix applied | Office users: list/mutate only where `invited_by = userId`; POST binds `invitedBy` server-side; platform SA may list all |
-| Test evidence | `test:rbac-invitations` PASS |
-| Remaining risk | Same-office colleagues who did not create an invite cannot see it until `invitations.office_id` migration |
+| Fix applied | `office_id` column; POST binds office+inviter; LIST by office_id (NULL historical via invited_by); mutate via `canManageInvitation` |
+| Test evidence | `test:rbac-invitations`, `test:invitations-058` PASS |
+| Remaining risk | Prod must apply 058; invitation **acceptance** token→membership path still NOT VERIFIED |
 
 ## Finding SEC-007 — mediators/stats cross-tenant aggregates
 

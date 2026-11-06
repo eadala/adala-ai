@@ -1,5 +1,5 @@
 /**
- * Recovery P0/P1 — invitations must not dump all rows to any office user.
+ * Recovery — invitations office isolation (SEC-005).
  * Run: pnpm --filter @workspace/api-server run test:rbac-invitations
  */
 import assert from "node:assert/strict";
@@ -19,33 +19,35 @@ console.log("\n═══ GET /rbac/invitations isolation ═══");
   );
   assert.match(
     code,
-    /invitedBy,\s*userId|eq\(\s*invitationsTable\.invitedBy\s*,\s*userId\s*\)/,
-    "office users must filter invitations by invitedBy = userId",
+    /eq\(\s*invitationsTable\.officeId\s*,\s*tenantId\s*\)/,
+    "office tenants must filter by officeId",
+  );
+  assert.match(
+    code,
+    /isNull\(\s*invitationsTable\.officeId\s*\)/,
+    "historical NULL office_id rows remain invitedBy-scoped",
   );
   assert.match(code, /tenantId === ["']platform["']/);
-  /* Office branch must use invitedBy filter (platform branch may list all) */
-  assert.match(
-    code,
-    /tenantId === ["']platform["'][\s\S]{0,250}eq\(\s*invitationsTable\.invitedBy\s*,\s*userId\s*\)/,
-    "non-platform path must filter by invitedBy",
-  );
-  console.log("  ✅ invitations list scoped by invitedBy (platform may see all)");
+  console.log("  ✅ list scoped by officeId (+ NULL/invitedBy transitional)");
 }
 
-console.log("\n═══ POST binds invitedBy to auth user ═══");
+console.log("\n═══ POST binds officeId + invitedBy ═══");
 {
+  assert.match(code, /officeId:\s*tenantId/);
+  assert.match(code, /invitedBy:\s*userId/);
   assert.match(
     code,
-    /invitedBy:\s*userId/,
-    "POST must set invitedBy from authenticated userId",
+    /tenantId === ["']platform["'][\s\S]{0,120}403/,
+    "platform must not create office invites without office context",
   );
-  console.log("  ✅ invitedBy bound server-side");
+  console.log("  ✅ create binds trusted tenant + user");
 }
 
-console.log("\n═══ mutate ownership check ═══");
+console.log("\n═══ mutate ownership via canManageInvitation ═══");
 {
-  assert.match(code, /existing\.invitedBy !== userId/);
-  console.log("  ✅ resend/delete check invitedBy ownership");
+  assert.match(code, /canManageInvitation/);
+  assert.match(code, /inv\.officeId === tenantId|officeId === tenantId/);
+  console.log("  ✅ resend/delete office-aware");
 }
 
 console.log("\n═══ Stripe webhook registry path ═══");
@@ -65,6 +67,21 @@ console.log("\n═══ mediators/stats Super Admin ═══");
     /router\.get\(\s*["']\/mediators\/stats["']\s*,\s*requireSuperAdmin/,
   );
   console.log("  ✅ mediators/stats requires Super Admin");
+}
+
+console.log("\n═══ empty-tenant pool clear documented risk ═══");
+{
+  const app = readFileSync(join(HERE, "../app.ts"), "utf8");
+  assert.match(app, /set_config\('app\.current_tenant',\s*''/);
+  assert.match(
+    readFileSync(join(ROOT_ADR(), "docs/security/ADR-001-fail-closed-rls.md"), "utf8"),
+    /fail-closed|empty/,
+  );
+  console.log("  ✅ ADR present; pool clear still '' pending approved RLS migration");
+}
+
+function ROOT_ADR() {
+  return join(HERE, "..", "..", "..", "..");
 }
 
 console.log("\n✅ rbacInvitationsIsolation: all checks passed\n");

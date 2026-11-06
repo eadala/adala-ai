@@ -46,12 +46,10 @@ Statuses: VERIFIED | MITIGATED | OPEN | ACCEPTED RISK
 | Field | Detail |
 |-------|--------|
 | Trigger | `GET /rbac/invitations` selected all rows; mutate by id without ownership |
-| Root cause | **Schema has no `office_id`.** Product model implies office-owned invites, but table only has `invited_by`. Authorization could not express office boundary even with perfect middleware. |
-| Why interim `invited_by` is incomplete | Office admins who did not create an invite cannot manage it; departing inviter orphaning; acceptance/office assignment path not yet fully traced |
-| Remediation (interim) | Filter/mutate by `invited_by = userId`; POST binds `invitedBy` server-side |
-| Remediation (durable) | Additive migration `invitations.office_id` + backfill strategy for nulls + API filter by office + acceptance binds membership to that office |
-| Regression test | `test:rbac-invitations` |
-| Status | **MITIGATED (interim)** — durable schema **OPEN** (P1) |
+| Root cause | **Schema had no `office_id`.** Product model implies office-owned invites, but table only had `invited_by`. |
+| Remediation (durable) | Migration **058** additive `office_id TEXT NULL` (no invented backfill); POST binds `officeId` + `invitedBy` from auth; LIST by `office_id` OR (`NULL` AND `invited_by`); mutate via `canManageInvitation` |
+| Regression test | `test:rbac-invitations`, `test:invitations-058` |
+| Status | **MITIGATED** (historical NULL rows still invited_by-only; acceptance token flow still lacks dedicated office bind — NOT VERIFIED) |
 
 ### SEC-007 — mediators/stats global aggregates
 
@@ -79,10 +77,11 @@ Statuses: VERIFIED | MITIGATED | OPEN | ACCEPTED RISK
 
 | Field | Detail |
 |-------|--------|
-| Evidence | `056_rls_runtime_schema_authority.sql` policies include `OR current_setting('app.current_tenant', true) = ''` (and NULL / `bypass_rls`) |
-| Interaction | Response finish clears tenant to `''` — correct for pool isolation **only if** every subsequent request re-sets tenant before querying |
-| Failure mode | `requireAuth`-only handlers query under empty setting → policy allows all rows |
-| Status | **ACCEPTED RISK** for vault/service role pattern **if** app always sets tenant for user traffic; **OPEN** as systemic until aggregators/routes audited |
+| Evidence | `056`/`057` policies include empty-tenant OR + `bypass_rls` |
+| Interaction | `app.ts` clears tenant to `''` on finish |
+| Failure mode | `requireAuth`-only + empty GUC → fail-open under RLS |
+| Decision | **ADR-001** — do **not** rewrite applied policies / change clear sentinel without isolated verification + SA/bypass wiring + human approval |
+| Status | **BLOCKED pending ADR approval** for DB change; app-layer aggregators mitigated |
 
 ---
 
