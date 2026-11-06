@@ -21,6 +21,12 @@
 - **Verified:** PR #137 MERGED; Runtime RLS DDL absent on main `isolation.ts`.
 - **No code change.** Production apply still human-gated.
 
+### Follow-up hardening (same recovery branch)
+- **SEC-005:** `/rbac/invitations` scoped by `invited_by` (interim; no `office_id` yet).
+- **SEC-007:** `/mediators/stats` → `requireSuperAdmin`.
+- **SEC-008:** `integrationsRegistry` Stripe webhook path → `/api/stripe/webhook`.
+- Test: `test:rbac-invitations` (CI-wired).
+
 ### Docs added
 - `docs/security/SECURITY_AUDIT.md`
 - `docs/deployment/PRODUCTION_ENVIRONMENT_REFERENCE.md`

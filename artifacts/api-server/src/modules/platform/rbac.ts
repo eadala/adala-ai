@@ -8,6 +8,10 @@ import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 
 const router = Router();
 
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /* ══════════════════════════════════════════════════════
    FULL PERMISSIONS MATRIX (Adalah RBAC v2)
 ══════════════════════════════════════════════════════ */
@@ -203,8 +207,8 @@ router.get("/rbac/roles", requireAuthWithTenant, async (_req, res) => {
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     })));
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -223,8 +227,8 @@ router.post("/rbac/roles", requireAuthWithTenant, requirePermission("roles:creat
 
     await logAudit("create", "role", created.id, `إنشاء دور: ${displayName}`);
     res.status(201).json({ ...created, permissions: JSON.parse(created.permissions) });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(400).json({ error: errMsg(e) });
   }
 });
 
@@ -249,8 +253,8 @@ router.patch("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles:
 
     await logAudit("update", "role", updated.id, `تعديل دور: ${updated.displayName}`);
     res.json({ ...updated, permissions: JSON.parse(updated.permissions) });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(400).json({ error: errMsg(e) });
   }
 });
 
@@ -263,63 +267,103 @@ router.delete("/rbac/roles/:id", requireAuthWithTenant, requirePermission("roles
     await db.delete(rolesTable).where(eq(rolesTable.id, String(req.params.id)));
     await logAudit("delete", "role", String(req.params.id), `حذف دور: ${existing[0].displayName}`);
     res.status(204).end();
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
 // ─── INVITATIONS ────────────────────────────────────────────────────────────
+// Schema has no office_id — fail-closed: office users only see/mutate rows they
+// created (invited_by = userId). Platform Super Admin may list all. Full tenant
+// scoping requires a future migration adding invitations.office_id.
 
-router.get("/rbac/invitations", requireAuthWithTenant, async (_req, res) => {
+router.get("/rbac/invitations", requireAuthWithTenant, async (req, res) => {
   try {
-    const invitations = await db.select().from(invitationsTable).orderBy(desc(invitationsTable.createdAt));
-    res.json(invitations.map(i => ({
+    const userId = (req as { userId?: string }).userId;
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const rows =
+      tenantId === "platform"
+        ? await db.select().from(invitationsTable).orderBy(desc(invitationsTable.createdAt))
+        : await db
+            .select()
+            .from(invitationsTable)
+            .where(eq(invitationsTable.invitedBy, userId))
+            .orderBy(desc(invitationsTable.createdAt));
+
+    res.json(rows.map(i => ({
       ...i,
       createdAt: i.createdAt.toISOString(),
       expiresAt: i.expiresAt.toISOString(),
     })));
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
 router.post("/rbac/invitations", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
-    const { email, role, invitedBy } = req.body as { email: string; role: string; invitedBy?: string };
+    const userId = (req as { userId?: string }).userId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const { email, role } = req.body as { email: string; role: string };
     if (!email || !role) return res.status(400).json({ error: "البريد الإلكتروني والدور مطلوبان" });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    /* Never trust client-supplied invitedBy — bind to authenticated user */
     const [created] = await db.insert(invitationsTable).values({
-      email, role, invitedBy, status: "pending", expiresAt,
+      email, role, invitedBy: userId, status: "pending", expiresAt,
     }).returning();
 
-    await logAudit("invite", "user", undefined, `دعوة مستخدم: ${email} بدور ${role}`, invitedBy);
+    await logAudit("invite", "user", undefined, `دعوة مستخدم: ${email} بدور ${role}`, userId);
     res.status(201).json({ ...created, createdAt: created.createdAt.toISOString(), expiresAt: created.expiresAt.toISOString() });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(400).json({ error: errMsg(e) });
   }
 });
 
 router.patch("/rbac/invitations/:id/resend", requireAuthWithTenant, async (req, res) => {
   try {
+    const userId = (req as { userId?: string }).userId;
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const id = String(req.params.id);
+    const [existing] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "الدعوة غير موجودة" });
+    if (tenantId !== "platform" && existing.invitedBy !== userId) {
+      return res.status(404).json({ error: "الدعوة غير موجودة" });
+    }
+
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const [updated] = await db.update(invitationsTable)
       .set({ status: "pending", expiresAt })
-      .where(eq(invitationsTable.id, String(req.params.id)))
+      .where(eq(invitationsTable.id, id))
       .returning();
     if (!updated) return res.status(404).json({ error: "الدعوة غير موجودة" });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), expiresAt: updated.expiresAt.toISOString() });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
 router.delete("/rbac/invitations/:id", requireAuthWithTenant, requirePermission("users:create"), async (req, res) => {
   try {
-    await db.delete(invitationsTable).where(eq(invitationsTable.id, String(req.params.id)));
+    const userId = (req as { userId?: string }).userId;
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+    const id = String(req.params.id);
+    const [existing] = await db.select().from(invitationsTable).where(eq(invitationsTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "الدعوة غير موجودة" });
+    if (tenantId !== "platform" && existing.invitedBy !== userId) {
+      return res.status(404).json({ error: "الدعوة غير موجودة" });
+    }
+
+    await db.delete(invitationsTable).where(eq(invitationsTable.id, id));
     res.status(204).end();
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -329,8 +373,8 @@ router.get("/rbac/audit-logs", requireAuthWithTenant, async (_req, res) => {
   try {
     const logs = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(100);
     res.json(logs.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })));
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -349,8 +393,8 @@ router.patch("/rbac/users/:id/role", requireAuthWithTenant, requirePermission("r
     if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
     await logAudit("update_role", "user", String(req.params.id), `تغيير دور ${updated.fullName} إلى ${role}`);
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(400).json({ error: errMsg(e) });
   }
 });
 
@@ -364,8 +408,8 @@ router.patch("/rbac/users/:id/status", requireAuthWithTenant, async (req, res) =
     if (!updated) return res.status(404).json({ error: "المستخدم غير موجود" });
     await logAudit("update_status", "user", String(req.params.id), `تغيير حالة ${updated.fullName} إلى ${status}`);
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(400).json({ error: errMsg(e) });
   }
 });
 
@@ -388,8 +432,8 @@ router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
       SELECT role FROM office_members
       WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
       LIMIT 1
-    `) as any;
-    const mArr = Array.isArray(memberRows) ? memberRows : (memberRows?.rows ?? []);
+    `);
+    const mArr = (Array.isArray(memberRows) ? memberRows : ((memberRows as { rows?: unknown[] })?.rows ?? [])) as Array<{ role?: string }>;
     const roleName: string = mArr[0]?.role ?? "lawyer";
 
     await syncDefaultRoles();
@@ -398,8 +442,8 @@ router.get("/rbac/my-permissions", requireAuthWithTenant, async (req, res) => {
     const permissions: string[] = roleData ? JSON.parse(roleData.permissions) : [];
 
     res.json({ role: roleName, displayName: roleData?.displayName ?? roleName, permissions, officeId });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -421,19 +465,22 @@ router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
       LEFT JOIN users u ON u.clerk_id = om.user_id
       WHERE om.office_id = ${officeId}
       ORDER BY om.created_at ASC
-    `) as any;
-    const members = Array.isArray(rows) ? rows : (rows?.rows ?? []);
+    `);
+    const members = (Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] })?.rows ?? [])) as Array<{
+      role?: string;
+      [key: string]: unknown;
+    }>;
 
     await syncDefaultRoles();
     const allRoles = await db.select().from(rolesTable);
     const roleMap = Object.fromEntries(allRoles.map(r => [r.name, r.displayName]));
 
-    res.json(members.map((m: any) => ({
+    res.json(members.map((m) => ({
       ...m,
       roleDisplayName: roleMap[m.role] ?? m.role,
     })));
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -457,8 +504,8 @@ router.patch("/rbac/members/:memberId/role", requireAuthWithTenant, requirePermi
 
     await logAudit("update_role", "member", String(req.params.memberId), `تغيير الدور إلى ${role}`, currentUserId);
     res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
@@ -483,8 +530,8 @@ router.delete("/rbac/members/:memberId", requireAuthWithTenant, requirePermissio
 
     await logAudit("remove_member", "member", String(req.params.memberId), "إزالة عضو من المكتب", currentUserId);
     res.json({ success: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 

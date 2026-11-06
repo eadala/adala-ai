@@ -19,7 +19,7 @@ Controlled production launch is possible **only after** the conditions below are
 | Actual condition | Mature multi-tenant LegalTech stack on `main` through Migration **057**; one P0 notification leak remained and is fixed here |
 | Overall readiness | **CONDITIONAL GO** |
 | Critical risks closed in code | SEC-001 notifications + plan-notifications tenant scoping |
-| Critical risks still open | Production secrets / backup restore / live E2E **NOT VERIFIED**; invitations list RBAC (SEC-005) deferred |
+| Critical risks still open | Production secrets / backup restore / live E2E **NOT VERIFIED**; invitations still need `office_id` migration for full office-wide lists |
 | Work completed | Isolation fix, regression test, recovery docs |
 | Blockers for full GO | Explicit human approval for deploy; verified prod env; verified backup restore; CI green after merge |
 
@@ -31,7 +31,7 @@ Controlled production launch is possible **only after** the conditions below are
 |------|--------|-------|
 | Tenant isolation (notifications) | **PASS** (code + static contract test) | Live multi-office E2E **NOT VERIFIED** |
 | Authentication (Clerk) | **NOT VERIFIED** live | Code paths present |
-| Authorization (RBAC) | **PASS WITH LIMITATIONS** | SEC-005 invitations list OPEN |
+| Authorization (RBAC) | **PASS WITH LIMITATIONS** | SEC-005 interim invitedBy scoping; full office_id pending |
 | Storage signed-url | **PASS** (code review; prior verification) | Live R2 **NOT VERIFIED** |
 | Stripe webhook | **PASS** (signature path present) | Live webhook **NOT VERIFIED** |
 | HEAL fail-closed | **PASS** (code) | Requires `HEAL_SECRET` in prod |
@@ -67,6 +67,7 @@ Controlled production launch is possible **only after** the conditions below are
 | Test | Execution | Result |
 |------|-----------|--------|
 | `test:notifications-tenant` | Executed | **PASS** |
+| `test:rbac-invitations` | Executed | **PASS** |
 | Full unit / integration suite | Not fully re-run | NOT VERIFIED this session |
 | Live multi-tenant E2E | Not executed | NOT VERIFIED |
 | Stripe test-mode | Not executed | NOT VERIFIED |
@@ -81,12 +82,16 @@ Controlled production launch is possible **only after** the conditions below are
 
 - `artifacts/api-server/src/modules/operations/notifications.ts`
 - `artifacts/api-server/src/modules/financial/subscription.ts`
+- `artifacts/api-server/src/modules/platform/rbac.ts`
+- `artifacts/api-server/src/modules/legal-core/mediators.ts`
+- `artifacts/api-server/src/lib/integrationsRegistry.ts`
 - `artifacts/api-server/package.json`
 - `.github/workflows/ci.yml`
 
 **Created**
 
 - `artifacts/api-server/src/tests/notificationsTenantIsolation.test.ts`
+- `artifacts/api-server/src/tests/rbacInvitationsIsolation.test.ts`
 - `docs/recovery/INITIAL_PROJECT_STATE.md`
 - `docs/recovery/RECOVERY_CHANGELOG.md`
 - `docs/recovery/FINAL_GO_LIVE_DECISION.md`

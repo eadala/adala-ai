@@ -58,15 +58,37 @@ Statuses: **VERIFIED** | **FIXED** | **OPEN** | **NOT VERIFIED** | **ACCEPTED RI
 
 ---
 
-## Finding SEC-005 — RBAC invitations list (noted)
+## Finding SEC-005 — RBAC invitations list / IDOR
 
 | Field | Value |
 |-------|--------|
-| Severity | HIGH (potential) |
-| Status | **OPEN** — deferred (schema lacks `office_id` on `invitations`) |
-| Component | `GET /rbac/invitations` |
-| Fix deferred | Requires schema migration to add `office_id` before safe scoping |
-| Launch note | Track as P1; not same as SEC-001 aggregator |
+| Severity | HIGH |
+| Status | **FIXED (interim)** on this branch — schema still lacks `office_id` |
+| Component | `GET|POST|PATCH|DELETE /rbac/invitations` |
+| Reproduction | Pre-fix: any authenticated office user listed/mutated all invitations |
+| Fix applied | Office users: list/mutate only where `invited_by = userId`; POST binds `invitedBy` server-side; platform SA may list all |
+| Test evidence | `test:rbac-invitations` PASS |
+| Remaining risk | Same-office colleagues who did not create an invite cannot see it until `invitations.office_id` migration |
+
+## Finding SEC-007 — mediators/stats cross-tenant aggregates
+
+| Field | Value |
+|-------|--------|
+| Severity | MEDIUM |
+| Status | **FIXED** |
+| Component | `GET /mediators/stats` |
+| Fix applied | `requireSuperAdmin` (was bare `requireAuth` with global COUNTs) |
+| Test evidence | `test:rbac-invitations` includes contract assert |
+
+## Finding SEC-008 — Stripe webhook path discrepancy
+
+| Field | Value |
+|-------|--------|
+| Severity | MEDIUM (ops misconfig) |
+| Status | **FIXED** (registry) |
+| Component | `integrationsRegistry.ts` vs `app.ts` |
+| Evidence | Live handler is `POST /api/stripe/webhook`; registry previously advertised `/api/billing/stripe-webhook` |
+| Fix applied | Registry `webhookPath` aligned to `/api/stripe/webhook` |
 
 ---
 
