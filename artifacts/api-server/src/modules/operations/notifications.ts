@@ -1,18 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema-authority touch-up only */
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { Router } from "express";
+/**
+ * Notifications — tenant-scoped aggregation.
+ * Recovery P0: every office-owned query MUST filter by authenticated tenantId.
+ * Tables without office_id (invitations, messages) are omitted (fail-closed).
+ */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { Router, type Request } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
 
+type TenantRequest = Request & { tenantId?: string };
+
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
 /* ── GET /notifications ───────────────────────────────────────────────────── */
-router.get("/notifications", requireAuth, async (req, res) => {
+router.get("/notifications", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as TenantRequest).tenantId;
+  if (!tenantId || tenantId === "platform") {
+    /* Super Admin / missing office: never aggregate all tenants */
+    return res.json({ notifications: [], unreadCount: 0 });
+  }
+
   const now = new Date();
-  const in7Days  = new Date(now); in7Days.setDate(now.getDate() + 7);
-  const in30Days = new Date(now); in30Days.setDate(now.getDate() + 30);
-  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
-  const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
 
   const notifications: {
     id: string;
@@ -25,13 +38,16 @@ router.get("/notifications", requireAuth, async (req, res) => {
     read: boolean;
   }[] = [];
 
-  /* 1. Overdue invoices */
+  /* 1. Overdue invoices — office scoped */
   try {
     const rows = await db.execute(sql`
       SELECT id, title, total, due_date
       FROM client_invoices
-      WHERE status = 'overdue'
-         OR (status NOT IN ('paid','cancelled') AND due_date < NOW()::text)
+      WHERE office_id = ${tenantId}
+        AND (
+          status = 'overdue'
+          OR (status NOT IN ('paid','cancelled') AND due_date < NOW()::text)
+        )
       ORDER BY created_at DESC
       LIMIT 10
     `);
@@ -47,14 +63,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* table may be absent */ }
 
-  /* 2. Invoices due in 7 days (not yet overdue) */
+  /* 2. Invoices due in 7 days */
   try {
     const rows = await db.execute(sql`
       SELECT id, title, total, due_date
       FROM client_invoices
-      WHERE status NOT IN ('paid','cancelled','overdue')
+      WHERE office_id = ${tenantId}
+        AND status NOT IN ('paid','cancelled','overdue')
         AND due_date IS NOT NULL
         AND due_date::timestamp >= NOW()
         AND due_date::timestamp <= NOW() + INTERVAL '7 days'
@@ -73,14 +90,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   /* 3. Contracts expiring in 30 days */
   try {
     const rows = await db.execute(sql`
       SELECT id, title, expires_at
       FROM contracts
-      WHERE expires_at IS NOT NULL
+      WHERE office_id = ${tenantId}
+        AND expires_at IS NOT NULL
         AND expires_at > NOW()
         AND expires_at <= NOW() + INTERVAL '30 days'
       ORDER BY expires_at ASC
@@ -99,14 +117,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   /* 4. Upcoming events today/tomorrow */
   try {
     const rows = await db.execute(sql`
       SELECT id, title, start_at, event_type, location
       FROM events
-      WHERE start_at IS NOT NULL
+      WHERE office_id = ${tenantId}
+        AND start_at IS NOT NULL
         AND start_at >= NOW()
         AND start_at <= NOW() + INTERVAL '24 hours'
       ORDER BY start_at ASC
@@ -126,14 +145,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   /* 5. Events in next 7 days (beyond tomorrow) */
   try {
     const rows = await db.execute(sql`
       SELECT id, title, start_at, event_type
       FROM events
-      WHERE start_at IS NOT NULL
+      WHERE office_id = ${tenantId}
+        AND start_at IS NOT NULL
         AND start_at > NOW() + INTERVAL '24 hours'
         AND start_at <= NOW() + INTERVAL '7 days'
       ORDER BY start_at ASC
@@ -152,38 +172,17 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
-  /* 6. Pending invitations */
+  /* 6. Pending invitations — OMITTED: invitations table has no office_id (fail-closed) */
+
+  /* 7. Pending leave requests — scope via employees.office_id */
   try {
     const rows = await db.execute(sql`
-      SELECT id, email, role, created_at
-      FROM invitations
-      WHERE status = 'pending'
-        AND expires_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 5
-    `);
-    const count = (rows.rows ?? []).length;
-    if (count > 0) {
-      const emails = (rows.rows as any[]).map(r => r.email);
-      notifications.push({
-        id: "invitations-pending",
-        type: "warning",
-        category: "فريق العمل",
-        title: `${count} دعوة معلقة`,
-        body: count === 1 ? `${emails[0]} لم يقبل الدعوة بعد` : `${emails.slice(0, 2).join("، ")}${count > 2 ? ` و${count - 2} آخرون` : ""}`,
-        href: "/users",
-        createdAt: now.toISOString(),
-        read: false,
-      });
-    }
-  } catch {}
-
-  /* 7. Pending leave requests */
-  try {
-    const rows = await db.execute(sql`
-      SELECT COUNT(*) as cnt FROM leaves WHERE status = 'pending'
+      SELECT COUNT(*) as cnt
+      FROM leaves l
+      INNER JOIN employees e ON e.id = l.employee_id AND e.office_id = ${tenantId}
+      WHERE l.status = 'pending'
     `);
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
     if (cnt > 0) {
@@ -198,39 +197,16 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
-  /* 8. Recent inbound messages (last 24h) */
+  /* 8. Recent inbound messages — OMITTED: messages table has no office_id (fail-closed).
+     Internal inbox uses office_messages (separate surface). */
+
+  /* 9. Open cases */
   try {
     const rows = await db.execute(sql`
-      SELECT COUNT(*) as cnt
-      FROM messages
-      WHERE direction = 'inbound'
-        AND created_at >= NOW() - INTERVAL '24 hours'
+      SELECT COUNT(*) as cnt FROM cases WHERE status = 'open' AND office_id = ${tenantId}
     `);
-    const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
-    if (cnt > 0) {
-      notifications.push({
-        id: "messages-new",
-        type: "info",
-        category: "الرسائل",
-        title: `${cnt} رسالة واردة جديدة`,
-        body: "خلال الـ 24 ساعة الماضية",
-        href: "/messages",
-        createdAt: now.toISOString(),
-        read: false,
-      });
-    }
-  } catch {}
-
-  /* 9. Open cases (awareness) */
-  try {
-    /* SECURITY: scope to authenticated tenant */
-    const tenantId = (req as any).tenantId as string | undefined;
-    const rows = await db.execute(tenantId
-      ? sql`SELECT COUNT(*) as cnt FROM cases WHERE status = 'open' AND office_id = ${tenantId}`
-      : sql`SELECT COUNT(*) as cnt FROM cases WHERE 1=0`
-    );
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
     if (cnt > 5) {
       notifications.push({
@@ -244,14 +220,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   /* 10. Plan change notifications */
   try {
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
       FROM plan_notifications
-      WHERE is_read = FALSE
+      WHERE office_id = ${tenantId}
+        AND is_read = FALSE
       ORDER BY created_at DESC
       LIMIT 5
     `);
@@ -267,17 +244,18 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
-  /* 11. Low AI credits warning (< 20% remaining) */
+  /* 11. Low AI credits — this office only */
   try {
     const aiCrRows = await db.execute(sql`
       SELECT office_id, office_name, balance, monthly_allowance
       FROM office_ai_credits
-      WHERE monthly_allowance > 0
+      WHERE office_id = ${tenantId}
+        AND monthly_allowance > 0
         AND balance::numeric / NULLIF(monthly_allowance,0) < 0.20
       ORDER BY balance ASC
-      LIMIT 5
+      LIMIT 1
     `);
     for (const cr of (aiCrRows.rows ?? []) as any[]) {
       const pct = Math.round((Number(cr.balance) / Number(cr.monthly_allowance)) * 100);
@@ -292,14 +270,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
-  /* 12. Payment failure / forced downgrade alerts (last 7 days, unread) */
+  /* 12. Payment failure / forced downgrade alerts */
   try {
     const failRows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, created_at
       FROM plan_notifications
-      WHERE is_read = FALSE
+      WHERE office_id = ${tenantId}
+        AND is_read = FALSE
         AND type IN ('downgrade','failed_payment')
         AND created_at >= NOW() - INTERVAL '7 days'
       ORDER BY created_at DESC
@@ -317,9 +296,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
         read: false,
       });
     }
-  } catch {}
+  } catch { /* ignore */ }
 
-  /* Sort: errors first, then warnings, then info — then by date */
   const ORDER = { error: 0, warning: 1, info: 2, success: 3 };
   notifications.sort((a, b) => {
     const typeDiff = (ORDER[a.type] ?? 3) - (ORDER[b.type] ?? 3);
@@ -333,13 +311,14 @@ router.get("/notifications", requireAuth, async (req, res) => {
   });
 });
 
-export default router;
-
 /* POST /api/notifications/mark-read — mark plan notification as read */
 router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (req, res) => {
   try {
     const { planId } = req.params as Record<string, string>;
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = (req as TenantRequest).tenantId;
+    if (!tenantId || tenantId === "platform") {
+      return res.status(403).json({ ok: false, error: "لا يمكن تحديد المكتب" });
+    }
     if (planId.startsWith("plan-notif-")) {
       const realId = planId.replace("plan-notif-", "");
       await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId} AND office_id = ${tenantId}`);
@@ -371,13 +350,12 @@ export async function ensureOfficeNotificationSettingsTable(): Promise<void> {
 }
 
 /* GET /api/notifications/settings */
-router.get("/notifications/settings", requireAuth, async (req, res) => {
+router.get("/notifications/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const userId = (req as any).auth?.userId;
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(userId);
-    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const officeId = (req as TenantRequest).tenantId;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    }
     await ensureOfficeNotificationSettingsTable();
     const rows = await db.execute(sql`
       SELECT event_type, push_enabled, in_app_enabled, email_enabled
@@ -385,19 +363,18 @@ router.get("/notifications/settings", requireAuth, async (req, res) => {
       WHERE office_id = ${officeId}
     `);
     res.json({ settings: rows.rows ?? [] });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
 
 /* PATCH /api/notifications/settings */
-router.patch("/notifications/settings", requireAuth, async (req, res) => {
+router.patch("/notifications/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const userId = (req as any).auth?.userId;
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(userId);
-    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const officeId = (req as TenantRequest).tenantId;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    }
     const updates = req.body.settings as Array<{
       event_type: string;
       push_enabled: boolean;
@@ -423,7 +400,9 @@ router.patch("/notifications/settings", requireAuth, async (req, res) => {
       `);
     }
     res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    res.status(500).json({ error: errMsg(e) });
   }
 });
+
+export default router;

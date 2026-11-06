@@ -1,0 +1,112 @@
+# FINAL GO-LIVE DECISION — Adalah AI
+
+**Date:** 2026-11-07 (Asia/Riyadh)  
+**Branch:** `cursor/recovery-production-readiness-da81`  
+**Base:** `origin/main` @ `c9667a0`
+
+## Decision
+
+### **CONDITIONAL GO**
+
+Controlled production launch is possible **only after** the conditions below are satisfied. Critical code defect **SEC-001** (notification cross-tenant exposure) is fixed and regression-tested on this branch; production apply of migrations/credentials remains human-gated.
+
+---
+
+## A. Executive Summary
+
+| Topic | Status |
+|-------|--------|
+| Actual condition | Mature multi-tenant LegalTech stack on `main` through Migration **057**; one P0 notification leak remained and is fixed here |
+| Overall readiness | **CONDITIONAL GO** |
+| Critical risks closed in code | SEC-001 notifications + plan-notifications tenant scoping |
+| Critical risks still open | Production secrets / backup restore / live E2E **NOT VERIFIED**; invitations list RBAC (SEC-005) deferred |
+| Work completed | Isolation fix, regression test, recovery docs |
+| Blockers for full GO | Explicit human approval for deploy; verified prod env; verified backup restore; CI green after merge |
+
+---
+
+## B. Security
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Tenant isolation (notifications) | **PASS** (code + static contract test) | Live multi-office E2E **NOT VERIFIED** |
+| Authentication (Clerk) | **NOT VERIFIED** live | Code paths present |
+| Authorization (RBAC) | **PASS WITH LIMITATIONS** | SEC-005 invitations list OPEN |
+| Storage signed-url | **PASS** (code review; prior verification) | Live R2 **NOT VERIFIED** |
+| Stripe webhook | **PASS** (signature path present) | Live webhook **NOT VERIFIED** |
+| HEAL fail-closed | **PASS** (code) | Requires `HEAL_SECRET` in prod |
+| Migration 057 / RLS | **PASS** (merged on main) | Prod apply **NOT VERIFIED** |
+
+---
+
+## C. Application
+
+| Area | Classification |
+|------|----------------|
+| Frontend / Backend / DB schema | READY WITH LIMITATIONS |
+| Notifications API | READY (after this PR) |
+| AI (Gemini) | BLOCKED BY CONFIGURATION until prod key verified |
+| Payments (Stripe) | BLOCKED BY CONFIGURATION until prod webhook verified |
+| Core modules (cases, clients, etc.) | NOT VERIFIED end-to-end in this run |
+
+---
+
+## D. Infrastructure
+
+| Component | Status |
+|-----------|--------|
+| Hetzner / Coolify | NOT VERIFIED from agent |
+| PostgreSQL backups | NOT VERIFIED |
+| HTTPS / domain adalahai.com | NOT VERIFIED from agent |
+| Monitoring | NOT VERIFIED |
+
+---
+
+## E. Testing
+
+| Test | Execution | Result |
+|------|-----------|--------|
+| `test:notifications-tenant` | Executed | **PASS** |
+| Full unit / integration suite | Not fully re-run | NOT VERIFIED this session |
+| Live multi-tenant E2E | Not executed | NOT VERIFIED |
+| Stripe test-mode | Not executed | NOT VERIFIED |
+| Isolated DB restore | Not executed | NOT VERIFIED |
+| Build / tsc / lint | Deferred to CI on PR | NOT VERIFIED locally this session |
+
+---
+
+## F. Change Summary
+
+**Modified**
+
+- `artifacts/api-server/src/modules/operations/notifications.ts`
+- `artifacts/api-server/src/modules/financial/subscription.ts`
+- `artifacts/api-server/package.json`
+- `.github/workflows/ci.yml`
+
+**Created**
+
+- `artifacts/api-server/src/tests/notificationsTenantIsolation.test.ts`
+- `docs/recovery/INITIAL_PROJECT_STATE.md`
+- `docs/recovery/RECOVERY_CHANGELOG.md`
+- `docs/recovery/FINAL_GO_LIVE_DECISION.md`
+- `docs/security/SECURITY_AUDIT.md`
+- `docs/deployment/PRODUCTION_ENVIRONMENT_REFERENCE.md`
+- `docs/deployment/PRODUCTION_DEPLOYMENT_PLAN.md`
+- `docs/database/DATABASE_RECOVERY_REPORT.md`
+- `docs/architecture/FUTURE_EXTENSION_ARCHITECTURE.md`
+
+**Migrations / deps:** none added.
+
+---
+
+## G. Conditions for upgrading to GO
+
+1. Merge this PR after CI green.  
+2. Human confirms production env secrets (Clerk, Gemini, Stripe, R2, `HEAL_SECRET`).  
+3. Human confirms Migrations 053–057 applied on production.  
+4. Encrypted backup + restore drill documented.  
+5. Explicit approval to deploy.  
+6. Post-deploy smoke: login + Office A/B notification isolation + signed-url + AI + Stripe webhook health.
+
+Until then: **CONDITIONAL GO** — not full GO.
