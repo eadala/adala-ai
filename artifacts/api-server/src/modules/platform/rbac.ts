@@ -475,10 +475,13 @@ router.get("/rbac/members", requireAuthWithTenant, async (req, res) => {
     const allRoles = await db.select().from(rolesTable);
     const roleMap = Object.fromEntries(allRoles.map(r => [r.name, r.displayName]));
 
-    res.json(members.map((m) => ({
-      ...m,
-      roleDisplayName: roleMap[m.role] ?? m.role,
-    })));
+    res.json(members.map((m) => {
+      const role = typeof m.role === "string" ? m.role : "";
+      return {
+        ...m,
+        roleDisplayName: roleMap[role] ?? role,
+      };
+    }));
   } catch (e: unknown) {
     res.status(500).json({ error: errMsg(e) });
   }

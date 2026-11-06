@@ -27,6 +27,11 @@
 - **SEC-008:** `integrationsRegistry` Stripe webhook path → `/api/stripe/webhook`.
 - Test: `test:rbac-invitations` (CI-wired).
 
+### Stage 1 — Engineering baseline (2026-11-07)
+- `docs/recovery/ENGINEERING_BASELINE.md` (Gate A).
+- CI revalidated: Tests PASS; Gate 1 FAIL (TS2538 rbac) → fixed; Gate 5 FAIL (critical audits, likely pre-existing); DB Migrations pending at capture.
+- RCA + matrices + verification stubs: `docs/security/ROOT_CAUSE_ANALYSIS.md`, `TENANT_AUTHORIZATION_MATRIX.md`, `SECURITY_REGRESSION_REPORT.md`, migration/backup/Stripe/AI/runbook docs.
+
 ### Docs added
 - `docs/security/SECURITY_AUDIT.md`
 - `docs/deployment/PRODUCTION_ENVIRONMENT_REFERENCE.md`
