@@ -164,8 +164,8 @@ Security non-regression contract: no production code paths changed; suite assert
 |------|--------|
 | Pre-fix combined candidate SHA | `ad113dc56b09f687fc93d9143b3763604a44c068` |
 | Pre-fix combined tree | `b081417bf551e24e1078d37f815b6c553f58a2eb` |
-| Fix branch tip SHA | `fd3553f43e94b58175a6bb6c37a47787ae1147cb` |
-| Fix branch tree | `52cfb06a03d67564eaff223068208be5a06490cf` (CI reliability delta on `ad113dc`) |
+| Fix code commit | `fd3553f43e94b58175a6bb6c37a47787ae1147cb` (tree `52cfb06a03d67564eaff223068208be5a06490cf`) |
+| Fix branch tip (incl. this report) | see latest `cursor/release-db-migrations-reliability-da81` — do not reuse CI from `ad113dc` |
 | Intended merge content | #138 recovery + #139 P0 containment (+ this reliability delta if landed) |
 | Merge strategy | Prefer one verified tip; FF or tree-equal merge/squash to `ad113dc` lineage then reliability commits |
 | Coolify auto-deploy | **BLOCKED FOR HUMAN CONFIRMATION** (repo has no deploy workflow; external watch unknown) |
