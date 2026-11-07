@@ -22,4 +22,24 @@ Table `client_invoices_repro` with rows office-a / office-b; policy matching Mig
 
 **Verdict:** Empty/missing tenant is a verified bypass under 057 semantics. Fail-closed policy + explicit bypass closes it while preserving valid tenant and privileged paths.
 
+## Vault + ZTA (Migration 056 undercut → 060)
+
+On `cases_repro` with both PERMISSIVE policies:
+
+| Scenario | Empty tenant `count(*)` |
+|----------|-------------------------|
+| zta NULLIF only | 0 |
+| zta + vault fail-open (056-style empty OR) | **2** |
+| After Migration 060 vault fail-closed | **0** |
+
+## Compatibility snapshot
+
+| Combo | Empty tenant | Office-a |
+|-------|--------------|----------|
+| B: app `__unscoped__` + old fail-open rls | 0 | 1 |
+| C: app + 059 | 0 | 1 |
+| D: empty `''` + 059 | 0 (secure; old empty-all workflows break) | — |
+
+Owner role without FORCE: sees all rows (2). See `RLS_COMPATIBILITY_MATRIX_059.md`.
+
 Commands archived in agent shell history; re-run via ephemeral PG using same SQL in this session transcript.

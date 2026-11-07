@@ -1,121 +1,72 @@
-# FINAL GO-LIVE DECISION — Adalah AI
+# FINAL GO-LIVE DECISION — Adalah AI (RLS Closure)
 
 **Date:** 2026-11-07 (Asia/Riyadh)  
 **Branch:** `cursor/recovery-production-readiness-da81`  
-**Base:** `origin/main` @ `c9667a0`  
-**Baseline:** `docs/recovery/ENGINEERING_BASELINE.md` (Gate A)  
-**RCA:** `docs/security/ROOT_CAUSE_ANALYSIS.md`
+**PR:** #138  
+**Evidence tip before this closure commit:** `eef132a`  
+**Decision tip:** _(record SHA after push of vault-060 + Stripe bypass fix)_
 
-## Decision
+## Two decisions
 
-### **CONDITIONAL GO**
+| Decision | Verdict |
+|----------|---------|
+| **Merge readiness** | **READY** pending green CI on tip (Gates 1/5 + Tests + DB Migrations) |
+| **Production readiness** | **CONDITIONAL GO** |
 
-Controlled production launch is possible **only after** human-gated steps below. SEC-001/005/007/008 mitigated; Migrations **058**/**059** in repo (not applied to prod); Gate 5 criticals cleared on CI; ADR-001 fail-closed RLS **implemented** in app + 059 (vault/zta 056 still open); secrets/backup/deploy remain human-gated.
+## Exact evidence
 
----
+### Administrative bypass security
 
-## A. Executive Summary
-
-| Topic | Status |
+| Check | Result |
 |-------|--------|
-| Actual condition | Mature multi-tenant LegalTech stack on `main` through Migration **057**; one P0 notification leak remained and is fixed here |
-| Overall readiness | **CONDITIONAL GO** |
-| Critical risks closed in code | SEC-001 notifications + plan-notifications tenant scoping |
-| Critical risks still open | Production secrets / backup restore / live E2E **NOT VERIFIED**; invitations still need `office_id` migration for full office-wide lists |
-| Work completed | Isolation fix, regression test, recovery docs |
-| Blockers for full GO | Explicit human approval for deploy; verified prod env; verified backup restore; Gate 5 critical-audit triage; live E2E; invitations `office_id` if office-wide invite admin is required |
+| Ordinary tenant → `setBypassRlsSession` | **No** — only SA paths + signed Stripe |
+| Tenant admin → global bypass | **No** — office GUC only via `setOfficeTenantSession` |
+| Super Admin | Clerk `checkIsSuperAdmin` / `isSuperAdminUser` **before** bypass |
+| Stripe | `constructEvent` **before** bypass; route does not set bypass; `finally` clears |
+| Missing/invalid signature | Throws before bypass; HTTP 400 |
+| Pool clear | Deny sentinel + `bypass_rls=off` on finish (never `''`) |
+| platform tenant in tenantMiddleware | SA re-check before bypass |
 
----
+**Critical finding closed this turn:** Stripe route previously could set bypass before verify — removed; bypass only in `stripeEventBuffer` after `constructEvent`.
 
-## B. Security
+### Vault/ZTA
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Tenant isolation (notifications) | **PASS** (code + static contract test) | Live multi-office E2E **NOT VERIFIED** |
-| Authentication (Clerk) | **NOT VERIFIED** live | Code paths present |
-| Authorization (RBAC) | **PASS WITH LIMITATIONS** | SEC-005 interim invitedBy scoping; full office_id pending |
-| Storage signed-url | **PASS** (code review; prior verification) | Live R2 **NOT VERIFIED** |
-| Stripe webhook | **PASS** (signature path present) | Live webhook **NOT VERIFIED** |
-| HEAL fail-closed | **PASS** (code) | Requires `HEAL_SECRET` in prod |
-| Migration 057 / RLS | **PASS** (merged on main) | Prod apply **NOT VERIFIED** |
+| Item | Status |
+|------|--------|
+| 056 zta alone | Fail-closed (NULLIF) |
+| 056 vault empty OR | **Verified fail-open**; undercuts zta when both PERMISSIVE |
+| Migration **060** | Smallest fix; 056 not rewritten; zta untouched |
+| Isolated repro after 060 | Empty tenant **0** rows |
 
----
+### Effective RLS
 
-## C. Application
+| Item | Status |
+|------|--------|
+| 059 empty/NULL/`__unscoped__` | 0 rows (`adala_app`) |
+| Office match / bypass | 1 / all |
+| Table owner without FORCE | Sees all — **prod FORCE/owner UNKNOWN** |
+| App role BYPASSRLS | Must be absent — **prod NOT VERIFIED** |
 
-| Area | Classification |
-|------|----------------|
-| Frontend / Backend / DB schema | READY WITH LIMITATIONS |
-| Notifications API | READY (after this PR) |
-| AI (Gemini) | BLOCKED BY CONFIGURATION until prod key verified |
-| Payments (Stripe) | BLOCKED BY CONFIGURATION until prod webhook verified |
-| Core modules (cases, clients, etc.) | NOT VERIFIED end-to-end in this run |
+### Compatibility (A–D)
 
----
+See `docs/security/RLS_COMPATIBILITY_MATRIX_059.md`.  
+Safest sequence: **app first → 058 → 059 → 060**.
 
-## D. Infrastructure
+### CI
 
-| Component | Status |
-|-----------|--------|
-| Hetzner / Coolify | NOT VERIFIED from agent |
-| PostgreSQL backups | NOT VERIFIED |
-| HTTPS / domain adalahai.com | NOT VERIFIED from agent |
-| Monitoring | NOT VERIFIED |
+- Tip `eef132a`: Gates 1–9 SUCCESS; Gate 5 SUCCESS; Tests SUCCESS; DB Migrations was still in progress at last poll — **re-verify on new tip**.
+- Local contracts this turn: `rls-fail-closed-059`, `vault-rls-060`, notifications, invitations-058, rbac-invitations, stage9, ai-credits-039, rls-runtime-056 — **PASS**.
 
----
+### Remaining risks (human-gated)
 
-## E. Testing
+1. Production table ownership / FORCE / app role attributes not inventoried from live DB.
+2. Live multi-office E2E and Stripe live webhook not executed.
+3. Connection-pool GUC sticky behavior under production concurrency not load-tested.
+4. Backup restore drill not evidenced.
+5. Secrets presence verified by name only.
 
-| Test | Execution | Result |
-|------|-----------|--------|
-| `test:notifications-tenant` | Executed | **PASS** |
-| `test:rbac-invitations` | Executed | **PASS** |
-| CI Tests — existing suite | Executed on PR | **PASS** |
-| CI Gate 1 — TypeScript | Failed on `78f4c6f` (TS2538); fixed in follow-up | Re-verify on tip |
-| CI Gate 5 — Dependency Audit | FAIL (12 critical advisories; no lockfile change in PR) | Triage / NOT cleared |
-| CI DB Migrations | Pending at baseline capture | Re-check |
-| Live multi-tenant E2E | Not executed | NOT VERIFIED |
-| Stripe test-mode | Not executed | NOT VERIFIED |
-| Isolated DB restore | Not executed | NOT VERIFIED |
+### Required human approvals
 
----
+Merge CI green; backup/restore; secrets/Stripe; apply 058–060; Coolify deploy; role/FORCE inventory.
 
-## F. Change Summary
-
-**Modified**
-
-- `artifacts/api-server/src/modules/operations/notifications.ts`
-- `artifacts/api-server/src/modules/financial/subscription.ts`
-- `artifacts/api-server/src/modules/platform/rbac.ts`
-- `artifacts/api-server/src/modules/legal-core/mediators.ts`
-- `artifacts/api-server/src/lib/integrationsRegistry.ts`
-- `artifacts/api-server/package.json`
-- `.github/workflows/ci.yml`
-
-**Created**
-
-- `artifacts/api-server/src/tests/notificationsTenantIsolation.test.ts`
-- `artifacts/api-server/src/tests/rbacInvitationsIsolation.test.ts`
-- `docs/recovery/INITIAL_PROJECT_STATE.md`
-- `docs/recovery/RECOVERY_CHANGELOG.md`
-- `docs/recovery/FINAL_GO_LIVE_DECISION.md`
-- `docs/security/SECURITY_AUDIT.md`
-- `docs/deployment/PRODUCTION_ENVIRONMENT_REFERENCE.md`
-- `docs/deployment/PRODUCTION_DEPLOYMENT_PLAN.md`
-- `docs/database/DATABASE_RECOVERY_REPORT.md`
-- `docs/architecture/FUTURE_EXTENSION_ARCHITECTURE.md`
-
-**Migrations / deps:** none added.
-
----
-
-## G. Conditions for upgrading to GO
-
-1. Merge this PR after CI green.  
-2. Human confirms production env secrets (Clerk, Gemini, Stripe, R2, `HEAL_SECRET`).  
-3. Human confirms Migrations 053–057 applied on production.  
-4. Encrypted backup + restore drill documented.  
-5. Explicit approval to deploy.  
-6. Post-deploy smoke: login + Office A/B notification isolation + signed-url + AI + Stripe webhook health.
-
-Until then: **CONDITIONAL GO** — not full GO.
+**Agent did not deploy or apply production migrations.**

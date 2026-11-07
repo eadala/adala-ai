@@ -30,7 +30,6 @@ import { prometheusMiddleware, registry } from "./observability/prometheus";
 import { isSensitiveDotPath } from "./lib/sensitiveStaticPath";
 import {
   clearTenantSessionFailClosed,
-  setBypassRlsSession,
   setFailClosedTenantSession,
 } from "./lib/tenantSession";
 
@@ -65,8 +64,7 @@ app.post(
     const signature = req.headers["stripe-signature"];
     if (!signature) { res.status(400).json({ error: "Missing stripe-signature" }); return; }
     try {
-      /* Signed Stripe events are a privileged system path — explicit bypass (ADR-001). */
-      await setBypassRlsSession().catch(() => {});
+      /* Bypass is set ONLY inside processWebhook after signature verification. */
       const sig = Array.isArray(signature) ? signature[0] : signature;
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });

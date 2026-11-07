@@ -40,12 +40,12 @@ console.log("\n═══ App fail-closed session helpers ═══");
   assert.match(app, /setFailClosedTenantSession/);
   assert.match(app, /clearTenantSessionFailClosed/);
   assert.doesNotMatch(app, /set_config\('app\.current_tenant',\s*''/);
-  assert.match(app, /setBypassRlsSession/);
+  assert.doesNotMatch(app, /setBypassRlsSession/);
 
   const auth = strip(readSrc("middlewares/requireAuth.ts"));
   assert.match(auth, /setOfficeTenantSession/);
   assert.match(auth, /setBypassRlsSession/);
-  console.log("  ✅ app + SA + office session never clear to empty privilege");
+  console.log("  ✅ app deny-default; SA sets bypass; Stripe bypass not in route");
 }
 
 console.log("\n═══ Readiness accepts 057 or 059 quals ═══");

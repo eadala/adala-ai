@@ -59,7 +59,7 @@ export async function bufferAndProcess(
     throw new Error("STRIPE_WEBHOOK_SECRET not configured — rejecting unverified webhook");
   }
 
-  /* 1. Verify signature FIRST — security gate */
+  /* 1. Verify signature FIRST — security gate (before any RLS bypass) */
   const stripe = await getUncachableStripeClient();
   let event: any;
   try {
@@ -67,6 +67,10 @@ export async function bufferAndProcess(
   } catch {
     throw new Error("Webhook signature verification failed");
   }
+
+  /* 1b. Privileged DB context only after verified signature (ADR-001) */
+  const { setBypassRlsSession } = await import("../lib/tenantSession");
+  await setBypassRlsSession();
 
   const eventId   = event.id   as string;
   const eventType = event.type as string;

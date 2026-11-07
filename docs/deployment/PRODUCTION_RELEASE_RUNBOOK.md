@@ -1,41 +1,113 @@
-# Production Release Runbook
+# Production Release Runbook — RLS Closure (058 → 060)
 
-**Status:** PLAN ONLY — no deploy without explicit human approval (INV-009).
+**Status:** PLAN ONLY — no deploy, no production migration, no live credential changes without explicit human approval.
 
-## Release candidate identification
+**Candidate branch:** `cursor/recovery-production-readiness-da81`  
+**Record tip SHA at cut:** _(fill after green CI on merge commit)_
 
-1. Merge PR #138 only when Gate 1 TypeScript is green and required checks agreed.  
-2. Record exact merge commit SHA on `main` as **release SHA**.  
-3. Until then, recovery tip SHA is the candidate under test.
+## 0. Hard stops
 
-## Pre-deploy checklist
+Stop and request approval before: production migration apply, Coolify deploy, secret rotation, destructive schema, broad auth redesign.
 
-- [ ] CI: Tests suite PASS  
-- [ ] CI: Gate 1 TypeScript PASS  
-- [ ] CI: Gate 5 Dependency Audit triage complete (accept risk or upgrade)  
-- [ ] CI: DB Migrations job PASS  
-- [ ] Production backup taken + restore drill evidenced  
-- [ ] Migrations 053–057 confirmed applied or apply plan approved  
-- [ ] Secrets verified in Coolify (Clerk live, Stripe live + webhook URL `/api/stripe/webhook`, Gemini, R2, `HEAL_SECRET`)  
-- [ ] Explicit human deploy approval recorded  
+## 1. Backup verification
 
-## Deployment sequence
+- [ ] Confirm latest automated PostgreSQL backup completed successfully.
+- [ ] Record backup ID / timestamp (Asia/Riyadh).
+- [ ] Isolated restore drill into non-prod DB; verify `SELECT 1`, row counts on `offices`, `cases`, `clients`, `invitations`.
+- [ ] Do **not** overwrite production during drill.
 
-1. Backup  
-2. Migrations (if any pending) — approved operator only  
-3. Deploy API + frontend from release SHA via Coolify  
-4. Health: `GET /api/healthz`  
-5. Smoke: login, Office A/B notification isolation, signed-url, AI chat, Stripe test webhook health  
+## 2. Production migration inventory (read-only)
 
-## Rollback
+On prod (read-only / operator):
 
-1. Redeploy previous Coolify image/tag  
-2. Do not reverse 053–057 without DBA forward-fix plan  
-3. Disable checkout if payment path regresses  
+```sql
+-- Applied marker / schema_migrations style inventory as used in prod
+SELECT * FROM schema_migrations ORDER BY 1; -- or equivalent
+```
+
+Confirm presence/absence of:
+
+| Migration | Expectation before this release |
+|-----------|----------------------------------|
+| 053–057 | Should already be applied (main) |
+| 058 invitations.office_id | Pending unless previously applied |
+| 059 rls fail-closed | Pending |
+| 060 vault fail-closed | Pending |
+
+Run SELECT-only preflights from repo:
+
+- `scripts/db/preflight-migration-058.sql`
+- `scripts/db/preflight-migration-059.sql`
+- `scripts/db/preflight-migration-060.sql`
+
+## 3. Environment variable verification (no value paste)
+
+Coolify / secrets store must have names present (values human-verified offline):
+
+- Clerk live keys / JWKS
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- Stripe Dashboard webhook URL → `https://<prod-host>/api/stripe/webhook`
+- Gemini / R2 / `DATABASE_URL` / `HEAL_SECRET`
+
+## 4. Application deployment order (mandatory)
+
+Evidence: `docs/security/RLS_COMPATIBILITY_MATRIX_059.md`
+
+1. **Deploy updated API** (fail-closed GUCs, SA/webhook bypass after verify) — combination B.
+2. Health: `GET /api/healthz` → 200.
+3. Apply **058** (additive invitations.office_id).
+4. Apply **059** (rls_* fail-closed).
+5. Apply **060** (vault fail-closed).
+6. Redeploy same SHA only if needed for cache warm; no DB-before-app.
+
+**Forbidden without approval:** apply 059/060 then run old app that clears tenant to `''` as a long-lived state (D is security-safe but workflow-breaking).
+
+## 5. Health checks & smoke (post-cut)
+
+Authorized:
+
+- [ ] Office login + office switch
+- [ ] Client / case list for Office A
+- [ ] Contracts / documents open
+- [ ] Invitations list (office-scoped)
+- [ ] Notifications list (office-scoped)
+- [ ] Billing portal / AI credits read
+- [ ] Super Admin console (verified SA only)
+- [ ] Stripe test event with valid signature processes; invalid signature → 400, no bypass
+
+Unauthorized:
+
+- [ ] Office A token cannot read Office B notifications/cases
+- [ ] Non-SA cannot hit Super Admin routes
+- [ ] Missing/invalid Stripe signature rejected
+
+Concurrency:
+
+- [ ] Two parallel office sessions; no cross-tenant rows
+- [ ] After SA request, next ordinary request remains deny/office-scoped (pool reuse)
+
+## 6. Rollback / forward-recovery
+
+| Situation | Action |
+|-----------|--------|
+| App bad after deploy, DB not yet 059/060 | Redeploy previous Coolify image |
+| App + 059/060 applied; app bug | Forward-fix app; do not reverse 059/060 without DBA plan |
+| Migration 058/059/060 apply failure mid-script | Stop; restore from backup only with DBA; prefer forward fix of remaining statements |
+| Stripe webhook failures | Confirm signature secret + URL; app clears bypass in `finally` |
+
+## 7. Required human approvals
+
+- [ ] Merge PR #138
+- [ ] Backup + restore drill sign-off
+- [ ] Secrets / Stripe webhook sign-off
+- [ ] Explicit apply approval for 058 → 059 → 060
+- [ ] Explicit Coolify deploy approval
+- [ ] Production FORCE/owner role inventory (table owner vs app role)
 
 ## Decision log
 
 | Field | Value |
 |-------|--------|
-| Current verdict | **CONDITIONAL GO** |
+| Merge readiness | See `docs/recovery/FINAL_GO_LIVE_DECISION.md` |
+| Production readiness | **CONDITIONAL GO** until human gates clear |
 | Deploy executed by agent | **No** |

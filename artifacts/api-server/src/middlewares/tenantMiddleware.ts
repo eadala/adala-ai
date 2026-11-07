@@ -463,8 +463,21 @@ export async function requireAuthWithTenantAudit(
     (req as any).tenantTrace = trace.steps;
 
     const { runWithTenant } = await import("../core/tenantContext");
-    const { db } = await import("@workspace/db");
-    db.execute(sql`SELECT set_config('app.current_tenant', ${trace.tenantId}, false)`).catch(() => {});
+    const { setOfficeTenantSession, setBypassRlsSession } = await import("../lib/tenantSession");
+    /* platform tenant → bypass only after verified Super Admin (never by header alone). */
+    if (trace.tenantId === "platform") {
+      const isSA = await isSuperAdminUser(userId);
+      if (!isSA) {
+        return res.status(403).json({
+          error: "سياق المنصة غير متاح لهذا الحساب",
+          code: "PLATFORM_FORBIDDEN_FOR_USER",
+        });
+      }
+      (req as any).isSuperAdmin = true;
+      setBypassRlsSession().catch(() => {});
+    } else {
+      setOfficeTenantSession(trace.tenantId).catch(() => {});
+    }
     runWithTenant({ userId, officeId: trace.tenantId }, () => next());
   } catch (err: any) {
     auditTenantResolution(userId, null, err.message ?? "UNKNOWN", { ip, userAgent: ua });
@@ -480,6 +493,8 @@ export async function requireAuthWithTenantAudit(
       (req as any).isSuperAdmin = true;
       (req as any).tenantId = "platform";
       const { runWithTenant } = await import("../core/tenantContext");
+      const { setBypassRlsSession } = await import("../lib/tenantSession");
+      setBypassRlsSession().catch(() => {});
       return runWithTenant({ userId, officeId: "platform" }, () => next());
     }
     return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.", code: "TNT_403" });

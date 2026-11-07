@@ -29,8 +29,8 @@ Isolated reproduction (`adala_rls_repro`, role `adala_app`, PG 16):
 **Option C — Combined defense-in-depth**
 
 1. **Application:** Default session GUC to `__unscoped__` + `bypass_rls=off`; office routes set office id; Super Admin & signed Stripe webhook set `bypass_rls=on`; response finish restores deny sentinel (never `''`).
-2. **Database:** Migration **059** replaces fail-open `rls_*` policies with `nullif` + bypass only. Skips vault/zta (056) for separate follow-up.
-3. **No FORCE RLS** in 059 (table-owner semantics unchanged — document remaining risk if app connects as owner).
+2. **Database:** Migration **059** replaces fail-open `rls_*` policies with `nullif` + bypass only. Migration **060** closes 056 `vault_tenant_isolation` empty/NULL OR (zta untouched; 056 not rewritten).
+3. **No FORCE RLS** in 059/060 (table-owner semantics unchanged — document remaining risk if app connects as owner).
 
 ## Rejected alone
 
@@ -44,4 +44,4 @@ Isolated reproduction (`adala_rls_repro`, role `adala_app`, PG 16):
 
 ## Production
 
-Apply **059** only after backup + approval. Coordinate deploy so app version with bypass + fail-closed clear is live **before or with** 059.
+Apply **058 → 059 → 060** only after backup + approval. Coordinate deploy so app version with bypass-after-verify + fail-closed clear is live **before** 059/060.
