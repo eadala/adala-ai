@@ -463,7 +463,10 @@ export async function requireAuthWithTenantAudit(
     (req as any).tenantTrace = trace.steps;
 
     const { runWithTenant } = await import("../core/tenantContext");
-    const { setOfficeTenantSession, setBypassRlsSession } = await import("../lib/tenantSession");
+    const {
+      runWithOfficeDbScopeUntilResponse,
+      runWithBypassDbScopeUntilResponse,
+    } = await import("../lib/tenantSession");
     /* platform tenant → bypass only after verified Super Admin (never by header alone). */
     if (trace.tenantId === "platform") {
       const isSA = await isSuperAdminUser(userId);
@@ -474,11 +477,14 @@ export async function requireAuthWithTenantAudit(
         });
       }
       (req as any).isSuperAdmin = true;
-      setBypassRlsSession().catch(() => {});
-    } else {
-      setOfficeTenantSession(trace.tenantId).catch(() => {});
+      await runWithBypassDbScopeUntilResponse(res, () => {
+        runWithTenant({ userId, officeId: "platform" }, () => next());
+      });
+      return;
     }
-    runWithTenant({ userId, officeId: trace.tenantId }, () => next());
+    await runWithOfficeDbScopeUntilResponse(trace.tenantId, res, () => {
+      runWithTenant({ userId, officeId: trace.tenantId }, () => next());
+    });
   } catch (err: any) {
     auditTenantResolution(userId, null, err.message ?? "UNKNOWN", { ip, userAgent: ua });
     if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
@@ -493,9 +499,11 @@ export async function requireAuthWithTenantAudit(
       (req as any).isSuperAdmin = true;
       (req as any).tenantId = "platform";
       const { runWithTenant } = await import("../core/tenantContext");
-      const { setBypassRlsSession } = await import("../lib/tenantSession");
-      setBypassRlsSession().catch(() => {});
-      return runWithTenant({ userId, officeId: "platform" }, () => next());
+      const { runWithBypassDbScopeUntilResponse } = await import("../lib/tenantSession");
+      await runWithBypassDbScopeUntilResponse(res, () => {
+        runWithTenant({ userId, officeId: "platform" }, () => next());
+      });
+      return;
     }
     return res.status(403).json({ error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.", code: "TNT_403" });
   }

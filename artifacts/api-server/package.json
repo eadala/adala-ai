@@ -96,6 +96,7 @@
     "test:invitations-058": "node --import tsx src/tests/invitationsOfficeIdSchemaAuthority058.test.ts",
     "test:rls-fail-closed-059": "node --import tsx src/tests/rlsFailClosed059.test.ts",
     "test:vault-rls-060": "node --import tsx src/tests/vaultRlsFailClosed060.test.ts",
+    "test:guc-pool-containment-p0": "node --import tsx src/tests/gucPoolContainmentP0.test.ts",
     "test:stage9-security": "node --import tsx src/tests/stage9SecurityHardening.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",

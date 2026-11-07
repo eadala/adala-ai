@@ -68,8 +68,10 @@ export async function bufferAndProcess(
     throw new Error("Webhook signature verification failed");
   }
 
-  /* 1b. Privileged DB context only after verified signature (ADR-001) */
-  const { setBypassRlsSession } = await import("../lib/tenantSession");
+  /* 1b. Privileged DB scope only after verified signature (ADR-001 / P0) */
+  const { runWithBypassDbScope, setBypassRlsSession } = await import("../lib/tenantSession");
+
+  await runWithBypassDbScope(async () => {
   await setBypassRlsSession();
 
   const eventId   = event.id   as string;
@@ -133,6 +135,7 @@ export async function bufferAndProcess(
   /* 6. All retries exhausted → Dead Letter Queue */
   await moveToDLQ(eventId, eventType, event, lastError, MAX_RETRIES);
   throw new Error(`[StripeBuffer] Event ${eventId} failed after ${MAX_RETRIES} attempts — moved to DLQ`);
+  }); // end runWithBypassDbScope
 }
 
 /* ── Retry a specific DLQ entry ─────────────────────────────────── */
