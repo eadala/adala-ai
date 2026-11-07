@@ -31,7 +31,7 @@ console.log("\n═══ Migration 059 fail-closed ═══");
 console.log("\n═══ App fail-closed session helpers ═══");
 {
   const sess = readSrc("lib/tenantSession.ts");
-  assert.match(sess, /TENANT_DENY_SENTINEL\s*=\s*["']__unscoped__["']/);
+  assert.match(sess, /TENANT_DENY_SENTINEL\s*=\s*(["']__unscoped__["']|DB_DENY)/);
   assert.match(sess, /setFailClosedTenantSession/);
   assert.match(sess, /setBypassRlsSession/);
   assert.match(sess, /setOfficeTenantSession/);
@@ -43,9 +43,10 @@ console.log("\n═══ App fail-closed session helpers ═══");
   assert.doesNotMatch(app, /setBypassRlsSession/);
 
   const auth = strip(readSrc("middlewares/requireAuth.ts"));
-  assert.match(auth, /setOfficeTenantSession/);
+  assert.match(auth, /runWithOfficeDbScopeUntilResponse/);
+  assert.match(auth, /runWithBypassDbScopeUntilResponse/);
   assert.match(auth, /setBypassRlsSession/);
-  console.log("  ✅ app deny-default; SA sets bypass; Stripe bypass not in route");
+  console.log("  ✅ app deny-default; pinned office/bypass scopes; Stripe bypass not in route");
 }
 
 console.log("\n═══ Readiness accepts 057 or 059 quals ═══");
