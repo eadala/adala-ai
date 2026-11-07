@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; pagination touch-up */
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -195,8 +195,8 @@ router.put("/mediators/applications/:id", requireAuth, async (req: any, res) => 
   }
 });
 
-/* ── Stats for admin ── */
-router.get("/mediators/stats", requireAuth, async (_req, res) => {
+/* ── Stats for Super Admin only (cross-tenant aggregates) ── */
+router.get("/mediators/stats", requireSuperAdmin, async (_req, res) => {
   try {
     const stats = await exOne(sql`
       SELECT

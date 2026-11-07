@@ -20,6 +20,8 @@ export const invitationsTable = pgTable("invitations", {
   token:       text("token").notNull().$defaultFn(() => crypto.randomUUID()),
   status:      text("status").notNull().default("pending"),
   invitedBy:   text("invited_by"),
+  /** Migration 058 — office ownership; NULL = historical (invited_by interim only) */
+  officeId:    text("office_id"),
   createdAt:   timestamp("created_at").notNull().defaultNow(),
   expiresAt:   timestamp("expires_at").notNull(),
 });

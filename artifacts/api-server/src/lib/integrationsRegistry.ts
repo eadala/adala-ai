@@ -94,7 +94,7 @@ export const INTEGRATIONS_REGISTRY: IntegrationDefinition[] = [
     status: "active",
     requiredEnvVars: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
     optionalEnvVars: ["STRIPE_PLATFORM_COMMISSION_PERCENT"],
-    webhookPath: "/api/billing/stripe-webhook",
+    webhookPath: "/api/stripe/webhook",
     apiRoutes: ["/api/billing/*", "/api/payments/*"],
     settingsPage: "/payment-center",
     dbTable: "office_stripe_accounts",

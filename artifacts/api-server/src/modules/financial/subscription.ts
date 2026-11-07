@@ -1,5 +1,4 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { getAuth } from "@clerk/express";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
@@ -183,13 +182,18 @@ router.get("/office/subscription", requireAuthWithTenant, async (req, res) => {
 
 /* ─────────────────────────────────────────────────────
    GET /office/plan-notifications
-   Returns plan change notification history (last 20).
+   Returns plan change notification history (last 20) for THIS office only.
 ───────────────────────────────────────────────────── */
-router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
+router.get("/office/plan-notifications", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as { tenantId?: string }).tenantId;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    }
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
       FROM plan_notifications
+      WHERE office_id = ${officeId}
       ORDER BY created_at DESC
       LIMIT 20
     `);
@@ -201,16 +205,14 @@ router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
 
 /* ─────────────────────────────────────────────────────
    PATCH /office/plan-notifications/read-all
-   Mark all plan notifications as read.
+   Mark all plan notifications as read for THIS office only.
 ───────────────────────────────────────────────────── */
-router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res) => {
+router.patch("/office/plan-notifications/read-all", requireAuthWithTenant, async (req, res) => {
   try {
-    const auth = getAuth(req);
-    if (!auth?.userId) { res.status(401).json({ error: "غير مصرح" }); return; }
-    // Scope to requesting office's notifications only — never update ALL tenants
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined);
-    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", ok: false }); return; }
+    const officeId = (req as { tenantId?: string }).tenantId;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "لا يمكن تحديد المكتب", ok: false });
+    }
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: unknown) {

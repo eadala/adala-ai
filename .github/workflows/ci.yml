@@ -86,6 +86,11 @@ jobs:
           pnpm --filter @workspace/api-server run test:platform-runtime-055
           pnpm --filter @workspace/api-server run test:rls-runtime-056
           pnpm --filter @workspace/api-server run test:monitoring-isolation-057
+          pnpm --filter @workspace/api-server run test:notifications-tenant
+          pnpm --filter @workspace/api-server run test:rbac-invitations
+          pnpm --filter @workspace/api-server run test:invitations-058
+          pnpm --filter @workspace/api-server run test:rls-fail-closed-059
+          pnpm --filter @workspace/api-server run test:vault-rls-060
           pnpm --filter @workspace/api-server run test:stage9-security
           pnpm --filter @workspace/api-server run test:orphan-ai-refs
           pnpm --filter @workspace/api-server run test:stage152e

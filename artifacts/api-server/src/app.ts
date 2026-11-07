@@ -23,13 +23,15 @@ import {
   evaluateCorsOrigin,
 } from "./lib/corsOriginPolicy";
 import { WebhookHandlers } from "./webhookHandlers";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
 import { registerSwaggerDocs } from "./docs/swagger";
 import { prometheusMiddleware, registry } from "./observability/prometheus";
 import { isSensitiveDotPath } from "./lib/sensitiveStaticPath";
+import {
+  clearTenantSessionFailClosed,
+  setFailClosedTenantSession,
+} from "./lib/tenantSession";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -62,12 +64,15 @@ app.post(
     const signature = req.headers["stripe-signature"];
     if (!signature) { res.status(400).json({ error: "Missing stripe-signature" }); return; }
     try {
+      /* Bypass is set ONLY inside processWebhook after signature verification. */
       const sig = Array.isArray(signature) ? signature[0] : signature;
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
     } catch (err: unknown) {
       logger.error({ err }, "Stripe webhook error");
       res.status(400).json({ error: "Webhook processing error" });
+    } finally {
+      await clearTenantSessionFailClosed().catch(() => {});
     }
   }
 );
@@ -94,6 +99,13 @@ app.use(
 
 // ─── Request ID — attach before anything else ───────────────────────────────
 app.use(requestIdMiddleware);
+
+// ─── Fail-closed tenant GUC default (ADR-001) ───────────────────────────────
+// Deny by default on pooled connections; requireAuthWithTenant / SA / webhooks
+// elevate explicitly. Never leave empty tenant as an implicit privilege.
+app.use((_req, _res, next) => {
+  setFailClosedTenantSession().catch(() => {}).finally(() => next());
+});
 
 // ─── Prometheus request tracking ─────────────────────────────────────────────
 app.use(prometheusMiddleware());
@@ -300,13 +312,11 @@ app.use(((err: unknown, _req, res, next) => {
   next(err);
 }) as ErrorRequestHandler);
 
-// ─── RLS Session Reset ─────────────────────────────────────────────────────
-// After each response, clear the tenant session variable.
-// requireAuthWithTenant sets it per-request; this ensures the pool
-// connection never carries stale tenant state into the next request.
+// ─── RLS Session Reset (fail-closed) ───────────────────────────────────────
+// After each response, restore deny sentinel + bypass off (never clear to '').
 app.use((_req, res, next) => {
   res.on("finish", () => {
-    db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
+    clearTenantSessionFailClosed().catch(() => {});
   });
   next();
 });

@@ -35,7 +35,7 @@ function isolationPolicyName(table: string) {
 async function verifyIsolationRlsReadiness(
   table: string,
   tenantCol: string,
-): Promise<{ ready: boolean; ownedBy056?: boolean; error?: string }> {
+): Promise<{ ready: boolean; ownedBy056?: boolean; failClosed?: boolean; error?: string }> {
   const owned = await db.execute(sql`
     SELECT EXISTS (
       SELECT 1 FROM pg_policies p
@@ -74,16 +74,16 @@ async function verifyIsolationRlsReadiness(
   }
 
   const qual = String(row.policy_qual);
-  if (
-    !qual.includes(tenantCol)
-    || !/current_setting/i.test(qual)
-    || !/coalesce/i.test(qual)
-    || !/bypass_rls/i.test(qual)
-  ) {
+  const hasTenantSetting = qual.includes(tenantCol) && /current_setting/i.test(qual);
+  const hasBypass = /bypass_rls/i.test(qual);
+  /* Migration 057 fail-open (coalesce empty) OR Migration 059 fail-closed (nullif) */
+  const legacyFailOpen = /coalesce/i.test(qual);
+  const failClosed = /nullif/i.test(qual) && !/coalesce/i.test(qual);
+  if (!hasTenantSetting || !hasBypass || (!legacyFailOpen && !failClosed)) {
     return { ready: false, error: `${isolationPolicyName(table)} incompatible qual — manual review required` };
   }
 
-  return { ready: true };
+  return { ready: true, failClosed };
 }
 
 /* ── GET /isolation/rls-status ── حالة RLS لكل جدول ── */
