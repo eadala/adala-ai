@@ -37,7 +37,7 @@
 
 ## Migrations to confirm on production
 
-Apply order includes **053 → 057**. Confirm with DBA/ops:
+Confirm **053 → 057** already applied. Then after updated app deploy, apply **058 → 059 → 060** (approved operator only):
 
 ```text
 053_security_centers_schema_authority.sql
@@ -45,9 +45,29 @@ Apply order includes **053 → 057**. Confirm with DBA/ops:
 055_platform_runtime_b2_schema_authority.sql
 056_rls_runtime_schema_authority.sql
 057_monitoring_isolation_rls_schema_authority.sql
+058_invitations_office_id_schema_authority.sql
+059_rls_fail_closed_empty_tenant.sql
+060_vault_rls_fail_closed.sql
 ```
 
+Preflights: `scripts/db/preflight-migration-058.sql` … `060.sql`.  
+Role inventory (read-only): `scripts/db/prod-rls-role-inventory.sql`.
+
 **Do not apply from this agent without explicit human authorization.**
+
+## Config checklist (presence only — never paste values)
+
+| Area | Required | Agent status |
+|------|----------|--------------|
+| Clerk live keys | Yes | **NOT VERIFIED** |
+| Stripe live + webhook → `/api/stripe/webhook` | Yes | **NOT VERIFIED** |
+| Gemini | Yes (AI) | **NOT VERIFIED** |
+| Cloudflare R2 | Yes (docs) | **NOT VERIFIED** |
+| `HEAL_SECRET` ≥12 | Yes for heal | **NOT VERIFIED** |
+| PostgreSQL `DATABASE_URL` | Yes | **NOT VERIFIED** (unset in agent) |
+| Coolify deploy target | Yes | **NOT VERIFIED** |
+| HTTPS / domain | Yes | **NOT VERIFIED** |
+| Monitoring / healthz | Yes | **NOT VERIFIED** |
 
 ## Agent environment note
 
