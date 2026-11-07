@@ -12,8 +12,12 @@ on:
   # Allow manual / API re-run when bot pushes do not emit pull_request/push events.
   workflow_dispatch:
 
+# Unify push + pull_request for the same head branch. Previously push used
+# refs/heads/<branch> while pull_request used refs/pull/<n>/merge, so both ran
+# the ~60–90m DB Migrations job concurrently and left one check IN_PROGRESS
+# even after the other succeeded on the same tip SHA.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -108,6 +112,10 @@ jobs:
   db-migrations:
     name: "DB Migrations — test:db-migrations"
     runs-on: ubuntu-latest
+    # Historical successful runs (Migration 057 era) completed in ~89–91 minutes.
+    # Bound the job so a true hang fails loudly instead of sitting IN_PROGRESS for hours.
+    # Do not lower this to "hide" failures — the suite is legitimately long-running.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -148,6 +156,7 @@ jobs:
       - name: Run migration integration tests
         # Reuses package.json → scripts/db/test-migrations.integration.sh
         # Creates ephemeral DBs + CI-only role adala_test / test (no secrets).
+        # Expect ~60–90 minutes. Quiet migration applies suppress NOTICE flood.
         run: pnpm run test:db-migrations
 
   # ─────────────────────────────────────────
