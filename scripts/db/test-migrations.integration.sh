@@ -119,74 +119,84 @@ psql_db() {
   sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$TEST_DB" "$@"
 }
 
+# Apply a migration SQL file quietly for CI reliability.
+# IF NOT EXISTS / "already exists" NOTICE spam previously flooded GHA logs
+# (100MB+/run) and inflated wall-clock I/O on the ~90-minute suite.
+# WARNING/ERROR remain visible. Intentional NOTICE assertions call psql_db
+# directly with 2>&1 log capture (default client_min_messages=notice).
+apply_sql_file_quiet() {
+  local f="$1"
+  sudo -u postgres env PGOPTIONS="-c client_min_messages=warning"     psql -v ON_ERROR_STOP=1 -d "$TEST_DB" -f "$f" >/dev/null
+}
+
 teardown_db() {
   [[ -n "${TEST_DB:-}" ]] && sudo -u postgres psql -c "DROP DATABASE IF EXISTS \"${TEST_DB}\";" >/dev/null 2>&1 || true
 }
 
 apply_migrations_base() {
   for f in "${MIGRATIONS_BASE[@]}"; do
-    psql_db -f "$f" >/dev/null
+    apply_sql_file_quiet "$f"
   done
 }
 
 apply_migration_006() {
-  psql_db -f "$MIGRATION_006" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_006"
 }
 
 apply_migration_007() {
-  psql_db -f "$MIGRATION_007" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_007"
 }
 
 apply_migration_008() {
-  psql_db -f "$MIGRATION_008" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_008"
 }
 
 apply_migration_009() {
-  psql_db -f "$MIGRATION_009" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_009"
 }
 
 apply_migration_010() {
-  psql_db -f "$MIGRATION_010" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_010"
 }
 
 apply_migration_011() {
-  psql_db -f "$MIGRATION_011" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_011"
 }
 
 apply_migration_012() {
-  psql_db -f "$MIGRATION_012" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_012"
 }
 
 apply_migration_013() {
-  psql_db -f "$MIGRATION_013" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_013"
 }
 
 apply_migration_014() {
-  psql_db -f "$MIGRATION_014" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_014"
 }
 
 apply_migration_015() {
-  psql_db -f "$MIGRATION_015" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_015"
 }
 
 apply_migration_016() {
-  psql_db -f "$MIGRATION_016" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_016"
 }
 
 apply_migration_017() {
-  psql_db -f "$MIGRATION_017" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_017"
 }
 
 apply_migration_018() {
-  psql_db -f "$MIGRATION_018" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_018"
 }
 
 apply_migration_019() {
-  psql_db -f "$MIGRATION_019" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_019"
 }
 
 apply_migration_020() {
-  psql_db -f "$MIGRATION_020" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_020"
 }
 
 apply_migration_021() {
@@ -199,43 +209,43 @@ apply_migration_021() {
     skip "021_rag_schema_foundation.sql (pgvector extension not available)"
     return 0
   fi
-  psql_db -f "$MIGRATION_021" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_021"
 }
 
 apply_migration_025() {
-  psql_db -f "$MIGRATION_025" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_025"
 }
 
 apply_migration_026() {
-  psql_db -f "$MIGRATION_026" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_026"
 }
 
 apply_migration_027() {
-  psql_db -f "$MIGRATION_027" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_027"
 }
 
 apply_migration_028() {
-  psql_db -f "$MIGRATION_028" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_028"
 }
 
 apply_migration_029() {
-  psql_db -f "$MIGRATION_029" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_029"
 }
 
 apply_migration_030() {
-  psql_db -f "$MIGRATION_030" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_030"
 }
 
 apply_migration_031() {
-  psql_db -f "$MIGRATION_031" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_031"
 }
 
 apply_migration_032() {
-  psql_db -f "$MIGRATION_032" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_032"
 }
 
 apply_migration_033() {
-  psql_db -f "$MIGRATION_033" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_033"
 }
 
 # P0 verify requires billing (025) + promo (026) + analytics (027) + autopilot (028).
@@ -334,99 +344,99 @@ verify_p0_schema() {
 }
 
 apply_migration_034() {
-  psql_db -f "$MIGRATION_034" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_034"
 }
 
 apply_migration_035() {
-  psql_db -f "$MIGRATION_035" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_035"
 }
 
 apply_migration_036() {
-  psql_db -f "$MIGRATION_036" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_036"
 }
 
 apply_migration_037() {
-  psql_db -f "$MIGRATION_037" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_037"
 }
 
 apply_migration_038() {
-  psql_db -f "$MIGRATION_038" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_038"
 }
 
 apply_migration_039() {
-  psql_db -f "$MIGRATION_039" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_039"
 }
 
 apply_migration_040() {
-  psql_db -f "$MIGRATION_040" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_040"
 }
 
 apply_migration_041() {
-  psql_db -f "$MIGRATION_041" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_041"
 }
 
 apply_migration_042() {
-  psql_db -f "$MIGRATION_042" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_042"
 }
 
 apply_migration_043() {
-  psql_db -f "$MIGRATION_043" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_043"
 }
 
 apply_migration_044() {
-  psql_db -f "$MIGRATION_044" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_044"
 }
 
 apply_migration_045() {
-  psql_db -f "$MIGRATION_045" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_045"
 }
 
 apply_migration_046() {
-  psql_db -f "$MIGRATION_046" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_046"
 }
 
 apply_migration_047() {
-  psql_db -f "$MIGRATION_047" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_047"
 }
 
 apply_migration_048() {
-  psql_db -f "$MIGRATION_048" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_048"
 }
 
 apply_migration_049() {
-  psql_db -f "$MIGRATION_049" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_049"
 }
 
 apply_migration_050() {
-  psql_db -f "$MIGRATION_050" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_050"
 }
 
 apply_migration_051() {
-  psql_db -f "$MIGRATION_051" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_051"
 }
 
 apply_migration_052() {
-  psql_db -f "$MIGRATION_052" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_052"
 }
 
 apply_migration_053() {
-  psql_db -f "$MIGRATION_053" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_053"
 }
 
 apply_migration_054() {
-  psql_db -f "$MIGRATION_054" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_054"
 }
 
 apply_migration_055() {
-  psql_db -f "$MIGRATION_055" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_055"
 }
 
 apply_migration_056() {
-  psql_db -f "$MIGRATION_056" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_056"
 }
 
 apply_migration_057() {
-  psql_db -f "$MIGRATION_057" >/dev/null
+  apply_sql_file_quiet "$MIGRATION_057"
 }
 
 apply_migrations_through_013() {
@@ -15447,6 +15457,8 @@ scenario_migration_033_document_v2() {
 require_cmd
 ensure_test_role
 log "DB migration integration tests (local PostgreSQL only)"
+echo "  Expected duration on GHA: ~60–90 minutes (historically ~90m before NOTICE suppression)."
+echo "  Quiet applies use client_min_messages=warning; NOTICE assertions still capture via psql_db."
 if [[ "${FOCUS_SCENARIO:-}" == "033" ]]; then
   scenario_migration_033_document_v2
   echo ""
