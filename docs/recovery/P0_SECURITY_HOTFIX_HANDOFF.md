@@ -9,7 +9,7 @@
 | Frozen RC SHA | `b3d9a0afd1b45486296910827824363bd9ed6810` |
 | Frozen branch | `cursor/recovery-production-readiness-da81` (untouched by this hotfix) |
 | Hotfix branch | `cursor/security-p0-guc-containment-da81` |
-| Hotfix SHA | _(see `git rev-parse HEAD` after push)_ |
+| Hotfix SHA | `7fffe90` (update if amended) |
 | Recovery PR | #138 (not auto-merged; not modified by force) |
 
 ## B. Root Cause
