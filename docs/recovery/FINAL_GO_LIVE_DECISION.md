@@ -4,7 +4,7 @@
 **Branch:** `cursor/recovery-production-readiness-da81`  
 **PR:** #138  
 **Evidence tip before this closure commit:** `eef132a`  
-**Decision tip:** _(record SHA after push of vault-060 + Stripe bypass fix)_
+**Decision tip:** `a2d51165658df670b3e6aab48af57674673f498c`
 
 ## Two decisions
 
