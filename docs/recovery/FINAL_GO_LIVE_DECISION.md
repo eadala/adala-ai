@@ -33,7 +33,7 @@
 | Gate 10 — Commit Convention | **PASS** / SKIPPED (duplicate run) |
 | Tests — existing suite | **PASS** |
 | Docker — production Dockerfile | **PASS** |
-| DB Migrations — test:db-migrations | **PENDING** at decision write (re-confirm before merge) |
+| DB Migrations — test:db-migrations | On `6abb08e`: **CANCELLED** (superseded by docs pushes before job finished). **Must PASS** on branch tip before merge. |
 | Mergeable | **MERGEABLE** (GitHub) |
 
 Local contracts (agent): `rls-fail-closed-059`, `vault-rls-060`, notifications, invitations-058, rbac-invitations, stage9, tenant-heal7, ai-credits-039, rls-runtime-056 — **PASS**.
@@ -124,9 +124,9 @@ See `docs/database/MIGRATION_SEQUENCE_058_060.md` and `docs/security/RLS_COMPATI
 
 ## 9. Merge readiness
 
-### **READY** (conditional on DB Migrations job **PASS** on tip)
+### **READY** once tip CI includes DB Migrations **PASS**
 
-Do **not** merge automatically. No further security code changes required for the closed findings unless CI fails or prod role inventory surfaces a blocker.
+Do **not** merge automatically. Reference SHA `6abb08e` had all quality gates + Tests + Docker **PASS**, but DB Migrations was **cancelled** when docs commits superseded the run — re-confirm DB Migrations on the current tip before merge. No further security code changes required for closed findings unless CI fails or prod role inventory surfaces a blocker.
 
 ---
 
