@@ -3,7 +3,8 @@
 **Date:** 2026-11-07 (Asia/Riyadh)  
 **Repository:** `eadala/adala-ai`  
 **PR:** [#138](https://github.com/eadala/adala-ai/pull/138)  
-**Exact final SHA:** `6abb08e6c25a0b0e1934f2c045f470b5c2ebb842`  
+**Verification reference SHA (mandated):** `6abb08e6c25a0b0e1934f2c045f470b5c2ebb842`  
+**Docs preflight tip (this file + inventory SQL):** `8cb8e8ef4822776f4fe49e386b3033cc1e9774df`  
 **Security closure commit:** `a2d51165658df670b3e6aab48af57674673f498c`  
 **Branch:** `cursor/recovery-production-readiness-da81`
 
@@ -11,7 +12,8 @@
 
 ## 1. Exact final SHA
 
-`6abb08e6c25a0b0e1934f2c045f470b5c2ebb842`
+- **Security/CI reference:** `6abb08e6c25a0b0e1934f2c045f470b5c2ebb842` (Gates 1–10 + Tests + Docker **PASS**; DB Migrations was still running when preflight docs were authored).
+- **Branch tip after docs-only preflight:** record via `git rev-parse HEAD` on `cursor/recovery-production-readiness-da81` (expected `8cb8e8e…` or successor docs-only).
 
 ---
 
