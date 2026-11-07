@@ -4,7 +4,7 @@
 **Branch:** `cursor/recovery-production-readiness-da81`  
 **PR:** #138  
 **Evidence tip before this closure commit:** `eef132a`  
-**Decision tip:** `a2d51165658df670b3e6aab48af57674673f498c`
+**Decision tip:** `d61516238b33f71d8d8d22b97433fe05738ea195` (docs SHA; security closure `a2d5116`)
 
 ## Two decisions
 
