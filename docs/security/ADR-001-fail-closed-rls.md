@@ -1,41 +1,47 @@
 # ADR-001 — Fail-closed RLS vs empty `app.current_tenant`
 
-**Status:** Proposed — **not implemented** in this recovery batch  
+**Status:** **Accepted & Implemented** (Migration **059** + app session helpers)  
 **Date:** 2026-11-07 (Asia/Riyadh)  
-**Related:** Root Cause B, Migrations 056/057
+**Evidence SHA tip:** see git log / PR #138  
+**Related:** Root Cause B, Migrations 056/057/059
 
 ## Context
 
-Migrations **056** and **057** deliberately encode:
+Migrations **056** and **057** encoded empty/missing tenant as allow:
 
 ```sql
 OR coalesce(current_setting('app.current_tenant', true), '') = ''
 OR current_setting('app.bypass_rls', true) = 'on'
 ```
 
-`app.ts` clears the session GUC to `''` after each response for pool hygiene. Combined with `requireAuth`-only handlers, empty tenant becomes fail-**open** under RLS.
+Isolated reproduction (`adala_rls_repro`, role `adala_app`, PG 16):
 
-## Decision (this recovery)
+| Scenario | Rows (fail-open 057) | Rows (fail-closed 059) |
+|----------|----------------------|-------------------------|
+| Missing tenant | 2 (A+B) | 0 |
+| Empty `''` | 2 | 0 |
+| `office-a` | 1 | 1 |
+| `__unscoped__` sentinel | 0 | 0 |
+| `bypass_rls=on` | 2 | 2 |
 
-**Do not** rewrite applied 056/057 policies in PR #138 without:
+## Decision
 
-1. Isolated database verification of every table with `rls_*` / `vault_*` / `zta_*`.
-2. Explicit Super Admin / cron / Stripe webhook / heal paths setting `app.bypass_rls=on` (not empty tenant).
-3. Human approval for production migration apply.
+**Option C — Combined defense-in-depth**
 
-Changing `app.ts` clear from `''` to a deny sentinel **without** the above breaks Super Admin and any job that currently relies on empty-tenant OR-bypass.
+1. **Application:** Default session GUC to `__unscoped__` + `bypass_rls=off`; office routes set office id; Super Admin & signed Stripe webhook set `bypass_rls=on`; response finish restores deny sentinel (never `''`).
+2. **Database:** Migration **059** replaces fail-open `rls_*` policies with `nullif` + bypass only. Skips vault/zta (056) for separate follow-up.
+3. **No FORCE RLS** in 059 (table-owner semantics unchanged — document remaining risk if app connects as owner).
 
-## Interim controls (implemented / retained)
+## Rejected alone
 
-- Application query scoping + `requireAuthWithTenant` on verified aggregators (SEC-001).
-- Invitation office ownership via Migration **058** + API filters (SEC-005).
-- Contract tests for notifications / invitations.
-- Document empty-tenant as known defense-in-depth gap until 059+.
-
-## Future migration sketch (approval required)
-
-New migration (e.g. **059**): replace empty-tenant OR with require `bypass_rls=on` for privileged access; DROP/CREATE policy only after readiness inventory; pair with app changes setting bypass for SA/system roles and a non-empty deny sentinel on request finish.
+- **App-only sentinel without 059:** Fresh connections still fail-open under coalesce-empty until first middleware; policy itself remains unsafe.
+- **Policy-only without app bypass:** Super Admin / webhooks / jobs break when empty OR removed.
 
 ## Rollback
 
-N/A — ADR only; no schema change from this document.
+- App: revert to previous middleware / clear-to-empty (not recommended).
+- DB: restore prior `rls_*` policy defs from Migration 057 backup; no automatic down migration.
+
+## Production
+
+Apply **059** only after backup + approval. Coordinate deploy so app version with bypass + fail-closed clear is live **before or with** 059.

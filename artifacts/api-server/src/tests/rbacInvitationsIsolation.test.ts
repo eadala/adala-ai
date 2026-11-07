@@ -69,19 +69,16 @@ console.log("\n═══ mediators/stats Super Admin ═══");
   console.log("  ✅ mediators/stats requires Super Admin");
 }
 
-console.log("\n═══ empty-tenant pool clear documented risk ═══");
+console.log("\n═══ fail-closed pool clear (ADR-001 implemented) ═══");
 {
   const app = readFileSync(join(HERE, "../app.ts"), "utf8");
-  assert.match(app, /set_config\('app\.current_tenant',\s*''/);
+  assert.doesNotMatch(app, /set_config\('app\.current_tenant',\s*''/);
+  assert.match(app, /clearTenantSessionFailClosed|setFailClosedTenantSession/);
   assert.match(
-    readFileSync(join(ROOT_ADR(), "docs/security/ADR-001-fail-closed-rls.md"), "utf8"),
-    /fail-closed|empty/,
+    readFileSync(join(HERE, "..", "..", "..", "..", "docs/security/ADR-001-fail-closed-rls.md"), "utf8"),
+    /Accepted|Implemented|fail-closed/i,
   );
-  console.log("  ✅ ADR present; pool clear still '' pending approved RLS migration");
-}
-
-function ROOT_ADR() {
-  return join(HERE, "..", "..", "..", "..");
+  console.log("  ✅ pool clear is fail-closed sentinel; ADR updated");
 }
 
 console.log("\n✅ rbacInvitationsIsolation: all checks passed\n");

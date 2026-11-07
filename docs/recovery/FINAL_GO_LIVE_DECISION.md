@@ -10,7 +10,7 @@
 
 ### **CONDITIONAL GO**
 
-Controlled production launch is possible **only after** the conditions below are satisfied. SEC-001/005/007/008 mitigated in code; Migration **058** (invitations.office_id) prepared but **not** applied to production; Gate 5 criticals cleared in lockfile tip; fail-open RLS remains per **ADR-001** until approved; human-gated secrets/backup/deploy remain.
+Controlled production launch is possible **only after** human-gated steps below. SEC-001/005/007/008 mitigated; Migrations **058**/**059** in repo (not applied to prod); Gate 5 criticals cleared on CI; ADR-001 fail-closed RLS **implemented** in app + 059 (vault/zta 056 still open); secrets/backup/deploy remain human-gated.
 
 ---
 

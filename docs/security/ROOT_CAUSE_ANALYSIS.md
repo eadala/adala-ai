@@ -77,11 +77,11 @@ Statuses: VERIFIED | MITIGATED | OPEN | ACCEPTED RISK
 
 | Field | Detail |
 |-------|--------|
-| Evidence | `056`/`057` policies include empty-tenant OR + `bypass_rls` |
-| Interaction | `app.ts` clears tenant to `''` on finish |
-| Failure mode | `requireAuth`-only + empty GUC → fail-open under RLS |
-| Decision | **ADR-001** — do **not** rewrite applied policies / change clear sentinel without isolated verification + SA/bypass wiring + human approval |
-| Status | **BLOCKED pending ADR approval** for DB change; app-layer aggregators mitigated |
+| Evidence | Isolated PG repro: missing/empty tenant returned **all** offices under 057-style policy |
+| Remediation | **ADR-001 Accepted**: Migration **059** fail-closed `rls_*` + app deny sentinel + SA/webhook `bypass_rls` |
+| Regression | `test:rls-fail-closed-059`; reproduction matrix in `RLS_REPRODUCTION_EVIDENCE.md` |
+| Remaining | 056 vault/zta still fail-open; table-owner / FORCE unknown; prod apply human-gated |
+| Status | **MITIGATED** for `rls_*` family (pending prod 059) |
 
 ---
 

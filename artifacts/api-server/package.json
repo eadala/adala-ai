@@ -94,6 +94,7 @@
     "test:notifications-tenant": "node --import tsx src/tests/notificationsTenantIsolation.test.ts",
     "test:rbac-invitations": "node --import tsx src/tests/rbacInvitationsIsolation.test.ts",
     "test:invitations-058": "node --import tsx src/tests/invitationsOfficeIdSchemaAuthority058.test.ts",
+    "test:rls-fail-closed-059": "node --import tsx src/tests/rlsFailClosed059.test.ts",
     "test:stage9-security": "node --import tsx src/tests/stage9SecurityHardening.test.ts",
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",

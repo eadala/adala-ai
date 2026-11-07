@@ -35,7 +35,7 @@
 ### Precision remediation (post-56e2815)
 - Gate 5: orval → 8.46.0; `proxy-addr`/`orval` pnpm overrides; dotenv declared on api-server.
 - SEC-005 durable: Migration **058** + API office_id bind/list/mutate; tests `test:invitations-058`.
-- ADR-001: fail-closed RLS deferred (no rewrite of 056/057).
+- ADR-001 **implemented**: Migration **059** fail-closed `rls_*`; app `__unscoped__` default + SA/webhook bypass; isolated PG reproduction evidence.
 
 ### Docs added
 - `docs/security/SECURITY_AUDIT.md`
