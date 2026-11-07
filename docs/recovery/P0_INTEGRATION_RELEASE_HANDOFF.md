@@ -22,9 +22,9 @@
 | Field | Value |
 |-------|--------|
 | Base | `cursor/recovery-production-readiness-da81` @ `b3d9a0a` |
-| Tip SHA | `d6a0def654d992717fffa0cd885670efa01ff2ba` |
+| Tip SHA | `3b1de5f1499d65d210d83636e82259851d8b7c55` |
 | Security commit | `7fffe90` |
-| CI (at handoff) | Re-running on `d6a0def` after test strengthen — **confirm remote green before merge** |
+| CI (at handoff) | Re-running on tip after integration handoff — **confirm remote green before merge** |
 | Diff scope | Pool pin scopes + Stripe/SA/office wiring + P0 tests + docs |
 
 ---
@@ -34,7 +34,7 @@
 | Field | Value |
 |-------|--------|
 | Branch | `cursor/integration-recovery-p0-da81` |
-| **Exact SHA** | `d6a0def654d992717fffa0cd885670efa01ff2ba` |
+| **Exact SHA** | `3b1de5f1499d65d210d83636e82259851d8b7c55` |
 | Composition | Frozen RC `b3d9a0a` **+** P0 hotfix (PR #139 tip). RC is ancestor. |
 | Why this SHA | PR #139 already stacks on the frozen recovery tip; integration ≡ hotfix tip. |
 
@@ -53,7 +53,7 @@
 | `test:internal-messages-tenant` | **PASS** |
 | api-server `tsc --noEmit` | **PASS** |
 | api-server `build` (`build.mjs`) | **PASS** |
-| Remote DB Migrations / full CI on integrated tip | **NOT VERIFIED terminal PASS** until GitHub completes on `d6a0def` |
+| Remote DB Migrations / full CI on integrated tip | **NOT VERIFIED terminal PASS** until GitHub completes on `3b1de5f` |
 | Docker / Gate 5 on integrated tip | **NOT VERIFIED** until remote CI completes |
 
 **Do not claim integrated release verified from separate PR checks alone** — local combined contracts PASS; remote full matrix pending on `d6a0def`.
@@ -108,7 +108,7 @@
 
 | Decision | Verdict |
 |----------|---------|
-| **INTEGRATION** | **READY** for local combined security/contracts on `d6a0def` — **NOT READY** to declare remote full-CI integrated release until DB Migrations + Gates complete on that tip |
+| **INTEGRATION** | **READY** for local combined security/contracts on `3b1de5f` — **NOT READY** to declare remote full-CI integrated release until DB Migrations + Gates complete on that tip |
 | **MERGE** | **NOT READY** until remote CI terminal PASS on #138 and #139 tips; then **READY** for human merge in order above |
 | **PRODUCTION** | **CONDITIONAL GO** |
 
