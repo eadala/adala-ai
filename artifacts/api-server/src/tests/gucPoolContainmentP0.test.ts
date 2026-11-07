@@ -181,8 +181,48 @@ if (runtimeOk) {
     assert.equal(await count(pool), 0);
     console.log("  ✅ unbound pool.query checkouts are fail-closed after privileged scope");
 
+    /* Nested transaction on pinned client (drizzle-style begin/rollback) keeps office GUC. */
+    await withOfficeDbScope(pool, "office-a", async () => {
+      await pool.query("BEGIN");
+      try {
+        assert.equal(await count(pool), 1);
+        await pool.query("ROLLBACK");
+      } catch (e) {
+        await pool.query("ROLLBACK").catch(() => undefined);
+        throw e;
+      }
+      assert.equal(await count(pool), 1, "office GUC must survive nested rollback");
+    });
+    assert.equal(await count(pool), 0, "after nested-tx scope ends, no leak");
+    console.log("  ✅ nested transaction preserves office scope; no post-scope leak");
+
+    /* Bypass inside nested tx + exception still clears after scope. */
+    try {
+      await withBypassDbScope(pool, async () => {
+        await pool.query("BEGIN");
+        assert.equal(await count(pool), 2);
+        await pool.query("ROLLBACK");
+        throw new Error("cancel after nested tx");
+      });
+    } catch {
+      /* expected */
+    }
+    assert.equal(await count(pool), 0);
+    console.log("  ✅ nested tx + cancellation does not leak bypass");
+
     await pool.end();
   }
+}
+
+console.log("\n═══ Escape-path contracts ═══");
+{
+  const guc = readFileSync(join(ROOT, "lib/db/src/gucContainment.ts"), "utf8");
+  assert.match(guc, /getBoundPoolClient/);
+  assert.match(guc, /applyFailClosedGucs/);
+  assert.match(guc, /pinned — ignore nested drizzle releases|pinned scope owns release|\/\* pinned/);
+  const cronAgent = readFileSync(join(ROOT, "artifacts/api-server/src/cron/agentCron.ts"), "utf8");
+  assert.doesNotMatch(cronAgent, /setBypassRlsSession|bypass_rls/);
+  console.log("  ✅ cron has no bypass setter; nested release ignored while pinned");
 }
 
 console.log("\n═══ Contract: setters require scope ═══");
