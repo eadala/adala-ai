@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuthWithTenant, requirePermission } from "../../middlewares/requireAuth";
 import { validate } from "../../middlewares/validate";
 import { Router, type Request, type Response } from "express";
@@ -761,11 +762,11 @@ router.post("/invoices/:id/send-email", requireAuthWithTenant, async (req: Reque
     const origin = req.get("origin") ?? `https://${req.get("host")}`;
     const viewLink = `${origin}/invoice/${inv.view_token}`;
 
-    /* إعدادات SMTP (تجربة المكتب أولاً ثم default) */
+    /* إعدادات SMTP للمكتب فقط — لا نستخدم بيانات default المشتركة */
     const smtpRows = await sqlRows(sql`
       SELECT * FROM email_notification_settings
-      WHERE office_id = ${tenantId} OR office_id = 'default'
-      ORDER BY (office_id = ${tenantId}) DESC LIMIT 1
+      WHERE office_id = ${tenantId}
+      LIMIT 1
     `);
     const smtp = smtpRows[0];
     if (!smtp?.smtp_host || !smtp?.smtp_user || !smtp?.smtp_pass) {

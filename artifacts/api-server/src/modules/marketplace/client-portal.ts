@@ -115,6 +115,33 @@ async function checkCommPerm(u: NonNullable<Awaited<ReturnType<typeof getOfficeU
   } catch { return (DEFAULT_COMM_ROLES[action] ?? []).includes(u.officeRole); }
 }
 
+/** Case must belong to caller's office (SA bypass). */
+async function assertCaseInOffice(caseId: string, u: NonNullable<Awaited<ReturnType<typeof getOfficeUser>>>): Promise<boolean> {
+  if (!caseId) return false;
+  if (u.isSA || u.officeId === "platform") return true;
+  const row = sqlOne(await db.execute(sql`
+    SELECT id FROM cases WHERE id = ${caseId} AND office_id = ${u.officeId} LIMIT 1
+  `));
+  return !!row;
+}
+
+/** Portal token must be tied to a case in caller's office (SA bypass). */
+async function assertPortalTokenInOffice(tokenId: string, u: NonNullable<Awaited<ReturnType<typeof getOfficeUser>>>): Promise<{ ok: boolean; caseId?: string }> {
+  if (!tokenId) return { ok: false };
+  if (u.isSA || u.officeId === "platform") {
+    const row = sqlOne(await db.execute(sql`SELECT case_id FROM client_portal_tokens WHERE id = ${tokenId} LIMIT 1`));
+    return row ? { ok: true, caseId: String(row.case_id) } : { ok: false };
+  }
+  const row = sqlOne(await db.execute(sql`
+    SELECT t.case_id
+    FROM client_portal_tokens t
+    JOIN cases c ON c.id::text = t.case_id::text
+    WHERE t.id = ${tokenId} AND c.office_id = ${u.officeId}
+    LIMIT 1
+  `));
+  return row ? { ok: true, caseId: String(row.case_id) } : { ok: false };
+}
+
 export function getEmailTransporter() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
@@ -172,6 +199,9 @@ router.post("/portal/create-token", requireAuth, async (req: Request, res: Respo
     const { caseId, clientEmail, clientName, expiryDays = 30,
             showInvoices = true, showTimeline = true, allowedToUpload = false } = req.body;
     if (!caseId) { res.status(400).json({ error: "caseId مطلوب" }); return; }
+    if (!(await assertCaseInOffice(String(caseId), u))) {
+      res.status(403).json({ error: "القضية لا تنتمي لهذا المكتب" }); return;
+    }
 
     const token = randomUUID().replace(/-/g, "");
     const expiresAt = new Date(Date.now() + expiryDays * 86400000);
@@ -271,9 +301,15 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
 
 // ─── GET /portal/tokens/:caseId ───────────────────────────────────────────────
 router.get("/portal/tokens/:caseId", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
   try {
+    const caseId = String(req.params.caseId);
+    if (!(await assertCaseInOffice(caseId, u))) {
+      res.status(403).json({ error: "القضية لا تنتمي لهذا المكتب" }); return;
+    }
     const rows = await db.execute(sql`
-      SELECT * FROM client_portal_tokens WHERE case_id = ${String(req.params.caseId)} ORDER BY created_at DESC
+      SELECT * FROM client_portal_tokens WHERE case_id = ${caseId} ORDER BY created_at DESC
     `);
     res.json(sqlAll(rows));
   } catch {
@@ -289,6 +325,8 @@ router.delete("/portal/tokens/:id", requireAuth, async (req: Request, res: Respo
     res.status(403).json({ error: "ليس لديك صلاحية إلغاء بوابة العملاء", code: "NO_PORTAL_PERM" }); return;
   }
   try {
+    const owned = await assertPortalTokenInOffice(String(req.params.id), u);
+    if (!owned.ok) { res.status(403).json({ error: "الرابط لا ينتمي لهذا المكتب" }); return; }
     await db.execute(sql`DELETE FROM client_portal_tokens WHERE id = ${String(req.params.id)}`);
     res.json({ success: true });
   } catch (e: any) {
@@ -304,6 +342,8 @@ router.put("/portal/tokens/:id/settings", requireAuth, async (req: Request, res:
     res.status(403).json({ error: "ليس لديك صلاحية تعديل إعدادات البوابة", code: "NO_PORTAL_PERM" }); return;
   }
   try {
+    const owned = await assertPortalTokenInOffice(String(req.params.id), u);
+    if (!owned.ok) { res.status(403).json({ error: "الرابط لا ينتمي لهذا المكتب" }); return; }
     const { showInvoices, showTimeline, allowedToUpload } = req.body;
     await db.execute(sql`
       UPDATE client_portal_tokens
@@ -326,6 +366,8 @@ router.post("/portal/tokens/:id/share-doc", requireAuth, async (req: Request, re
     res.status(403).json({ error: "ليس لديك صلاحية مشاركة مستندات مع العملاء", code: "NO_REPLY_PERM" }); return;
   }
   try {
+    const owned = await assertPortalTokenInOffice(String(req.params.id), u);
+    if (!owned.ok) { res.status(403).json({ error: "الرابط لا ينتمي لهذا المكتب" }); return; }
     const { docId } = req.body;
     if (!docId) { res.status(400).json({ error: "docId مطلوب" }); return; }
 
@@ -357,6 +399,8 @@ router.delete("/portal/tokens/:id/share-doc/:docId", requireAuth, async (req: Re
     res.status(403).json({ error: "ليس لديك صلاحية إدارة مشاركة المستندات", code: "NO_REPLY_PERM" }); return;
   }
   try {
+    const owned = await assertPortalTokenInOffice(String(req.params.id), u);
+    if (!owned.ok) { res.status(403).json({ error: "الرابط لا ينتمي لهذا المكتب" }); return; }
     const rows = await db.execute(sql`SELECT shared_documents FROM client_portal_tokens WHERE id = ${String(req.params.id)}`);
     const row = sqlOne(rows) as any;
     if (!row) { res.status(404).json({ error: "رابط غير موجود" }); return; }
@@ -376,9 +420,15 @@ router.delete("/portal/tokens/:id/share-doc/:docId", requireAuth, async (req: Re
 
 // ─── GET /portal/timeline/:caseId ─────────────────────────────────────────────
 router.get("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
   try {
+    const caseId = String(req.params.caseId);
+    if (!(await assertCaseInOffice(caseId, u))) {
+      res.status(403).json({ error: "القضية لا تنتمي لهذا المكتب" }); return;
+    }
     const rows = await db.execute(sql`
-      SELECT * FROM case_timeline WHERE case_id = ${String(req.params.caseId)} ORDER BY happened_at ASC
+      SELECT * FROM case_timeline WHERE case_id = ${caseId} ORDER BY happened_at ASC
     `);
     res.json(sqlAll(rows));
   } catch (e: any) {
@@ -390,6 +440,10 @@ router.get("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Re
 router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: Response) => {
   const u = await getOfficeUser(req);
   if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  const caseId = String(req.params.caseId);
+  if (!(await assertCaseInOffice(caseId, u))) {
+    res.status(403).json({ error: "القضية لا تنتمي لهذا المكتب" }); return;
+  }
   const { isShared: isSharedCheck = true } = req.body;
   // Only enforce if the entry will be shared with the client
   if (isSharedCheck && !await checkCommPerm(u, "timeline")) {
@@ -404,7 +458,7 @@ router.post("/portal/timeline/:caseId", requireAuth, async (req: Request, res: R
     await db.execute(sql`
       INSERT INTO case_timeline (id, case_id, entry_type, title, description, happened_at, is_shared, created_by, created_at)
       VALUES (
-        ${id}, ${String(req.params.caseId)}, ${entryType}, ${title}, ${description ?? null},
+        ${id}, ${caseId}, ${entryType}, ${title}, ${description ?? null},
         ${happenedAt ?? new Date().toISOString()}, ${isShared}, ${auth.userId ?? "system"}, NOW()
       )
     `);
