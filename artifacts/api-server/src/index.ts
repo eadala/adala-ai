@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { initTracer } from "./observability/tracer";
 await initTracer();
 
@@ -94,8 +95,15 @@ ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable fail
 ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
 ensureReliabilitySchema().catch(e => logger.error({ e }, "ensureReliabilitySchema failed"));
 
-/* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded) */
+/* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded).
+ * Production remains fail-closed: require explicit JLWM_DEMO_ALLOW_PROD=true to seed. */
 setTimeout(() => {
+  const isProd = process.env["NODE_ENV"] === "production";
+  const allowProd = process.env["JLWM_DEMO_ALLOW_PROD"] === "true";
+  if (isProd && !allowProd) {
+    logger.info("[JLWM Seed] Skipped in production (set JLWM_DEMO_ALLOW_PROD=true to override).");
+    return;
+  }
   const forceReseed = process.env["JLWM_DEMO_FORCE_SEED"] === "true";
   seedNorthSouthDemoData(forceReseed)
     .then(r => {
