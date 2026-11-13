@@ -16,8 +16,17 @@ cd "$ROOT"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+assert_safe_ref() {
+  local ref="$1"
+  # Block shell metacharacters / path traversal in ref arguments
+  if [[ -z "${ref}" || "${ref}" =~ [\;\|\&\$\`\<\>\(\)\{\}\!\*] || "${ref}" == *..* ]]; then
+    die "unsafe or empty ref argument"
+  fi
+}
+
 print_identity() {
   local ref="$1"
+  assert_safe_ref "${ref}"
   git rev-parse --verify "${ref}^{commit}" >/dev/null 2>&1 || die "cannot resolve commit: ${ref}"
   local commit tree subject
   commit="$(git rev-parse "${ref}^{commit}")"

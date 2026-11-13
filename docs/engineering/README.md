@@ -12,6 +12,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [DEPLOYMENT_SAFETY.md](./DEPLOYMENT_SAFETY.md) | Coolify / push fail-closed rules |
 | [PRODUCTION_BASELINE_VERIFICATION.md](./PRODUCTION_BASELINE_VERIFICATION.md) | How to prove deployed SHA |
 | [COOLIFY_OPERATOR_CHECKLIST.md](./COOLIFY_OPERATOR_CHECKLIST.md) | Operator-only verification checklist |
+| [GITHUB_ADMIN_CLOSURE.md](./GITHUB_ADMIN_CLOSURE.md) | Admin ruleset/CODEOWNERS/CI baseline handoff for PR #141 |
 
 ## Scripts (read-only)
 
