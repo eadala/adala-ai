@@ -2,129 +2,151 @@
 
 **Audience:** Repository administrator (`eadala`) and Coolify operator  
 **Agent scope:** Documentation only — this file does **not** change live GitHub/Coolify settings.  
-**Related PR:** [#141](https://github.com/eadala/adala-ai/pull/141) → `develop`  
+**Related PRs:**
+- Governance: [#141](https://github.com/eadala/adala-ai/pull/141) → `develop`
+- Gate 5 deps remediation: [#142](https://github.com/eadala/adala-ai/pull/142) → `develop` (**merge first**, then rebase #141)
 **Frozen RC (immutable):** `5441523302a1513f07b5dc08f028d848a0bad5b4` / tree `cd84a7f277c481dc5c96d707dde4e78d7f18e713`
 
 ---
 
 ## A. Required GitHub settings
 
-### A1. Ruleset status (verified 2026-11-13)
+### A1. Ruleset status (API-verified)
 
 | Field | Current | Target |
 |-------|---------|--------|
-| Ruleset `adalah-ai` (id `17934003`) | **enforcement: disabled** | Enable for `main` and `develop` after prerequisites |
-| Target refs (`conditions.ref_name.include`) | **Empty `[]`** — would not protect any branch even if enabled | Set `refs/heads/main`, `refs/heads/develop` |
-| Rules present | `deletion`, `non_fast_forward` only | Expand (see A2) |
-| Collaborators | **`eadala` only** (API) | Add ≥1 independent Write collaborator before requiring reviews |
-| Branch protection API | Often **403** to automation tokens | Configure in UI |
+| Ruleset `adalah-ai` (id `17934003`) | **enforcement: disabled** | `active` after prerequisites |
+| Target refs (`conditions.ref_name.include`) | **Empty `[]`** | `refs/heads/main`, `refs/heads/develop` |
+| Rules present | `deletion`, `non_fast_forward` only | Expand (A2) |
+| Collaborators | **`eadala` only** | ≥1 independent Write collaborator (B) |
+| Bypass actors | `null` | Keep empty for routine work |
 
 **UI path:** GitHub → `eadala/adala-ai` → **Settings** → **Rules** → **Rulesets** → `adalah-ai`
 
-### A2. Recommended ruleset for `main` and `develop`
+### A2. Exact recommended ruleset values
 
-Target refs: `refs/heads/main`, `refs/heads/develop`
+Apply to **both** `refs/heads/main` and `refs/heads/develop`:
 
-| Rule | Recommended value |
-|------|-------------------|
-| Restrict deletions | Enabled |
-| Block force pushes | Enabled |
-| Require a pull request before merging | Enabled |
-| Required approvals | **1** (independent; not the author) |
-| Dismiss stale reviews | Enabled |
-| Require review from Code Owners | Enabled (after A3) |
-| Require status checks | Enable after green check names stabilize |
-| Suggested checks (mainline) | `✅ All Gates Passed` and/or Governance Safety job when intentional |
-| Require conversation resolution | Optional but recommended |
-| Bypass list | Empty for routine work; break-glass owners only |
+| Setting | Value |
+|---------|-------|
+| Enforcement | `Active` (only after A4 + B complete; prefer Evaluate first if offered) |
+| Restrict deletions | On |
+| Block force pushes (`non_fast_forward`) | On |
+| Require a pull request before merging | On |
+| Required number of approvals | `1` |
+| Dismiss stale pull request approvals when new commits are pushed | On |
+| Require review from Code Owners | On (after B) |
+| Require approval of the most recent reviewable push | On (recommended) |
+| Require status checks to pass | On |
+| Required checks (exact names) | `✅ All Gates Passed` (Quality Gates workflow). Optionally also `Branch & sensitive-path checks` for governance PRs |
+| Require branches to be up to date | Optional; enable once develop tip is green |
+| Require conversation resolution before merging | On (recommended) |
+| Allow force pushes / deletions | Off for everyone |
+| Bypass list | Empty for routine work; add break-glass owner only with written policy |
 
-**Do not enable enforcement until:**
+**Compatibility notes:**
+- Check names must match job `name:` strings exactly as reported by `gh pr checks`.
+- Do not require checks that do not run on `main` tip (main’s workflow differs from develop Quality Gates). Prefer requiring `✅ All Gates Passed` only on `develop` until main adopts the same gate names, **or** maintain separate rulesets per branch.
+- Merge queue: not required; if enabled later, required checks must be the same names.
 
-1. Required check names exist on the target branch tip and can succeed.
-2. At least one eligible non-author reviewer can approve.
-3. `develop` CI baseline is repaired or status-check list is scoped accordingly (see A4).
+### A3. Safe activation sequence
 
-### A3. Verification after change
+1. Land [#142](https://github.com/eadala/adala-ai/pull/142) (Gate 5) and confirm Gate 5 PASS.
+2. Rebase/update [#141](https://github.com/eadala/adala-ai/pull/141); confirm All Gates PASS.
+3. Complete independent reviewer invite (B).
+4. Set target refs + rules while still **disabled** / Evaluate.
+5. Verify a throwaway docs PR is blocked without review + checks.
+6. Set enforcement **Active** on `develop`, then `main` (or separate rulesets).
+7. Record break-glass bypass owners outside the repo if needed.
+
+### A4. Verification commands
 
 ```bash
-gh api repos/eadala/adala-ai/rulesets/17934003 --jq '{name,enforcement,rules:[.rules[].type]}'
-# Open a throwaway docs PR and confirm merge is blocked without review + checks
+gh api repos/eadala/adala-ai/rulesets/17934003 \
+  --jq '{name,enforcement,include:.conditions.ref_name.include,rules:[.rules[].type]}'
+gh api repos/eadala/adala-ai/collaborators --jq '.[].login'
 ```
 
 ---
 
-## B. Reviewer / CODEOWNERS resolution
+## B. Independent reviewer procedure (exact)
 
-**Current:** `.github/CODEOWNERS` → `* @eadala`
+**Problem:** Collaborators API lists only `@eadala`. Author cannot satisfy independent approval for their own PR when approvals are required.
 
-**Problem:** If `@eadala` authors a PR, GitHub will not treat self-approval as an independent review when “require approvals” is enforced.
+### B1. Invite
 
-**Minimum compliant options:**
+1. GitHub → `eadala/adala-ai` → **Settings** → **Collaborators and teams** → **Add people**
+2. Invite a trusted human reviewer (separate identity; not an alt controlled by the PR author)
+3. Permission: **Write** (minimum to approve PRs under typical rulesets; **Maintain** only if they must manage settings)
 
-1. Add a second human collaborator with Write access and list them in CODEOWNERS for critical paths (`/.github/`, `/artifacts/api-server/migrations/`, auth/tenant files).
-2. Create a GitHub team (e.g. `adala-reviewers`) with ≥2 members; set CODEOWNERS to `@org/adala-reviewers`.
-3. For owner-authored release PRs into `main`, require an external peer account to approve.
+### B2. Verify acceptance
 
-**Do not:** disable CODEOWNERS, fabricate approvals, or use alt accounts controlled by the same person to simulate independence.
+```bash
+gh api repos/eadala/adala-ai/invitations
+gh api repos/eadala/adala-ai/collaborators --jq '.[].login'
+```
 
-**UI path:** Settings → Collaborators and teams → invite reviewer → update `.github/CODEOWNERS` via PR.
+Confirm the second login appears with `permissions.push=true` (or UI Write).
+
+### B3. CODEOWNERS
+
+Current: `.github/CODEOWNERS` → `* @eadala`
+
+Minimum sustainable update (via PR, not force on protected branches):
+
+```text
+*       @eadala @<independent-reviewer>
+/.github/  @eadala @<independent-reviewer>
+```
+
+Or a GitHub team `@<org>/adala-reviewers` with ≥2 members.
+
+### B4. Review PR #141
+
+1. Request review from the independent collaborator on #141
+2. They approve after reading governance + confirming no production deploy hooks
+3. Do **not** self-approve as a substitute; do **not** disable required reviews to unblock
 
 ---
 
-## C. Ruleset activation sequence
+## C. PR merge order (repository-side)
 
-1. Repair or accept `develop` CI baseline (A4).
-2. Add independent reviewer (B).
-3. Draft ruleset changes in **evaluate** / report-only mode if available; otherwise enable on `develop` first.
-4. Confirm a test PR is blocked without review and unblocked after valid approval + checks.
-5. Enable the same rules for `main`.
-6. Document break-glass bypass owners.
+1. **Merge #142** (deps + develop CI path alignment) after CI green + independent review  
+2. **Rebase #141** onto updated `develop`  
+3. Confirm #141 All Gates PASS (Gate 5 inherited from develop tip)  
+4. Independent review of #141  
+5. Merge #141 → `develop` only with explicit admin authorization  
+
+Do **not** merge #138–#140 as part of this work. Do **not** deploy.
 
 ---
 
 ## D. PR #141 merge prerequisites
 
-| Prerequisite | Status (2026-11-13) |
-|--------------|---------------------|
-| Scope = docs/scripts/governance CI only (+ minimal develop CI path fixes) | Intended |
-| Governance Safety workflow | Re-verify on latest tip (must PASS) |
-| Full CI Quality Gates on develop tip | Gate 1/7 fixed in #141; Gate 5 still FAIL (see A4) |
-| Independent review | **PENDING** (`REVIEW_REQUIRED`, 0 reviews) |
+| Prerequisite | Status |
+|--------------|--------|
+| Scope = docs/scripts/governance (+ prior Gate 1/7 path fixes) | Intended |
+| Gate 5 criticals | Remediated in **#142** (orval≥8.21 / proxy-addr≥2.0.8) — merge then rebase |
+| Independent review | **PENDING** |
 | Frozen RC unchanged | **PASS** |
 | Coolify Auto Deploy verified | **UNVERIFIED** |
-| Merge authorization | Do **not** merge until Gate 5 policy + review + Coolify evidence |
-
-### A4. Develop CI baseline debt (blocker for green “All Gates”)
-
-Observed on PR #141 against `develop` (`4f220d96…`):
-
-| Gate | Result | Root cause |
-|------|--------|------------|
-| Gate 7 Architecture | Fixed in #141 | Workflow expected `packages/db`; tree has `lib/db` |
-| Gate 1 TypeScript | Fixed in #141 | Build `lib/db` + `lib/api-zod` before api-server typecheck (composite refs) |
-| Gate 5 Dependency Audit | FAIL | Pre-existing criticals on develop tip: `orval@8.9.1` (<8.21.0 RCE advisories), `proxy-addr@2.0.7` via express — **do not silence**; separate deps PR or sync `main`→`develop` |
-
-**Admin choices (pick one):**
-
-1. **Preferred:** Merge/rebase `main` into `develop` (separate authorized PR) so develop inherits fixed CI + deps, then re-run #141.  
-2. Land minimal CI path fixes via #141 (Gate 1/7) and open a **separate** deps PR for Gate 5.  
-3. Temporarily do not require full Quality Gates on docs-only PRs to develop (policy change — requires explicit admin decision; do not weaken `main`).
 
 ---
 
-## E. Coolify operator requirements
+## E. Coolify operator requirements (UNVERIFIED until completed)
 
-Complete `docs/engineering/COOLIFY_OPERATOR_CHECKLIST.md` and return:
+Complete `docs/engineering/COOLIFY_OPERATOR_CHECKLIST.md`:
 
 - Production app identity for `adalahai.com`
 - **Deployed commit SHA**
 - Watched branch
 - Auto Deploy ON/OFF/PAUSED
 - Whether non-`main` pushes deploy
-- Backup + restore evidence
+- Webhook / deployment triggers
+- Rollback capability
+- PostgreSQL backup + restore evidence
 
-Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED`.  
-Do **not** treat merge of #141 as production release readiness.
+Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED`.
 
 ---
 
@@ -132,9 +154,9 @@ Do **not** treat merge of #141 as production release readiness.
 
 | Layer | Status |
 |-------|--------|
-| Git source scripts (`verify-release` / `recovery-inspect`) | Implemented (read-only) |
+| Git source scripts | Implemented (read-only) |
 | Application rollback via Coolify | **UNVERIFIED** |
-| PostgreSQL backup/restore drill | **UNVERIFIED** |
+| PostgreSQL backup/restore | **UNVERIFIED** |
 | Hetzner snapshots | **UNVERIFIED** |
 | Production baseline tag | **Do not create** without deployed SHA |
 
@@ -142,9 +164,9 @@ Do **not** treat merge of #141 as production release readiness.
 
 ## G. Sign-off checklist
 
-- [ ] Ruleset enforcement plan approved
-- [ ] Independent reviewer available
-- [ ] Develop CI baseline strategy chosen (A4)
-- [ ] PR #141 reviewed by non-author
+- [ ] PR #142 merged (Gate 5)
+- [ ] PR #141 rebased + All Gates PASS
+- [ ] Independent reviewer invited and eligible
+- [ ] Ruleset targets + rules configured; enforcement authorized
 - [ ] Coolify checklist completed
-- [ ] Explicit authorization before any merge to `develop`/`main`
+- [ ] Explicit authorization before merge to `develop`/`main`
