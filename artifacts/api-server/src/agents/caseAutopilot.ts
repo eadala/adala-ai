@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * عدالة AI — Case Autopilot Engine
  *
@@ -53,7 +54,7 @@ async function fetchCaseContext(caseId: string, tenantId: string): Promise<CaseC
   const [caseRows, docs, events, contracts, invoices, tasks] = await Promise.all([
     rows(sql`SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`),
     rows(sql`SELECT id, file_name, file_type FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId}`),
-    rows(sql`SELECT id, title, event_type, start_at, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC LIMIT 10`),
+    rows(sql`SELECT id, title, event_type, start_at, status FROM events WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY start_at DESC LIMIT 10`),
     rows(sql`SELECT id, title, status FROM contracts WHERE CAST(case_id AS TEXT) = ${caseId} AND office_id = ${tenantId} LIMIT 5`).catch(() => []),
     rows(sql`SELECT id, total, status FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} LIMIT 5`),
     rows(sql`SELECT id, title, status FROM tasks WHERE case_title ILIKE ${"%" + caseId + "%"} OR case_title IS NOT NULL LIMIT 10`).catch(() => []),
@@ -197,8 +198,10 @@ async function createAutopilotTasks(
 
   for (const t of tasks) {
     await db.execute(sql`
-      INSERT INTO tasks (title, description, status, priority, case_title, created_by, tags)
+      INSERT INTO tasks (office_id, case_id, title, description, status, priority, case_title, created_by, tags)
       VALUES (
+        ${tenantId},
+        ${c.id},
         ${t.title},
         ${t.description},
         'todo',
@@ -219,7 +222,6 @@ async function predictOutcome(
   ctx:   CaseContext,
   score: number
 ): Promise<CaseHealthReport["outcomePrediction"]> {
-  const c = ctx.case;
   const docsCount = ctx.documents.length;
   const hasContract = ctx.contracts.length > 0;
   const hasHearing = ctx.events.some(e => e.start_at && new Date(e.start_at) > new Date());

@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -305,7 +306,8 @@ router.post("/finance/collections/bulk-reminder", requireAuthWithTenant, async (
 /* ─── POST /finance/collections/:id/payment ─────────────────────────── */
 router.post("/finance/collections/:id/payment", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = (req as any).tenantId as string | undefined;
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { amount, paymentMethod = "bank_transfer", notes } = req.body;
     const { id } = req.params as Record<string, string>;
 
@@ -320,8 +322,9 @@ router.post("/finance/collections/:id/payment", requireAuthWithTenant, async (re
     }
 
     await db.execute(sql`
-      INSERT INTO revenues (title, category, amount, payment_method, date, client_id, notes)
+      INSERT INTO revenues (office_id, title, category, amount, payment_method, date, client_id, notes)
       VALUES (
+        ${tenantId},
         ${'تحصيل فاتورة: ' + (updated.invoice_number ?? updated.id)},
         ${'invoice_collection'},
         ${String(amount ?? (num(updated.total) / 100))},
