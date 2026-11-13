@@ -280,7 +280,7 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
         SET status = ${newStatus},
             gateway_payment_id = ${moyasarId},
             updated_at = NOW()
-        WHERE id = ${txId}::uuid
+        WHERE id = ${txId}::uuid AND office_id = ${officeId}
       `).catch(() => {});
       updated = true;
     } else if (txRef) {
@@ -289,7 +289,7 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
         SET status = ${newStatus},
             gateway_payment_id = ${moyasarId},
             updated_at = NOW()
-        WHERE gateway_payment_id = ${txRef} AND gateway = 'moyasar'
+        WHERE gateway_payment_id = ${txRef} AND gateway = 'moyasar' AND office_id = ${officeId}
       `).catch(() => {});
       updated = true;
     }
