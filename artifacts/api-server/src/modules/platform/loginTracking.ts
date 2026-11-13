@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
  * Login Tracking Routes — Professional SaaS Login Analytics
  *
@@ -10,7 +11,6 @@ import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 
 const router = Router();
 
@@ -24,6 +24,12 @@ async function rows(q: any): Promise<any[]> {
 async function one(q: any): Promise<any | null> {
   const r = await rows(q);
   return r[0] ?? null;
+}
+
+function tenantOfficeId(req: any): string | null {
+  const id = req.tenantId ? String(req.tenantId) : "";
+  if (!id || id === "platform" || id === "default") return null;
+  return id;
 }
 
 /** Parse browser and OS from user-agent string */
@@ -65,14 +71,9 @@ function getClientIp(req: any): string {
 /* ══════════════════════════════════════════════════
    POST /api/security/login — Record login event
 ══════════════════════════════════════════════════ */
-router.post("/security/login", async (req, res) => {
+router.post("/security/login", requireAuthWithTenant, async (req: any, res) => {
   try {
-    /* Auth required — userId and identity always server-resolved from Clerk */
-    const auth = getAuth(req as any);
-    if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
-
-    const userId = auth.userId;
-
+    const userId = req.userId as string;
     /* Only sessionId accepted from client — identity fields server-resolved */
     const sessionId: string | null = (typeof req.body?.sessionId === "string" && req.body.sessionId)
       ? req.body.sessionId : null;
@@ -80,7 +81,7 @@ router.post("/security/login", async (req, res) => {
     const ipAddress = getClientIp(req);
     const userAgent = (req.headers["user-agent"] as string) ?? "";
     const { browser, os, deviceType } = parseUserAgent(userAgent);
-    const officeId = "default";
+    const officeId = tenantOfficeId(req);
 
     await db.execute(sql`
       INSERT INTO login_logs
@@ -100,9 +101,9 @@ router.post("/security/login", async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/logins — Login history
 ══════════════════════════════════════════════════ */
-router.get("/security/logins", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
+router.get("/security/logins", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = tenantOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط بالحساب" });
 
   const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
   const offset = parseInt(String(req.query.offset ?? 0));
@@ -113,14 +114,14 @@ router.get("/security/logins", requireAuth, async (req, res) => {
       SELECT id, user_id, email, full_name, ip_address, browser, os,
              device_type, status, session_id, created_at
       FROM login_logs
-      WHERE office_id = 'default'
+      WHERE office_id = ${officeId}
         ${status ? sql`AND status = ${status}` : sql``}
       ORDER BY created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 
     const total = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = 'default'
+      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = ${officeId}
       ${status ? sql`AND status = ${status}` : sql``}
     `);
 
@@ -133,57 +134,57 @@ router.get("/security/logins", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/login-stats — Dashboard stats
 ══════════════════════════════════════════════════ */
-router.get("/security/login-stats", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
+router.get("/security/login-stats", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = tenantOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط بالحساب" });
 
   try {
     const today = await one(sql`
       SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default'
+      WHERE office_id = ${officeId}
         AND created_at >= CURRENT_DATE
     `);
 
     const total = await one(sql`
-      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = 'default'
+      SELECT COUNT(*)::int AS cnt FROM login_logs WHERE office_id = ${officeId}
     `);
 
     const successCount = await one(sql`
       SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'success'
+      WHERE office_id = ${officeId} AND status = 'success'
     `);
 
     const failedCount = await one(sql`
       SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'failed'
+      WHERE office_id = ${officeId} AND status = 'failed'
     `);
 
     const suspiciousCount = await one(sql`
       SELECT COUNT(*)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND status = 'suspicious'
+      WHERE office_id = ${officeId} AND status = 'suspicious'
     `);
 
     const uniqueUsers = await one(sql`
       SELECT COUNT(DISTINCT user_id)::int AS cnt FROM login_logs
-      WHERE office_id = 'default' AND user_id IS NOT NULL
+      WHERE office_id = ${officeId} AND user_id IS NOT NULL
     `);
 
     const uniqueIps = await one(sql`
       SELECT COUNT(DISTINCT ip_address)::int AS cnt FROM login_logs
-      WHERE office_id = 'default'
+      WHERE office_id = ${officeId}
     `);
 
     /* Browsers breakdown */
     const browsers = await rows(sql`
       SELECT browser, COUNT(*)::int AS cnt
-      FROM login_logs WHERE office_id = 'default'
+      FROM login_logs WHERE office_id = ${officeId}
       GROUP BY browser ORDER BY cnt DESC LIMIT 6
     `);
 
     /* OS breakdown */
     const devices = await rows(sql`
       SELECT device_type, COUNT(*)::int AS cnt
-      FROM login_logs WHERE office_id = 'default'
+      FROM login_logs WHERE office_id = ${officeId}
       GROUP BY device_type ORDER BY cnt DESC
     `);
 
@@ -193,7 +194,7 @@ router.get("/security/login-stats", requireAuth, async (req, res) => {
         TO_CHAR(created_at, 'YYYY-MM-DD HH24') AS hour,
         COUNT(*)::int AS cnt
       FROM login_logs
-      WHERE office_id = 'default'
+      WHERE office_id = ${officeId}
         AND created_at >= NOW() - INTERVAL '7 days'
       GROUP BY hour ORDER BY hour
     `);
@@ -203,7 +204,7 @@ router.get("/security/login-stats", requireAuth, async (req, res) => {
       SELECT email, full_name, COUNT(*)::int AS login_count,
              MAX(created_at) AS last_login
       FROM login_logs
-      WHERE office_id = 'default' AND email IS NOT NULL
+      WHERE office_id = ${officeId} AND email IS NOT NULL
       GROUP BY email, full_name
       ORDER BY login_count DESC LIMIT 10
     `);
@@ -212,7 +213,7 @@ router.get("/security/login-stats", requireAuth, async (req, res) => {
     const suspicious = await rows(sql`
       SELECT id, email, full_name, ip_address, browser, os, created_at
       FROM login_logs
-      WHERE office_id = 'default' AND status = 'suspicious'
+      WHERE office_id = ${officeId} AND status = 'suspicious'
       ORDER BY created_at DESC LIMIT 5
     `);
 
@@ -238,15 +239,15 @@ router.get("/security/login-stats", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════
    GET /api/security/my-sessions — Current user's own sessions
 ══════════════════════════════════════════════════ */
-router.get("/security/my-sessions", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
+router.get("/security/my-sessions", requireAuth, async (req: any, res) => {
+  const userId = req.userId as string | undefined;
+  if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
   try {
     const data = await rows(sql`
       SELECT id, ip_address, browser, os, device_type, status, created_at
       FROM login_logs
-      WHERE user_id = ${auth.userId}
+      WHERE user_id = ${userId}
       ORDER BY created_at DESC
       LIMIT 50
     `);
@@ -266,14 +267,14 @@ router.get("/security/my-sessions", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════
    DELETE /api/security/logins/:id — Remove log entry
 ══════════════════════════════════════════════════ */
-router.delete("/security/logins/:id", requireAuth, async (req, res) => {
-  const auth = getAuth(req as any);
-  if (!auth?.userId) return res.status(401).json({ error: "غير مصرح" });
+router.delete("/security/logins/:id", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = tenantOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط بالحساب" });
 
   try {
     await db.execute(sql`
       DELETE FROM login_logs
-      WHERE id = ${String(req.params.id)}::uuid AND office_id = 'default'
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
     res.json({ ok: true });
   } catch (err: any) {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -245,9 +245,11 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/stats/counts
-router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => {
+router.get("/stats/counts", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const tenantId = (req as any).tenantId as string;
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
+    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
 
     const inboxQ = await db.execute(sql`
       SELECT COUNT(*) AS total,
@@ -255,14 +257,19 @@ router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => 
       FROM office_messages m
       JOIN office_message_recipients r ON r.message_id = m.id AND r.user_id = ${userId}
       WHERE m.folder = 'sent'
+        ${officeFilter}
     `);
 
     const sentQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder != 'draft'
+      SELECT COUNT(*) AS total FROM office_messages m
+      WHERE m.sender_id = ${userId} AND m.folder != 'draft'
+        ${officeFilter}
     `);
 
     const draftQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages WHERE sender_id = ${userId} AND folder = 'draft'
+      SELECT COUNT(*) AS total FROM office_messages m
+      WHERE m.sender_id = ${userId} AND m.folder = 'draft'
+        ${officeFilter}
     `);
 
     res.json({
@@ -276,11 +283,13 @@ router.get("/stats/counts", requireAuth, async (req: Request, res: Response) => 
 });
 
 // GET /api/internal-messages/:id
-router.get("/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { id } = req.params as Record<string, string>;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const tenantId = (req as any).tenantId as string;
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const ip = getClientIp(req);
+    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
 
     const q = await db.execute(sql`
       SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name, m.sender_ip, m.device_info,
@@ -300,6 +309,7 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       LEFT JOIN office_message_attachments a ON a.message_id = m.id
       WHERE m.id = ${id}::uuid
+        ${officeFilter}
       GROUP BY m.id
     `);
 
@@ -318,15 +328,17 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/case/:caseId — messages for a specific case
-router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => {
+router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { caseId } = req.params as Record<string, string>;
+    const tenantId = (req as any).tenantId as string;
     const numericId = parseInt(caseId, 10);
 
     /* Guard: caseId must be a valid integer (INTEGER FK to cases) */
     if (!caseId || isNaN(numericId)) {
       return res.json([]);
     }
+    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
 
     const q = await db.execute(sql`
       SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
@@ -340,6 +352,7 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
       FROM office_messages m
       LEFT JOIN office_message_recipients r ON r.message_id = m.id
       WHERE m.case_id = ${numericId}
+        ${officeFilter}
       GROUP BY m.id
       ORDER BY m.created_at DESC
       LIMIT 100

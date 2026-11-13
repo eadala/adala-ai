@@ -1,4 +1,5 @@
-import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { getStripeSync } from './stripeClient';
 import { provisionTenant } from './services/tenantProvisioning';
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -14,6 +15,14 @@ import { auditLog, buildLogLine } from "./lib/auditLogger";
 const PLATFORM_FEE_PCT = 0.10;
 const STRIPE_FEE_PCT   = 0.029;
 const STRIPE_FEE_FIXED = 1.00; // 1 SAR fixed fee per transaction
+
+/** Never provision/ledger under a synthetic "default" office. */
+function requireStripeOfficeId(...candidates: Array<string | null | undefined>): string | null {
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim() && c !== "default" && c !== "platform") return c;
+  }
+  return null;
+}
 
 function calcRevenue(grossSAR: number) {
   const platformFee = parseFloat((grossSAR * PLATFORM_FEE_PCT).toFixed(2));
@@ -108,27 +117,31 @@ export class WebhookHandlers {
         /* Subscription checkout — provision tenant */
         const plan     = session?.metadata?.plan ?? session?.metadata?.planId ?? 'basic';
         const email    = session?.customer_email ?? session?.customer_details?.email ?? 'unknown';
-        const officeId = session?.metadata?.officeId ?? 'default';
+        const officeId = requireStripeOfficeId(session?.metadata?.officeId);
         const grossSAR = (session?.amount_total ?? 0) / 100;
 
-        console.log(`[Webhook] checkout.session.completed (subscription) — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
+        if (!officeId) {
+          console.error('[Webhook] checkout.session.completed skipped — missing metadata.officeId');
+        } else {
+          console.log(`[Webhook] checkout.session.completed (subscription) — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
 
-        try {
-          await provisionTenant({ officeId, plan, email, stripeSessionId: session.id, amountPaid: session?.amount_total ?? 0 });
+          try {
+            await provisionTenant({ officeId, plan, email, stripeSessionId: session.id, amountPaid: session?.amount_total ?? 0 });
 
-          if (grossSAR > 0) {
-            const rev = await recordRevenue({
-              officeId,
-              grossSAR,
-              ref:         `CHECKOUT_${plan.toUpperCase()}`,
-              description: `اشتراك باقة ${plan} — ${email}`,
-              stripeId:    session.id,
-              stripeEventId: eventId,
-            });
-            console.log(`[Webhook] Revenue recorded: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+            if (grossSAR > 0) {
+              const rev = await recordRevenue({
+                officeId,
+                grossSAR,
+                ref:         `CHECKOUT_${plan.toUpperCase()}`,
+                description: `اشتراك باقة ${plan} — ${email}`,
+                stripeId:    session.id,
+                stripeEventId: eventId,
+              });
+              console.log(`[Webhook] Revenue recorded: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+            }
+          } catch (err) {
+            console.error('[Webhook] checkout provisioning error:', err);
           }
-        } catch (err) {
-          console.error('[Webhook] checkout provisioning error:', err);
         }
       }
     }
@@ -141,14 +154,16 @@ export class WebhookHandlers {
       const grossSAR = (inv?.amount_paid ?? 0) / 100;
       if (grossSAR <= 0) { /* free plan / zero invoice */ }
       else {
-        const officeId    = inv?.metadata?.officeId ?? inv?.subscription_details?.metadata?.officeId ?? 'default';
+        const officeId    = requireStripeOfficeId(inv?.metadata?.officeId, inv?.subscription_details?.metadata?.officeId);
         const plan        = inv?.metadata?.plan     ?? inv?.subscription_details?.metadata?.plan     ?? 'unknown';
         const email       = inv?.customer_email ?? 'unknown';
         const periodEnd   = inv?.lines?.data?.[0]?.period?.end
           ? new Date(inv.lines.data[0].period.end * 1000).toLocaleDateString('ar-SA')
           : '';
 
-        try {
+        if (!officeId) {
+          console.error('[Webhook] invoice.paid skipped — missing officeId metadata');
+        } else try {
           const rev = await recordRevenue({
             officeId,
             grossSAR,
@@ -185,10 +200,13 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.updated') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
+      const officeId = requireStripeOfficeId(sub?.metadata?.officeId);
       const plan     = sub?.metadata?.plan     ?? sub?.metadata?.planId ?? null;
       const status   = sub?.status as string;
 
+      if (!officeId) {
+        console.error('[Webhook] subscription.updated skipped — missing metadata.officeId');
+      } else {
       console.log(`[Webhook] subscription.updated — office=${officeId} status=${status} plan=${plan}`);
 
       try {
@@ -216,6 +234,7 @@ export class WebhookHandlers {
       } catch (err) {
         console.error('[Webhook] subscription.updated error:', err);
       }
+      } // officeId present
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -223,8 +242,10 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.deleted') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
-      try {
+      const officeId = requireStripeOfficeId(sub?.metadata?.officeId);
+      if (!officeId) {
+        console.error('[Webhook] subscription.deleted skipped — missing metadata.officeId');
+      } else try {
         await db.execute(sql`
           UPDATE subscriptions SET status = 'cancelled' WHERE office_id = ${officeId}
         `).catch(() => {});
@@ -239,10 +260,12 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'invoice.payment_failed') {
       const inv       = event.data.object as any;
-      const officeId  = inv?.metadata?.officeId ?? 'default';
+      const officeId  = requireStripeOfficeId(inv?.metadata?.officeId);
       const attempt   = inv?.attempt_count ?? 1;
 
-      try {
+      if (!officeId) {
+        console.error('[Webhook] invoice.payment_failed skipped — missing metadata.officeId');
+      } else try {
         /* TRANSACTION: subscription status + notification are atomic */
         await db.transaction(async (tx) => {
           await tx.execute(sql`
@@ -272,9 +295,11 @@ export class WebhookHandlers {
     ══════════════════════════════════════════════════════════════ */
     if (eventType === 'customer.subscription.trial_will_end') {
       const sub      = event.data.object as any;
-      const officeId = sub?.metadata?.officeId ?? 'default';
+      const officeId = requireStripeOfficeId(sub?.metadata?.officeId);
       const trialEnd = new Date((sub?.trial_end ?? 0) * 1000).toLocaleDateString('ar-SA');
-      try {
+      if (!officeId) {
+        console.error('[Webhook] trial_will_end skipped — missing metadata.officeId');
+      } else try {
         await db.execute(sql`
           INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
           VALUES (${officeId}, 'info', 'trial', 'trial',

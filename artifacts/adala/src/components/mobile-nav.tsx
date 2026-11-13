@@ -31,6 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -273,9 +274,16 @@ export function MobileMoreSheet({
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const { getToken } = useAuth();
   const { data: officeData } = useQuery({
     queryKey: ["office-info-mobile"],
-    queryFn: () => fetch(`${basePath}/api/office/my`).then(r => r.ok ? r.json() : null),
+    queryFn: async () => {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const r = await fetch(`${basePath}/api/office/my`, { headers, credentials: "include" });
+      return r.ok ? r.json() : null;
+    },
     staleTime: 10 * 60_000,
     enabled: open,
   });

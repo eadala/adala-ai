@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * bankruptcyIntegrations.ts
  * Phase 1 cross-module wiring for the Bankruptcy module:
@@ -92,23 +93,15 @@ export async function saveReportToStorage(opts: {
    ③ TELEGRAM — per-office notifications for 5 BK events
 ══════════════════════════════════════════════════════════ */
 
-/** Lookup telegram settings for a specific office, fall back to 'default' */
+/** Lookup telegram settings for a specific office — never fall back to synthetic "default". */
 async function getTelegramSettings(officeId: string): Promise<any | null> {
+  if (!officeId || officeId === "default" || officeId === "platform") return null;
   try {
-    const specific = sqlOne(await db.execute(sql`
+    return sqlOne(await db.execute(sql`
       SELECT * FROM telegram_settings
       WHERE office_id = ${officeId} AND enabled = TRUE AND bot_token IS NOT NULL AND chat_id IS NOT NULL
       LIMIT 1
-    `).catch(() => null));
-    if (specific) return specific;
-
-    // fall back to platform default
-    const def = sqlOne(await db.execute(sql`
-      SELECT * FROM telegram_settings
-      WHERE office_id = 'default' AND enabled = TRUE AND bot_token IS NOT NULL AND chat_id IS NOT NULL
-      LIMIT 1
-    `).catch(() => null));
-    return def ?? null;
+    `).catch(() => null)) ?? null;
   } catch { return null; }
 }
 
