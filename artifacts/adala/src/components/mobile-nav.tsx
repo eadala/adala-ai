@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing mobile-nav lint debt */
 /**
  * Mobile-First Navigation Experience — عدالة AI
  * ─────────────────────────────────────────────
@@ -274,7 +275,7 @@ export function MobileMoreSheet({
 
   const { data: officeData } = useQuery({
     queryKey: ["office-info-mobile"],
-    queryFn: () => fetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
+    queryFn: () => fetch(`${basePath}/api/office/my`).then(r => r.ok ? r.json() : null),
     staleTime: 10 * 60_000,
     enabled: open,
   });

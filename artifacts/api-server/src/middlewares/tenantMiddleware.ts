@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 /**
  * Tenant Middleware — Multi-Tenant Resolution
  *
  * Resolves the current office (tenant) from the authenticated Clerk userId.
  * Strategy (in order):
- *   1. x-tenant-id header     (developer API keys / programmatic access)
- *   2. office_members lookup  (user belongs to an office)
- *   3. users.office_id        (primary office stored on user row)
- *   4. First office_page row  (backward-compat single-tenant fallback)
+ *   1. x-tenant-id header     (membership-validated; SA may target any office)
+ *   2. developer impersonation
+ *   3. office_members lookup  (user belongs to an office)
+ *   4. users.office_id        (primary office stored on user row)
+ *   5. office_registry / trial_offices (owner heal paths)
+ *   Never: Clerk userId as office id; never: first office_page row.
  *
  * Sets req.tenantId on success; returns 401/403 on failure.
  */

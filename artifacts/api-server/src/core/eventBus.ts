@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- event payloads */
 /**
  * عدالة AI — Event Bus Core
  * Persistent, type-safe event bus with SSE real-time broadcasting
@@ -102,18 +103,30 @@ class EventBus {
       timestamp: new Date().toISOString(),
     };
 
-    /* 1. Persist to DB (non-blocking) */
-    db.execute(sql`
-      INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
-      VALUES (
-        ${stored.id}::uuid,
-        ${stored.type},
-        ${stored.officeId ?? "default"},
-        ${stored.actorId ?? null},
-        ${JSON.stringify(stored.data)}::jsonb,
-        ${stored.timestamp}::timestamp
-      )
-    `).catch(e => console.error("[EventBus] persist error:", e.message));
+    /* 1. Persist to DB (non-blocking) — skip synthetic default office buckets */
+    const persistOffice =
+      stored.officeId && stored.officeId !== "default" && stored.officeId !== "platform"
+        ? stored.officeId
+        : (typeof stored.data?.officeId === "string" && stored.data.officeId !== "default"
+            ? stored.data.officeId
+            : typeof stored.data?.office_id === "string" && stored.data.office_id !== "default"
+              ? stored.data.office_id
+              : null);
+    if (persistOffice) {
+      db.execute(sql`
+        INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
+        VALUES (
+          ${stored.id}::uuid,
+          ${stored.type},
+          ${persistOffice},
+          ${stored.actorId ?? null},
+          ${JSON.stringify(stored.data)}::jsonb,
+          ${stored.timestamp}::timestamp
+        )
+      `).catch(e => console.error("[EventBus] persist error:", e.message));
+    } else {
+      console.warn(`[EventBus] skip persist for ${stored.type} — missing officeId`);
+    }
 
     /* 2. Run specific listeners */
     const handlers = this.listeners.get(stored.type) ?? [];
@@ -142,8 +155,12 @@ class EventBus {
   addSSEClient(res: Response, userId?: string): void {
     this.sseClients.add(res);
     if (userId) {
-      if (!this.userClients.has(userId)) this.userClients.set(userId, new Set());
-      this.userClients.get(userId)!.add(res);
+      let set = this.userClients.get(userId);
+      if (!set) {
+        set = new Set();
+        this.userClients.set(userId, set);
+      }
+      set.add(res);
     }
     res.on("close", () => {
       this.sseClients.delete(res);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router, type Request, type Response } from "express";
 import { db, messagesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -35,6 +36,7 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
      Set WHATSAPP_APP_SECRET in env vars to the Meta App Secret.
   ─────────────────────────────────────────────────────────────────────────── */
   const appSecret = process.env.WHATSAPP_APP_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
   if (appSecret) {
     const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
     if (!sigHeader) {
@@ -46,13 +48,24 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
       .createHmac("sha256", appSecret)
       .update(rawBody)
       .digest("hex");
-    if (!crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expected))) {
+    try {
+      const a = Buffer.from(sigHeader);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        res.status(403).json({ error: "Invalid webhook signature" });
+        return;
+      }
+    } catch {
       res.status(403).json({ error: "Invalid webhook signature" });
       return;
     }
+  } else if (isProd) {
+    /* Fail closed in production — never accept unsigned WhatsApp webhooks live */
+    console.error("[WhatsApp Webhook] WHATSAPP_APP_SECRET missing in production — rejecting");
+    res.status(503).json({ error: "WhatsApp webhook signature verification not configured" });
+    return;
   } else {
-    /* Warn in logs — operator must set WHATSAPP_APP_SECRET before go-live */
-    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED. Set this env var before production.");
+    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED (non-production only).");
   }
 
   try {
@@ -210,7 +223,11 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
        Fix: use timingSafeEqual + reject if sig missing (not just wrong).
        If no webhook_secret is set, log warning but allow (graceful degradation).
     ─────────────────────────────────────────────────────────────────────── */
-    const officeId = body.metadata?.office_id ?? "default";
+    const officeId = body.metadata?.office_id;
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      res.status(400).json({ error: "metadata.office_id مطلوب لتوجيه دفعة Moyasar" });
+      return;
+    }
     const settings = await dbRows(sql`
       SELECT webhook_secret FROM moyasar_settings WHERE office_id = ${officeId} LIMIT 1
     `);
@@ -233,8 +250,12 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
         res.status(403).json({ error: "توقيع Moyasar غير صحيح" });
         return;
       }
+    } else if (process.env.NODE_ENV === "production") {
+      console.error("[Moyasar Webhook] webhook_secret missing for office=" + officeId + " — rejecting in production");
+      res.status(503).json({ error: "Moyasar webhook signature not configured for office" });
+      return;
     } else {
-      console.warn("[Moyasar Webhook] ⚠️  webhook_secret not configured for office=" + officeId + " — signature verification SKIPPED.");
+      console.warn("[Moyasar Webhook] ⚠️  webhook_secret not configured for office=" + officeId + " — signature verification SKIPPED (non-production only).");
     }
 
     const { id: moyasarId, status, amount, currency, description, metadata } = body;

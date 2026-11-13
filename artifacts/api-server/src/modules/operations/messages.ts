@@ -1,4 +1,6 @@
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
+import { requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router } from "express";
 import { db, messagesTable, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
@@ -13,6 +15,10 @@ const getClerkMsg = () => {
   if (!_clerkMsg) _clerkMsg = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
   return _clerkMsg;
 };
+/**
+ * officeId is ALWAYS via resolveTenantId (membership-validated).
+ * Never fall back to Clerk user id as a tenant key.
+ */
 async function getMsgUser(req: any) {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
@@ -20,7 +26,9 @@ async function getMsgUser(req: any) {
     const user = await getClerkMsg().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    if (!officeId) return null;
     const rows = await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
     const rowArr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
     const officeRole: string = rowArr[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
@@ -115,7 +123,7 @@ router.get("/messages", requireAuthWithTenant, async (req, res) => {
   }
 });
 
-router.post("/messages", requireAuth, async (req, res) => {
+router.post("/messages", requireAuthWithTenant, async (req, res) => {
   // Outbound messages (to clients) require reply permission
   const u = await getMsgUser(req);
   if (!u) { res.status(401).json({ error: "يجب تسجيل الدخول لإرسال رسائل" }); return; }

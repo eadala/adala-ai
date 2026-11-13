@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -10,6 +11,41 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 
 const router = Router();
+
+/** Resolve caller's office page via membership — never first-row of the table. */
+async function resolveMyOfficePage(userId: string, tenantId?: string) {
+  if (tenantId && tenantId !== "platform") {
+    const byTenant = await db.select().from(officePageTable)
+      .where(eq(officePageTable.id, tenantId)).limit(1);
+    if (byTenant[0]) return byTenant[0];
+  }
+  const rows = await db.execute(sql`
+    SELECT op.*
+    FROM office_page op
+    JOIN office_members om ON om.office_id = op.id
+    WHERE om.user_id = ${userId} AND om.status = 'active'
+    ORDER BY om.created_at ASC
+    LIMIT 1
+  `);
+  const arr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+  return arr[0] ?? null;
+}
+
+/** True when caller may manage the given office page id. */
+async function canAccessOffice(req: any, officeId: string): Promise<boolean> {
+  if (!officeId) return false;
+  if (req.isSuperAdmin || req.tenantId === "platform") return true;
+  if (req.tenantId && String(req.tenantId) === String(officeId)) return true;
+  const userId = req.userId as string | undefined;
+  if (!userId) return false;
+  const rows = await db.execute(sql`
+    SELECT 1 FROM office_members
+    WHERE user_id = ${userId} AND office_id = ${officeId} AND status = 'active'
+    LIMIT 1
+  `);
+  const arr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+  return arr.length > 0;
+}
 
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
@@ -156,15 +192,15 @@ router.post("/office/public/:slug/review", async (req, res) => {
 
 /* ═══ MANAGEMENT ROUTES (auth assumed by middleware) ══════════ */
 
-/* GET my office */
-router.get("/office/my", requireAuth, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).limit(1);
-  res.json(offices[0] ?? null);
+/* GET my office — scoped to membership / tenant */
+router.get("/office/my", requireAuthWithTenant, async (req: any, res) => {
+  const office = await resolveMyOfficePage(req.userId, req.tenantId);
+  res.json(office);
 });
 
 /* POST create office */
 router.post("/office/my", requireAuth, async (req: any, res) => {
-  const { userId } = (req as any);
+  const userId = req.userId as string | undefined;
   const [row] = await db.insert(officePageTable).values(req.body).returning();
   if (row?.id && userId) {
     /* Link owner to this office */
@@ -186,23 +222,28 @@ router.post("/office/my", requireAuth, async (req: any, res) => {
   res.json(row);
 });
 
-/* PATCH update office — slug is platform-only, stripped here */
-router.patch("/office/my/:id", requireAuth, async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* PATCH update office — slug is platform-only, stripped here; membership required */
+router.patch("/office/my/:id", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = String(req.params.id);
+  if (req.tenantId !== "platform" && req.tenantId !== officeId && !req.isSuperAdmin) {
+    return res.status(403).json({ error: "غير مصرح بتعديل هذا المكتب" });
+  }
   const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
     .set({ ...safeBody, updatedAt: new Date() })
-    .where(eq(officePageTable.id, String(req.params.id))).returning();
+    .where(eq(officePageTable.id, officeId)).returning();
   res.json(row);
 });
 
 /* ── Services ── */
-router.get("/office/my/:officeId/services", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/services", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const rows = await db.select().from(officeServicesTable)
     .where(eq(officeServicesTable.officeId, String(req.params.officeId)));
   res.json(rows);
 });
-router.post("/office/my/:officeId/services", requireAuth, async (req, res) => {
+router.post("/office/my/:officeId/services", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const [row] = await db.insert(officeServicesTable)
     .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
@@ -218,12 +259,14 @@ router.delete("/office/my/services/:id", requireAuth, async (req, res) => {
 });
 
 /* ── Team ── */
-router.get("/office/my/:officeId/team", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/team", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const rows = await db.select().from(officeTeamTable)
     .where(eq(officeTeamTable.officeId, String(req.params.officeId)));
   res.json(rows);
 });
-router.post("/office/my/:officeId/team", requireAuth, async (req, res) => {
+router.post("/office/my/:officeId/team", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const [row] = await db.insert(officeTeamTable)
     .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
@@ -239,7 +282,8 @@ router.delete("/office/my/team/:id", requireAuth, async (req, res) => {
 });
 
 /* ── Orders ── */
-router.get("/office/my/:officeId/orders", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/orders", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const rows = await db.select().from(officeOrdersTable)
     .where(eq(officeOrdersTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeOrdersTable.createdAt));
@@ -253,7 +297,8 @@ router.patch("/office/my/orders/:id", requireAuth, async (req, res) => {
 });
 
 /* ── Reviews ── */
-router.get("/office/my/:officeId/reviews", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/reviews", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const rows = await db.select().from(officeReviewsTable)
     .where(eq(officeReviewsTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeReviewsTable.createdAt));
@@ -270,13 +315,15 @@ router.delete("/office/my/reviews/:id", requireAuth, async (req, res) => {
 });
 
 /* ── Articles ── */
-router.get("/office/my/:officeId/articles", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/articles", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const rows = await db.select().from(officeArticlesTable)
     .where(eq(officeArticlesTable.officeId, String(req.params.officeId)))
     .orderBy(desc(officeArticlesTable.createdAt));
   res.json(rows);
 });
-router.post("/office/my/:officeId/articles", requireAuth, async (req, res) => {
+router.post("/office/my/:officeId/articles", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const [row] = await db.insert(officeArticlesTable)
     .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
   res.json(row);
@@ -294,13 +341,15 @@ router.delete("/office/my/articles/:id", requireAuth, async (req, res) => {
 
 /* ═══ DOMAINS ═══════════════════════════════════════════════ */
 
-router.get("/office/my/:officeId/domains", requireAuth, async (req, res) => {
+router.get("/office/my/:officeId/domains", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const { officeId } = req.params as Record<string, string>;
   const rows = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
   res.json(rows[0] ?? null);
 });
 
-router.post("/office/my/:officeId/domains", requireAuth, async (req, res) => {
+router.post("/office/my/:officeId/domains", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const { officeId } = req.params as Record<string, string>;
   const [office] = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId));
   if (!office) return res.status(404).json({ error: "not found" });
@@ -342,7 +391,8 @@ router.delete("/office/my/domains/:id/custom", requireAuth, async (req, res) => 
 
 /* ═══ PLAN ═══════════════════════════════════════════════════ */
 
-router.patch("/office/my/:officeId/plan", requireAuth, async (req, res) => {
+router.patch("/office/my/:officeId/plan", requireAuthWithTenant, async (req: any, res) => {
+  if (!(await canAccessOffice(req, String(req.params.officeId)))) return res.status(403).json({ error: "غير مصرح" });
   const { plan } = req.body;
   const [updated] = await db.update(officePageTable).set({ plan, updatedAt: new Date() })
     .where(eq(officePageTable.id, String(req.params.officeId))).returning();

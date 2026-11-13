@@ -20,6 +20,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
 | [TRIAL_STAGING_ENV.md](./TRIAL_STAGING_ENV.md) | Staging env var profile (test keys only) |
 | [TRIAL_SMOKE_LIVE_DEFERRED.md](./TRIAL_SMOKE_LIVE_DEFERRED.md) | Live deferred smoke path while staging postponed |
+| [GLOBAL_READINESS_AUDIT_2026-11-13.md](./GLOBAL_READINESS_AUDIT_2026-11-13.md) | Live + code readiness audit and fix set |
 
 ## Scripts (read-only)
 

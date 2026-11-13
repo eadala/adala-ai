@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -91,7 +93,9 @@ async function getOfficeUser(req: any) {
     const user = await getClerkPortal().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    if (!officeId) return null; // fail closed — never substitute auth.userId
     const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
     const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
     const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";

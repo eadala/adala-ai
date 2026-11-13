@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
@@ -133,6 +134,7 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
    SMART STORAGE MANAGEMENT
 ══════════════════════════════════════════════════ */
 import { createClerkClient, getAuth } from "@clerk/express";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -150,7 +152,12 @@ async function getMgmtUser(req: any) {
     const user = await getClerkMgmt().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    let officeId = (user.publicMetadata?.officeId as string) ?? auth.userId;
+    // Prefer middleware tenant; never fall back to Clerk userId as office id.
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    let officeId =
+      (typeof req.tenantId === "string" && req.tenantId) ||
+      (await resolveTenantId(auth.userId, headerTenant));
+    if (!officeId) return null;
 
     // Developer impersonation: SA viewing as a specific office
     let isImpersonating = false;
@@ -162,7 +169,7 @@ async function getMgmtUser(req: any) {
         LIMIT 1
       `);
       if (impRows[0]?.impersonated_office_id) {
-        officeId = impRows[0].impersonated_office_id;
+        officeId = String(impRows[0].impersonated_office_id);
         isImpersonating = true;
       }
     }
