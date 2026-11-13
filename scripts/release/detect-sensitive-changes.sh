@@ -26,6 +26,14 @@ if [[ -z "${base}" ]]; then
   fi
 fi
 
+# Reject empty / metacharacter-laden refs
+for _r in "${base}" "${head}"; do
+  if [[ -z "${_r}" || "${_r}" =~ [\;\|\&\$\`\<\>\(\)\{\}\!\*] || "${_r}" == *..* ]]; then
+    echo "ERROR: unsafe ref argument: ${_r}" >&2
+    exit 2
+  fi
+done
+
 git rev-parse --verify "${base}^{commit}" >/dev/null
 git rev-parse --verify "${head}^{commit}" >/dev/null
 

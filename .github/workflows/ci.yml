@@ -246,7 +246,7 @@ jobs:
         run: |
           MISSING=$(grep -rn \
             "createTable\|pgTable" \
-            packages/db/src/ --include="*.ts" \
+            lib/db/src/ --include="*.ts" \
             2>/dev/null | grep -v "office_id\|officeId\|systemEvents\|planCms\|promoCode\|serviceStat\|serviceStatus\|loginLog\|email_log\|audit_log\|developer_token\|backup_job\|backup_setting\|plan_notification\|gift_sub\|hosting\|workflow_builder_grant\|storage_setting\|journal\|chart_of\|event_daily" \
             | wc -l)
           echo "Tables potentially missing office_id check: $MISSING"
