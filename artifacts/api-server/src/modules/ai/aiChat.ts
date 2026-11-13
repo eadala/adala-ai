@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -98,7 +99,7 @@ ensureUsageTable();
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL ?? "gemma3:4b";
-const OLLAMA_FALLBACK = process.env.OLLAMA_FALLBACK_ENABLED === "true";
+const _OLLAMA_FALLBACK = process.env.OLLAMA_FALLBACK_ENABLED === "true";
 
 export function getAvailableModels() {
   return {
@@ -268,10 +269,7 @@ async function ensureCreditTables(): Promise<void> {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await db.execute(sql`
-      INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance)
-      VALUES ('default','المكتب الافتراضي',100,100) ON CONFLICT (office_id) DO NOTHING
-    `);
+    /* Intentionally no seed row for office_id='default' — credits belong to real tenants */
   } catch { /* tables may already exist */ }
 }
 
@@ -283,17 +281,22 @@ export async function callAI(
   userMessage: string,
   history: { role: string; content: string }[] = [],
   preferredModel: ModelKey = "auto",
-  officeId: string = "default",
+  officeId: string = "",
   queryType: string = "custom",
   userId: string = "unknown",
 ): Promise<{ reply: string; modelUsed: string; tier: CostTier }> {
 
   const t0 = Date.now();
+  /* Never invent a "default" office — empty means no credit/quota accounting */
+  const scopedOffice =
+    officeId && officeId !== "default" && officeId !== "platform" && officeId !== "unknown"
+      ? officeId
+      : "";
 
   /* ── Prompt Injection Protection ──────────────────────────────────── */
   const { sanitized: safeMessage, wasInjectionAttempt, detectedPatterns } = sanitizePrompt(userMessage);
   if (wasInjectionAttempt) {
-    logInjectionAttempt(officeId, userId, userMessage, detectedPatterns).catch(() => {});
+    logInjectionAttempt(scopedOffice || "unknown", userId, userMessage, detectedPatterns).catch(() => {});
     return {
       reply: "⚠️ تم اكتشاف محاولة تجاوز غير مصرح بها. تم تسجيل هذه المحاولة.",
       modelUsed: "security-block",
@@ -303,12 +306,12 @@ export async function callAI(
   const guardedSystemPrompt = `${SYSTEM_PROMPT_GUARD}\n\n${systemPrompt}`;
 
   /* ── Daily / Monthly Limit Check ──────────────────────────────── */
-  if (officeId && officeId !== "default") {
+  if (scopedOffice) {
     try {
       const cr = await db.execute(sql`
         SELECT daily_used, daily_limit, monthly_used, monthly_limit,
                daily_reset_at
-        FROM office_ai_credits WHERE office_id = ${officeId}
+        FROM office_ai_credits WHERE office_id = ${scopedOffice}
       `) as any;
       const crows = Array.isArray(cr) ? cr : (cr?.rows ?? []);
       if (crows.length > 0) {
@@ -321,7 +324,7 @@ export async function callAI(
           await db.execute(sql`
             UPDATE office_ai_credits
             SET daily_used = 0, daily_reset_at = NOW()
-            WHERE office_id = ${officeId}
+            WHERE office_id = ${scopedOffice}
           `).catch(() => {});
           c.daily_used = 0;
         }
@@ -335,7 +338,7 @@ export async function callAI(
         db.execute(sql`
           UPDATE office_ai_credits
           SET daily_used = daily_used + 1, monthly_used = monthly_used + 1
-          WHERE office_id = ${officeId}
+          WHERE office_id = ${scopedOffice}
         `).catch(() => {});
       }
     } catch { /* non-blocking — don't fail the AI call */ }
@@ -345,8 +348,8 @@ export async function callAI(
   const forced = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier }> => {
     const reply = await fn();
     const tier = classifyPrompt(safeMessage);
-    deductCredits(officeId, model);
-    logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
+    if (scopedOffice) deductCredits(scopedOffice, model);
+    logAIUsage({ officeId: scopedOffice || "unknown", queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
     return { reply, modelUsed: model, tier };
   };
 
@@ -368,8 +371,8 @@ export async function callAI(
   const tryModel = async (model: string, fn: () => Promise<string>): Promise<{ reply: string; modelUsed: string; tier: CostTier } | null> => {
     try {
       const reply = await fn();
-      deductCredits(officeId, model);
-      logAIUsage({ officeId, queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
+      if (scopedOffice) deductCredits(scopedOffice, model);
+      logAIUsage({ officeId: scopedOffice || "unknown", queryType, modelUsed: model, tier, costPoints: MODEL_CREDIT_COST[model] ?? 1, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage, responseText: reply });
       return { reply, modelUsed: model, tier };
     } catch { return null; }
   };
@@ -397,7 +400,7 @@ export async function callAI(
   }
 
   /* final static fallback */
-  logAIUsage({ officeId, queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage });
+  logAIUsage({ officeId: scopedOffice || "unknown", queryType, modelUsed: "fallback", tier, costPoints: 0, cached: false, responseMs: Date.now() - t0, promptLength: safeMessage.length, promptText: safeMessage });
   return { reply: generateSmartResponse(safeMessage), modelUsed: "fallback", tier };
 }
 
@@ -497,7 +500,7 @@ function generateSmartResponse(query: string): string {
 **تنبيه:** هذا تحليل استشاري عام ولا يغني عن الاستشارة القانونية المتخصصة.`;
 }
 
-async function processAiTask(taskType: string, content: string): Promise<string> {
+async function processAiTask(taskType: string, content: string, officeId: string): Promise<string> {
   const systemPrompt = `أنت محلل قانوني متخصص في القانون السعودي والفقه الإسلامي. تحلل المستندات القانونية وتقدم تقارير دقيقة ومهنية باللغة العربية الفصحى. ردودك منظمة وتستخدم العناوين والنقاط لتسهيل القراءة.`;
 
   const prompts: Record<string, string> = {
@@ -507,7 +510,7 @@ async function processAiTask(taskType: string, content: string): Promise<string>
   };
 
   const prompt = prompts[taskType] ?? `حلل المستند القانوني التالي:\n\n${content}`;
-  const { reply } = await callAI(systemPrompt, prompt);
+  const { reply } = await callAI(systemPrompt, prompt, [], "auto", officeId, "ai_task");
   return reply;
 }
 
@@ -516,7 +519,7 @@ router.get("/ai-models/available", requireAuth, (_req, res) => {
   res.json(getAvailableModels());
 });
 
-router.post("/ai-chat/message", requireAuth, async (req, res) => {
+router.post("/ai-chat/message", requireAuthWithTenant, async (req, res) => {
   const { message, caseId, history = [], model = "auto" } = req.body as {
     message: string;
     caseId?: number;
@@ -528,11 +531,15 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId || tenantId === "default" || tenantId === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
+  const userId = String((req as any).userId ?? "unknown");
+
   let context = "";
   if (caseId) {
     try {
-      const tenantId = (req as any).tenantId as string;
-      if (!tenantId) throw new Error("no tenant");
       const caseRows = await db.execute(sql`SELECT id, title, case_type, status FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`) as any;
       const caseArr = Array.isArray(caseRows) ? caseRows : (caseRows?.rows ?? []);
       if (caseArr.length > 0) {
@@ -544,37 +551,48 @@ router.post("/ai-chat/message", requireAuth, async (req, res) => {
 
   const systemPrompt = `أنت مساعد قانوني ذكي لمنصة عدالة AI. متخصص في القانون السعودي والفقه الإسلامي. تجيب بالعربية الفصحى بأسلوب مهني ودقيق. تقدم تحليلات قانونية، ترشيح مراجع نظامية، وخطوات عملية للمحامين.${context}`;
 
-  const { reply, modelUsed } = await callAI(systemPrompt, message, history as { role: string; content: string }[], model);
+  const { reply, modelUsed } = await callAI(
+    systemPrompt,
+    message,
+    history as { role: string; content: string }[],
+    model,
+    tenantId,
+    "ai_chat",
+    userId,
+  );
   return res.json({ reply, modelUsed });
 });
 
-router.post("/ai-tasks/:id/process", requireAuth, async (req, res) => {
+router.post("/ai-tasks/:id/process", requireAuthWithTenant, async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
-  const tenantId = (req as any).tenantId as string | undefined;
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId || tenantId === "default" || tenantId === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
 
   try {
-    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
+    const taskRows = await db.execute(sql`SELECT * FROM ai_tasks WHERE id = ${id} AND office_id = ${tenantId} LIMIT 1`) as any;
     const taskArr = Array.isArray(taskRows) ? taskRows : (taskRows?.rows ?? []);
     if (!taskArr.length) return res.status(404).json({ error: "المهمة غير موجودة" });
     const t = taskArr[0];
 
-    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})`);
+    await db.execute(sql`UPDATE ai_tasks SET status = 'running' WHERE id = ${id} AND office_id = ${tenantId}`);
 
     let docContent = "";
     if (t.document_id) {
       /* SECURITY: scope document read to the tenant that owns the ai_task */
-      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''}) LIMIT 1`) as any;
+      const docRows = await db.execute(sql`SELECT * FROM documents WHERE id = ${t.document_id} AND office_id = ${tenantId} LIMIT 1`) as any;
       const docArr = Array.isArray(docRows) ? docRows : (docRows?.rows ?? []);
       if (docArr.length) docContent = docArr[0].ocr_text ?? docArr[0].file_name ?? "";
     }
     if (!docContent) docContent = "مستند قانوني للتحليل";
 
-    const result = await processAiTask(t.type ?? t.task_type ?? "summarize", docContent);
+    const result = await processAiTask(t.type ?? t.task_type ?? "summarize", docContent, tenantId);
 
     await db.execute(sql`
       UPDATE ai_tasks SET status = 'done', output_text = ${result}, updated_at = NOW()
-      WHERE id = ${id} AND (office_id IS NULL OR office_id = ${tenantId ?? ''})
+      WHERE id = ${id} AND office_id = ${tenantId}
     `);
 
     return res.json({ success: true, result });
@@ -585,10 +603,12 @@ router.post("/ai-search", requireAuthWithTenant, async (req, res) => {
   const { query } = req.body as { query: string };
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
   const tenantId = (req as any).tenantId as string;
-  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  if (!tenantId || tenantId === "default" || tenantId === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
 
   const systemPrompt = `أنت محرك بحث قانوني ذكي. عند تلقي استفسار، حدد المفاهيم القانونية المرتبطة به في القانون السعودي وقدم نتائج بحث منظمة.`;
-  const { reply: analysis } = await callAI(systemPrompt, `ابحث عن: ${query}`);
+  const { reply: analysis } = await callAI(systemPrompt, `ابحث عن: ${query}`, [], "auto", tenantId, "ai_search");
 
   const like = `%${query}%`;
   const docsRaw = await db.execute(sql`
@@ -615,9 +635,12 @@ import { Router as AICostRouter } from "express";
 export const aiCostRouter = AICostRouter();
 
 /* GET /api/ai/cost — current office usage */
-aiCostRouter.get("/ai/cost", async (req: any, res: any) => {
+aiCostRouter.get("/ai/cost", requireAuthWithTenant, async (req: any, res: any) => {
   try {
     const tenantId = req.tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") {
+      return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    }
     const r = await db.execute(sql`
       SELECT office_id, balance, monthly_allowance, daily_limit, daily_used,
              monthly_limit, monthly_used, daily_reset_at, updated_at
