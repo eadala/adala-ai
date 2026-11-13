@@ -19,6 +19,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [TRIAL_LAUNCH_RUNBOOK.md](./TRIAL_LAUNCH_RUNBOOK.md) | Simple controlled trial (staging) launch procedure |
 | [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
 | [TRIAL_STAGING_ENV.md](./TRIAL_STAGING_ENV.md) | Staging env var profile (test keys only) |
+| [TRIAL_SMOKE_LIVE_DEFERRED.md](./TRIAL_SMOKE_LIVE_DEFERRED.md) | Live deferred smoke path while staging postponed |
 
 ## Scripts (read-only)
 
@@ -30,6 +31,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 ./scripts/release/recovery-inspect.sh [known-good-ref]
 ./scripts/release/detect-sensitive-changes.sh [base] [head]
 ./scripts/release/trial-preflight.sh [ref]
+./scripts/release/trial-live-probe.sh [base-url]
 ./scripts/release/verify-path01-admin.sh
 ```
 

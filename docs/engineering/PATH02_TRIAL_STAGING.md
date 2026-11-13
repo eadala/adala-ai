@@ -28,6 +28,7 @@ Run a **controlled trial** of Adalah AI with a clear Go/No-Go, without claiming 
 | Staging env profile | Ready when operator starts | `TRIAL_STAGING_ENV.md` (test keys only) |
 | Smoke Go/No-Go | Pending staging or named live checks | `TRIAL_SMOKE_TEST.md` |
 | Live platform health | Observed healthy | `https://adalahai.com/api/healthz` |
+| Live deferred smoke probe | **Available** | `./scripts/release/trial-live-probe.sh` + `TRIAL_SMOKE_LIVE_DEFERRED.md` |
 
 ## How to proceed (ordered)
 
