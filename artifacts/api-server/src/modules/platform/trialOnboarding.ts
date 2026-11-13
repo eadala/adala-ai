@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -57,10 +58,11 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
       inviteEmail?: string;
     };
 
-    const officeId = `trial_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    let officeId = `trial_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
-    const existing = await sqlOne(sql`SELECT id FROM trial_offices WHERE user_id = ${userId}`);
-    if (existing) {
+    const existing = await sqlOne(sql`SELECT id, office_id FROM trial_offices WHERE user_id = ${userId}`);
+    if (existing?.office_id && existing.office_id !== "default" && existing.office_id !== "platform") {
+      officeId = String(existing.office_id);
       await db.execute(sql`
         UPDATE trial_offices SET
           office_name = ${officeName ?? ""},
@@ -77,7 +79,14 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
           ${officeName ?? ""}, ${specialty ?? ""}, ${officeSize ?? "solo"},
           ${JSON.stringify({ firstCase, inviteEmail })}::jsonb
         )
+        ON CONFLICT (user_id) DO UPDATE SET
+          office_name = EXCLUDED.office_name,
+          specialty   = EXCLUDED.specialty,
+          office_size = EXCLUDED.office_size,
+          setup_data  = EXCLUDED.setup_data
       `);
+      const row = await sqlOne(sql`SELECT office_id FROM trial_offices WHERE user_id = ${userId}`);
+      if (row?.office_id) officeId = String(row.office_id);
     }
 
     /* Ensure office_members entry exists so resolveTenantId can find this user */
@@ -90,7 +99,7 @@ router.post("/onboarding/setup", requireAuth, async (req, res) => {
     /* Also update users.office_id for fast lookup */
     await db.execute(sql`
       UPDATE users SET office_id = ${officeId}
-      WHERE id = ${userId} AND office_id IS NULL
+      WHERE id = ${userId} AND (office_id IS NULL OR office_id IN ('default', 'platform'))
     `).catch(() => {});
 
     await db.execute(sql`

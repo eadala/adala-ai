@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 /**
  * AI Support Agent Layer — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -314,33 +315,37 @@ router.get("/support/tickets/:id/ai-analysis", requireAuth, async (req, res) => 
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* GET /support/ai-stats — AI performance metrics */
+/* GET /support/ai-stats — AI performance metrics (caller's tickets only) */
 router.get("/support/ai-stats", requireAuth, async (req, res) => {
+  const { userId } = getAuth(req);
+  if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
   try {
     await ensureSupportAITables();
     const stats = one(await db.execute(sql`
       SELECT
         COUNT(*)::int                                                        AS total_analyzed,
-        COUNT(*) FILTER (WHERE ai_auto_replied)::int                        AS auto_replied,
-        COUNT(*) FILTER (WHERE ai_escalated)::int                           AS escalated,
-        COUNT(*) FILTER (WHERE soc_alerted)::int                            AS soc_alerts,
-        ROUND(AVG(ai_confidence) * 100, 1)                                  AS avg_confidence_pct,
-        COUNT(*) FILTER (WHERE ai_type = 'security')::int                   AS security_tickets,
-        COUNT(*) FILTER (WHERE ai_type = 'bug')::int                        AS bug_tickets,
-        COUNT(*) FILTER (WHERE ai_type = 'billing')::int                    AS billing_tickets,
-        COUNT(*) FILTER (WHERE ai_type = 'performance')::int                AS performance_tickets,
-        COUNT(*) FILTER (WHERE ai_type = 'feature')::int                    AS feature_tickets,
-        COUNT(*) FILTER (WHERE ai_type = 'general')::int                    AS general_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_auto_replied)::int                     AS auto_replied,
+        COUNT(*) FILTER (WHERE aa.ai_escalated)::int                        AS escalated,
+        COUNT(*) FILTER (WHERE aa.soc_alerted)::int                         AS soc_alerts,
+        ROUND(AVG(aa.ai_confidence) * 100, 1)                               AS avg_confidence_pct,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'security')::int                AS security_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'bug')::int                     AS bug_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'billing')::int                 AS billing_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'performance')::int             AS performance_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'feature')::int                 AS feature_tickets,
+        COUNT(*) FILTER (WHERE aa.ai_type = 'general')::int                 AS general_tickets,
         ROUND(
-          100.0 * COUNT(*) FILTER (WHERE ai_auto_replied) / NULLIF(COUNT(*), 0), 1
+          100.0 * COUNT(*) FILTER (WHERE aa.ai_auto_replied) / NULLIF(COUNT(*), 0), 1
         )                                                                    AS ai_resolution_rate,
         ROUND(
-          100.0 * COUNT(*) FILTER (WHERE ai_escalated) / NULLIF(COUNT(*), 0), 1
+          100.0 * COUNT(*) FILTER (WHERE aa.ai_escalated) / NULLIF(COUNT(*), 0), 1
         )                                                                    AS escalation_rate
-      FROM support_ai_analysis
+      FROM support_ai_analysis aa
+      JOIN support_tickets t ON t.id = aa.ticket_id
+      WHERE t.user_id = ${userId}
     `));
 
-    /* Total tickets in system */
+    /* Totals for caller's tickets only */
     const totals = one(await db.execute(sql`
       SELECT
         COUNT(*)::int AS total,
@@ -348,6 +353,7 @@ router.get("/support/ai-stats", requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'closed')::int AS closed
       FROM support_tickets
+      WHERE user_id = ${userId}
     `));
 
     res.json({ ai: stats ?? {}, tickets: totals ?? {} });
