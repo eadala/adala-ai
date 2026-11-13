@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -256,6 +257,7 @@ router.get("/ai/case-brief/:id", requireAuthWithTenant, async (req, res) => {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
     const tenantId = (req as any).tenantId as string;
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const [caseRow, docsCount, invoicesCount, eventsCount] = await Promise.all([
       /* SECURITY: always scope case fetch to the authenticated tenant */
       db.execute(sql`SELECT title, case_type, status, client_name, description FROM cases WHERE id = ${id} AND office_id = ${tenantId} LIMIT 1`),
@@ -266,7 +268,7 @@ router.get("/ai/case-brief/:id", requireAuthWithTenant, async (req, res) => {
 
     let contractsCount = 0;
     if (isUuid) {
-      const cr = await db.execute(sql`SELECT COUNT(*) as c FROM contracts WHERE case_id = ${id}::uuid`);
+      const cr = await db.execute(sql`SELECT COUNT(*) as c FROM contracts WHERE case_id = ${id}::uuid AND office_id = ${tenantId}`);
       contractsCount = Number((cr.rows?.[0] as any)?.c ?? 0);
     }
 
