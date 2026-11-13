@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -9,7 +10,7 @@ async function ensureTable() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS reminders (
       id            SERIAL PRIMARY KEY,
-      office_id     TEXT NOT NULL DEFAULT 'default',
+      office_id     TEXT NOT NULL,
       title         TEXT NOT NULL,
       body          TEXT,
       due_date      DATE,
@@ -22,6 +23,13 @@ async function ensureTable() {
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE reminders ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_reminders_office_id ON reminders(office_id)`).catch(() => {});
+}
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
 }
 
 async function sqlAll(q: any) {
@@ -38,12 +46,13 @@ async function sqlOne(q: any) {
 router.get("/reminders", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { done } = req.query;
     const rows = await sqlAll(sql`
       SELECT r.*, c.title as case_title
       FROM reminders r
-      LEFT JOIN cases c ON c.id = r.case_id
+      LEFT JOIN cases c ON c.id = r.case_id AND c.office_id = ${tenantId}
       WHERE r.office_id = ${tenantId}
         ${done === "true" ? sql`AND r.done = true` : done === "false" ? sql`AND r.done = false` : sql``}
       ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC
@@ -56,7 +65,8 @@ router.get("/reminders", requireAuthWithTenant, async (req, res) => {
 router.get("/reminders/count", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const row = await sqlOne(sql`
       SELECT COUNT(*)::int as count
       FROM reminders
@@ -70,7 +80,8 @@ router.get("/reminders/count", requireAuthWithTenant, async (req, res) => {
 router.post("/reminders", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const userId   = (req as any).userId;
     const { title, body, dueDate, dueTime, priority, category, caseId } = req.body;
     const row = await sqlOne(sql`
@@ -86,7 +97,8 @@ router.post("/reminders", requireAuthWithTenant, async (req, res) => {
 router.patch("/reminders/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { id } = req.params as Record<string, string>;
     const { title, body, dueDate, dueTime, priority, category, done } = req.body;
     const row = await sqlOne(sql`
@@ -109,7 +121,8 @@ router.patch("/reminders/:id", requireAuthWithTenant, async (req, res) => {
 router.delete("/reminders/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTable();
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await db.execute(sql`DELETE FROM reminders WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tenantId}`);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

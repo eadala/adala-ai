@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -9,7 +10,7 @@ async function ensureTables() {
   const tables = [
     sql`CREATE TABLE IF NOT EXISTS hr_announcements (
       id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL,
       title       TEXT NOT NULL,
       content     TEXT NOT NULL,
       priority    TEXT NOT NULL DEFAULT 'normal',
@@ -21,7 +22,7 @@ async function ensureTables() {
     )`,
     sql`CREATE TABLE IF NOT EXISTS employee_requests (
       id           SERIAL PRIMARY KEY,
-      office_id    TEXT NOT NULL DEFAULT 'default',
+      office_id    TEXT NOT NULL,
       employee_id  TEXT NOT NULL,
       type         TEXT NOT NULL DEFAULT 'document',
       subject      TEXT NOT NULL,
@@ -34,7 +35,7 @@ async function ensureTables() {
     )`,
     sql`CREATE TABLE IF NOT EXISTS leave_balances (
       id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL,
       employee_id TEXT NOT NULL,
       leave_type  TEXT NOT NULL DEFAULT 'annual',
       year        INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::int,
@@ -46,6 +47,14 @@ async function ensureTables() {
   for (const q of tables) {
     try { await db.execute(q); } catch { /* table already exists — ignore */ }
   }
+  await db.execute(sql`ALTER TABLE hr_announcements ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+  await db.execute(sql`ALTER TABLE employee_requests ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+  await db.execute(sql`ALTER TABLE leave_balances ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+}
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
 }
 
 async function sqlAll(q: any): Promise<any[]> {
@@ -63,7 +72,8 @@ async function sqlOne(q: any): Promise<any> {
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT * FROM hr_announcements
@@ -77,7 +87,8 @@ router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res)
 
 router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT * FROM hr_announcements WHERE office_id = ${tid} ORDER BY created_at DESC
@@ -88,7 +99,8 @@ router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, 
 
 router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { title, content, priority, targetDept, authorName, authorId, expiresAt } = req.body as any;
     if (!title || !content) return res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
@@ -103,7 +115,8 @@ router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res
 
 router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
   res.status(204).end();
 });
@@ -113,7 +126,8 @@ router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (re
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT er.*, e.full_name as employee_name, e.job_title, e.department
@@ -128,7 +142,8 @@ router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
 
 router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { employeeId, type, subject, body } = req.body as any;
     if (!employeeId || !subject) return res.status(400).json({ error: "الموظف والموضوع مطلوبان" });
@@ -147,7 +162,8 @@ router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res
   await ensureTables();
   try {
     const { status, response, resolvedBy } = req.body as any;
-    const tid = (req as any).tenantId as string;
+    const tid = tidOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const row = await sqlOne(sql`
       UPDATE employee_requests SET
         status = COALESCE(${status ?? null}, status),
@@ -164,7 +180,8 @@ router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res
 
 router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
   res.status(204).end();
 });
@@ -177,7 +194,8 @@ router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res
   try {
     const year = parseInt(String(req.query.year ?? new Date().getFullYear()));
     /* get all active employees with their balances (auto-init to 21 days annual) */
-    const tid = (req as any).tenantId as string;
+    const tid = tidOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const employees = await sqlAll(sql`SELECT * FROM employees WHERE status = 'active' AND office_id = ${tid} ORDER BY full_name`);
     const results = [];
 
@@ -229,7 +247,8 @@ router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res
 router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tidOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { leaveType, quota, year } = req.body as any;
     const y = year ?? new Date().getFullYear();
     const empId = String(req.params.employeeId);
@@ -248,7 +267,8 @@ router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, a
    PAYSLIP DATA — مُقيَّد بـ office_id + payroll:view
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const row = await sqlOne(sql`
       SELECT p.*, e.full_name, e.job_title, e.department, e.national_id, e.bank_iban, e.bank_name, e.hire_date
@@ -266,9 +286,9 @@ router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req,
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/dashboard", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tidOf(req);
+  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
-    const year = new Date().getFullYear();
     const [ann, pendingReqs, pendingLeaves, totalEmp] = await Promise.all([
       sqlOne(sql`SELECT COUNT(*)::int as count FROM hr_announcements WHERE office_id = ${tenantId} AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)`),
       sqlOne(sql`SELECT COUNT(*)::int as count FROM employee_requests WHERE office_id = ${tenantId} AND status = 'pending'`),
