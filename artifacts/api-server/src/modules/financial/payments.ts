@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -244,10 +245,16 @@ router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════════ */
 
 /* GET /api/payments/transactions */
-router.get("/payments/transactions", requireAuthWithTenant, async (_req, res) => {
+router.get("/payments/transactions", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const txs = await rows(sql`
-      SELECT * FROM payment_transactions ORDER BY created_at DESC LIMIT 200
+      SELECT * FROM payment_transactions
+      WHERE office_id = ${officeId}
+      ORDER BY created_at DESC LIMIT 200
     `);
     res.json(txs);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -358,7 +365,10 @@ router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId;
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
 
     const totals = await one(sql`
       SELECT
@@ -375,6 +385,7 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COUNT(CASE WHEN status='completed' AND (settlement_status IS NULL OR settlement_status='unsettled')
                    THEN 1 END)::int                                                        AS unsettled_count
       FROM payment_transactions
+      WHERE office_id = ${officeId}
     `);
 
     const monthly = await rows(sql`
@@ -384,7 +395,8 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COALESCE(SUM(platform_fee),0)::numeric AS commission,
         COALESCE(SUM(net_amount),0)::numeric  AS net
       FROM payment_transactions
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+      WHERE office_id = ${officeId}
+        AND created_at >= NOW() - INTERVAL '6 months'
         AND status = 'completed'
       GROUP BY month ORDER BY month
     `);
@@ -396,7 +408,8 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
         COUNT(*)::int AS count,
         COALESCE(SUM(amount),0)::numeric AS total
       FROM payment_transactions
-      WHERE status = 'completed'
+      WHERE office_id = ${officeId}
+        AND status = 'completed'
       GROUP BY gateway
     `);
 
@@ -426,8 +439,12 @@ router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
 });
 
 /* backwards compat */
-router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
+router.get("/payments/stats", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const totals = await one(sql`
       SELECT
         COUNT(*)::int                                 AS total_transactions,
@@ -437,6 +454,7 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
         COALESCE(SUM(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::numeric AS pending_amount,
         COALESCE(SUM(CASE WHEN status='completed' THEN amount ELSE 0 END),0)::numeric AS completed_amount
       FROM payment_transactions
+      WHERE office_id = ${officeId}
     `);
 
     const monthly = await rows(sql`
@@ -446,7 +464,8 @@ router.get("/payments/stats", requireAuthWithTenant, async (_req, res) => {
         COALESCE(SUM(platform_fee),0)::numeric AS commission,
         COALESCE(SUM(net_amount),0)::numeric AS net
       FROM payment_transactions
-      WHERE created_at >= NOW() - INTERVAL '6 months'
+      WHERE office_id = ${officeId}
+        AND created_at >= NOW() - INTERVAL '6 months'
         AND status = 'completed'
       GROUP BY month ORDER BY month
     `);

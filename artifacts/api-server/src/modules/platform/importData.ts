@@ -1,27 +1,31 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
 
-async function sqlAll(q: any) {
-  try {
-    const r = await db.execute(q) as any;
-    return Array.isArray(r) ? r : (r?.rows ?? []);
-  } catch { return []; }
+function realOfficeId(req: any): string | null {
+  const id = req.tenantId ? String(req.tenantId) : "";
+  if (!id || id === "default" || id === "platform") return null;
+  return id;
 }
 
 /* ─── Import Clients ─────────────────────────────────────────────────── */
-router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
+router.post("/import/clients", requireAuthWithTenant, async (req: any, res) => {
   try {
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)
       return res.status(400).json({ error: "لا توجد بيانات للاستيراد" });
     if (rows.length > 500)
       return res.status(400).json({ error: "الحد الأقصى 500 سجل في كل مرة" });
 
-    let inserted = 0, errors: string[] = [];
+    let inserted = 0;
+    const errors: string[] = [];
     for (const r of rows) {
       try {
         const name = (r.name || r.الاسم || r.Name || "").trim();
@@ -32,7 +36,7 @@ router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
         const city  = (r.city || r.المدينة || r.City || "").trim() || null;
         await db.execute(sql`
           INSERT INTO clients (full_name, email, phone, type, city, status, office_id)
-          VALUES (${name}, ${email}, ${phone}, ${type}, ${city}, 'active', 'default')
+          VALUES (${name}, ${email}, ${phone}, ${type}, ${city}, 'active', ${officeId})
           ON CONFLICT DO NOTHING
         `);
         inserted++;
@@ -43,15 +47,19 @@ router.post("/import/clients", requireAuthWithTenant, async (req, res) => {
 });
 
 /* ─── Import Cases ───────────────────────────────────────────────────── */
-router.post("/import/cases", requireAuthWithTenant, async (req, res) => {
+router.post("/import/cases", requireAuthWithTenant, async (req: any, res) => {
   try {
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+
     const { rows } = req.body as { rows: any[] };
     if (!Array.isArray(rows) || rows.length === 0)
       return res.status(400).json({ error: "لا توجد بيانات للاستيراد" });
     if (rows.length > 500)
       return res.status(400).json({ error: "الحد الأقصى 500 سجل في كل مرة" });
 
-    let inserted = 0, errors: string[] = [];
+    let inserted = 0;
+    const errors: string[] = [];
     for (const r of rows) {
       try {
         const title = (r.title || r.العنوان || r.Title || "").trim();
@@ -63,7 +71,7 @@ router.post("/import/cases", requireAuthWithTenant, async (req, res) => {
         const description = (r.description || r.الوصف || r.Description || "").trim() || null;
         await db.execute(sql`
           INSERT INTO cases (title, case_number, type, status, court, description, office_id)
-          VALUES (${title}, ${caseNumber}, ${caseType}, ${status}, ${court}, ${description}, 'default')
+          VALUES (${title}, ${caseNumber}, ${caseType}, ${status}, ${court}, ${description}, ${officeId})
           ON CONFLICT DO NOTHING
         `);
         inserted++;
