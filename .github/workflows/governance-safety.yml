@@ -1,0 +1,80 @@
+# Lightweight governance checks — does NOT replace CI Quality Gates
+# and does NOT deploy. Advisory + branch/target/sensitive-path validation.
+name: Governance Safety
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: governance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  governance:
+    name: Branch & sensitive-path checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate branch naming (head ref)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          echo "head_ref=${HEAD_REF}"
+          echo "base_ref=${BASE_REF}"
+          # Allow documented short-lived prefixes + existing recovery branches
+          if [[ ! "${HEAD_REF}" =~ ^(cursor|feature|fix|hotfix|release)/[a-z0-9._/-]+$ ]]; then
+            echo "::error::Head branch '${HEAD_REF}' does not match naming policy (cursor|feature|fix|hotfix|release)/*"
+            exit 1
+          fi
+          # Disallow PRs that target main from routine feature/cursor without hotfix/release prefix
+          if [[ "${BASE_REF}" == "main" && "${HEAD_REF}" =~ ^(cursor|feature)/ ]]; then
+            echo "::warning::PR targets main from ${HEAD_REF}. Prefer develop unless this is an authorized release/hotfix land."
+          fi
+
+      - name: Detect deployment-sensitive changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/release/detect-sensitive-changes.sh scripts/release/verify-release.sh scripts/release/recovery-inspect.sh
+          ./scripts/release/detect-sensitive-changes.sh "${BASE_SHA}" "${HEAD_SHA}"
+          # Fail if secrets-like filenames appear in the diff
+          if git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" | grep -E '(^|/)(\.env([.]|$)|\.pem$|id_rsa|credentials\.json$|service-account.*\.json$)' ; then
+            echo "::error::Secret-like paths present in diff — remove before merge"
+            exit 1
+          fi
+          echo "secret_like_paths=NONE"
+
+      - name: Shell syntax check (release scripts)
+        run: |
+          set -euo pipefail
+          bash -n scripts/release/verify-release.sh
+          bash -n scripts/release/recovery-inspect.sh
+          bash -n scripts/release/detect-sensitive-changes.sh
+          ./scripts/release/verify-release.sh HEAD >/dev/null
+          ./scripts/release/recovery-inspect.sh >/dev/null
+
+      - name: Frozen RC identity (if present)
+        run: |
+          set -euo pipefail
+          RC=5441523302a1513f07b5dc08f028d848a0bad5b4
+          EXP=cd84a7f277c481dc5c96d707dde4e78d7f18e713
+          if git cat-file -e "${RC}^{commit}" 2>/dev/null; then
+            ./scripts/release/verify-release.sh --expect-tree "${RC}" "${EXP}"
+          else
+            echo "RC commit not in shallow history — skipped identity assert"
+          fi
