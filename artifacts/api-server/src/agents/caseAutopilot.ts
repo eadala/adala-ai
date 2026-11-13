@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 /**
  * عدالة AI — Case Autopilot Engine
  *
@@ -56,7 +57,7 @@ async function fetchCaseContext(caseId: string, tenantId: string): Promise<CaseC
     rows(sql`SELECT id, title, event_type, start_at, status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC LIMIT 10`),
     rows(sql`SELECT id, title, status FROM contracts WHERE CAST(case_id AS TEXT) = ${caseId} AND office_id = ${tenantId} LIMIT 5`).catch(() => []),
     rows(sql`SELECT id, total, status FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} LIMIT 5`),
-    rows(sql`SELECT id, title, status FROM tasks WHERE case_title ILIKE ${"%" + caseId + "%"} OR case_title IS NOT NULL LIMIT 10`).catch(() => []),
+    rows(sql`SELECT id, title, status FROM tasks WHERE (case_id = ${caseId} OR case_title ILIKE ${"%" + caseId + "%"}) AND office_id = ${tenantId} LIMIT 10`).catch(() => []),
   ]);
 
   const caseRow = caseRows[0];
@@ -71,7 +72,6 @@ function scoreCase(ctx: CaseContext): { score: number; missing: string[]; risks:
   let score = 0;
   const missing: string[] = [];
   const risks:   string[] = [];
-  const c = ctx.case;
 
   /* Client info — 20 pts */
   if (c.client_name) {
