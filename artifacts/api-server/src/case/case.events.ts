@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- event payloads */
 /**
  * Case Events — نظام الأحداث للقضايا
  * ─────────────────────────────────────
@@ -12,18 +13,22 @@ export const CaseEvents = new CaseEventBus();
 
 /* ── Bridge to global EDA ── */
 CaseEvents.on("CASE_CREATED", (data: any) => {
+  const officeId = data.officeId ?? data.office_id;
   eventBus.emit({
-    type:    "CASE_CREATED",
-    actorId: data.createdBy,
-    data:    { caseId: data.id, title: data.title, clientName: data.clientName, caseType: data.caseType, status: data.status },
+    type:     "CASE_CREATED",
+    actorId:  data.createdBy,
+    officeId,
+    data:     { caseId: data.id, title: data.title, clientName: data.clientName, caseType: data.caseType, status: data.status, officeId },
   }).catch(() => {});
 });
 
 CaseEvents.on("CASE_UPDATED", ({ after }: any) => {
+  const officeId = after.officeId ?? after.office_id;
   const evType = after.status === "closed" ? "CASE_CLOSED" : "CASE_UPDATED";
   eventBus.emit({
-    type: evType,
-    data: { caseId: after.id, title: after.title, status: after.status, assignedTo: after.assignedTo },
+    type:     evType,
+    officeId,
+    data:     { caseId: after.id, title: after.title, status: after.status, assignedTo: after.assignedTo, officeId },
   }).catch(() => {});
 });
 

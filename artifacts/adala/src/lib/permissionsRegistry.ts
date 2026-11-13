@@ -32,7 +32,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     action: "view",
     scope: "office",
     routes: ["/revenues", "/expenses", "/cashflow", "/bank-accounts", "/advances", "/tax-settings"],
-    apiPaths: ["/api/accounting/*", "/api/revenues/*", "/api/expenses/*"],
+    apiPaths: ["/api/accounting/*"],
     defaultForRoles: ["admin", "accountant"],
   },
   {
@@ -41,7 +41,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     category: "financial",
     action: "manage",
     scope: "office",
-    apiPaths: ["/api/accounting/*", "/api/revenues/*", "/api/expenses/*"],
+    apiPaths: ["/api/accounting/*"],
     defaultForRoles: ["admin", "accountant"],
   },
   {
@@ -63,7 +63,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     action: "view",
     scope: "office",
     routes: ["/payroll"],
-    apiPaths: ["/api/payroll/*"],
+    apiPaths: ["/api/hr/payroll", "/api/hr/payroll/*"],
     defaultForRoles: ["admin", "hr_manager"],
   },
   {
@@ -72,7 +72,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     category: "hr",
     action: "manage",
     scope: "office",
-    apiPaths: ["/api/payroll/*"],
+    apiPaths: ["/api/hr/payroll", "/api/hr/payroll/*"],
     defaultForRoles: ["admin", "hr_manager"],
   },
 
@@ -83,7 +83,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     category: "hr",
     action: "manage",
     scope: "office",
-    apiPaths: ["/api/employees/*", "/api/attendance/*", "/api/leaves/*"],
+    apiPaths: ["/api/hr/employees", "/api/hr/employees/*", "/api/hr/attendance", "/api/hr/attendance/*", "/api/hr/leaves", "/api/hr/leaves/*"],
     defaultForRoles: ["admin", "hr_manager"],
   },
 
@@ -116,7 +116,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     action: "view",
     scope: "office",
     routes: ["/office-settings"],
-    apiPaths: ["/api/office-settings/*"],
+    apiPaths: ["/api/office/my", "/api/office/my/*", "/api/settings", "/api/settings/*"],
     defaultForRoles: ["admin"],
   },
   {
@@ -125,7 +125,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     category: "settings",
     action: "manage",
     scope: "office",
-    apiPaths: ["/api/office-settings/*"],
+    apiPaths: ["/api/office/my", "/api/office/my/*", "/api/settings", "/api/settings/*"],
     defaultForRoles: ["admin"],
   },
 

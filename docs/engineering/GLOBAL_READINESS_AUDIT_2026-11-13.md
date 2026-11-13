@@ -29,6 +29,19 @@
 - Coolify production baseline SHA / Auto Deploy / backups still **UNVERIFIED**
 - Do not merge release stack `#138–#140` without separate authorization
 
+## Platform cohesion follow-up (same branch)
+
+| Defect | Fix |
+|--------|-----|
+| Layout/mobile called `/api/offices/my` | → `/api/office/my` |
+| `GET /office/my` returned first DB row | Membership / tenant scoped |
+| Case→EventBus dropped `officeId` | Propagate `officeId` on CASE_* emits |
+| Internal messages POST without `office_id` | `requireAuthWithTenant` + insert/list scoped |
+| Mediators used stale `offices.clerk_user_id` | Canonical `req.tenantId` / `resolveTenantId` |
+| Website / AI workflow local office lookup | Prefer `req.tenantId` |
+| Copilot tools wrote `office_id=default` | Fail closed without tenant |
+| Permissions registry stale HR/payroll paths | Align to `/api/hr/*` + `/api/office/my` |
+
 ## Verification
 
 ```bash

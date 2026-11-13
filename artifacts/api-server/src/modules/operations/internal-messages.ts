@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
@@ -135,11 +136,15 @@ function getDeviceInfo(req: Request): string {
 }
 
 // GET /api/internal-messages?folder=inbox|sent|drafts|archive
-router.get("/", requireAuth, async (req: Request, res: Response) => {
+router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId as string;
     const { folder = "inbox", search = "" } = req.query as any;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const searchTerm: string | null = search ? String(search).trim() : null;
+    const officeFilter = tenantId && tenantId !== "platform"
+      ? sql`AND m.office_id = ${tenantId}`
+      : sql``;
 
     let rows: any[] = [];
 
@@ -159,6 +164,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder != 'draft'
+          ${officeFilter}
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -176,6 +182,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         WHERE m.sender_id = ${userId} AND m.folder = 'draft'
+          ${officeFilter}
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -197,6 +204,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'archive'
+          ${officeFilter}
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id
         ORDER BY m.created_at DESC
@@ -221,6 +229,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
         WHERE m.folder = 'sent'
+          ${officeFilter}
           ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
@@ -342,21 +351,26 @@ router.get("/case/:caseId", requireAuth, async (req: Request, res: Response) => 
   }
 });
 
-// POST /api/internal-messages
-router.post("/", requireAuth, async (req: Request, res: Response) => {
+// POST /api/internal-messages — tenant-scoped write
+router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "platform") {
+      res.status(403).json({ error: "لا يمكن إرسال رسائل بدون مكتب محدد" });
+      return;
+    }
     const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
-    const userId = (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
     const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
     const ip = getClientIp(req);
     const device = getDeviceInfo(req);
     const tagsArr = `{${(tags as string[]).join(",")}}`;
 
     const ins = await db.execute(sql`
-      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
+      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id, office_id)
       VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
-              ${caseId ? Number(caseId) : null})
-      RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id
+              ${caseId ? Number(caseId) : null}, ${tenantId})
+      RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id, office_id
     `);
 
     const msg = ins.rows[0] as any;

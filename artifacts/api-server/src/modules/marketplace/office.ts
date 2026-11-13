@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -10,6 +11,25 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 
 const router = Router();
+
+/** Resolve caller's office page via membership — never first-row of the table. */
+async function resolveMyOfficePage(userId: string, tenantId?: string) {
+  if (tenantId && tenantId !== "platform") {
+    const byTenant = await db.select().from(officePageTable)
+      .where(eq(officePageTable.id, tenantId)).limit(1);
+    if (byTenant[0]) return byTenant[0];
+  }
+  const rows = await db.execute(sql`
+    SELECT op.*
+    FROM office_page op
+    JOIN office_members om ON om.office_id = op.id
+    WHERE om.user_id = ${userId} AND om.status = 'active'
+    ORDER BY om.created_at ASC
+    LIMIT 1
+  `);
+  const arr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
+  return arr[0] ?? null;
+}
 
 /* ═══ PUBLIC ROUTES (no auth) ═══════════════════════════════ */
 
@@ -156,15 +176,15 @@ router.post("/office/public/:slug/review", async (req, res) => {
 
 /* ═══ MANAGEMENT ROUTES (auth assumed by middleware) ══════════ */
 
-/* GET my office */
-router.get("/office/my", requireAuth, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).limit(1);
-  res.json(offices[0] ?? null);
+/* GET my office — scoped to membership / tenant */
+router.get("/office/my", requireAuthWithTenant, async (req: any, res) => {
+  const office = await resolveMyOfficePage(req.userId, req.tenantId);
+  res.json(office);
 });
 
 /* POST create office */
 router.post("/office/my", requireAuth, async (req: any, res) => {
-  const { userId } = (req as any);
+  const userId = req.userId as string | undefined;
   const [row] = await db.insert(officePageTable).values(req.body).returning();
   if (row?.id && userId) {
     /* Link owner to this office */
@@ -186,13 +206,16 @@ router.post("/office/my", requireAuth, async (req: any, res) => {
   res.json(row);
 });
 
-/* PATCH update office — slug is platform-only, stripped here */
-router.patch("/office/my/:id", requireAuth, async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* PATCH update office — slug is platform-only, stripped here; membership required */
+router.patch("/office/my/:id", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = String(req.params.id);
+  if (req.tenantId !== "platform" && req.tenantId !== officeId && !req.isSuperAdmin) {
+    return res.status(403).json({ error: "غير مصرح بتعديل هذا المكتب" });
+  }
   const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
     .set({ ...safeBody, updatedAt: new Date() })
-    .where(eq(officePageTable.id, String(req.params.id))).returning();
+    .where(eq(officePageTable.id, officeId)).returning();
   res.json(row);
 });
 

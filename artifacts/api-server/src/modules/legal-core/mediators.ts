@@ -1,4 +1,6 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -12,11 +14,13 @@ function exOne(q: any) {
   return exAll(q).then((rows: any[]) => rows[0] ?? null);
 }
 
-
-
-async function getOfficeId(userId: string): Promise<string | null> {
-  const row = await exOne(sql`SELECT id FROM offices WHERE clerk_user_id = ${userId} LIMIT 1`);
-  return row?.id ?? null;
+/** Prefer req.tenantId; fall back to canonical resolver — never invent office from stale tables. */
+async function getOfficeId(req: any): Promise<string | null> {
+  const t = req.tenantId as string | undefined;
+  if (t && t !== "platform") return t;
+  const userId = req.userId as string | undefined;
+  if (!userId) return null;
+  return resolveTenantId(userId, req.headers?.["x-tenant-id"] as string | undefined);
 }
 
 /* ── List open tasks (public — any authenticated user) ── */
@@ -44,9 +48,9 @@ router.get("/mediators/tasks", requireAuth, async (req: any, res) => {
 });
 
 /* ── Get my posted tasks (office) ── */
-router.get("/mediators/my-tasks", requireAuth, async (req: any, res) => {
+router.get("/mediators/my-tasks", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
     if (!officeId) return res.json([]);
     const rows = await exAll(sql`
       SELECT mt.*,
@@ -62,9 +66,9 @@ router.get("/mediators/my-tasks", requireAuth, async (req: any, res) => {
 });
 
 /* ── Create task (office posts a task) ── */
-router.post("/mediators/tasks", requireAuth, async (req: any, res) => {
+router.post("/mediators/tasks", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
     if (!officeId) return res.status(403).json({ error: "يجب أن يكون لديك مكتب مسجل" });
     const { title, description, category = "research", commission = 0, currency = "SAR", deadline, required_skills } = req.body;
     if (!title) return res.status(400).json({ error: "العنوان مطلوب" });
@@ -80,9 +84,10 @@ router.post("/mediators/tasks", requireAuth, async (req: any, res) => {
 });
 
 /* ── Update task status ── */
-router.put("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
+router.put("/mediators/tasks/:id", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { status } = req.body;
     const row = await exOne(sql`
       UPDATE mediator_tasks SET status = ${status}, updated_at = NOW()
@@ -97,9 +102,10 @@ router.put("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
 });
 
 /* ── Delete task ── */
-router.delete("/mediators/tasks/:id", requireAuth, async (req: any, res) => {
+router.delete("/mediators/tasks/:id", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await db.execute(sql`DELETE FROM mediator_tasks WHERE id = ${String(req.params.id)} AND office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {
@@ -127,9 +133,10 @@ router.post("/mediators/tasks/:id/apply", requireAuth, async (req: any, res) => 
 });
 
 /* ── Get applications for a task (office owner) ── */
-router.get("/mediators/tasks/:id/applications", requireAuth, async (req: any, res) => {
+router.get("/mediators/tasks/:id/applications", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "غير مصرح" });
     const task = await exOne(sql`SELECT id FROM mediator_tasks WHERE id = ${String(req.params.id)} AND office_id = ${officeId}`);
     if (!task) return res.status(403).json({ error: "غير مصرح" });
     const rows = await exAll(sql`SELECT * FROM mediator_applications WHERE task_id = ${String(req.params.id)} ORDER BY created_at DESC`);
@@ -158,9 +165,10 @@ router.get("/mediators/my-applications", requireAuth, async (req: any, res) => {
 });
 
 /* ── Update application status (office owner) ── */
-router.put("/mediators/applications/:id", requireAuth, async (req: any, res) => {
+router.put("/mediators/applications/:id", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req.userId);
+    const officeId = await getOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "غير مصرح" });
     const { status } = req.body;
     const row = await exOne(sql`
       UPDATE mediator_applications ma
@@ -177,16 +185,28 @@ router.put("/mediators/applications/:id", requireAuth, async (req: any, res) => 
 });
 
 /* ── Stats for admin ── */
-router.get("/mediators/stats", requireAuth, async (_req, res) => {
+router.get("/mediators/stats", requireAuthWithTenant, async (req: any, res) => {
   try {
+    const officeId = await getOfficeId(req);
+    if (!officeId) {
+      return res.json({
+        total_tasks: 0, open_tasks: 0, completed_tasks: 0,
+        total_applications: 0, accepted_applications: 0, total_commissions: 0,
+      });
+    }
     const stats = await exOne(sql`
       SELECT
-        (SELECT COUNT(*) FROM mediator_tasks) AS total_tasks,
-        (SELECT COUNT(*) FROM mediator_tasks WHERE status = 'open') AS open_tasks,
-        (SELECT COUNT(*) FROM mediator_tasks WHERE status = 'completed') AS completed_tasks,
-        (SELECT COUNT(*) FROM mediator_applications) AS total_applications,
-        (SELECT COUNT(*) FROM mediator_applications WHERE status = 'accepted') AS accepted_applications,
-        (SELECT COALESCE(SUM(commission),0) FROM mediator_tasks WHERE status = 'completed') AS total_commissions
+        (SELECT COUNT(*) FROM mediator_tasks WHERE office_id = ${officeId}) AS total_tasks,
+        (SELECT COUNT(*) FROM mediator_tasks WHERE office_id = ${officeId} AND status = 'open') AS open_tasks,
+        (SELECT COUNT(*) FROM mediator_tasks WHERE office_id = ${officeId} AND status = 'completed') AS completed_tasks,
+        (SELECT COUNT(*) FROM mediator_applications ma
+           JOIN mediator_tasks mt ON mt.id = ma.task_id
+           WHERE mt.office_id = ${officeId}) AS total_applications,
+        (SELECT COUNT(*) FROM mediator_applications ma
+           JOIN mediator_tasks mt ON mt.id = ma.task_id
+           WHERE mt.office_id = ${officeId} AND ma.status = 'accepted') AS accepted_applications,
+        (SELECT COALESCE(SUM(commission),0) FROM mediator_tasks
+           WHERE office_id = ${officeId} AND status = 'completed') AS total_commissions
     `);
     res.json(stats);
   } catch (e: any) {
