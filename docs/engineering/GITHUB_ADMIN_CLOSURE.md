@@ -83,12 +83,22 @@ Apply to **both** `refs/heads/main` and `refs/heads/develop` (or separate rulese
 
 ### A4. Verification commands
 
+Preferred one-shot (read-only):
+
+```bash
+./scripts/release/verify-path01-admin.sh
+```
+
+Expect `RESULT: ENGINEERING_OK_ADMIN_PENDING` until collaborator + ruleset targets/enforcement are set; then `PATH01_ADMIN_READY`.
+
+Manual equivalents:
+
 ```bash
 gh api repos/eadala/adala-ai/rulesets/17934003 \
   --jq '{name,enforcement,include:.conditions.ref_name.include,rules:[.rules[].type]}'
 gh api repos/eadala/adala-ai/collaborators --jq '.[].login'
 gh api repos/eadala/adala-ai/commits/develop --jq '{sha:.sha[0:7],msg:.commit.message|split("\n")[0]}'
-pnpm audit --audit-level=critical  # expect 0 matches for "critical"
+pnpm audit  # expect: No known vulnerabilities found
 ```
 
 ---
