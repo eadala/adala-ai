@@ -10,7 +10,7 @@ const router = Router();
 /* ─── helpers ──────────────────────────────────────────────────────── */
 async function getOfficeId(req: any): Promise<string | null> {
   const t = req.tenantId as string | undefined;
-  if (t && t !== "platform") return t;
+  if (t && t !== "platform" && t !== "default") return t;
   try {
     const userId = req.auth?.userId ?? req.userId;
     if (!userId) return null;
@@ -18,10 +18,13 @@ async function getOfficeId(req: any): Promise<string | null> {
       SELECT op.id FROM office_page op
       JOIN office_members om ON om.office_id = op.id
       WHERE om.user_id = ${userId} AND om.status = 'active'
+        AND op.id NOT IN ('default', 'platform')
       LIMIT 1
     `);
     const arr = Array.isArray(rows) ? rows : (rows as any).rows ?? [];
-    return arr[0]?.id ?? null;
+    const id = arr[0]?.id ? String(arr[0].id) : null;
+    if (!id || id === "default" || id === "platform") return null;
+    return id;
   } catch { return null; }
 }
 

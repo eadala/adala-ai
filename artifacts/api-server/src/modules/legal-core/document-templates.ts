@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -351,19 +352,27 @@ async function seedDefaultTemplates() {
   for (const t of templates) {
     await db.execute(sql`
       INSERT INTO document_templates (office_id, name, type, category, description, body, fields, is_default, is_custom)
-      VALUES ('default', ${t.name}, ${t.type}, ${t.category}, ${t.description}, ${t.body}, ${t.fields}::jsonb, TRUE, FALSE)
+      VALUES ('__system__', ${t.name}, ${t.type}, ${t.category}, ${t.description}, ${t.body}, ${t.fields}::jsonb, TRUE, FALSE)
     `);
   }
+}
+
+/** Shared platform catalog (legacy rows may still use office_id='default'). */
+function systemOrTenantFilter(tid: string) {
+  return sql`(is_default = TRUE AND is_custom = FALSE AND office_id IN ('__system__', 'default')) OR office_id = ${tid}`;
 }
 
 router.get("/document-templates", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
+    if (!tid || tid === "default" || tid === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const rows = await sqlAll(sql`
       SELECT id, name, type, category, description, fields, is_default, is_custom, created_at
       FROM document_templates
-      WHERE office_id = 'default' OR office_id = ${tid}
+      WHERE ${systemOrTenantFilter(tid)}
       ORDER BY is_default DESC, created_at DESC
     `);
     res.json(rows);
@@ -374,10 +383,13 @@ router.get("/document-templates/:id", requireAuthWithTenant, async (req, res) =>
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
+    if (!tid || tid === "default" || tid === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const row = await sqlOne(sql`
       SELECT * FROM document_templates
       WHERE id = ${parseInt(String(req.params.id))}
-        AND (office_id = 'default' OR office_id = ${tid})
+        AND (${systemOrTenantFilter(tid)})
     `);
     if (!row) return res.status(404).json({ error: "القالب غير موجود" });
     res.json(row);
@@ -405,11 +417,14 @@ router.put("/document-templates/:id", requireAuthWithTenant, async (req, res) =>
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
+    if (!tid || tid === "default" || tid === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const { name, type, category, description, body, fields } = req.body;
     const existing = await sqlOne(sql`
       SELECT * FROM document_templates
       WHERE id = ${parseInt(String(req.params.id))}
-        AND (office_id = 'default' OR office_id = ${tid})
+        AND (${systemOrTenantFilter(tid)})
     `);
     if (!existing) return res.status(404).json({ error: "القالب غير موجود" });
     if (existing.is_default) return res.status(403).json({ error: "لا يمكن تعديل القوالب الافتراضية" });
@@ -435,10 +450,13 @@ router.delete("/document-templates/:id", requireAuthWithTenant, async (req, res)
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
+    if (!tid || tid === "default" || tid === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const existing = await sqlOne(sql`
       SELECT * FROM document_templates
       WHERE id = ${parseInt(String(req.params.id))}
-        AND (office_id = 'default' OR office_id = ${tid})
+        AND (${systemOrTenantFilter(tid)})
     `);
     if (!existing) return res.status(404).json({ error: "القالب غير موجود" });
     if (existing.is_default) return res.status(403).json({ error: "لا يمكن حذف القوالب الافتراضية" });
@@ -453,10 +471,13 @@ router.post("/document-templates/:id/generate", requireAuthWithTenant, async (re
   await ensureTables();
   try {
     const tid = (req as any).tenantId as string;
+    if (!tid || tid === "default" || tid === "platform") {
+      return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
+    }
     const template = await sqlOne(sql`
       SELECT * FROM document_templates
       WHERE id = ${parseInt(String(req.params.id))}
-        AND (office_id = 'default' OR office_id = ${tid})
+        AND (${systemOrTenantFilter(tid)})
     `);
     if (!template) return res.status(404).json({ error: "القالب غير موجود" });
 

@@ -11,28 +11,38 @@ const router = Router();
 const sqlAll = async (q: any) => { const r = await db.execute(q); return Array.isArray(r) ? r : (r as any).rows ?? []; };
 const sqlOne = async (q: any) => (await sqlAll(q))[0] ?? null;
 
+function isRealOffice(id: string | null | undefined): id is string {
+  return !!id && id !== "platform" && id !== "default";
+}
+
 async function getOfficeId(reqOrUserId: any): Promise<string | null> {
   try {
     if (reqOrUserId && typeof reqOrUserId === "object") {
       const t = reqOrUserId.tenantId as string | undefined;
-      if (t && t !== "platform") return t;
+      if (isRealOffice(t)) return t;
       const userId = reqOrUserId.auth?.userId ?? reqOrUserId.userId ?? "";
       if (!userId) return null;
       const arr = await sqlAll(sql`
         SELECT op.id FROM office_page op
         JOIN office_members om ON om.office_id = op.id
-        WHERE om.user_id = ${userId} AND om.status = 'active' LIMIT 1
+        WHERE om.user_id = ${userId} AND om.status = 'active'
+          AND op.id NOT IN ('default', 'platform')
+        LIMIT 1
       `);
-      return arr[0]?.id ?? null;
+      const id = arr[0]?.id ? String(arr[0].id) : null;
+      return isRealOffice(id) ? id : null;
     }
     const userId = String(reqOrUserId ?? "");
     if (!userId) return null;
     const arr = await sqlAll(sql`
       SELECT op.id FROM office_page op
       JOIN office_members om ON om.office_id = op.id
-      WHERE om.user_id = ${userId} AND om.status = 'active' LIMIT 1
+      WHERE om.user_id = ${userId} AND om.status = 'active'
+        AND op.id NOT IN ('default', 'platform')
+      LIMIT 1
     `);
-    return arr[0]?.id ?? null;
+    const id = arr[0]?.id ? String(arr[0].id) : null;
+    return isRealOffice(id) ? id : null;
   } catch { return null; }
 }
 
