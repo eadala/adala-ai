@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -13,6 +14,7 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS organization_units (
       id          SERIAL PRIMARY KEY,
       firm_id     TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL DEFAULT 'default',
       name        TEXT NOT NULL,
       type        TEXT NOT NULL DEFAULT 'DEPARTMENT',
       parent_id   INTEGER REFERENCES organization_units(id) ON DELETE SET NULL,
@@ -24,6 +26,14 @@ async function ensureTables() {
       updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  /* Backfill office_id for older installs that only had firm_id */
+  await db.execute(sql`ALTER TABLE organization_units ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+  await db.execute(sql`
+    UPDATE organization_units
+    SET office_id = COALESCE(NULLIF(office_id, ''), NULLIF(firm_id, ''), 'default')
+    WHERE office_id IS NULL OR office_id = ''
+  `).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_org_units_office ON organization_units(office_id)`).catch(() => {});
 }
 
 async function sqlAll(q: any): Promise<any[]> {
@@ -37,16 +47,26 @@ async function sqlOne(q: any): Promise<any> {
   return rows[0] ?? null;
 }
 
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
+
 /* ══════════════════════════════════════════════
    ROUTES
 ══════════════════════════════════════════════ */
 
 /* GET all units */
-router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
+router.get("/org-units", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const units = await sqlAll(sql`
-      SELECT * FROM organization_units ORDER BY created_at ASC
+      SELECT * FROM organization_units
+      WHERE office_id = ${tid}
+      ORDER BY created_at ASC
     `);
     res.json(units);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -55,8 +75,13 @@ router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
 /* GET single unit */
 router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
-    const unit = await sqlOne(sql`SELECT * FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
+    const unit = await sqlOne(sql`
+      SELECT * FROM organization_units
+      WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}
+    `);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
     res.json(unit);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -65,13 +90,20 @@ router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 /* GET unit stats */
 router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const id = parseInt(String(req.params.id));
   try {
+    const owned = await sqlOne(sql`
+      SELECT id FROM organization_units WHERE id = ${id} AND office_id = ${tid}
+    `);
+    if (!owned) return res.status(404).json({ error: "الوحدة غير موجودة" });
+
     const [cases, clients, contracts, invoicesAgg] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM cases WHERE organization_unit_id = ${id} AND status != 'deleted'`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM clients WHERE organization_unit_id = ${id}`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM contracts WHERE organization_unit_id = ${id}`),
-      sqlOne(sql`SELECT COUNT(*)::int as count, COALESCE(SUM(CASE WHEN status='paid' THEN total_amount ELSE 0 END),0) as revenue FROM client_invoices WHERE organization_unit_id = ${id}`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM cases WHERE organization_unit_id = ${id} AND office_id = ${tid} AND status != 'deleted'`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM clients WHERE organization_unit_id = ${id} AND office_id = ${tid}`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM contracts WHERE organization_unit_id = ${id} AND office_id = ${tid}`),
+      sqlOne(sql`SELECT COUNT(*)::int as count, COALESCE(SUM(CASE WHEN status='paid' THEN total_amount ELSE 0 END),0) as revenue FROM client_invoices WHERE organization_unit_id = ${id} AND office_id = ${tid}`),
     ]);
     res.json({
       cases:     cases?.count ?? 0,
@@ -84,19 +116,21 @@ router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
 });
 
 /* GET dashboard aggregate stats */
-router.get("/org-units-dashboard", requireAuthWithTenant, async (_req, res) => {
+router.get("/org-units-dashboard", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const [total, active, byType, topUnits] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM organization_units`),
-      sqlOne(sql`SELECT COUNT(*)::int as count FROM organization_units WHERE status = 'active'`),
-      sqlAll(sql`SELECT type, COUNT(*)::int as count FROM organization_units GROUP BY type ORDER BY count DESC`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM organization_units WHERE office_id = ${tid}`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM organization_units WHERE office_id = ${tid} AND status = 'active'`),
+      sqlAll(sql`SELECT type, COUNT(*)::int as count FROM organization_units WHERE office_id = ${tid} GROUP BY type ORDER BY count DESC`),
       sqlAll(sql`
         SELECT o.id, o.name, o.type, o.status,
-          (SELECT COUNT(*)::int FROM cases c WHERE c.organization_unit_id = o.id) as cases_count,
-          (SELECT COUNT(*)::int FROM clients cl WHERE cl.organization_unit_id = o.id) as clients_count
+          (SELECT COUNT(*)::int FROM cases c WHERE c.organization_unit_id = o.id AND c.office_id = ${tid}) as cases_count,
+          (SELECT COUNT(*)::int FROM clients cl WHERE cl.organization_unit_id = o.id AND cl.office_id = ${tid}) as clients_count
         FROM organization_units o
-        WHERE o.status = 'active'
+        WHERE o.status = 'active' AND o.office_id = ${tid}
         ORDER BY cases_count DESC
         LIMIT 8
       `),
@@ -113,6 +147,8 @@ router.get("/org-units-dashboard", requireAuthWithTenant, async (_req, res) => {
 /* POST create unit */
 router.post("/org-units", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { name, type, parentId, managerId, managerName, description } = req.body as {
       name: string; type: string; parentId?: number | null;
@@ -120,9 +156,16 @@ router.post("/org-units", requireAuthWithTenant, async (req, res) => {
     };
     if (!name) return res.status(400).json({ error: "اسم الوحدة مطلوب" });
 
+    if (parentId != null) {
+      const parent = await sqlOne(sql`
+        SELECT id FROM organization_units WHERE id = ${parentId} AND office_id = ${tid}
+      `);
+      if (!parent) return res.status(400).json({ error: "الوحدة الأب غير موجودة في هذا المكتب" });
+    }
+
     const unit = await sqlOne(sql`
-      INSERT INTO organization_units (name, type, parent_id, manager_id, manager_name, description, status)
-      VALUES (${name}, ${type ?? 'DEPARTMENT'}, ${parentId ?? null}, ${managerId ?? null}, ${managerName ?? null}, ${description ?? null}, 'active')
+      INSERT INTO organization_units (firm_id, office_id, name, type, parent_id, manager_id, manager_name, description, status)
+      VALUES (${tid}, ${tid}, ${name}, ${type ?? 'DEPARTMENT'}, ${parentId ?? null}, ${managerId ?? null}, ${managerName ?? null}, ${description ?? null}, 'active')
       RETURNING *
     `);
     res.status(201).json(unit);
@@ -133,7 +176,8 @@ router.post("/org-units", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { name, type, parentId, managerId, managerName, description, status } = req.body as any;
     const existing = await sqlOne(sql`SELECT id FROM organization_units WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
     if (!existing) return res.status(404).json({ error: "الوحدة غير موجودة" });
@@ -159,8 +203,15 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { parentId } = req.body as { parentId: number | null };
+    if (parentId != null) {
+      const parent = await sqlOne(sql`
+        SELECT id FROM organization_units WHERE id = ${parentId} AND office_id = ${tid}
+      `);
+      if (!parent) return res.status(400).json({ error: "الوحدة الأب غير موجودة في هذا المكتب" });
+    }
     const unit = await sqlOne(sql`
       UPDATE organization_units SET parent_id = ${parentId ?? null}, updated_at = NOW()
       WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid} RETURNING *
@@ -174,7 +225,8 @@ router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
 router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { status } = req.body as { status: string };
     const unit = await sqlOne(sql`
       UPDATE organization_units SET status = ${status}, updated_at = NOW()
@@ -189,7 +241,8 @@ router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) =>
 router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(String(req.params.id))} AND office_id = ${tid} LIMIT 1`);
     if (children) return res.status(400).json({ error: "لا يمكن حذف وحدة تحتوي على وحدات فرعية" });
 
@@ -199,9 +252,15 @@ router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 });
 
 /* GET users list (for manager selection) */
-router.get("/org-units-users", requireAuthWithTenant, async (_req, res) => {
+router.get("/org-units-users", requireAuthWithTenant, async (req, res) => {
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
-    const users = await sqlAll(sql`SELECT id, full_name, email, role FROM users ORDER BY full_name LIMIT 100`);
+    const users = await sqlAll(sql`
+      SELECT id, full_name, email, role FROM users
+      WHERE office_id = ${tid}
+      ORDER BY full_name LIMIT 100
+    `);
     res.json(users);
   } catch { res.json([]); }
 });
