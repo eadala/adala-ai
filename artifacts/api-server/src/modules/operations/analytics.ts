@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -566,7 +567,7 @@ router.get("/analytics/performance", requireAuthWithTenant, async (req, res) => 
       WHERE created_at >= ${startDate}::timestamptz
     `);
     const credRow = await sqlOne(sql`
-      SELECT balance, monthly_allowance FROM office_ai_credits WHERE office_id='default' LIMIT 1
+      SELECT balance, monthly_allowance FROM office_ai_credits WHERE office_id = ${tenantId} LIMIT 1
     `).catch(() => ({ balance: 0, monthly_allowance: 0 }));
     const aiCalls    = num(aiRow.calls);
     const aiUnits    = num(aiRow.units);

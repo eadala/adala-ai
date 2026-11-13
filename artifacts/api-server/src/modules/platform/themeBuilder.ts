@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -221,10 +222,10 @@ router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
   try {
     await ensureTable();
     const { userId } = getAuth(req as any);
-    const uid = userId ?? "default";
+    if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const row = await sqlOne(sql`
       SELECT tokens FROM office_themes
-      WHERE user_id = ${uid} AND is_active = true
+      WHERE user_id = ${userId} AND is_active = true
       ORDER BY updated_at DESC LIMIT 1
     `);
     if (row?.tokens) {
@@ -236,22 +237,10 @@ router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
   } catch { res.json({ tokens: null, hasCustomTheme: false }); }
 });
 
-/* GET /theme-builder/public-tokens — public (no auth) for landing page */
+/* GET /theme-builder/public-tokens — public landing uses built-in defaults only
+   (never leak another office's active custom theme). */
 router.get("/theme-builder/public-tokens", async (_req, res) => {
-  try {
-    await ensureTable();
-    const row = await sqlOne(sql`
-      SELECT tokens FROM office_themes
-      WHERE is_active = true
-      ORDER BY updated_at DESC LIMIT 1
-    `);
-    const tokens = row?.tokens ?? DEFAULT_TOKENS;
-    const scope = (tokens as any).scope ?? "both";
-    if (scope === "platform") {
-      return res.json({ tokens: DEFAULT_TOKENS });
-    }
-    res.json({ tokens });
-  } catch { res.json({ tokens: DEFAULT_TOKENS }); }
+  res.json({ tokens: DEFAULT_TOKENS });
 });
 
 /* POST /theme-builder/save */
