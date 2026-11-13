@@ -14,7 +14,7 @@ Run a **controlled trial** of Adalah AI with a clear Go/No-Go, without claiming 
 |------|--------|----------|
 | Path 01 audit / governance / deps | **DONE** | `#141`–`#160` on `develop`; `pnpm audit` clean |
 | Trial kit docs + preflight script | **DONE** | `TRIAL_*`, `trial-preflight.sh` |
-| Kickoff identity snapshot | **THIS PR** | `TRIAL_KICKOFF.md` |
+| Kickoff identity snapshot | **DONE** (`#161`) · refresh after `#162` | `TRIAL_KICKOFF.md` |
 | `trial-preflight.sh HEAD` | **PASS** | Exit 0 on tip |
 | Frozen RC identity | **UNCHANGED** | `54415233…` / `cd84a7f…` |
 | Open PRs → `develop` | Prefer **0** between Path 02 slices | — |
@@ -28,7 +28,7 @@ Run a **controlled trial** of Adalah AI with a clear Go/No-Go, without claiming 
 | Staging env profile | Ready when operator starts | `TRIAL_STAGING_ENV.md` (test keys only) |
 | Smoke Go/No-Go | Pending staging or named live checks | `TRIAL_SMOKE_TEST.md` |
 | Live platform health | Observed healthy | `https://adalahai.com/api/healthz` |
-| Live deferred smoke probe | **Available** | `./scripts/release/trial-live-probe.sh` + `TRIAL_SMOKE_LIVE_DEFERRED.md` |
+| Live deferred smoke probe | **DONE** (`#162`) · PASS on live | `./scripts/release/trial-live-probe.sh` + `TRIAL_SMOKE_LIVE_DEFERRED.md` |
 
 ## How to proceed (ordered)
 
@@ -52,3 +52,11 @@ Run a **controlled trial** of Adalah AI with a clear Go/No-Go, without claiming 
 - Production Auto Deploy / `adalahai.com` Coolify changes from agents
 - Merging `#138–#140` release stack as part of trial
 - Closing conflicted `#151`/`#152` via force-merge into `main`
+
+## Obsolete `main` PRs (do not merge)
+
+| PR | Why | Action |
+|----|-----|--------|
+| #151 trial staging kickoff | Targets `main`, CONFLICTING; kit on `develop` via Path 02 | **Close without merge** |
+| #152 global readiness audit | Targets `main`, CONFLICTING; superseded by Path 01 on develop | **Close without merge** |
+| #154 zod high remediation | Already on develop via #153 | **Close without merge** |
