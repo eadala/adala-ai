@@ -35,7 +35,7 @@ Dependencies on #139 / #183 / #184 / #185: **none** (0 file overlaps; #139 diffe
 | PR | Head | CI | Role vs Batch A |
 |---|---|---|---|
 | #139 | `ad113dc56b09…` | SUCCESS×26 | Parallel recovery/GUC track — **not required** before Batch A |
-| #183 | `4821321e…` (+ TS fix push) | Was FAILURE Gate1 (`Cannot find name 'c'`) | **Not required** before Batch A; merge **after** Batch A (or independently once green) |
+| #183 | `0d796595…` | Prior FAILURE Gate1 (`Cannot find name 'c'`); fix pushed `0d796595` — recheck CI | **Not required** before Batch A; merge after CI green |
 | #184 | `f8e882b8…` | SUCCESS×12 | Docs only — anytime |
 | #185 | `773fe722…` | SUCCESS×12 | Independent `index.ts` — anytime after/parallel Batch A |
 
