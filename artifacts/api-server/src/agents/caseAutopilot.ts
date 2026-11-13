@@ -72,6 +72,7 @@ function scoreCase(ctx: CaseContext): { score: number; missing: string[]; risks:
   let score = 0;
   const missing: string[] = [];
   const risks:   string[] = [];
+  const c = ctx.case;
 
   /* Client info — 20 pts */
   if (c.client_name) {
