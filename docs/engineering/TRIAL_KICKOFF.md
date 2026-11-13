@@ -8,8 +8,8 @@
 
 | Field | Value |
 |-------|--------|
-| Trial code base (Git SHA) | `3e67b85ab6a2446db3981507539da0018494ca8c` |
-| Tree | `b75064eef27604a1afedf84ac818b956c2818224` |
+| Trial code base (Git SHA) | `03c13963446165a110ee44a68816ebd8783e752b` |
+| Tree | `c45733791a5625fd7e99c0543338cdc03e320f0e` |
 | Branch source | `develop` (Path 01 tip incl. `#141`–`#160`) |
 | Frozen RC (immutable) | `5441523302a1513f07b5dc08f028d848a0bad5b4` / tree `cd84a7f…` — **unchanged** |
 | Trial hostname | **DEFERRED** — owner chose live platform path for now |
@@ -21,10 +21,11 @@
 
 ```text
 ./scripts/release/trial-preflight.sh HEAD          → PASS
-./scripts/release/verify-release.sh HEAD           → commit 3e67b85a…
+./scripts/release/verify-release.sh HEAD           → commit 03c13963…
 PATH01_ADMIN_DEFERRED=1 ./scripts/release/verify-path01-admin.sh
   → ENGINEERING_OK_ADMIN_DEFERRED
 pnpm audit                                         → No known vulnerabilities found
+./scripts/release/trial-live-probe.sh https://adalahai.com → PASS
 ```
 
 ## Live platform path (owner decision)
