@@ -85,12 +85,12 @@ gh api repos/eadala/adala-ai/rulesets/17934003 --jq '{name,enforcement,rules:[.r
 | Prerequisite | Status (2026-11-13) |
 |--------------|---------------------|
 | Scope = docs/scripts/governance CI only (+ minimal develop CI path fixes) | Intended |
-| Governance Safety workflow | **PASS** on head `3b48b182…` (re-run after follow-up commits) |
-| Full CI Quality Gates on develop tip | **FAIL** historically on `develop` itself (see A4) |
+| Governance Safety workflow | Re-verify on latest tip (must PASS) |
+| Full CI Quality Gates on develop tip | Gate 1/7 fixed in #141; Gate 5 still FAIL (see A4) |
 | Independent review | **PENDING** (`REVIEW_REQUIRED`, 0 reviews) |
 | Frozen RC unchanged | **PASS** |
 | Coolify Auto Deploy verified | **UNVERIFIED** |
-| Merge authorization | Do **not** merge until CI policy for develop is decided + review |
+| Merge authorization | Do **not** merge until Gate 5 policy + review + Coolify evidence |
 
 ### A4. Develop CI baseline debt (blocker for green “All Gates”)
 
@@ -98,9 +98,9 @@ Observed on PR #141 against `develop` (`4f220d96…`):
 
 | Gate | Result | Root cause |
 |------|--------|------------|
-| Gate 7 Architecture | FAIL | Workflow expected `packages/db`; tree has `lib/db` |
-| Gate 1 TypeScript | FAIL | Missing `lib/db` build before api-server typecheck |
-| Gate 5 Dependency Audit | FAIL | Pre-existing criticals (e.g. `orval@8.9.1`, `proxy-addr`) on develop tip — already addressed on `main`/RC lineage historically |
+| Gate 7 Architecture | Fixed in #141 | Workflow expected `packages/db`; tree has `lib/db` |
+| Gate 1 TypeScript | Fixed in #141 | Build `lib/db` + `lib/api-zod` before api-server typecheck (composite refs) |
+| Gate 5 Dependency Audit | FAIL | Pre-existing criticals on develop tip: `orval@8.9.1` (<8.21.0 RCE advisories), `proxy-addr@2.0.7` via express — **do not silence**; separate deps PR or sync `main`→`develop` |
 
 **Admin choices (pick one):**
 
