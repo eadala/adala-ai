@@ -28,9 +28,12 @@
 | #143/#144 status docs | MERGED |
 | #153 zod high | MERGED |
 | #155 moderate batch | MERGED |
-| #156 low cleanup | MERGED → tip `845eb8bd…` |
+| #156 low cleanup | MERGED |
+| #157–#160 Path 01 docs/scripts | MERGED → tip includes `PATH01_ADMIN_DEFERRED` |
 | `pnpm audit` on tip | **No known vulnerabilities found** |
-| Open PRs → `develop` | **none** |
+| Open PRs → `develop` | Prefer **none** between slices |
+
+**Next path:** Path 02 — Trial Staging → [`PATH02_TRIAL_STAGING.md`](./PATH02_TRIAL_STAGING.md) / [`TRIAL_KICKOFF.md`](./TRIAL_KICKOFF.md).
 
 **Remaining (admin UI only — not develop blockers):** independent Write collaborator (B), ruleset prepare/activate (A) — both **DEFERRED_BY_OPERATOR** (see `RULESET_ADALAH_AI_APPLY.md`); Coolify production baseline (**DEFERRED**).
 

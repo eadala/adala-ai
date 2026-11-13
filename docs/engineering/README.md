@@ -14,6 +14,8 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [COOLIFY_OPERATOR_CHECKLIST.md](./COOLIFY_OPERATOR_CHECKLIST.md) | Operator-only verification checklist |
 | [GITHUB_ADMIN_CLOSURE.md](./GITHUB_ADMIN_CLOSURE.md) | Admin ruleset/CODEOWNERS/CI baseline handoff |
 | [RULESET_ADALAH_AI_APPLY.md](./RULESET_ADALAH_AI_APPLY.md) | Apply ruleset `adalah-ai` (admin UI click-path) |
+| [PATH02_TRIAL_STAGING.md](./PATH02_TRIAL_STAGING.md) | Path 02 status board — trial staging on `develop` |
+| [TRIAL_KICKOFF.md](./TRIAL_KICKOFF.md) | Filled trial identity snapshot (SHA/tree/deferrals) |
 | [TRIAL_LAUNCH_RUNBOOK.md](./TRIAL_LAUNCH_RUNBOOK.md) | Simple controlled trial (staging) launch procedure |
 | [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
 | [TRIAL_STAGING_ENV.md](./TRIAL_STAGING_ENV.md) | Staging env var profile (test keys only) |
