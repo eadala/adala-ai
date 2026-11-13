@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Managed Integrations Hub — مركز التكاملات المُدار
  * ────────────────────────────────────────────────
@@ -11,11 +12,9 @@
  *   integration_requests      — طلبات التفعيل/التعديل من العملاء
  */
 import { Router, Request, Response } from "express";
-import { requireSuperAdmin } from "../../middlewares/requireAuth";
-import { requireAuth }               from "../../middlewares/requireAuth";
+import { requireSuperAdmin, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { db }                        from "@workspace/db";
 import { sql }                       from "drizzle-orm";
-import { getAuth }                   from "@clerk/express";
 
 const router = Router();
 const adminOnly = requireSuperAdmin;
@@ -264,18 +263,20 @@ ensureTables();
    OFFICE — USER-FACING ROUTES
 ══════════════════════════════════════════════════════════════ */
 
+function realOfficeId(req: Request): string | null {
+  const id = (req as any).tenantId ? String((req as any).tenantId) : "";
+  if (!id || id === "default" || id === "platform" || id === "unknown") return null;
+  return id;
+}
+
 /** GET /api/integrations — list all integrations + this office's status */
-router.get("/integrations", requireAuth, async (req: Request, res: Response) => {
+router.get("/integrations", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId  = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
     const officePlan = await one(sql`
-      SELECT plan FROM office_page WHERE office_id = ${officeId}
-      UNION ALL
-      SELECT p.slug AS plan FROM office_members om
-        JOIN office_page op ON op.office_id = om.office_id
-        JOIN plans p ON p.id = op.plan_id
-      WHERE om.user_id = ${officeId} LIMIT 1
+      SELECT plan FROM office_page WHERE id = ${officeId} LIMIT 1
     `) as any;
     const planSlug  = officePlan?.plan ?? "free";
     const planIdx   = planIndex(planSlug);
@@ -329,15 +330,18 @@ router.get("/integrations", requireAuth, async (req: Request, res: Response) => 
 });
 
 /** POST /api/integrations/request — submit activation/help request */
-router.post("/integrations/request", requireAuth, async (req: Request, res: Response) => {
+router.post("/integrations/request", requireAuthWithTenant, async (req: Request, res: Response) => {
   await ensureTables();
   try {
-    const officeId      = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
     const { integration_key, request_type = "activate", message } = req.body;
     if (!integration_key) return res.status(422).json({ error: "integration_key مطلوب" });
 
     /* Get office name */
-    const office = await one(sql`SELECT name FROM offices WHERE id = ${officeId} LIMIT 1`).catch(() => null);
+    const office = await one(sql`
+      SELECT name FROM office_page WHERE id = ${officeId} LIMIT 1
+    `).catch(() => null);
 
     /* Check for existing pending request */
     const existing = await one(sql`
@@ -357,9 +361,10 @@ router.post("/integrations/request", requireAuth, async (req: Request, res: Resp
 });
 
 /** GET /api/integrations/my-requests — my pending/resolved requests */
-router.get("/integrations/my-requests", requireAuth, async (req: Request, res: Response) => {
+router.get("/integrations/my-requests", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
     const data = await rows(sql`
       SELECT ir.*, pi.name_ar, pi.icon, pi.color
       FROM integration_requests ir

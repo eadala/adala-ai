@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
@@ -53,6 +54,11 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
     if (!caseId) { res.status(400).json({ error: "caseId مطلوب" }); return; }
 
     const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") {
+      res.status(403).json({ error: "لا يوجد مكتب مرتبط" }); return;
+    }
+    const actorId = ((req as any).userId as string | undefined) || (typeof userId === "string" ? userId : null);
+    if (!actorId) { res.status(401).json({ error: "غير مصرح" }); return; }
 
     /* SECURITY: scope case fetch to authenticated tenant */
     const caseRows = await db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`);
@@ -61,7 +67,7 @@ router.post("/ai-workflow/run", requireAuthWithTenant, async (req: Request, res:
     const wfId = randomUUID();
     await db.execute(sql`
       INSERT INTO ai_workflows (id, case_id, user_id, office_id, status, steps, started_at, created_at)
-      VALUES (${wfId}, ${caseId}, ${userId ?? "default"}, ${tenantId}, 'running', '[]'::jsonb, NOW(), NOW())
+      VALUES (${wfId}, ${caseId}, ${actorId}, ${tenantId}, 'running', '[]'::jsonb, NOW(), NOW())
     `);
 
     const caseInfo = `
