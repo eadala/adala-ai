@@ -91,7 +91,7 @@ Preferred one-shot (read-only):
 ./scripts/release/verify-path01-admin.sh
 ```
 
-Expect `RESULT: ENGINEERING_OK_ADMIN_PENDING` until collaborator + ruleset targets/enforcement are set; then `PATH01_ADMIN_READY`.
+Expect `RESULT: ENGINEERING_OK_ADMIN_PENDING` until collaborator + ruleset are set; or `PATH01_ADMIN_DEFERRED=1 ./scripts/release/verify-path01-admin.sh` → `ENGINEERING_OK_ADMIN_DEFERRED` while admin remains deferred; then `PATH01_ADMIN_READY` when enforced.
 
 Manual equivalents:
 
