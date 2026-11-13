@@ -59,12 +59,13 @@ async function ensureEventsTable() {
     CREATE TABLE IF NOT EXISTS system_events (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       event_type  TEXT NOT NULL,
-      office_id   TEXT DEFAULT 'default',
+      office_id   TEXT,
       actor_id    TEXT,
       payload     JSONB NOT NULL DEFAULT '{}',
       created_at  TIMESTAMP DEFAULT NOW()
     )
   `).catch(() => {});
+  await db.execute(sql`ALTER TABLE system_events ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_system_events_type      ON system_events(event_type)
   `).catch(() => {});
