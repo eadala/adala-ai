@@ -14,10 +14,27 @@
 
 | Track | Status | Blocker? |
 |-------|--------|----------|
-| Develop engineering (governance, Gate 5, CI, deps #153/#155 + low cleanup) | **DONE** on `develop` — `pnpm audit` clean | No |
+| Develop engineering (governance, Gate 5, CI, deps #141–#156) | **DONE** — `pnpm audit` **No known vulnerabilities** on tip | No |
 | GitHub ruleset + independent reviewer | Admin UI / invite — **PENDING** (Write collaborator; ruleset Evaluate/Disabled until then) | Blocks *enforced* review policy only |
 | Coolify / production deploy baseline | **DEFERRED** by product decision — continue code without waiting | Blocks **production release claims** only — not develop engineering |
 
+
+## Engineering path — COMPLETE (2026-11-13)
+
+| Checkpoint | Evidence |
+|------------|----------|
+| #141 governance | MERGED |
+| #142 Gate 5 deps | CLOSED superseded |
+| #143/#144 status docs | MERGED |
+| #153 zod high | MERGED |
+| #155 moderate batch | MERGED |
+| #156 low cleanup | MERGED → tip `845eb8bd…` |
+| `pnpm audit` on tip | **No known vulnerabilities found** |
+| Open PRs → `develop` | **none** |
+
+**Remaining (admin UI only — not code):** independent Write collaborator (B), ruleset prepare/activate (A), Coolify production baseline (**DEFERRED**).
+
+---
 ---
 
 ## A. Required GitHub settings
@@ -128,7 +145,7 @@ Current: `.github/CODEOWNERS` → `* @eadala`
 | Prerequisite | Status |
 |--------------|--------|
 | Governance + Gate 1/5/7 on develop | **DONE** |
-| Gate 5 criticals | **PASS** |
+| Gate 5 criticals + full `pnpm audit` | **PASS** (0 known vulns on tip after #156) |
 | Independent review capacity | **PENDING** (policy) |
 | Frozen RC unchanged | **PASS** |
 | Coolify Auto Deploy verified | **DEFERRED / UNVERIFIED** — continue engineering; do not claim production readiness |
@@ -163,7 +180,8 @@ Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED` and **out of the critical p
 ## G. Sign-off checklist
 
 - [x] Gate 5 remediation on `develop`
-- [x] Governance #141 (+ #143) merged; develop All Gates PASS
+- [x] Governance #141 (+ #143/#144) merged; develop All Gates PASS
+- [x] Deps audit path complete (#153 high, #155 moderate, #156 low) — tip audit clean
 - [ ] Independent reviewer invited and eligible
 - [ ] Ruleset targets + rules configured; enforcement authorized
 - [ ] Coolify checklist completed (**before production**, not before further develop work)
