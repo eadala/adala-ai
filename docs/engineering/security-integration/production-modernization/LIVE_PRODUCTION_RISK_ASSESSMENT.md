@@ -29,6 +29,7 @@ Live reports payments **`outage`**, which **does not match** current tip logic f
 | Custom/env-specific fork | UNVERIFIED | — |
 | Stripe key present but different check path | UNVERIFIED | tip would still be operational/degraded |
 | True provider outage | UNVERIFIED | no provider API probed (forbidden to use live keys) |
+| **Live detail string** | VERIFIED | `Stripe غير مضبوط (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET)` with status **outage** — tip code would emit **degraded** for missing keys → **production binary ≠ current main/develop tip** |
 
 **Do not expose keys.** Operator should confirm which payment env vars exist (names only) and deployed SHA.
 
