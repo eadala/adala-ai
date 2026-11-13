@@ -14,7 +14,7 @@
 
 | Track | Status | Blocker? |
 |-------|--------|----------|
-| Develop engineering (governance, Gate 5, CI, zod high #153) | **DONE** on `develop` — high/critical audit clear | No |
+| Develop engineering (governance, Gate 5, CI, deps #153/#155 + low cleanup) | **DONE** on `develop` — `pnpm audit` clean | No |
 | GitHub ruleset + independent reviewer | Admin UI / invite — **PENDING** (Write collaborator; ruleset Evaluate/Disabled until then) | Blocks *enforced* review policy only |
 | Coolify / production deploy baseline | **DEFERRED** by product decision — continue code without waiting | Blocks **production release claims** only — not develop engineering |
 
