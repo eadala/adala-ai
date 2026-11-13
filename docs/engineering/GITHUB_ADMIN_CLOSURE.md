@@ -13,7 +13,10 @@
 | Develop tip CI | **All Gates PASS** including Gate 5 (run `43421944825` on `fbfa5567…`) |
 | Local critical audit on tip | **0 critical** |
 | Replacement deps PR | **Not required** — zero package/lockfile delta vs closed #142 tip |
-| Ruleset / independent reviewer / Coolify | Still **admin-pending** |
+| Status-doc follow-up | This file updated on tip for admin handoff |
+| Ruleset / independent reviewer / Coolify | Still **admin-pending** — **NEXT** |
+| Independent reviewer (B) | **PENDING** — invite Write collaborator |
+| Ruleset activation (A) | Prepare targets/rules in **Evaluate/Disabled**; Active only after B |
 
 ---
 
