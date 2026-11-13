@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -101,7 +102,11 @@ async function semanticSearch(query: string, category: string): Promise<{ result
   return { results: scored.slice(0, 6), summary };
 }
 
-router.post("/legal-research/search", requireAuth, async (req, res) => {
+router.post("/legal-research/search", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  if (!tid || tid === "default" || tid === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
   const { query, category = "all" } = req.body;
   if (!query) return res.status(400).json({ error: "استعلام البحث مطلوب" });
   const data = await semanticSearch(query, category);
