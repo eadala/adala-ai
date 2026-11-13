@@ -50,6 +50,8 @@
 | Bypass actors | `null` | Keep empty for routine work |
 
 **UI path:** GitHub → `eadala/adala-ai` → **Settings** → **Rules** → **Rulesets** → `adalah-ai`
+**Apply guide:** [`RULESET_ADALAH_AI_APPLY.md`](./RULESET_ADALAH_AI_APPLY.md) (click-path for ruleset `adalah-ai`).
+
 
 ### A2. Exact recommended ruleset values
 
