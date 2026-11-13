@@ -1,9 +1,16 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getTenantSafe } from "../../core/tenantContext";
+
+function tenantIdOf(req: Request): string | null {
+  const tid = (req as any).tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 const router = Router();
 
@@ -72,15 +79,16 @@ async function parseIntent(command: string): Promise<ParsedCommand> {
 }
 
 async function logAction(data: {
+  officeId: string;
   userId?: string; userEmail?: string; command: string; intent: string;
   params?: any; actionTaken?: string; result?: any; success?: boolean;
   errorMessage?: string; executionMs?: number;
 }) {
   try {
     await db.execute(sql`
-      INSERT INTO ai_agent_logs (id,user_id,user_email,command,intent,params,action_taken,result,success,error_message,execution_ms)
+      INSERT INTO ai_agent_logs (id,office_id,user_id,user_email,command,intent,params,action_taken,result,success,error_message,execution_ms)
       VALUES (
-        ${randomUUID()}, ${data.userId ?? null}, ${data.userEmail ?? null},
+        ${randomUUID()}, ${data.officeId}, ${data.userId ?? null}, ${data.userEmail ?? null},
         ${data.command}, ${data.intent}, ${JSON.stringify(data.params ?? {})}::jsonb,
         ${data.actionTaken ?? null}, ${JSON.stringify(data.result ?? {})}::jsonb,
         ${data.success ?? true}, ${data.errorMessage ?? null}, ${data.executionMs ?? null}
@@ -291,7 +299,7 @@ router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res
   };
   if (!command?.trim()) { res.status(400).json({ error: "الأمر مطلوب" }); return; }
 
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tenantIdOf(req);
   if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const t0 = Date.now();
   const parsed = await parseIntent(command);
@@ -305,6 +313,7 @@ router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res
   const ms = Date.now() - t0;
 
   await logAction({
+    officeId: tenantId,
     userId, userEmail, command, intent: parsed.intent, params: parsed.params,
     actionTaken: result.message, result: result.data, success: result.success, executionMs: ms,
   });
@@ -315,7 +324,8 @@ router.post("/ai-agent/execute", requireAuthWithTenant, async (req: Request, res
 // ─── GET /ai-agent/briefing ───────────────────────────────────────────────────
 router.get("/ai-agent/briefing", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tenantIdOf(req);
+    if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const [eventsR, overdueR, casesR, contractsR, invoicesR] = await Promise.all([
       db.execute(sql`SELECT id, title, event_type, start_at, location FROM events WHERE office_id = ${tid} AND start_at >= NOW()::date AND start_at < NOW()::date + INTERVAL '1 day' ORDER BY start_at LIMIT 5`),
       db.execute(sql`SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as total FROM client_invoices WHERE office_id = ${tid} AND status='overdue'`),
@@ -345,31 +355,39 @@ router.get("/ai-agent/briefing", requireAuthWithTenant, async (req: Request, res
 });
 
 // ─── GET /ai-agent/logs ───────────────────────────────────────────────────────
-router.get("/ai-agent/logs", requireAuth, async (req: Request, res: Response) => {
+router.get("/ai-agent/logs", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const tid = tenantIdOf(req);
+  if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const limit = Math.min(Number(req.query.limit) || 50, 100);
   const rows = await db.execute(sql`
     SELECT id, user_email, command, intent, action_taken, success, execution_ms, created_at
-    FROM ai_agent_logs ORDER BY created_at DESC LIMIT ${limit}
+    FROM ai_agent_logs
+    WHERE office_id = ${tid}
+    ORDER BY created_at DESC LIMIT ${limit}
   `);
-  res.json(rows.rows ?? []);
+  res.json((rows as any).rows ?? rows ?? []);
 });
 
 // ─── GET /ai-agent/workflows ──────────────────────────────────────────────────
-router.get("/ai-agent/workflows", requireAuth, async (_req: Request, res: Response) => {
+router.get("/ai-agent/workflows", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const tid = tenantIdOf(req);
+  if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const rows = await db.execute(sql`
-    SELECT * FROM ai_workflows ORDER BY created_at DESC
+    SELECT * FROM ai_workflows WHERE office_id = ${tid} ORDER BY created_at DESC
   `);
-  res.json(rows.rows ?? []);
+  res.json((rows as any).rows ?? rows ?? []);
 });
 
 // ─── POST /ai-agent/workflows ─────────────────────────────────────────────────
-router.post("/ai-agent/workflows", requireAuth, async (req: Request, res: Response) => {
+router.post("/ai-agent/workflows", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const tid = tenantIdOf(req);
+  if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const { name, description, triggerType, schedule, actionType, actionParams, mode, createdBy } = req.body;
   const id = randomUUID();
   await db.execute(sql`
-    INSERT INTO ai_workflows (id, name, description, trigger_type, schedule, action_type, action_params, mode, is_active, created_by, created_at)
+    INSERT INTO ai_workflows (id, office_id, name, description, trigger_type, schedule, action_type, action_params, mode, is_active, created_by, created_at)
     VALUES (
-      ${id}, ${name}, ${description || null}, ${triggerType || "scheduled"}, ${schedule || null},
+      ${id}, ${tid}, ${name}, ${description || null}, ${triggerType || "scheduled"}, ${schedule || null},
       ${actionType}, ${JSON.stringify(actionParams || {})}::jsonb, ${mode || "manual"},
       true, ${createdBy || null}, NOW()
     )
@@ -379,7 +397,8 @@ router.post("/ai-agent/workflows", requireAuth, async (req: Request, res: Respon
 
 // ─── PUT /ai-agent/workflows/:id ──────────────────────────────────────────────
 router.put("/ai-agent/workflows/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tenantIdOf(req);
+  if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   const { id } = req.params as Record<string, string>;
   const { isActive, mode } = req.body;
   await db.execute(sql`
@@ -393,7 +412,8 @@ router.put("/ai-agent/workflows/:id", requireAuthWithTenant, async (req: Request
 
 // ─── DELETE /ai-agent/workflows/:id ───────────────────────────────────────────
 router.delete("/ai-agent/workflows/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tenantIdOf(req);
+  if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   await db.execute(sql`
     DELETE FROM ai_workflows WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}
   `);

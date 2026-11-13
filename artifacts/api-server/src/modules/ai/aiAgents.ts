@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -62,11 +63,17 @@ async function callGemini(systemPrompt: string, messages: { role: string; conten
   } catch { return null; }
 }
 
-router.post("/ai-agents/run", requireAuth, async (req, res) => {
+router.post("/ai-agents/run", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as any).tenantId as string;
+  if (!tenantId || tenantId === "default" || tenantId === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
+
   const { agentType, input, history = [] } = req.body as { agentType: string; input: string; history: {role:string;content:string}[] };
 
   const agent = AGENTS[agentType];
   if (!agent) return res.status(400).json({ error: "نوع الوكيل غير معروف" });
+  if (!input?.trim()) return res.status(400).json({ error: "المدخل مطلوب" });
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -75,7 +82,7 @@ router.post("/ai-agents/run", requireAuth, async (req, res) => {
 
   try {
     const geminiText = await callGemini(agent.systemPrompt, messages, 1500);
-    if (geminiText) return res.json({ response: geminiText, agent: agentType });
+    if (geminiText) return res.json({ response: geminiText, agent: agentType, officeId: tenantId });
 
     if (ANTHROPIC_KEY) {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -84,7 +91,7 @@ router.post("/ai-agents/run", requireAuth, async (req, res) => {
         body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 1500, system: agent.systemPrompt, messages }),
       });
       const d = await r.json() as any;
-      if (d.content?.[0]?.text) return res.json({ response: d.content[0].text, agent: agentType });
+      if (d.content?.[0]?.text) return res.json({ response: d.content[0].text, agent: agentType, officeId: tenantId });
     } else if (OPENAI_KEY) {
       const r = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -92,11 +99,11 @@ router.post("/ai-agents/run", requireAuth, async (req, res) => {
         body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 1500, messages: [{ role: "system", content: agent.systemPrompt }, ...messages] }),
       });
       const d = await r.json() as any;
-      if (d.choices?.[0]?.message?.content) return res.json({ response: d.choices[0].message.content, agent: agentType });
+      if (d.choices?.[0]?.message?.content) return res.json({ response: d.choices[0].message.content, agent: agentType, officeId: tenantId });
     }
   } catch {}
 
-  res.json({ response: agent.fallback(input), agent: agentType });
+  res.json({ response: agent.fallback(input), agent: agentType, officeId: tenantId });
 });
 
 router.get("/ai-agents/list", requireAuth, (_req, res) => {
