@@ -1,10 +1,17 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 const router = Router();
+
+function tenantIdOf(req: Request): string | null {
+  const tid = (req as any).tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 async function sqlAll(q: any) {
   const r = await db.execute(q) as any;
@@ -31,31 +38,39 @@ async function ensureSchema() {
       ip_address    TEXT,
       notes         TEXT,
       requested_by  TEXT,
+      office_id     TEXT,
       created_at    TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE document_signatures ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_doc_signatures_office ON document_signatures(office_id)`).catch(() => {});
 }
 
 // POST /api/signatures/request — create signature request (auth required)
-router.post("/signatures/request", requireAuth, async (req: Request, res: Response) => {
+router.post("/signatures/request", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     await ensureSchema();
+    const tid = tenantIdOf(req);
+    if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const { documentId, signerName, signerEmail, notes } = req.body;
     if (!documentId || !signerName) {
       res.status(400).json({ error: "documentId و signerName مطلوبان" }); return;
     }
     const auth = (req as any).auth;
-    const doc = await sqlOne(sql`SELECT id, title, content FROM legal_documents WHERE id = ${documentId} LIMIT 1`);
+    const doc = await sqlOne(sql`
+      SELECT id, title, content FROM legal_documents
+      WHERE id = ${documentId} AND office_id = ${tid} LIMIT 1
+    `);
     if (!doc) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
 
     const id = randomUUID();
     const signToken = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
     await db.execute(sql`
       INSERT INTO document_signatures
-        (id, document_id, document_title, document_content, signer_name, signer_email, sign_token, status, notes, requested_by)
+        (id, document_id, document_title, document_content, signer_name, signer_email, sign_token, status, notes, requested_by, office_id)
       VALUES
         (${id}, ${documentId}, ${doc.title}, ${doc.content}, ${signerName}, ${signerEmail ?? null},
-         ${signToken}, 'pending', ${notes ?? null}, ${auth?.userId ?? null})
+         ${signToken}, 'pending', ${notes ?? null}, ${auth?.userId ?? (req as any).userId ?? null}, ${tid})
     `);
     const host = `${req.protocol}://${req.get("host")}`;
     const signUrl = `${host}/sign/${signToken}`;
@@ -106,12 +121,19 @@ router.post("/signatures/token/:token/sign", async (req: Request, res: Response)
 });
 
 // GET /api/signatures/document/:docId — all signatures for a document (auth)
-router.get("/signatures/document/:docId", requireAuth, async (req: Request, res: Response) => {
+router.get("/signatures/document/:docId", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     await ensureSchema();
+    const tid = tenantIdOf(req);
+    if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
+    const doc = await sqlOne(sql`
+      SELECT id FROM legal_documents WHERE id = ${String(req.params.docId)} AND office_id = ${tid} LIMIT 1
+    `);
+    if (!doc) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
     const rows = await sqlAll(sql`
       SELECT id, signer_name, signer_email, status, signed_at, created_at, sign_token
-      FROM document_signatures WHERE document_id = ${String(req.params.docId)}
+      FROM document_signatures
+      WHERE document_id = ${String(req.params.docId)} AND office_id = ${tid}
       ORDER BY created_at DESC
     `);
     res.json(rows);
@@ -120,14 +142,17 @@ router.get("/signatures/document/:docId", requireAuth, async (req: Request, res:
   }
 });
 
-// GET /api/signatures — list all (auth)
-router.get("/signatures", requireAuth, async (req: Request, res: Response) => {
+// GET /api/signatures — list office signatures (auth)
+router.get("/signatures", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     await ensureSchema();
+    const tid = tenantIdOf(req);
+    if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const rows = await sqlAll(sql`
       SELECT id, document_id, document_title, signer_name, signer_email,
              status, signed_at, created_at
       FROM document_signatures
+      WHERE office_id = ${tid}
       ORDER BY created_at DESC LIMIT 100
     `);
     res.json(rows);

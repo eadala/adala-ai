@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -68,17 +69,23 @@ async function callGemini(systemPrompt: string, input: string, maxTokens = 1500)
   } catch { return null; }
 }
 
-router.post("/command-center/execute", requireAuth, async (req, res) => {
+router.post("/command-center/execute", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  if (!tid || tid === "default" || tid === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
+
   const { command, input } = req.body as { command: CommandType; input: string };
   const config = COMMAND_CONFIGS[command];
   if (!config) return res.status(400).json({ error: "أمر غير معروف" });
+  if (!input?.trim()) return res.status(400).json({ error: "المدخل مطلوب" });
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
   try {
     const geminiText = await callGemini(config.systemPrompt, input, 1500);
-    if (geminiText) return res.json({ result: geminiText, command });
+    if (geminiText) return res.json({ result: geminiText, command, officeId: tid });
 
     if (ANTHROPIC_KEY) {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -87,7 +94,7 @@ router.post("/command-center/execute", requireAuth, async (req, res) => {
         body: JSON.stringify({ model: "claude-3-5-haiku-20241022", max_tokens: 1500, system: config.systemPrompt, messages: [{ role: "user", content: input }] }),
       });
       const d = await r.json() as any;
-      if (d.content?.[0]?.text) return res.json({ result: d.content[0].text, command });
+      if (d.content?.[0]?.text) return res.json({ result: d.content[0].text, command, officeId: tid });
     } else if (OPENAI_KEY) {
       const r = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -95,11 +102,11 @@ router.post("/command-center/execute", requireAuth, async (req, res) => {
         body: JSON.stringify({ model: "gpt-4o-mini", max_tokens: 1500, messages: [{ role: "system", content: config.systemPrompt }, { role: "user", content: input }] }),
       });
       const d = await r.json() as any;
-      if (d.choices?.[0]?.message?.content) return res.json({ result: d.choices[0].message.content, command });
+      if (d.choices?.[0]?.message?.content) return res.json({ result: d.choices[0].message.content, command, officeId: tid });
     }
   } catch {}
 
-  res.json({ result: config.fallback, command });
+  res.json({ result: config.fallback, command, officeId: tid });
 });
 
 router.get("/command-center/commands", (_req, res) => {
