@@ -13,8 +13,8 @@ Incident merge under review: `478be04aa42c2ee50ca60d3d37704bcd41f657a5` (#164 �
 | **COOLIFY_WATCHED_BRANCH** | **DOCUMENTED:** `main` (`DEPLOY.md` / `COOLIFY_BRANCH=main`). **LIVE:** **UNVERIFIED** |
 | **AUTO_DEPLOY_STATUS** | **LIVE:** **UNVERIFIED**. Setup docs instruct enabling Automatic Deployment |
 | **PR164_DEPLOYED** | **UNVERIFIED** |
-| **APPLICATION_HEALTH** | **PARTIAL** — `https://adalahai.com/api/health` → HTTP 200 `{"ok":true,"status":"healthy"}` at probe time; `www.adalahai.com/api/health` → **503** `no available server`; no runtime SHA endpoint |
-| **DATABASE_HEALTH** | **UNVERIFIED** (no prod DB credentials/API; health JSON does not include DB detail) |
+| **APPLICATION_HEALTH** | **PARTIAL** — `/api/health` 200 healthy; `/api/status` overall **outage** (payments outage; database/ai/storage/email/whatsapp reported operational) at `2026-11-13T19:58:05Z`; `www.adalahai.com` **503**; no runtime SHA endpoint |
+| **DATABASE_HEALTH** | **PARTIAL** — public `/api/status` reports `database: operational` (app self-check only; no direct PostgreSQL/operator evidence) |
 | **BACKUP_AND_RESTORE_READINESS** | **UNVERIFIED** (checklist blanks; no last-backup / restore-drill evidence in operator pack) |
 | **PRODUCTION_SECURITY_GAPS** | See §7 |
 | **COMMERCIAL_LAUNCH_DECISION** | **NO_GO** |
@@ -61,10 +61,11 @@ Clarification (not a substitute for Coolify evidence): under the **documented** 
 |---|---|---|
 | `GET https://adalahai.com/api/health` | 200 `ok/healthy` | 2026-11-13T19:57:20Z |
 | `GET https://adalahai.com/api/healthz` | 200 `ok/healthy` | same |
+| `GET https://adalahai.com/api/status` | overall **outage**; `database/ai/storage/email/whatsapp: operational`; `payments: outage` | 2026-11-13T19:58:05Z |
 | `GET https://www.adalahai.com/api/health` | **503** `no available server` | same |
 | Container restarts / Coolify metrics | **UNVERIFIED** | — |
 | Recent error logs | **UNVERIFIED** | — |
-| PostgreSQL operational status | **UNVERIFIED** | — |
+| PostgreSQL (direct) | **UNVERIFIED** | app status only |
 
 ## 5. Backups / restore
 
