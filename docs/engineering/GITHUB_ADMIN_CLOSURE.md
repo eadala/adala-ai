@@ -1,22 +1,22 @@
-# GitHub Admin Closure — Governance & Gate 5 Status
+# GitHub Admin Closure — Path 01 status & governance enforcement
 
-**Audience:** Repository administrator (`eadala`) and Coolify operator  
-**Agent scope:** Documentation only — this file does **not** change live GitHub/Coolify settings.  
+**Audience:** Repository administrator (`eadala`) and Coolify operator
+**Agent scope:** Documentation only — this file does **not** change live GitHub/Coolify settings.
+**Related PRs:**
+- Governance + Gate 5 stack: [#141](https://github.com/eadala/adala-ai/pull/141) → `develop` — **MERGED**
+- Gate 5 deps-only: [#142](https://github.com/eadala/adala-ai/pull/142) → **CLOSED as superseded** (content on develop via `29ad4d2f`)
+- Admin status docs: [#143](https://github.com/eadala/adala-ai/pull/143) → **MERGED**
+**Develop tip (engineering path):** track `origin/develop` (post-#143: `5d4bb192…`)
+**Develop CI:** Gate 5 + All Gates **SUCCESS** on tip after #141/#143
 **Frozen RC (immutable):** `5441523302a1513f07b5dc08f028d848a0bad5b4` / tree `cd84a7f277c481dc5c96d707dde4e78d7f18e713`
 
-## Status snapshot (2026-11-13)
+### Engineering path vs production path
 
-| Item | Status |
-|------|--------|
-| Governance [#141](https://github.com/eadala/adala-ai/pull/141) | **MERGED** into `develop` (`fbfa5567…`) |
-| Gate 5 deps [#142](https://github.com/eadala/adala-ai/pull/142) | **CLOSED unmerged** — content already on `develop` via `29ad4d2f` (`orval@8.47.0`, `express@5.3.0`, `proxy-addr@2.0.8`) |
-| Develop tip CI | **All Gates PASS** including Gate 5 (run `43421944825` on `fbfa5567…`) |
-| Local critical audit on tip | **0 critical** |
-| Replacement deps PR | **Not required** — zero package/lockfile delta vs closed #142 tip |
-| Status-doc follow-up | This file updated on tip for admin handoff |
-| Ruleset / independent reviewer / Coolify | Still **admin-pending** — **NEXT** |
-| Independent reviewer (B) | **PENDING** — invite Write collaborator |
-| Ruleset activation (A) | Prepare targets/rules in **Evaluate/Disabled**; Active only after B |
+| Track | Status | Blocker? |
+|-------|--------|----------|
+| Develop engineering (governance, Gate 5, CI) | **DONE** on `develop` | No |
+| GitHub ruleset + independent reviewer | Admin UI / invite — **PENDING** (Write collaborator; ruleset Evaluate/Disabled until then) | Blocks *enforced* review policy only |
+| Coolify / production deploy baseline | **DEFERRED** by product decision — continue code without waiting | Blocks **production release claims** only — not develop engineering |
 
 ---
 
@@ -36,7 +36,7 @@
 
 ### A2. Exact recommended ruleset values
 
-Apply to **both** `refs/heads/main` and `refs/heads/develop` (or use separate rulesets if check names differ):
+Apply to **both** `refs/heads/main` and `refs/heads/develop` (or separate rulesets if check names differ):
 
 | Setting | Value |
 |---------|-------|
@@ -49,20 +49,20 @@ Apply to **both** `refs/heads/main` and `refs/heads/develop` (or use separate ru
 | Require review from Code Owners | On (after B) |
 | Require approval of the most recent reviewable push | On (recommended) |
 | Require status checks to pass | On |
-| Required checks (exact names) | `✅ All Gates Passed` on `develop`; confirm `main` check names before requiring there |
-| Require branches to be up to date | Optional while tip stays green |
+| Required checks (exact names) | `✅ All Gates Passed` on `develop`; confirm `main` names before requiring there |
 | Require conversation resolution before merging | On (recommended) |
 | Allow force pushes / deletions | Off |
 | Bypass list | Empty for routine work; break-glass only with written policy |
 
 ### A3. Safe activation sequence
 
-1. Confirm develop tip still has Gate 5 PASS (already true at `fbfa5567…`).
-2. Complete independent reviewer invite (B).
-3. Set target refs + rules while still **disabled** / Evaluate.
-4. Verify a throwaway docs PR is blocked without review + checks.
-5. Set enforcement **Active** on `develop`, then `main` (or separate rulesets).
-6. Record break-glass bypass owners outside the repo if needed.
+1. ~~Land Gate 5 remediation and confirm Gate 5 PASS.~~ **DONE**
+2. ~~Land governance docs/scripts on develop.~~ **DONE** (#141 / #143)
+3. Complete independent reviewer invite (B). **NEXT** (for enforced policy)
+4. Set target refs + rules while still **disabled** / Evaluate.
+5. Verify a throwaway docs PR is blocked without review + checks.
+6. Set enforcement **Active** on `develop`, then `main` (or separate rulesets).
+7. Record break-glass bypass owners outside the repo if needed.
 
 ### A4. Verification commands
 
@@ -70,20 +70,21 @@ Apply to **both** `refs/heads/main` and `refs/heads/develop` (or use separate ru
 gh api repos/eadala/adala-ai/rulesets/17934003 \
   --jq '{name,enforcement,include:.conditions.ref_name.include,rules:[.rules[].type]}'
 gh api repos/eadala/adala-ai/collaborators --jq '.[].login'
-pnpm audit --audit-level=critical  # expect 0 lines containing "critical"
+gh api repos/eadala/adala-ai/commits/develop --jq '{sha:.sha[0:7],msg:.commit.message|split("\n")[0]}'
+pnpm audit --audit-level=critical  # expect 0 matches for "critical"
 ```
 
 ---
 
 ## B. Independent reviewer procedure (exact)
 
-**Problem:** Collaborators API lists only `@eadala`. Author cannot satisfy independent approval for their own PR when approvals are required.
+**Problem:** Collaborators API lists only `@eadala`. Author cannot satisfy independent approval when approvals are required.
 
 ### B1. Invite
 
 1. GitHub → `eadala/adala-ai` → **Settings** → **Collaborators and teams** → **Add people**
-2. Invite a trusted human reviewer (separate identity; not an alt controlled by the PR author)
-3. Permission: **Write** (minimum to approve PRs; **Maintain** only if they must manage settings)
+2. Invite a trusted human reviewer (separate identity)
+3. Permission: **Write** (minimum)
 
 ### B2. Verify acceptance
 
@@ -96,58 +97,54 @@ gh api repos/eadala/adala-ai/collaborators --jq '.[].login'
 
 Current: `.github/CODEOWNERS` → `* @eadala`
 
-Minimum sustainable update (via PR):
-
 ```text
 *       @eadala @<independent-reviewer>
 /.github/  @eadala @<independent-reviewer>
 ```
 
-Or a GitHub team `@<org>/adala-reviewers` with ≥2 members.
+### B4. Ongoing reviews
 
-**Do not:** fabricate approvals, use alt accounts to simulate independence, or disable required reviews merely to unblock.
+1. Request independent review on PRs into `develop`/`main`
+2. Do **not** self-approve as a substitute; do **not** disable required reviews to unblock
+3. Prefer **not** using bypass for routine merges
 
 ---
 
 ## C. Repository merge status
 
-| PR | Outcome |
-|----|---------|
-| #141 governance | Merged to `develop` |
-| #142 Gate 5 deps | Closed; commits already on `develop` (`29ad4d2f`, `d237a575`) — **do not reopen** unless tip regresses |
-| #138–#140 | Still out of scope — do not merge as part of this work |
-
-Do **not** deploy from these merges without Coolify verification (E).
-
----
-
-## D. Gate 5 engineering proof (on develop tip)
-
-| Check | Result |
-|-------|--------|
-| `orval` | lockfile `8.47.0` (`lib/api-spec` direct devDependency) |
-| `express` | `^5.3.0` → `5.3.0` |
-| `proxy-addr` | override `>=2.0.8` → `2.0.8` |
-| `pnpm install --frozen-lockfile` | PASS |
-| Critical audit | **0 critical** |
-| Develop CI All Gates | **PASS** |
+| Item | Status |
+|------|--------|
+| Gate 5 on develop (`orval@8.47.0`, `proxy-addr@2.0.8`, `express@5.3.0`) | **DONE** |
+| #141 governance merged | **DONE** |
+| #142 closed superseded | **DONE** |
+| #143 admin status docs merged | **DONE** |
+| #138–#140 | Still out of scope for this path — do not merge here |
+| Coolify production baseline | **DEFERRED** (not a develop engineering blocker) |
 
 ---
 
-## E. Coolify operator requirements (UNVERIFIED until completed)
+## D. Path 01 code prerequisites
 
-Complete `docs/engineering/COOLIFY_OPERATOR_CHECKLIST.md`:
+| Prerequisite | Status |
+|--------------|--------|
+| Governance + Gate 1/5/7 on develop | **DONE** |
+| Gate 5 criticals | **PASS** |
+| Independent review capacity | **PENDING** (policy) |
+| Frozen RC unchanged | **PASS** |
+| Coolify Auto Deploy verified | **DEFERRED / UNVERIFIED** — continue engineering; do not claim production readiness |
+
+---
+
+## E. Coolify operator requirements (deferred)
+
+When production release is scheduled, complete `docs/engineering/COOLIFY_OPERATOR_CHECKLIST.md`:
 
 - Production app identity for `adalahai.com`
 - **Deployed commit SHA**
-- Watched branch
-- Auto Deploy ON/OFF/PAUSED
-- Whether non-`main` pushes deploy
-- Webhook / deployment triggers
-- Rollback capability
-- PostgreSQL backup + restore evidence
+- Watched branch / Auto Deploy / webhooks
+- Rollback + PostgreSQL backup/restore evidence
 
-Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED`.
+Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED` and **out of the critical path for develop engineering**.
 
 ---
 
@@ -156,18 +153,18 @@ Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED`.
 | Layer | Status |
 |-------|--------|
 | Git source scripts | Implemented (read-only) |
-| Application rollback via Coolify | **UNVERIFIED** |
-| PostgreSQL backup/restore | **UNVERIFIED** |
-| Hetzner snapshots | **UNVERIFIED** |
+| Application rollback via Coolify | **UNVERIFIED** (deferred) |
+| PostgreSQL backup/restore | **UNVERIFIED** (deferred) |
+| Hetzner snapshots | **UNVERIFIED** (deferred) |
 | Production baseline tag | **Do not create** without deployed SHA |
 
 ---
 
 ## G. Sign-off checklist
 
-- [x] Gate 5 criticals remediated on `develop`
-- [x] Governance #141 merged
+- [x] Gate 5 remediation on `develop`
+- [x] Governance #141 (+ #143) merged; develop All Gates PASS
 - [ ] Independent reviewer invited and eligible
 - [ ] Ruleset targets + rules configured; enforcement authorized
-- [ ] Coolify checklist completed
-- [ ] Explicit authorization before any production deploy / `main` release
+- [ ] Coolify checklist completed (**before production**, not before further develop work)
+- [ ] Explicit authorization before merges to `main` / production deploy
