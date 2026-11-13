@@ -12,7 +12,9 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [DEPLOYMENT_SAFETY.md](./DEPLOYMENT_SAFETY.md) | Coolify / push fail-closed rules |
 | [PRODUCTION_BASELINE_VERIFICATION.md](./PRODUCTION_BASELINE_VERIFICATION.md) | How to prove deployed SHA |
 | [COOLIFY_OPERATOR_CHECKLIST.md](./COOLIFY_OPERATOR_CHECKLIST.md) | Operator-only verification checklist |
-| [GITHUB_ADMIN_CLOSURE.md](./GITHUB_ADMIN_CLOSURE.md) | Admin ruleset/CODEOWNERS/CI baseline handoff for PR #141 |
+| [GITHUB_ADMIN_CLOSURE.md](./GITHUB_ADMIN_CLOSURE.md) | Admin ruleset/CODEOWNERS/CI baseline handoff |
+| [TRIAL_LAUNCH_RUNBOOK.md](./TRIAL_LAUNCH_RUNBOOK.md) | Simple controlled trial (staging) launch procedure |
+| [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
 
 ## Scripts (read-only)
 
@@ -23,6 +25,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 ./scripts/release/verify-release.sh --expect-tree <ref> <tree>
 ./scripts/release/recovery-inspect.sh [known-good-ref]
 ./scripts/release/detect-sensitive-changes.sh [base] [head]
+./scripts/release/trial-preflight.sh [ref]
 ```
 
 CI companion: `.github/workflows/governance-safety.yml` (does not deploy).
