@@ -41,9 +41,9 @@
 - [ ] Off-server copy exists: YES/NO/UNKNOWN
 - [ ] Restore drill last run: ________ (or NEVER)
 
-## F. Staging isolation (future — do not invent)
+## F. Staging isolation (active for trial — do not invent; do not touch production)
 
-Before creating staging:
+Before first trial deploy (see `TRIAL_KICKOFF.md`):
 
 - [ ] Separate Coolify application
 - [ ] Separate PostgreSQL database

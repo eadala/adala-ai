@@ -16,6 +16,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [TRIAL_LAUNCH_RUNBOOK.md](./TRIAL_LAUNCH_RUNBOOK.md) | Simple controlled trial (staging) launch procedure |
 | [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
 | [TRIAL_STAGING_ENV.md](./TRIAL_STAGING_ENV.md) | Staging env var profile (test keys only) |
+| [TRIAL_KICKOFF.md](./TRIAL_KICKOFF.md) | Current trial kickoff snapshot (SHA + blockers) |
 
 ## Scripts (read-only)
 
