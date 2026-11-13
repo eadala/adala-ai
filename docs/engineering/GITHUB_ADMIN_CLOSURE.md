@@ -15,7 +15,7 @@
 | Track | Status | Blocker? |
 |-------|--------|----------|
 | Develop engineering (governance, Gate 5, CI, deps #141–#156) | **DONE** — `pnpm audit` **No known vulnerabilities** on tip | No |
-| GitHub ruleset + independent reviewer | Admin UI / invite — **PENDING** (Write collaborator; ruleset Evaluate/Disabled until then) | Blocks *enforced* review policy only |
+| GitHub ruleset + independent reviewer | **DEFERRED_BY_OPERATOR** — continue develop; enforce later via `RULESET_ADALAH_AI_APPLY.md` | Blocks *enforced* review policy only — **not** develop engineering |
 | Coolify / production deploy baseline | **DEFERRED** by product decision — continue code without waiting | Blocks **production release claims** only — not develop engineering |
 
 
@@ -32,7 +32,7 @@
 | `pnpm audit` on tip | **No known vulnerabilities found** |
 | Open PRs → `develop` | **none** |
 
-**Remaining (admin UI only — not code):** independent Write collaborator (B), ruleset prepare/activate (A), Coolify production baseline (**DEFERRED**).
+**Remaining (admin UI only — not develop blockers):** independent Write collaborator (B), ruleset prepare/activate (A) — both **DEFERRED_BY_OPERATOR** (see `RULESET_ADALAH_AI_APPLY.md`); Coolify production baseline (**DEFERRED**).
 
 ---
 ---
@@ -50,6 +50,8 @@
 | Bypass actors | `null` | Keep empty for routine work |
 
 **UI path:** GitHub → `eadala/adala-ai` → **Settings** → **Rules** → **Rulesets** → `adalah-ai`
+**Apply guide:** [`RULESET_ADALAH_AI_APPLY.md`](./RULESET_ADALAH_AI_APPLY.md) (click-path for ruleset `adalah-ai`).
+
 
 ### A2. Exact recommended ruleset values
 
@@ -75,7 +77,7 @@ Apply to **both** `refs/heads/main` and `refs/heads/develop` (or separate rulese
 
 1. ~~Land Gate 5 remediation and confirm Gate 5 PASS.~~ **DONE**
 2. ~~Land governance docs/scripts on develop.~~ **DONE** (#141 / #143)
-3. Complete independent reviewer invite (B). **NEXT** (for enforced policy)
+3. ~~Complete independent reviewer invite (B).~~ **DEFERRED_BY_OPERATOR** (for enforced policy later)
 4. Set target refs + rules while still **disabled** / Evaluate.
 5. Verify a throwaway docs PR is blocked without review + checks.
 6. Set enforcement **Active** on `develop`, then `main` (or separate rulesets).
@@ -156,7 +158,7 @@ Current: `.github/CODEOWNERS` → `* @eadala`
 |--------------|--------|
 | Governance + Gate 1/5/7 on develop | **DONE** |
 | Gate 5 criticals + full `pnpm audit` | **PASS** (0 known vulns on tip after #156) |
-| Independent review capacity | **PENDING** (policy) |
+| Independent review capacity | **DEFERRED_BY_OPERATOR** (policy) |
 | Frozen RC unchanged | **PASS** |
 | Coolify Auto Deploy verified | **DEFERRED / UNVERIFIED** — continue engineering; do not claim production readiness |
 
@@ -192,7 +194,7 @@ Until then: `COOLIFY_DEPLOYMENT_SAFETY = UNVERIFIED` and **out of the critical p
 - [x] Gate 5 remediation on `develop`
 - [x] Governance #141 (+ #143/#144) merged; develop All Gates PASS
 - [x] Deps audit path complete (#153 high, #155 moderate, #156 low) — tip audit clean
-- [ ] Independent reviewer invited and eligible
-- [ ] Ruleset targets + rules configured; enforcement authorized
+- [ ] Independent reviewer invited and eligible (**DEFERRED_BY_OPERATOR**)
+- [ ] Ruleset targets + rules configured; enforcement authorized (**DEFERRED_BY_OPERATOR** — guide: `RULESET_ADALAH_AI_APPLY.md`)
 - [ ] Coolify checklist completed (**before production**, not before further develop work)
 - [ ] Explicit authorization before merges to `main` / production deploy
