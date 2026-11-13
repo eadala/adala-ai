@@ -101,7 +101,7 @@ jobs:
           ISSUES=$(grep -r \
             --include="*.ts" --include="*.tsx" --include="*.js" \
             -E "(sk_live_[A-Za-z0-9]+|hardcoded.*(password|secret|key)\s*=\s*['\"][^'\"]{8,})" \
-            artifacts/ packages/ \
+            artifacts/ lib/ \
             --exclude-dir=node_modules \
             --exclude-dir=dist \
             2>/dev/null | grep -v ".test." | wc -l)
@@ -109,7 +109,7 @@ jobs:
           if [ "$ISSUES" -gt 0 ]; then
             grep -r --include="*.ts" --include="*.tsx" \
               -E "(sk_live_[A-Za-z0-9]+)" \
-              artifacts/ packages/ \
+              artifacts/ lib/ \
               --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null || true
             echo "❌ Hardcoded live secrets detected"
             exit 1
