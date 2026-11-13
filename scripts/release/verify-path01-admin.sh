@@ -100,7 +100,14 @@ if [[ "${ENG_OK}" -ne 1 ]]; then
   exit 1
 fi
 if [[ "${ADMIN_PENDING}" -eq 1 ]]; then
+  # Path 01 engineering is complete; admin (reviewer/ruleset) may be DEFERRED_BY_OPERATOR.
+  if [[ "${PATH01_ADMIN_DEFERRED:-0}" == "1" ]]; then
+    echo "RESULT: ENGINEERING_OK_ADMIN_DEFERRED"
+    echo "NOTE: set PATH01_ADMIN_DEFERRED=0 later when enforcing reviewer+ruleset"
+    exit 0
+  fi
   echo "RESULT: ENGINEERING_OK_ADMIN_PENDING"
+  echo "NOTE: export PATH01_ADMIN_DEFERRED=1 to acknowledge operator deferral"
   exit 0
 fi
 echo "RESULT: PATH01_ADMIN_READY"
