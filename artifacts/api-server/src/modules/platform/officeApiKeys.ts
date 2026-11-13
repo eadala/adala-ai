@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
  * Office API Keys Routes
  * GET    /api/office/api-keys        — list keys for office
@@ -7,14 +8,12 @@ import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAut
  * PATCH  /api/office/api-keys/:id/activate — activate key (scoped to caller's office)
  * DELETE /api/office/api-keys/:id    — delete key (scoped to caller's office)
  *
- * Security: officeId is resolved server-side from Clerk auth (single-tenant → "default").
- * Revoke/delete operations verify key ownership before mutating.
+ * Security: officeId comes from verified tenant context — never "default".
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { generateApiKey } from "../../services/tenantProvisioning";
-import { getAuth } from "@clerk/express";
 
 const router = Router();
 
@@ -30,20 +29,16 @@ async function one(q: any): Promise<any | null> {
   return r[0] ?? null;
 }
 
-/**
- * Resolve officeId from Clerk session.
- * Returns null when the request is unauthenticated.
- */
-function resolveOfficeId(req: any): string | null {
-  const auth = getAuth(req);
-  if (!auth?.userId) return null;
-  return "default"; // single-tenant deployment
+function realOfficeId(req: any): string | null {
+  const id = req.tenantId ? String(req.tenantId) : "";
+  if (!id || id === "default" || id === "platform") return null;
+  return id;
 }
 
 /* GET /api/office/api-keys */
-router.get("/office/api-keys", requireAuthWithTenant, async (req, res) => {
-  const officeId = resolveOfficeId(req);
-  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+router.get("/office/api-keys", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = realOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
 
   try {
     const data = await rows(sql`
@@ -59,9 +54,9 @@ router.get("/office/api-keys", requireAuthWithTenant, async (req, res) => {
 });
 
 /* POST /api/office/api-keys */
-router.post("/office/api-keys", requireAuthWithTenant, async (req, res) => {
-  const officeId = resolveOfficeId(req);
-  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+router.post("/office/api-keys", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = realOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
 
   const { name, permissions = ["read"], expiresInDays } = req.body as {
     name: string;
@@ -70,8 +65,7 @@ router.post("/office/api-keys", requireAuthWithTenant, async (req, res) => {
   };
   if (!name?.trim()) return res.status(400).json({ error: "اسم المفتاح مطلوب" });
 
-  const auth = getAuth(req as any);
-  const createdBy = auth?.userId ?? "system";
+  const createdBy = (req.userId as string | undefined) ?? "system";
   const { raw, hash, preview } = generateApiKey();
   const expiresAt = expiresInDays
     ? new Date(Date.now() + expiresInDays * 86_400_000).toISOString()
@@ -95,12 +89,11 @@ router.post("/office/api-keys", requireAuthWithTenant, async (req, res) => {
 });
 
 /* PATCH /api/office/api-keys/:id/revoke */
-router.patch("/office/api-keys/:id/revoke", requireAuthWithTenant, async (req, res) => {
-  const officeId = resolveOfficeId(req);
-  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+router.patch("/office/api-keys/:id/revoke", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = realOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
 
   try {
-    /* Verify ownership before revoking */
     const key = await one(sql`
       SELECT id FROM office_api_keys WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}
     `);
@@ -116,9 +109,9 @@ router.patch("/office/api-keys/:id/revoke", requireAuthWithTenant, async (req, r
 });
 
 /* PATCH /api/office/api-keys/:id/activate */
-router.patch("/office/api-keys/:id/activate", requireAuthWithTenant, async (req, res) => {
-  const officeId = resolveOfficeId(req);
-  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+router.patch("/office/api-keys/:id/activate", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = realOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
 
   try {
     const key = await one(sql`
@@ -136,12 +129,11 @@ router.patch("/office/api-keys/:id/activate", requireAuthWithTenant, async (req,
 });
 
 /* DELETE /api/office/api-keys/:id */
-router.delete("/office/api-keys/:id", requireAuthWithTenant, async (req, res) => {
-  const officeId = resolveOfficeId(req);
-  if (!officeId) return res.status(401).json({ error: "غير مصرح" });
+router.delete("/office/api-keys/:id", requireAuthWithTenant, async (req: any, res) => {
+  const officeId = realOfficeId(req);
+  if (!officeId) return res.status(403).json({ error: "لا يوجد مكتب مرتبط" });
 
   try {
-    /* Scope delete to caller's office — prevents cross-tenant deletion */
     const result = await rows(sql`
       DELETE FROM office_api_keys
       WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}

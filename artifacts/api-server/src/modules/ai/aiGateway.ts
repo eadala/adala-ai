@@ -21,8 +21,9 @@
  *   custom             — freeform prompt
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router }            from "express";
-import { requireAuth }       from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
@@ -32,6 +33,12 @@ import { sql }               from "drizzle-orm";
 import crypto                from "crypto";
 
 const router = Router();
+
+function realOfficeId(req: any): string | null {
+  const id = req.tenantId ? String(req.tenantId) : "";
+  if (!id || id === "default" || id === "platform" || id === "unknown") return null;
+  return id;
+}
 
 /* ── Prompt templates per query type ───────────────────────────── */
 const SYSTEM_PROMPTS: Record<string, string> = {
@@ -74,7 +81,7 @@ function buildCacheKey(officeId: string, type: string, input: string, context?: 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/ai/query
 ───────────────────────────────────────────────────────────────── */
-router.post("/ai/query", requireAuth, async (req, res) => {
+router.post("/ai/query", requireAuthWithTenant, async (req, res) => {
   const {
     type    = "legal_assistant",
     input,
@@ -97,7 +104,14 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     return;
   }
 
-  const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+  const officeId = realOfficeId(req);
+  if (!officeId) {
+    res.status(403).json({
+      success: false,
+      error: { code: "NO_TENANT", message: "لا يوجد مكتب مرتبط" },
+    });
+    return;
+  }
   const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
 
   /* ── Cache hit ──────────────────────────────────────────────── */
@@ -153,10 +167,11 @@ router.post("/ai/query", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/summary
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
+router.get("/ai/analytics/summary", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ success: false, error: "لا يوجد مكتب مرتبط" });
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const whereClause = isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`;
     const rows = await db.execute(sql`
       SELECT
@@ -213,10 +228,11 @@ router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/daily  — 30-day trend
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
+router.get("/ai/analytics/daily", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ success: false, error: "لا يوجد مكتب مرتبط" });
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const rows = await db.execute(sql`
       SELECT
         DATE(created_at)                         AS day,
@@ -250,7 +266,7 @@ router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/by-office  — per-office breakdown
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
+router.get("/ai/analytics/by-office", requireAuthWithTenant, requireSuperAdmin, async (_req, res) => {
   try {
     const rows = await db.execute(sql`
       SELECT office_id,
@@ -278,10 +294,11 @@ router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/recent  — last 50 queries
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
+router.get("/ai/analytics/recent", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const officeId = realOfficeId(req);
+    if (!officeId) return res.status(403).json({ success: false, error: "لا يوجد مكتب مرتبط" });
+    const isAdmin  = (req as any).isSuperAdmin === true;
     const rows = await db.execute(sql`
       SELECT id, office_id, query_type, model_used, tier, cost_points, cached, response_ms, created_at
       FROM ai_usage_logs
