@@ -1,5 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
-import { getAuth } from "@clerk/express";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { plansTable, officePageTable } from "@workspace/db/schema";
@@ -8,6 +8,12 @@ import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
 
 const router = Router();
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 /* ─────────────────────────────────────────────────────
    Full-access feature flags for the 30-day trial period.
@@ -30,23 +36,41 @@ const TRIAL_LIMITS = {
   maxAiCalls: 9999, maxStorageGb: 1000, maxBranches: 99,
 };
 
+const FREE_FLAGS = {
+  cases: true, invoices: true, reminders: true, calendar: true,
+  exportPdf: true, aiBasic: true, reportsBasic: true,
+  website: false, serviceStore: false, payments: false, contractsAi: false,
+  mobileApp: false, ai: false, aiAnalytics: false, reportsAdvanced: false,
+  ocr: false, backup: false, clientPortal: false, branches: false,
+  whatsapp: false, workflow: false, customDomain: false,
+  api: false, assistant: false, aiCfo: false, whiteLabel: false,
+  sla: false, dedicatedManager: false, customAiTraining: false,
+};
+
 /* ─────────────────────────────────────────────────────
    GET /office/subscription
    Returns current office plan, feature flags, and limits.
-   Used by the frontend to gate UI elements.
-   During the 30-day Stripe trial → returns full access.
 ───────────────────────────────────────────────────── */
-router.get("/office/subscription", requireAuth, async (_req, res) => {
+router.get("/office/subscription", requireAuthWithTenant, async (req, res) => {
   try {
-    /* ── 1. Check Stripe for active trial ── */
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+
+    /* Ensure gift_subscriptions can be scoped by office */
+    await db.execute(sql`ALTER TABLE gift_subscriptions ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+
+    /* ── 1. Check Stripe for active trial for THIS office ── */
     let isTrial = false;
     let trialEndsAt: number | null = null;
     let trialDaysLeft: number | null = null;
 
     try {
       const stripe = await getUncachableStripeClient();
-      const subs = await stripe.subscriptions.list({ limit: 5, status: "trialing" });
-      const trialing = subs.data[0];
+      const subs = await stripe.subscriptions.list({ limit: 20, status: "trialing" });
+      const trialing = subs.data.find(s => {
+        const metaOffice = (s.metadata as any)?.officeId ?? (s.metadata as any)?.office_id;
+        return metaOffice === tid;
+      });
       if (trialing) {
         isTrial = true;
         trialEndsAt = (trialing as any).trial_end ?? null;
@@ -57,12 +81,13 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       }
     } catch { /* Stripe not configured — skip trial check */ }
 
-    /* ── 2a. Check for active gift subscription ── */
+    /* ── 2a. Check for active gift subscription for THIS office ── */
     try {
       const giftRows = await db.execute(sql`
         SELECT gs.plan_slug, gs.end_date, gs.id
         FROM gift_subscriptions gs
         WHERE gs.status = 'active' AND gs.end_date > NOW()
+          AND gs.office_id = ${tid}
         ORDER BY gs.end_date DESC LIMIT 1
       `);
       const gift = ((giftRows as any).rows ?? (giftRows as unknown as any[]))[0] ?? null;
@@ -95,10 +120,12 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       }
     } catch { /* gift table may not exist yet — skip */ }
 
-    /* ── 2. If in trial → return full access immediately ── */
+    /* Resolve THIS office's plan from office_page */
+    const offices = await db.select().from(officePageTable).where(eq(officePageTable.id, tid as any)).limit(1);
+    const officePlan = offices[0]?.plan ?? "free";
+
+    /* ── 2. If in trial → return full access for this office's plan shell ── */
     if (isTrial) {
-      const offices = await db.select().from(officePageTable).limit(1);
-      const officePlan = offices[0]?.plan ?? "free";
       const plans = await db.select().from(plansTable).where(eq(plansTable.slug, officePlan)).limit(1);
       const plan = plans[0];
       return res.json({
@@ -114,10 +141,7 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       });
     }
 
-    /* ── 3. Normal path: return plan from DB ── */
-    const offices = await db.select().from(officePageTable).limit(1);
-    const officePlan = offices[0]?.plan ?? "free";
-
+    /* ── 3. Normal path: return plan from DB for this office ── */
     const plans = await db.select().from(plansTable)
       .where(eq(plansTable.slug, officePlan))
       .limit(1);
@@ -128,16 +152,7 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
         planSlug: "free",
         planName: "مجاني",
         planColor: "#64748B",
-        featureFlags: {
-          cases: true, invoices: true, reminders: true, calendar: true,
-          exportPdf: true, aiBasic: true, reportsBasic: true,
-          website: false, serviceStore: false, payments: false, contractsAi: false,
-          mobileApp: false, ai: false, aiAnalytics: false, reportsAdvanced: false,
-          ocr: false, backup: false, clientPortal: false, branches: false,
-          whatsapp: false, workflow: false, customDomain: false,
-          api: false, assistant: false, aiCfo: false, whiteLabel: false,
-          sla: false, dedicatedManager: false, customAiTraining: false,
-        },
+        featureFlags: FREE_FLAGS,
         limits: { maxUsers: 1, maxCases: 5, maxClients: 10, maxAiCalls: 5, maxStorageGb: 1, maxBranches: 0 },
         isActive: true,
         isTrial: false,
@@ -165,44 +180,41 @@ router.get("/office/subscription", requireAuth, async (_req, res) => {
       trialDaysLeft: null,
     });
   } catch (err) {
-        res.status(500).json({ error: "خطأ في جلب بيانات الباقة" });
+    res.status(500).json({ error: "خطأ في جلب بيانات الباقة" });
   }
 });
 
 /* ─────────────────────────────────────────────────────
    GET /office/plan-notifications
-   Returns plan change notification history (last 20).
 ───────────────────────────────────────────────────── */
-router.get("/office/plan-notifications", requireAuth, async (_req, res) => {
+router.get("/office/plan-notifications", requireAuthWithTenant, async (req, res) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
       FROM plan_notifications
+      WHERE office_id = ${tid}
       ORDER BY created_at DESC
       LIMIT 20
     `);
-    res.json(rows.rows ?? []);
+    res.json((rows as any).rows ?? rows ?? []);
   } catch (e: any) {
-        res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 });
 
 /* ─────────────────────────────────────────────────────
    PATCH /office/plan-notifications/read-all
-   Mark all plan notifications as read.
 ───────────────────────────────────────────────────── */
-router.patch("/office/plan-notifications/read-all", requireAuth, async (req, res) => {
+router.patch("/office/plan-notifications/read-all", requireAuthWithTenant, async (req, res) => {
   try {
-    const auth = getAuth(req as any);
-    if (!auth?.userId) { res.status(401).json({ error: "غير مصرح" }); return; }
-    // Scope to requesting office's notifications only — never update ALL tenants
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(auth.userId, req.headers["x-tenant-id"] as string | undefined);
+    const officeId = tenantIdOf(req);
     if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", ok: false }); return; }
     await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE office_id = ${officeId}`);
     res.json({ ok: true });
   } catch (e: any) {
-        res.status(500).json({ error: e.message, ok: false });
+    res.status(500).json({ error: e.message, ok: false });
   }
 });
 
