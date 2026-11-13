@@ -223,7 +223,11 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
        Fix: use timingSafeEqual + reject if sig missing (not just wrong).
        If no webhook_secret is set, log warning but allow (graceful degradation).
     ─────────────────────────────────────────────────────────────────────── */
-    const officeId = body.metadata?.office_id ?? "default";
+    const officeId = body.metadata?.office_id;
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      res.status(400).json({ error: "metadata.office_id مطلوب لتوجيه دفعة Moyasar" });
+      return;
+    }
     const settings = await dbRows(sql`
       SELECT webhook_secret FROM moyasar_settings WHERE office_id = ${officeId} LIMIT 1
     `);

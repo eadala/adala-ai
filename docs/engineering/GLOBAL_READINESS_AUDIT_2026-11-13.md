@@ -48,3 +48,17 @@
 pnpm --filter @workspace/api-server run typecheck
 pnpm --filter @workspace/api-server run test:tenant-fallback-removal
 ```
+
+## EventBus / listeners hardening (follow-up)
+
+| Defect | Fix |
+|--------|-----|
+| Listeners wrote notifications under `officeId=default` | `resolveEventOfficeId` + early return |
+| EventBus persisted synthetic default office | Persist only with real officeId |
+| Autopilot/analytics/finance/telegram same fallback | Fail closed |
+| Moyasar webhook without `metadata.office_id` | 400 reject |
+| `/office/my/:officeId/*` without membership | `canAccessOffice` guard |
+
+```bash
+pnpm --filter @workspace/api-server run test:no-default-office
+```

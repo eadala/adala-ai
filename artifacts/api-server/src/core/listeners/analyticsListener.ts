@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- event payloads */
 /**
  * Analytics Listener — tracks all events for insights
  */
 import { eventBus, StoredEvent, EventType } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { resolveEventOfficeId } from "../resolveEventOfficeId";
 
 const EVENT_LABELS: Record<EventType, string> = {
   CASE_CREATED:        "قضية جديدة",
@@ -51,7 +53,8 @@ ensureEventCountsTable();
 export function registerAnalyticsListeners() {
   /* Track every single event with wildcard */
   eventBus.on("*", async (event: StoredEvent) => {
-    const officeId = event.officeId ?? "default";
+    const officeId = resolveEventOfficeId(event);
+    if (!officeId) return;
 
     /* Upsert daily count */
     await db.execute(sql`

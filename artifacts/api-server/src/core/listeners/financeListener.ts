@@ -1,17 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- event payloads */
 /**
  * Finance Listener — reacts to payment/invoice events
  */
 import { eventBus, StoredEvent } from "../eventBus";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { resolveEventOfficeId } from "../resolveEventOfficeId";
 
 async function updateWalletStats(data: Record<string, any>) {
   try {
     /* Update office revenue snapshot */
-    if (data.amount && data.officeId) {
+    if (data.amount && data.officeId && data.officeId !== "default" && data.officeId !== "platform") {
       await db.execute(sql`
         INSERT INTO office_wallet_snapshots (office_id, last_payment_amount, last_payment_at, updated_at)
-        VALUES (${data.officeId ?? "default"}, ${data.amount}, NOW(), NOW())
+        VALUES (${data.officeId}, ${data.amount}, NOW(), NOW())
         ON CONFLICT (office_id) DO UPDATE
           SET last_payment_amount = EXCLUDED.last_payment_amount,
               last_payment_at     = NOW(),
@@ -24,7 +26,8 @@ async function updateWalletStats(data: Record<string, any>) {
 export function registerFinanceListeners() {
   /* PAYMENT_SUCCESS → update wallet snapshot + auto-link invoice if provided */
   eventBus.on("PAYMENT_SUCCESS", async (event: StoredEvent) => {
-    const { amount, invoiceId, officeId, clientName } = event.data;
+    const { amount, invoiceId, clientName } = event.data;
+    const officeId = resolveEventOfficeId(event) ?? (typeof event.data?.officeId === "string" ? event.data.officeId : null);
     console.log(`[Finance] PAYMENT_SUCCESS: ${amount} SAR from ${clientName ?? "?"}`);
 
     await updateWalletStats({ amount, officeId });
@@ -64,7 +67,7 @@ export function registerFinanceListeners() {
   eventBus.on("INVOICE_PAID", async (event: StoredEvent) => {
     const { total, invoiceNumber, clientName } = event.data;
     console.log(`[Finance] INVOICE_PAID: ${invoiceNumber} — ${total} SAR — ${clientName ?? "?"}`);
-    await updateWalletStats({ amount: total, officeId: event.officeId });
+    await updateWalletStats({ amount: total, officeId: resolveEventOfficeId(event) });
   });
 
   /* PAYMENT_SETTLED → record settlement */

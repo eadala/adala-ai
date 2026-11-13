@@ -10,7 +10,8 @@
     "lint:fix": "eslint src --fix --max-warnings=9999",
     "start": "node --max-old-space-size=512 --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:tenant-fallback-removal": "node src/tests/tenantFallbackRemoval.test.mjs"
+    "test:tenant-fallback-removal": "node src/tests/tenantFallbackRemoval.test.mjs",
+    "test:no-default-office": "node src/tests/noDefaultOfficeFallback.test.mjs"
   },
   "dependencies": {
     "@clerk/express": "^2.1.22",
