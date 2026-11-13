@@ -1,7 +1,7 @@
 # Trial Kickoff Snapshot — Adalah AI
 
 **Date (Asia/Riyadh):** 2026-11-13  
-**Status:** Engineering preflight **PASS** · Staging deploy **BLOCKED** (operator)
+**Status:** Engineering preflight **PASS** · Coolify/staging DNS **DEFERRED by owner** (not blocking) · Live platform in use
 
 ## Identity (filled)
 
@@ -11,9 +11,9 @@
 | Tree | `035d84afff74ee857a95ceb457eb59ff557c1589` |
 | Branch source | `develop` (includes merged `#150` trial kit) |
 | Frozen RC (immutable) | `5441523302a1513f07b5dc08f028d848a0bad5b4` / tree `cd84a7f…` — **unchanged** |
-| Trial hostname | **NOT LIVE** — `trial.adalahai.com` does not resolve (DNS pending) |
-| Coolify staging app | **NOT CREATED** |
-| Production `adalahai.com` | Live (do **not** use for trial) |
+| Trial hostname | **DEFERRED** — owner chose live platform path for now |
+| Coolify staging app | **DEFERRED** (unimportant for current window) |
+| Live platform | `https://adalahai.com` — `/api/healthz` healthy |
 | Owner sign-off | ________ |
 
 ## Engineering checks (done)
@@ -23,15 +23,12 @@
 ./scripts/release/verify-release.sh HEAD  → commit 1d283d6a…
 ```
 
-## Operator blockers (must clear before smoke)
+## Live platform path (owner decision)
 
-1. Create **separate** Coolify application (not production).
-2. Provision **separate** PostgreSQL (empty / demo seed only).
-3. Set env from `TRIAL_STAGING_ENV.md` (Clerk **test** keys only; no `*_live_*`).
-4. Point staging app Git watch to `develop` (or this SHA) — **leave production Auto Deploy untouched**.
-5. Add DNS: `trial.adalahai.com` → staging Coolify.
-6. Deploy and record Coolify **Deployed SHA** (must match `1d283d6a…` or later agreed tip).
-7. Run `TRIAL_SMOKE_TEST.md` → Go / No-Go.
+- Coolify staging / `trial.*` DNS: **postponed**
+- Use live site for product checks: https://adalahai.com
+- Prefer read-only / named-tester paths; avoid Live Stripe charges
+- Staging isolation remains recommended before broad invites — not required for this deferred window
 
 ## Explicit non-claims
 
