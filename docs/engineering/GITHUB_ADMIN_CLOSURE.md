@@ -1,13 +1,13 @@
 # GitHub Admin Closure — Path 01 status & governance enforcement
 
-**Audience:** Repository administrator (`eadala`) and Coolify operator  
-**Agent scope:** Documentation only — this file does **not** change live GitHub/Coolify settings.  
+**Audience:** Repository administrator (`eadala`) and Coolify operator
+**Agent scope:** Documentation only — this file does **not** change live GitHub/Coolify settings.
 **Related PRs:**
 - Governance + Gate 5 stack: [#141](https://github.com/eadala/adala-ai/pull/141) → `develop` — **MERGED**
 - Gate 5 deps-only: [#142](https://github.com/eadala/adala-ai/pull/142) → **CLOSED as superseded** (content on develop via `29ad4d2f`)
 - Admin status docs: [#143](https://github.com/eadala/adala-ai/pull/143) → **MERGED**
-**Develop tip (engineering path):** track `origin/develop` (post-#143: `5d4bb192…`)  
-**Develop CI:** Gate 5 + All Gates **SUCCESS** on tip after #141/#143  
+**Develop tip (engineering path):** track `origin/develop` (post-#143: `5d4bb192…`)
+**Develop CI:** Gate 5 + All Gates **SUCCESS** on tip after #141/#143
 **Frozen RC (immutable):** `5441523302a1513f07b5dc08f028d848a0bad5b4` / tree `cd84a7f277c481dc5c96d707dde4e78d7f18e713`
 
 ### Engineering path vs production path
