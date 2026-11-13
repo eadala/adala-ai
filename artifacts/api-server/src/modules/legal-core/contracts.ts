@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { contractsTable } from "@workspace/db/schema";
@@ -843,7 +844,7 @@ router.get("/contracts/stats", requireAuthWithTenant, async (req, res) => {
 });
 
 // ── GET /contract-categories ───────────────────────────────────────────────────
-router.get("/contract-categories", requireAuth, async (_req, res) => {
+router.get("/contract-categories", requireAuthWithTenant, async (_req, res) => {
   try {
     const cats = await sqlAll("SELECT c.*, COUNT(t.id) as template_count FROM contract_categories c LEFT JOIN contract_templates t ON t.category_id = c.id GROUP BY c.id ORDER BY c.sort_order ASC");
     res.json(cats);
@@ -851,7 +852,7 @@ router.get("/contract-categories", requireAuth, async (_req, res) => {
 });
 
 // ── GET /contract-templates ───────────────────────────────────────────────────
-router.get("/contract-templates", requireAuth, async (req, res) => {
+router.get("/contract-templates", requireAuthWithTenant, async (req, res) => {
   try {
     const { category_id, search } = req.query as Record<string, string>;
     let q = "SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color FROM contract_templates t LEFT JOIN contract_categories c ON c.id = t.category_id WHERE 1=1";
@@ -864,7 +865,7 @@ router.get("/contract-templates", requireAuth, async (req, res) => {
 });
 
 // ── GET /contract-templates/:id ───────────────────────────────────────────────
-router.get("/contract-templates/:id", requireAuth, async (req, res) => {
+router.get("/contract-templates/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { id } = req.params as Record<string, string>;
     const t = await sqlOne("SELECT t.*, c.name as category_name FROM contract_templates t LEFT JOIN contract_categories c ON c.id = t.category_id WHERE t.id = $1", [id]);
