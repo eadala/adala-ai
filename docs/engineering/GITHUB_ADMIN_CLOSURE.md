@@ -15,7 +15,7 @@
 | Track | Status | Blocker? |
 |-------|--------|----------|
 | Develop engineering (governance, Gate 5, CI) | **DONE** on `develop` | No |
-| GitHub ruleset + independent reviewer | Admin UI / invite | Blocks *enforced* review policy only |
+| GitHub ruleset + independent reviewer | Admin UI / invite — **PENDING** (Write collaborator; ruleset Evaluate/Disabled until then) | Blocks *enforced* review policy only |
 | Coolify / production deploy baseline | **DEFERRED** by product decision — continue code without waiting | Blocks **production release claims** only — not develop engineering |
 
 ---
