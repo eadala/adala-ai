@@ -15,6 +15,7 @@ Operational documents for GitHub, Cursor, release, and recovery.
 | [GITHUB_ADMIN_CLOSURE.md](./GITHUB_ADMIN_CLOSURE.md) | Admin ruleset/CODEOWNERS/CI baseline handoff |
 | [TRIAL_LAUNCH_RUNBOOK.md](./TRIAL_LAUNCH_RUNBOOK.md) | Simple controlled trial (staging) launch procedure |
 | [TRIAL_SMOKE_TEST.md](./TRIAL_SMOKE_TEST.md) | Critical smoke checklist for trial Go/No-Go |
+| [TRIAL_STAGING_ENV.md](./TRIAL_STAGING_ENV.md) | Staging env var profile (test keys only) |
 
 ## Scripts (read-only)
 

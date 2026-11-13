@@ -46,6 +46,7 @@ Pass criteria: preflight exits **0**, CI on the release PR (if any) All Gates PA
 
 ## 3. Staging isolation (Coolify operator)
 
+Configure secrets using `TRIAL_STAGING_ENV.md` (test keys only).  
 Use `COOLIFY_OPERATOR_CHECKLIST.md` §F plus:
 
 - [ ] Separate Coolify **application** (not production)
