@@ -14,7 +14,9 @@
 | Field | Current | Target |
 |-------|---------|--------|
 | Ruleset `adalah-ai` (id `17934003`) | **enforcement: disabled** | Enable for `main` and `develop` after prerequisites |
+| Target refs (`conditions.ref_name.include`) | **Empty `[]`** — would not protect any branch even if enabled | Set `refs/heads/main`, `refs/heads/develop` |
 | Rules present | `deletion`, `non_fast_forward` only | Expand (see A2) |
+| Collaborators | **`eadala` only** (API) | Add ≥1 independent Write collaborator before requiring reviews |
 | Branch protection API | Often **403** to automation tokens | Configure in UI |
 
 **UI path:** GitHub → `eadala/adala-ai` → **Settings** → **Rules** → **Rulesets** → `adalah-ai`
