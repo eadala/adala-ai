@@ -28,7 +28,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useUser, useClerk } from "@clerk/react";
+import { useUser, useClerk, useAuth } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
 import { useIsSuperAdmin } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -1330,10 +1330,17 @@ function SidebarFooterCard({
   const [showMenu, setShowMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initials = displayName.slice(0, 2);
+  const { getToken } = useAuth();
 
   const { data: officeData } = useQuery({
     queryKey: ["office-info-footer"],
-    queryFn: () => fetch(`${basePath}/api/office/my`).then(r => r.ok ? r.json() : null),
+    queryFn: async () => {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const r = await fetch(`${basePath}/api/office/my`, { headers, credentials: "include" });
+      return r.ok ? r.json() : null;
+    },
     staleTime: 10 * 60_000,
   });
 

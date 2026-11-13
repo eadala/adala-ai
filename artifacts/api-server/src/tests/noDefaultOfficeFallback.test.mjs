@@ -11,12 +11,19 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BAD = [
   /officeId\s*\?\?\s*["']default["']/,
   /office_id\s*\?\?\s*["']default["']/,
-  /officeId\s*\?\?\s*"default"/,
+  /officeId\s*\|\|\s*["']default["']/,
+  /office_id\s*\|\|\s*["']default["']/,
+  /officeId\s*=\s*["']default["']/,
 ];
 
 const roots = [
   join(SRC, "core"),
   join(SRC, "modules/integrations"),
+  join(SRC, "modules/ai"),
+  join(SRC, "modules/platform"),
+];
+const extraFiles = [
+  join(SRC, "webhookHandlers.ts"),
 ];
 
 function walk(dir, out = []) {
@@ -30,14 +37,13 @@ function walk(dir, out = []) {
 }
 
 const offenders = [];
-for (const root of roots) {
-  for (const file of walk(root)) {
-    if (file.endsWith("resolveEventOfficeId.ts")) continue;
-    const content = readFileSync(file, "utf8");
-    for (const pattern of BAD) {
-      if (pattern.test(content)) {
-        offenders.push(`${relative(SRC, file)} matches ${pattern}`);
-      }
+const files = [...roots.flatMap((root) => walk(root)), ...extraFiles];
+for (const file of files) {
+  if (file.endsWith("resolveEventOfficeId.ts")) continue;
+  const content = readFileSync(file, "utf8");
+  for (const pattern of BAD) {
+    if (pattern.test(content)) {
+      offenders.push(`${relative(SRC, file)} matches ${pattern}`);
     }
   }
 }
