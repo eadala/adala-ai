@@ -1,0 +1,8 @@
+{
+  "command": "pnpm run test:tenant-isolation-gate",
+  "exitCode": 0,
+  "decision": "GATE_PASS",
+  "failedRequired": [],
+  "skippedRequired": [],
+  "note": "AI_LIVE_MODEL skipped by design inside ai-runtime suite; suite still required and passed"
+}

@@ -1,0 +1,92 @@
+{
+  "suite": "reliability-integration-gate-009",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "id": "LOCAL_STORAGE_CONFIGURED",
+      "ok": true,
+      "detail": "STORAGE_PROVIDER=local"
+    },
+    {
+      "id": "ARTIFACT_NAMING",
+      "ok": true,
+      "detail": "backups/full/full-1794649018321.dump.enc"
+    },
+    {
+      "id": "UPLOAD_LIST",
+      "ok": true,
+      "detail": "listed=1"
+    },
+    {
+      "id": "DOWNLOAD_INTEGRITY",
+      "ok": true,
+      "detail": "sha256=84c632f97b2129df"
+    },
+    {
+      "id": "DOWNLOAD_MISSING_FAILS",
+      "ok": true,
+      "detail": "missing throws"
+    },
+    {
+      "id": "UPLOAD_UNSAFE_KEY_REJECTED",
+      "ok": true,
+      "detail": "path escape blocked"
+    },
+    {
+      "id": "CREDENTIAL_ISOLATION",
+      "ok": true,
+      "detail": "local works without R2 credentials"
+    },
+    {
+      "id": "RETENTION_CONFIG",
+      "ok": true,
+      "detail": "retention days configured for activation plan"
+    },
+    {
+      "id": "CLEANUP_DELETE",
+      "ok": true,
+      "detail": "deleted from local emulator"
+    },
+    {
+      "id": "LOGICAL_BACKUP",
+      "ok": true,
+      "detail": "COMPLETED"
+    },
+    {
+      "id": "RESTORE_FROM_STORAGE_CHECKSUM",
+      "ok": true,
+      "detail": "checksum matches after round-trip"
+    },
+    {
+      "id": "RESTORE_FROM_STORAGE",
+      "ok": true,
+      "detail": "outcome=PASS"
+    },
+    {
+      "id": "LIVENESS_INDEPENDENT",
+      "ok": true,
+      "detail": "alive"
+    },
+    {
+      "id": "READINESS_BEFORE_STARTUP",
+      "ok": true,
+      "detail": "starting"
+    },
+    {
+      "id": "READINESS_AFTER_STARTUP",
+      "ok": true,
+      "detail": "{\"config\":{\"ok\":true},\"database\":{\"ok\":true,\"latencyMs\":13},\"optional_providers\":{\"ok\":true,\"detail\":\"excluded_from_readiness\"}}"
+    },
+    {
+      "id": "READINESS_SHUTDOWN",
+      "ok": true,
+      "detail": "shutting_down"
+    },
+    {
+      "id": "ENCRYPTION_METADATA",
+      "ok": true,
+      "detail": "{\"contentType\":\"application/octet-stream\",\"size\":1,\"metadata\":{}}"
+    }
+  ]
+}

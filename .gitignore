@@ -55,3 +55,7 @@ replit.md
 # Local reliability backup artifacts (never commit dumps)
 .adala-backups-test/
 **/.adala-backups-test/
+
+# Gate-009 local emulators
+.adala-local-storage-gate009/
+.adala-backups-gate009/

@@ -32,6 +32,9 @@ export function isObjectStorageConfigured(): boolean {
       process.env.R2_SECRET_ACCESS_KEY
     );
   }
+  if (id === "local") {
+    return !!process.env.LOCAL_STORAGE_ROOT;
+  }
   return false;
 }
 

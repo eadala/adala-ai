@@ -55,5 +55,6 @@ export function latestTenantSnapshotPrefix(tenantId: string): string {
 }
 
 export function fullBackupKey(): string {
-  return `backups/full/full-${Date.now()}.json.enc`;
+  /* Logical pg_dump -Fc artifacts; .enc suffix denotes encryption-at-rest intent for remote stores */
+  return `backups/full/full-${Date.now()}.dump.enc`;
 }

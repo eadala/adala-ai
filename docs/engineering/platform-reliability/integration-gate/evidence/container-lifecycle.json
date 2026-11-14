@@ -1,0 +1,23 @@
+{
+  "startup": {
+    "healthz": 200,
+    "startupz": 200,
+    "readyz": 200
+  },
+  "processKillRestart": {
+    "healthz": 200,
+    "readyz": 200
+  },
+  "gracefulStop": {
+    "exitCode": 0
+  },
+  "dbUnavailable": {
+    "healthz": 200,
+    "readyz": 503
+  },
+  "dbRecovered": {
+    "healthz": 200,
+    "readyz": 200
+  },
+  "workerSigtermRestart": true
+}

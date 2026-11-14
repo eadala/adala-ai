@@ -1,0 +1,112 @@
+PASS LOCAL_STORAGE_CONFIGURED: STORAGE_PROVIDER=local
+PASS ARTIFACT_NAMING: backups/full/full-1794649018321.dump.enc
+PASS UPLOAD_LIST: listed=1
+PASS DOWNLOAD_INTEGRITY: sha256=84c632f97b2129df
+PASS DOWNLOAD_MISSING_FAILS: missing throws
+PASS UPLOAD_UNSAFE_KEY_REJECTED: path escape blocked
+PASS CREDENTIAL_ISOLATION: local works without R2 credentials
+PASS RETENTION_CONFIG: retention days configured for activation plan
+PASS CLEANUP_DELETE: deleted from local emulator
+PASS LOGICAL_BACKUP: COMPLETED
+PASS RESTORE_FROM_STORAGE_CHECKSUM: checksum matches after round-trip
+PASS RESTORE_FROM_STORAGE: outcome=PASS
+PASS LIVENESS_INDEPENDENT: alive
+PASS READINESS_BEFORE_STARTUP: starting
+(node:97416) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS READINESS_AFTER_STARTUP: {"config":{"ok":true},"database":{"ok":true,"latencyMs":13},"optional_providers":{"ok":true,"detail":"excluded_from_readiness"}}
+PASS READINESS_SHUTDOWN: shutting_down
+PASS ENCRYPTION_METADATA: {"contentType":"application/octet-stream","size":1,"metadata":{}}
+{
+  "suite": "reliability-integration-gate-009",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "id": "LOCAL_STORAGE_CONFIGURED",
+      "ok": true,
+      "detail": "STORAGE_PROVIDER=local"
+    },
+    {
+      "id": "ARTIFACT_NAMING",
+      "ok": true,
+      "detail": "backups/full/full-1794649018321.dump.enc"
+    },
+    {
+      "id": "UPLOAD_LIST",
+      "ok": true,
+      "detail": "listed=1"
+    },
+    {
+      "id": "DOWNLOAD_INTEGRITY",
+      "ok": true,
+      "detail": "sha256=84c632f97b2129df"
+    },
+    {
+      "id": "DOWNLOAD_MISSING_FAILS",
+      "ok": true,
+      "detail": "missing throws"
+    },
+    {
+      "id": "UPLOAD_UNSAFE_KEY_REJECTED",
+      "ok": true,
+      "detail": "path escape blocked"
+    },
+    {
+      "id": "CREDENTIAL_ISOLATION",
+      "ok": true,
+      "detail": "local works without R2 credentials"
+    },
+    {
+      "id": "RETENTION_CONFIG",
+      "ok": true,
+      "detail": "retention days configured for activation plan"
+    },
+    {
+      "id": "CLEANUP_DELETE",
+      "ok": true,
+      "detail": "deleted from local emulator"
+    },
+    {
+      "id": "LOGICAL_BACKUP",
+      "ok": true,
+      "detail": "COMPLETED"
+    },
+    {
+      "id": "RESTORE_FROM_STORAGE_CHECKSUM",
+      "ok": true,
+      "detail": "checksum matches after round-trip"
+    },
+    {
+      "id": "RESTORE_FROM_STORAGE",
+      "ok": true,
+      "detail": "outcome=PASS"
+    },
+    {
+      "id": "LIVENESS_INDEPENDENT",
+      "ok": true,
+      "detail": "alive"
+    },
+    {
+      "id": "READINESS_BEFORE_STARTUP",
+      "ok": true,
+      "detail": "starting"
+    },
+    {
+      "id": "READINESS_AFTER_STARTUP",
+      "ok": true,
+      "detail": "{\"config\":{\"ok\":true},\"database\":{\"ok\":true,\"latencyMs\":13},\"optional_providers\":{\"ok\":true,\"detail\":\"excluded_from_readiness\"}}"
+    },
+    {
+      "id": "READINESS_SHUTDOWN",
+      "ok": true,
+      "detail": "shutting_down"
+    },
+    {
+      "id": "ENCRYPTION_METADATA",
+      "ok": true,
+      "detail": "{\"contentType\":\"application/octet-stream\",\"size\":1,\"metadata\":{}}"
+    }
+  ]
+}
+PASS integration gate 009 local storage harness

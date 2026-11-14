@@ -1,6 +1,7 @@
 import type { IStorageProvider } from "./types";
 import { getStorageProviderId } from "./config";
 import { createR2Provider } from "./providers/r2Provider";
+import { createLocalFsProvider } from "./providers/localFsProvider";
 
 let _cached: IStorageProvider | null = null;
 
@@ -12,8 +13,13 @@ export function getStorageProvider(): IStorageProvider {
     case "cloudflare_r2":
       _cached = createR2Provider();
       return _cached;
+    case "local":
+      _cached = createLocalFsProvider();
+      return _cached;
     default:
-      throw new Error(`Storage provider "${id}" غير مدعوم بعد — استخدم STORAGE_PROVIDER=cloudflare_r2`);
+      throw new Error(
+        `Storage provider "${id}" غير مدعوم بعد — استخدم STORAGE_PROVIDER=cloudflare_r2 أو local`,
+      );
   }
 }
 

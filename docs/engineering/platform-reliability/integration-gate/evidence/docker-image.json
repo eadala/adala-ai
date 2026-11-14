@@ -1,0 +1,9 @@
+{
+  "tag": "adala-ai:reliability-gate-009",
+  "imageId": "sha256:d79879d0f66a7f5069377ee812ec3ceaf68ca2ff0ed4b5d610d611e06c918319",
+  "buildExit": 0,
+  "noCache": true,
+  "frozenLockfile": true,
+  "sizeBytes": 334814524,
+  "registryPush": "NOT_PERFORMED"
+}

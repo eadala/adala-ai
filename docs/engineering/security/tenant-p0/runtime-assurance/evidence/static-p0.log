@@ -3,103 +3,103 @@ TAP version 13
     # Subtest: office nested routes use requireAuthWithTenant + path match
     ok 1 - office nested routes use requireAuthWithTenant + path match
       ---
-      duration_ms: 0.590163
+      duration_ms: 0.59731
       type: 'test'
       ...
     # Subtest: nested resource mutates include officeId predicate
     ok 2 - nested resource mutates include officeId predicate
       ---
-      duration_ms: 0.146195
+      duration_ms: 0.168258
       type: 'test'
       ...
     1..2
 ok 1 - F-TENANT-OFFICE-IDOR-001
   ---
-  duration_ms: 1.340785
+  duration_ms: 1.379997
   type: 'suite'
   ...
 # Subtest: F-TENANT-PAYMENTS-LIST-001
     # Subtest: transactions list scopes by office_id
     ok 1 - transactions list scopes by office_id
       ---
-      duration_ms: 0.252448
+      duration_ms: 0.234062
       type: 'test'
       ...
     1..1
 ok 2 - F-TENANT-PAYMENTS-LIST-001
   ---
-  duration_ms: 0.333264
+  duration_ms: 0.308355
   type: 'suite'
   ...
 # Subtest: F-TENANT-RESOLVER-TRACE-001
     # Subtest: resolveTenantWithTrace requires membership for header
     ok 1 - resolveTenantWithTrace requires membership for header
       ---
-      duration_ms: 0.245386
+      duration_ms: 0.206438
       type: 'test'
       ...
     1..1
 ok 3 - F-TENANT-RESOLVER-TRACE-001
   ---
-  duration_ms: 0.35304
+  duration_ms: 0.307749
   type: 'suite'
   ...
 # Subtest: F-TENANT-AI-CREDITS-001
     # Subtest: deduct uses tenant context not body officeId
     ok 1 - deduct uses tenant context not body officeId
       ---
-      duration_ms: 0.233514
+      duration_ms: 0.213941
       type: 'test'
       ...
     # Subtest: office ai-credits GET uses tenantId
     ok 2 - office ai-credits GET uses tenantId
       ---
-      duration_ms: 0.236669
+      duration_ms: 0.195206
       type: 'test'
       ...
     1..2
 ok 4 - F-TENANT-AI-CREDITS-001
   ---
-  duration_ms: 0.642349
+  duration_ms: 0.571591
   type: 'suite'
   ...
 # Subtest: F-TENANT-AI-AGENT-UNSCOPED-001
     # Subtest: logs and workflows are tenant scoped
     ok 1 - logs and workflows are tenant scoped
       ---
-      duration_ms: 0.228763
+      duration_ms: 0.241596
       type: 'test'
       ...
     1..1
 ok 5 - F-TENANT-AI-AGENT-UNSCOPED-001
   ---
-  duration_ms: 0.310395
+  duration_ms: 0.313634
   type: 'suite'
   ...
 # Subtest: F-TENANT-MOYASAR-001 remediation
     # Subtest: signature required and updates include office_id
     ok 1 - signature required and updates include office_id
       ---
-      duration_ms: 0.159142
+      duration_ms: 0.157728
       type: 'test'
       ...
     1..1
 ok 6 - F-TENANT-MOYASAR-001 remediation
   ---
-  duration_ms: 0.2301
+  duration_ms: 0.203449
   type: 'suite'
   ...
 # Subtest: pool GUC guard wiring
     # Subtest: db package installs pool GUC guard
     ok 1 - db package installs pool GUC guard
       ---
-      duration_ms: 0.151218
+      duration_ms: 0.156313
       type: 'test'
       ...
     1..1
 ok 7 - pool GUC guard wiring
   ---
-  duration_ms: 0.305418
+  duration_ms: 0.258409
   type: 'suite'
   ...
 1..7
@@ -110,6 +110,6 @@ ok 7 - pool GUC guard wiring
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 12.369573
+# duration_ms 11.631207
 
 ---STDERR---
