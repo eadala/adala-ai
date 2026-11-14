@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7B schema ownership only */
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -155,36 +155,52 @@ router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /api/ai-credits/deduct  (internal — called by callAI) ── */
-router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
+/* ── POST /api/ai-credits/deduct — tenant-bound (F-TENANT-AI-CREDITS-001) ── */
+router.post("/ai-credits/deduct", requireAuthWithTenant, async (req, res) => {
   await ensureCreditTablesReady();
   try {
-    const { officeId = "default", model = "gemini", cost = 1 } = req.body;
+    const officeId = (req as any).tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
+    /* Ignore client-supplied officeId — charge verified tenant only */
+    const { model = "gemini", cost = 1 } = req.body;
+    const debit = Math.max(0, Number(cost) || 0);
     const credit = await one(sql`SELECT balance FROM office_ai_credits WHERE office_id = ${officeId}`);
     const balance = credit?.balance ?? 0;
-    if (balance < cost) return res.status(402).json({ error: "رصيد غير كافٍ", balance });
-    await db.execute(sql`
-      UPDATE office_ai_credits SET balance = balance - ${cost}, updated_at = NOW()
-      WHERE office_id = ${officeId}
+    if (balance < debit) return res.status(402).json({ error: "رصيد غير كافٍ", balance });
+    const updated = await db.execute(sql`
+      UPDATE office_ai_credits SET balance = balance - ${debit}, updated_at = NOW()
+      WHERE office_id = ${officeId} AND balance >= ${debit}
+      RETURNING balance
     `);
+    const newBal = (updated as any)?.rows?.[0]?.balance;
+    if (newBal == null && !(Array.isArray(updated) && (updated as any)[0]?.balance != null)) {
+      return res.status(402).json({ error: "رصيد غير كافٍ", balance });
+    }
     await db.execute(sql`
       INSERT INTO ai_credit_transactions (office_id, amount, type, description, model)
-      VALUES (${officeId}, ${-cost}, 'usage', ${'استخدام AI - ' + model}, ${model})
+      VALUES (${officeId}, ${-debit}, 'usage', ${'استخدام AI - ' + model}, ${model})
     `);
-    res.json({ ok: true, balance: balance - cost });
+    const finalBal = Number(newBal ?? (updated as any)[0]?.balance ?? balance - debit);
+    res.json({ ok: true, balance: finalBal });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── GET /api/office/ai-credits  (for office users to check their balance) ── */
-router.get("/office/ai-credits", requireAuth, async (_req, res) => {
+/* ── GET /api/office/ai-credits — verified tenant only ── */
+router.get("/office/ai-credits", requireAuthWithTenant, async (req, res) => {
   await ensureCreditTablesReady();
   try {
-    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = 'default'`);
-    if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true });
+    const officeId = (req as any).tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
+    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = ${officeId}`);
+    if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true, office_id: officeId });
     const usedThisMonth = await one(sql`
       SELECT COALESCE(SUM(ABS(amount)), 0)::int AS used
       FROM ai_credit_transactions
-      WHERE office_id = 'default' AND type = 'usage'
+      WHERE office_id = ${officeId} AND type = 'usage'
         AND created_at >= date_trunc('month', NOW())
     `);
     res.json({ ...credit, used_this_month: usedThisMonth?.used ?? 0 });

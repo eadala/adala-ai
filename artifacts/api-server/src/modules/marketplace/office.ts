@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; OFFICE_PAGE_NOT_CREATED soft 200 */
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -13,8 +13,14 @@ import { requireProductionBaseUrl } from "../../lib/productionUrl";
 import { logEndpointError } from "../../lib/endpointErrorLog";
 import { fetchOfficePageForUser } from "../../lib/officePageResolver";
 import { buildGetMyOfficeHttpResult } from "../../lib/officeMyResponse";
+import { requirePathOfficeMatchesTenant } from "../../lib/assertOfficeAccess";
 
 const router = Router();
+
+/** Tenant-scoped nested resource mutate — must belong to req.tenantId */
+function tenantOfficeId(req: { tenantId?: string }): string {
+  return String(req.tenantId ?? "");
+}
 
 async function handleGetMyOffice(req: any, res: any) {
   const endpoint = "GET /api/offices/my";
@@ -255,121 +261,218 @@ router.post("/office/my", requireAuth, async (req: any, res) => {
 });
 
 /* PATCH update office — slug is platform-only, stripped here */
-router.patch("/office/my/:id", requireAuth, async (req, res) => {
-   
+router.patch(
+  "/office/my/:id",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("id"),
+  async (req, res) => {
   const { slug: _slug, ...safeBody } = req.body;
   const [row] = await db.update(officePageTable)
     .set({ ...safeBody, updatedAt: new Date() })
-    .where(eq(officePageTable.id, String(req.params.id))).returning();
-  res.json(row);
+    .where(eq(officePageTable.id, tenantOfficeId(req as any))).returning();
+  res.json(row ?? null);
 });
 
 /* ── Services ── */
-router.get("/office/my/:officeId/services", requireAuth, async (req, res) => {
+router.get(
+  "/office/my/:officeId/services",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const rows = await db.select().from(officeServicesTable)
-    .where(eq(officeServicesTable.officeId, String(req.params.officeId)));
+    .where(eq(officeServicesTable.officeId, tenantOfficeId(req as any)));
   res.json(rows);
 });
-router.post("/office/my/:officeId/services", requireAuth, async (req, res) => {
+router.post(
+  "/office/my/:officeId/services",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const [row] = await db.insert(officeServicesTable)
-    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
+    .values({ ...req.body, officeId: tenantOfficeId(req as any) }).returning();
   res.json(row);
 });
-router.patch("/office/my/services/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/services/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [row] = await db.update(officeServicesTable).set(req.body)
-    .where(eq(officeServicesTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeServicesTable.id, String(req.params.id)),
+      eq(officeServicesTable.officeId, officeId),
+    )).returning();
+  if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
-router.delete("/office/my/services/:id", requireAuth, async (req, res) => {
-  await db.delete(officeServicesTable).where(eq(officeServicesTable.id, String(req.params.id)));
+router.delete("/office/my/services/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  const deleted = await db.delete(officeServicesTable).where(and(
+    eq(officeServicesTable.id, String(req.params.id)),
+    eq(officeServicesTable.officeId, officeId),
+  )).returning();
+  if (!deleted.length) return res.status(404).json({ error: "not found" });
   res.json({ success: true });
 });
 
 /* ── Team ── */
-router.get("/office/my/:officeId/team", requireAuth, async (req, res) => {
+router.get(
+  "/office/my/:officeId/team",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const rows = await db.select().from(officeTeamTable)
-    .where(eq(officeTeamTable.officeId, String(req.params.officeId)));
+    .where(eq(officeTeamTable.officeId, tenantOfficeId(req as any)));
   res.json(rows);
 });
-router.post("/office/my/:officeId/team", requireAuth, async (req, res) => {
+router.post(
+  "/office/my/:officeId/team",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const [row] = await db.insert(officeTeamTable)
-    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
+    .values({ ...req.body, officeId: tenantOfficeId(req as any) }).returning();
   res.json(row);
 });
-router.patch("/office/my/team/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/team/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [row] = await db.update(officeTeamTable).set(req.body)
-    .where(eq(officeTeamTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeTeamTable.id, String(req.params.id)),
+      eq(officeTeamTable.officeId, officeId),
+    )).returning();
+  if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
-router.delete("/office/my/team/:id", requireAuth, async (req, res) => {
-  await db.delete(officeTeamTable).where(eq(officeTeamTable.id, String(req.params.id)));
+router.delete("/office/my/team/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  const deleted = await db.delete(officeTeamTable).where(and(
+    eq(officeTeamTable.id, String(req.params.id)),
+    eq(officeTeamTable.officeId, officeId),
+  )).returning();
+  if (!deleted.length) return res.status(404).json({ error: "not found" });
   res.json({ success: true });
 });
 
 /* ── Orders ── */
-router.get("/office/my/:officeId/orders", requireAuth, async (req, res) => {
+router.get(
+  "/office/my/:officeId/orders",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const rows = await db.select().from(officeOrdersTable)
-    .where(eq(officeOrdersTable.officeId, String(req.params.officeId)))
+    .where(eq(officeOrdersTable.officeId, tenantOfficeId(req as any)))
     .orderBy(desc(officeOrdersTable.createdAt));
   res.json(rows);
 });
-router.patch("/office/my/orders/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/orders/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [row] = await db.update(officeOrdersTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeOrdersTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeOrdersTable.id, String(req.params.id)),
+      eq(officeOrdersTable.officeId, officeId),
+    )).returning();
+  if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
 
 /* ── Reviews ── */
-router.get("/office/my/:officeId/reviews", requireAuth, async (req, res) => {
+router.get(
+  "/office/my/:officeId/reviews",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const rows = await db.select().from(officeReviewsTable)
-    .where(eq(officeReviewsTable.officeId, String(req.params.officeId)))
+    .where(eq(officeReviewsTable.officeId, tenantOfficeId(req as any)))
     .orderBy(desc(officeReviewsTable.createdAt));
   res.json(rows);
 });
-router.patch("/office/my/reviews/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/reviews/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [row] = await db.update(officeReviewsTable).set(req.body)
-    .where(eq(officeReviewsTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeReviewsTable.id, String(req.params.id)),
+      eq(officeReviewsTable.officeId, officeId),
+    )).returning();
+  if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
-router.delete("/office/my/reviews/:id", requireAuth, async (req, res) => {
-  await db.delete(officeReviewsTable).where(eq(officeReviewsTable.id, String(req.params.id)));
+router.delete("/office/my/reviews/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  const deleted = await db.delete(officeReviewsTable).where(and(
+    eq(officeReviewsTable.id, String(req.params.id)),
+    eq(officeReviewsTable.officeId, officeId),
+  )).returning();
+  if (!deleted.length) return res.status(404).json({ error: "not found" });
   res.json({ success: true });
 });
 
 /* ── Articles ── */
-router.get("/office/my/:officeId/articles", requireAuth, async (req, res) => {
+router.get(
+  "/office/my/:officeId/articles",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const rows = await db.select().from(officeArticlesTable)
-    .where(eq(officeArticlesTable.officeId, String(req.params.officeId)))
+    .where(eq(officeArticlesTable.officeId, tenantOfficeId(req as any)))
     .orderBy(desc(officeArticlesTable.createdAt));
   res.json(rows);
 });
-router.post("/office/my/:officeId/articles", requireAuth, async (req, res) => {
+router.post(
+  "/office/my/:officeId/articles",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const [row] = await db.insert(officeArticlesTable)
-    .values({ ...req.body, officeId: String(req.params.officeId) }).returning();
+    .values({ ...req.body, officeId: tenantOfficeId(req as any) }).returning();
   res.json(row);
 });
-router.patch("/office/my/articles/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/articles/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [row] = await db.update(officeArticlesTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeArticlesTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeArticlesTable.id, String(req.params.id)),
+      eq(officeArticlesTable.officeId, officeId),
+    )).returning();
+  if (!row) return res.status(404).json({ error: "not found" });
   res.json(row);
 });
-router.delete("/office/my/articles/:id", requireAuth, async (req, res) => {
-  await db.delete(officeArticlesTable).where(eq(officeArticlesTable.id, String(req.params.id)));
+router.delete("/office/my/articles/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  const deleted = await db.delete(officeArticlesTable).where(and(
+    eq(officeArticlesTable.id, String(req.params.id)),
+    eq(officeArticlesTable.officeId, officeId),
+  )).returning();
+  if (!deleted.length) return res.status(404).json({ error: "not found" });
   res.json({ success: true });
 });
 
 /* ═══ DOMAINS ═══════════════════════════════════════════════ */
 
-router.get("/office/my/:officeId/domains", requireAuth, async (req, res) => {
-  const { officeId } = req.params as Record<string, string>;
+router.get(
+  "/office/my/:officeId/domains",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
   const rows = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
   res.json(rows[0] ?? null);
 });
 
-router.post("/office/my/:officeId/domains", requireAuth, async (req, res) => {
-  const { officeId } = req.params as Record<string, string>;
+router.post(
+  "/office/my/:officeId/domains",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
   const [office] = await db.select().from(officePageTable).where(eq(officePageTable.id, officeId));
   if (!office) return res.status(404).json({ error: "not found" });
   const existing = await db.select().from(officeDomainsTable).where(eq(officeDomainsTable.officeId, officeId));
@@ -386,35 +489,57 @@ router.post("/office/my/:officeId/domains", requireAuth, async (req, res) => {
   res.json(created);
 });
 
-router.patch("/office/my/domains/:id", requireAuth, async (req, res) => {
+router.patch("/office/my/domains/:id", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const body: any = { ...req.body, updatedAt: new Date() };
   if (body.customDomain === "") body.customDomain = null;
   const [updated] = await db.update(officeDomainsTable).set(body)
-    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeDomainsTable.id, String(req.params.id)),
+      eq(officeDomainsTable.officeId, officeId),
+    )).returning();
+  if (!updated) return res.status(404).json({ error: "not found" });
   res.json(updated);
 });
 
-router.post("/office/my/domains/:id/verify", requireAuth, async (req, res) => {
+router.post("/office/my/domains/:id/verify", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [updated] = await db.update(officeDomainsTable)
     .set({ isVerified: true, sslEnabled: true, verifiedAt: new Date(), updatedAt: new Date() })
-    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeDomainsTable.id, String(req.params.id)),
+      eq(officeDomainsTable.officeId, officeId),
+    )).returning();
+  if (!updated) return res.status(404).json({ error: "not found" });
   res.json(updated);
 });
 
-router.delete("/office/my/domains/:id/custom", requireAuth, async (req, res) => {
+router.delete("/office/my/domains/:id/custom", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantOfficeId(req as any);
+  if (!officeId) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
   const [updated] = await db.update(officeDomainsTable)
     .set({ customDomain: null, isVerified: false, sslEnabled: false, verifiedAt: null, updatedAt: new Date() })
-    .where(eq(officeDomainsTable.id, String(req.params.id))).returning();
+    .where(and(
+      eq(officeDomainsTable.id, String(req.params.id)),
+      eq(officeDomainsTable.officeId, officeId),
+    )).returning();
+  if (!updated) return res.status(404).json({ error: "not found" });
   res.json(updated);
 });
 
 /* ═══ PLAN ═══════════════════════════════════════════════════ */
 
-router.patch("/office/my/:officeId/plan", requireAuth, async (req, res) => {
+router.patch(
+  "/office/my/:officeId/plan",
+  requireAuthWithTenant,
+  requirePathOfficeMatchesTenant("officeId"),
+  async (req, res) => {
   const { plan } = req.body;
   const [updated] = await db.update(officePageTable).set({ plan, updatedAt: new Date() })
-    .where(eq(officePageTable.id, String(req.params.officeId))).returning();
-  res.json(updated);
+    .where(eq(officePageTable.id, tenantOfficeId(req as any))).returning();
+  res.json(updated ?? null);
 });
 
 /* ═══ PUBLIC BANKRUPTCY PORTAL ══════════════════════════════ */

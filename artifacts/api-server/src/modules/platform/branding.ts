@@ -1,15 +1,17 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { officeBrandingTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 const router = Router();
 
-const DEFAULT_TENANT = "default";
-
 router.get("/branding", requireAuthWithTenant, async (req, res) => {
-  const tenantId = (String(req.query.tenantId)) || DEFAULT_TENANT;
+  /* F-TENANT-BRANDING-001: never trust query.tenantId */
+  const tenantId = (req as { tenantId?: string }).tenantId;
+  if (!tenantId || tenantId === "platform") {
+    return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  }
   const rows = await db.select().from(officeBrandingTable).where(eq(officeBrandingTable.tenantId, tenantId));
   if (rows.length === 0) {
     return res.json(null);
@@ -18,8 +20,10 @@ router.get("/branding", requireAuthWithTenant, async (req, res) => {
 });
 
 router.post("/branding", requireAuthWithTenant, async (req, res) => {
-  /* SECURITY: always use the verified tenant from middleware, never from body */
-  const tenantId = (req as any).tenantId as string ?? DEFAULT_TENANT;
+  const tenantId = (req as { tenantId?: string }).tenantId;
+  if (!tenantId || tenantId === "platform") {
+    return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  }
   const existing = await db.select().from(officeBrandingTable).where(eq(officeBrandingTable.tenantId, tenantId));
   if (existing.length > 0) {
     const [updated] = await db
@@ -34,10 +38,17 @@ router.post("/branding", requireAuthWithTenant, async (req, res) => {
 });
 
 router.put("/branding/:id", requireAuthWithTenant, async (req, res) => {
+  const tenantId = (req as { tenantId?: string }).tenantId;
+  if (!tenantId || tenantId === "platform") {
+    return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+  }
   const [updated] = await db
     .update(officeBrandingTable)
     .set({ ...req.body, updatedAt: new Date() })
-    .where(eq(officeBrandingTable.id, String(req.params.id)))
+    .where(and(
+      eq(officeBrandingTable.id, String(req.params.id)),
+      eq(officeBrandingTable.tenantId, tenantId),
+    ))
     .returning();
   if (!updated) return res.status(404).json({ error: "Not found" });
   res.json(updated);

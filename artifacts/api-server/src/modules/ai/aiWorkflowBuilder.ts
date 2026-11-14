@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { callAI } from "./aiChat";
 
 const router = Router();
@@ -142,7 +143,7 @@ router.get("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (
     const rows = await sqlAll(
       officeId
         ? sql`SELECT id, name, description, status, run_count, last_run_at, created_at FROM ai_workflows WHERE office_id = ${officeId}::uuid ORDER BY created_at DESC`
-        : sql`SELECT id, name, description, status, run_count, last_run_at, created_at FROM ai_workflows ORDER BY created_at DESC LIMIT 50`
+        : sql`SELECT id, name, description, status, run_count, last_run_at, created_at FROM ai_workflows WHERE false`
     );
     res.json(rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -165,7 +166,13 @@ router.post("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async 
 
 router.get("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
   try {
-    const row = await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
+    const officeId = req.tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      if (!req.isSuperAdmin) return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
+    const row = officeId && officeId !== "platform"
+      ? await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}::uuid`)
+      : await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
     if (!row) return res.status(404).json({ error: "غير موجود" });
     res.json(row);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -173,14 +180,28 @@ router.get("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, asy
 
 router.delete("/ai-workflow/:id", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
   try {
-    await db.execute(sql`DELETE FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
+    const officeId = req.tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
+    await db.execute(sql`
+      DELETE FROM ai_workflows
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}::uuid
+    `);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.post("/ai-workflow/:id/execute", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
   try {
-    const wf = await sqlOne(sql`SELECT * FROM ai_workflows WHERE id = ${String(req.params.id)}::uuid`);
+    const officeId = req.tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
+    const wf = await sqlOne(sql`
+      SELECT * FROM ai_workflows
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${officeId}::uuid
+    `);
     if (!wf) return res.status(404).json({ error: "غير موجود" });
     const graph = wf.graph_json as any;
     const nodes: any[] = graph.nodes ?? [];

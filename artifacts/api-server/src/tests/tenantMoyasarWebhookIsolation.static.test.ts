@@ -1,6 +1,5 @@
 /**
- * ADALA-ARC-TENANT-SECURITY-004 — static evidence for Moyasar webhook isolation gaps.
- * Run: pnpm exec tsx --test src/tests/tenantMoyasarWebhookIsolation.static.test.ts
+ * Moyasar webhook isolation — post P0 remediation contract.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -13,25 +12,22 @@ const src = readFileSync(
   "utf8",
 );
 
-describe("F-TENANT-MOYASAR-001 static isolation gaps", () => {
-  it("office_id is taken from unverified body metadata", () => {
-    assert.match(src, /body\.metadata\?\.office_id/);
+describe("F-TENANT-MOYASAR-001 remediated", () => {
+  it("rejects missing webhook_secret (fail closed)", () => {
+    const moyasar = src.slice(src.indexOf("webhook/moyasar"));
+    assert.match(moyasar, /webhook_secret not configured/);
+    assert.doesNotMatch(moyasar, /signature verification SKIPPED/);
   });
 
-  it("signature verification can be skipped when secret missing", () => {
-    assert.match(src, /signature verification SKIPPED/);
+  it("requires signature header", () => {
+    assert.match(src, /Missing x-moyasar-signature/);
   });
 
-  it("payment update by txId lacks office_id predicate", () => {
-    const block = src.slice(src.indexOf("if (txId)"), src.indexOf("else if (txRef)"));
-    assert.match(block, /WHERE id = \$\{txId\}::uuid/);
-    assert.doesNotMatch(block, /office_id/);
+  it("payment update by txId includes office_id", () => {
+    assert.match(src, /WHERE id = \$\{txId\}::uuid AND office_id = \$\{officeId\}/);
   });
 
-  it("payment update by txRef lacks office_id predicate", () => {
-    const start = src.indexOf("else if (txRef)");
-    const block = src.slice(start, src.indexOf("/* If no existing transaction", start));
-    assert.match(block, /WHERE gateway_payment_id = \$\{txRef\}/);
-    assert.doesNotMatch(block, /office_id/);
+  it("payment update by txRef includes office_id", () => {
+    assert.match(src, /gateway_payment_id = \$\{txRef\} AND gateway = 'moyasar' AND office_id = \$\{officeId\}/);
   });
 });

@@ -218,11 +218,18 @@ router.post("/payments/intent", requireAuthWithTenant, async (req, res) => {
    TRANSACTIONS CRUD
 ══════════════════════════════════════════════════ */
 
-/* GET /api/payments/transactions */
-router.get("/payments/transactions", requireAuthWithTenant, async (_req, res) => {
+/* GET /api/payments/transactions — tenant-scoped (F-TENANT-PAYMENTS-LIST-001) */
+router.get("/payments/transactions", requireAuthWithTenant, async (req, res) => {
   try {
+    const officeId = (req as any).tenantId as string | undefined;
+    if (!officeId || officeId === "platform") {
+      return res.status(403).json({ error: "سياق المكتب مطلوب", code: "TNT_403" });
+    }
     const txs = await rows(sql`
-      SELECT * FROM payment_transactions ORDER BY created_at DESC LIMIT 200
+      SELECT * FROM payment_transactions
+      WHERE office_id = ${officeId}
+      ORDER BY created_at DESC
+      LIMIT 200
     `);
     res.json(txs);
   } catch (e: any) { res.status(500).json({ error: e.message }); }

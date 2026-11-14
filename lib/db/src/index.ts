@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
+import { installPoolGucGuard } from "./poolGucGuard";
 
 const { Pool } = pg;
 
@@ -11,6 +12,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+/* Fail-closed GUC on checkout/release — prevents bypass_rls leak across requests */
+installPoolGucGuard(pool);
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
+export { installPoolGucGuard, TENANT_DENY_SENTINEL } from "./poolGucGuard";

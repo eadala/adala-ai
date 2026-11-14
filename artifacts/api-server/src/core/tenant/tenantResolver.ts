@@ -77,26 +77,36 @@ export async function resolveTenantWithTrace(
   const steps: string[] = [];
   const now = new Date().toISOString();
 
-  /* 0. Explicit header (API keys / dev access) — membership checked by caller paths;
-     here we still reject legacy trial_* for normal resolution consistency. */
+  /* 0. Explicit header — membership-validated (F-TENANT-RESOLVER-TRACE-001).
+     Header is a selector only; never trusted without office_members (or SA). */
   if (headerTenantId) {
     steps.push("HEADER_TENANT_ID");
-    const taken = takeCanonicalTenantOrContinue(headerTenantId, {
-      userId,
-      source: "header",
-    });
-    if (taken.status === "uuid") {
-      const t: TenantResolutionTrace = {
-        tenantId: taken.officeId,
-        role: "api_key",
+    const member = await dbOne(sql`
+      SELECT office_id, role FROM office_members
+      WHERE user_id = ${userId}
+        AND office_id = ${headerTenantId}
+        AND status = 'active'
+      LIMIT 1
+    `);
+    if (member?.office_id != null) {
+      const taken = takeCanonicalTenantOrContinue(String(member.office_id), {
+        userId,
         source: "header",
-        steps,
-        resolvedAt: now,
-      };
-      import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "header")).catch(() => {});
-      return t;
+      });
+      if (taken.status === "uuid") {
+        steps.push("HEADER_MEMBERSHIP_OK");
+        const t: TenantResolutionTrace = {
+          tenantId: taken.officeId,
+          role: String(member.role ?? "member"),
+          source: "header",
+          steps,
+          resolvedAt: now,
+        };
+        import("./tenantVersioning").then(m => m.bindTenant(userId, taken.officeId, "header")).catch(() => {});
+        return t;
+      }
     }
-    steps.push("HEADER_EMPTY");
+    steps.push("HEADER_MEMBERSHIP_DENIED");
   }
 
   /* 1. office_members — primary source */
