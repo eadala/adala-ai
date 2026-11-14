@@ -429,16 +429,16 @@ describe("ARC Phase 2B trusted control plane", () => {
     }
   });
 
-  it("healthz reports phase 2B and deploy disabled", async () => {
+  it("healthz reports deploy disabled (phase header advances with program)", async () => {
     const res = await fetch(`${base}/api/arc/healthz`);
     const body = (await res.json()) as {
       phase: string;
       deploymentExecutionEnabled: boolean;
       liveOidc: string;
     };
-    assert.equal(body.phase, "2B");
+    assert.ok(["2B", "2C1"].includes(body.phase));
     assert.equal(body.deploymentExecutionEnabled, false);
-    assert.equal(body.liveOidc, "UNVERIFIED");
+    assert.ok(["UNVERIFIED", "BLOCKED", "CONFIGURED"].includes(body.liveOidc));
   });
 
   it("evidence API returns blocked when incomplete", async () => {

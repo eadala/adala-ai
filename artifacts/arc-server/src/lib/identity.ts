@@ -94,7 +94,11 @@ export type VerifyFailure =
   | "wrong_audience"
   | "unsupported_alg"
   | "hmac_disabled"
-  | "live_unconfigured";
+  | "live_unconfigured"
+  | "jwks_outage"
+  | "revoked"
+  | "not_allowlisted"
+  | "mfa_required";
 
 export async function verifyBearerCredential(
   authorizationHeader: string | undefined,
@@ -127,6 +131,10 @@ export async function verifyBearerCredential(
         unknown_kid: "bad_signature",
         malformed: "malformed",
         live_unconfigured: "live_unconfigured",
+        jwks_outage: "jwks_outage",
+        revoked: "revoked",
+        not_allowlisted: "not_allowlisted",
+        mfa_required: "mfa_required",
       };
       return { ok: false, reason: map[oidc.reason] ?? "bad_signature" };
     }

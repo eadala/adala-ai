@@ -10,31 +10,38 @@ import {
   POLICY_VERSION,
 } from "../policy/engine.js";
 import { issueDevCredential, isProductionConfig, allowDevHmac } from "../lib/identity.js";
-import { issueFixtureAccessToken } from "../lib/oidc.js";
+import { issueFixtureAccessToken, liveOidcStatus } from "../lib/oidc.js";
 import { classifyObservation, correlateIncident, resultFromProbe } from "../lib/monitoring.js";
 import {
   evaluateEvidenceSet,
   makeEvidence,
   releaseIdentityOf,
   approvalStillValid,
+  classifyReleaseFacts,
 } from "../lib/evidence.js";
 import type { Approval, ApprovalRequest } from "../lib/types.js";
 
 export const apiRouter = Router();
 
-/** Permanent Phase 2B: execution disabled regardless of env / role */
+/** Permanent: execution disabled regardless of env / role (2B/2C-1) */
 const DEPLOY_EXECUTION_ENABLED = false;
 
 apiRouter.get("/healthz", (_req, res) => {
+  const oidc = liveOidcStatus();
+  const gh = githubAdapter.liveStatus();
   res.json({
     ok: true,
     service: "arc-server",
-    phase: "2B",
+    phase: "2C1",
     deploymentExecutionEnabled: DEPLOY_EXECUTION_ENABLED,
     policyVersion: POLICY_VERSION,
     productionConfig: isProductionConfig(),
     oidcMode: process.env.ARC_OIDC_MODE ?? "fixture",
-    liveOidc: "UNVERIFIED",
+    liveOidc: oidc.status === "live_ready" ? "CONFIGURED" : oidc.status === "BLOCKED" ? "BLOCKED" : "UNVERIFIED",
+    liveOidcReason: oidc.reason,
+    liveGithub: gh.status === "live_ready" ? "CONFIGURED" : gh.status === "BLOCKED" ? "BLOCKED" : "UNVERIFIED",
+    liveGithubReason: gh.reason,
+    coolifyProduction: "NOT_CONNECTED",
     ts: new Date().toISOString(),
   });
 });
@@ -535,12 +542,24 @@ apiRouter.get("/evidence/:releaseId", (req, res) => {
     evidenceExpired: evaluation.expired.length > 0,
     reviewerRevoked: false,
   });
+  const facts = classifyReleaseFacts({
+    commitSha: release.commitSha,
+    treeSha: release.treeSha,
+    workflowSuccess: release.ciStatus === "PASS",
+    humanReviewComplete: false,
+    imageDigest: release.imageDigest,
+    productionCommitSha: null,
+    productionShaVerified: false,
+  });
+  const deployed = githubAdapter.productionDeployedIdentityFromGithub();
   res.json({
     releaseIdentity: subject,
     evidence: records,
     evaluation,
     approvalBinding: binding,
-    note: "Missing mandatory evidence blocks release authorization",
+    distinctFacts: facts,
+    deployedProductionIdentity: deployed,
+    note: "Missing mandatory evidence blocks release authorization; GitHub ≠ deployed identity",
   });
 });
 

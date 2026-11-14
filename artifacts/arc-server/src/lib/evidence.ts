@@ -87,6 +87,74 @@ export function approvalStillValid(opts: {
   return { valid: true };
 }
 
+/**
+ * Distinguishes independent release facts — GitHub CI must not imply deploy identity.
+ */
+export type ReleaseFactKind =
+  | "git_commit"
+  | "git_tree"
+  | "ci_workflow"
+  | "human_review"
+  | "container_digest"
+  | "deployed_production_identity";
+
+export function classifyReleaseFacts(input: {
+  commitSha: string | null;
+  treeSha: string | null;
+  workflowSuccess: boolean | null;
+  humanReviewComplete: boolean | null;
+  imageDigest: string | null;
+  productionCommitSha: string | null;
+  productionShaVerified: boolean;
+}): Record<
+  ReleaseFactKind,
+  { present: boolean; state: GateResult; note: string }
+> {
+  return {
+    git_commit: {
+      present: !!input.commitSha && /^[0-9a-f]{40}$/i.test(input.commitSha),
+      state:
+        input.commitSha && /^[0-9a-f]{40}$/i.test(input.commitSha) ? "PASS" : "FAIL",
+      note: "Immutable commit SHA",
+    },
+    git_tree: {
+      present: !!input.treeSha && /^[0-9a-f]{40}$/i.test(input.treeSha),
+      state: input.treeSha && /^[0-9a-f]{40}$/i.test(input.treeSha) ? "PASS" : "FAIL",
+      note: "Immutable tree SHA",
+    },
+    ci_workflow: {
+      present: input.workflowSuccess != null,
+      state:
+        input.workflowSuccess === true
+          ? "PASS"
+          : input.workflowSuccess === false
+            ? "FAIL"
+            : "NOT_RUN",
+      note: "Workflow success ≠ release approval",
+    },
+    human_review: {
+      present: input.humanReviewComplete != null,
+      state:
+        input.humanReviewComplete === true
+          ? "PASS"
+          : input.humanReviewComplete === false
+            ? "FAIL"
+            : "NOT_RUN",
+      note: "Independent human review evidence",
+    },
+    container_digest: {
+      present: !!input.imageDigest,
+      state: input.imageDigest ? "PASS" : "UNVERIFIED",
+      note: "Artifact digest binding",
+    },
+    deployed_production_identity: {
+      present: false,
+      state: input.productionShaVerified && input.productionCommitSha ? "PASS" : "UNVERIFIED",
+      note: "Must not be inferred from GitHub; remains UNVERIFIED without Coolify attestation",
+    },
+  };
+}
+
 export function evaluateEvidenceSet(
   records: EvidenceRecord[],
   mandatory: EvidenceCategory[],

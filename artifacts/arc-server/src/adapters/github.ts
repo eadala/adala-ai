@@ -11,6 +11,11 @@ const ALLOWED_REPOS = new Set(
 );
 
 const API = "https://api.github.com";
+const DEFAULT_PAGE_SIZE = Math.min(
+  Number(process.env.ARC_GITHUB_PAGE_SIZE ?? 20),
+  50,
+);
+const CACHE_TTL_MS = Number(process.env.ARC_GITHUB_CACHE_TTL_MS ?? 60_000);
 
 export type GithubObservationMeta = {
   source: string;
@@ -21,14 +26,20 @@ export type GithubObservationMeta = {
   cacheAgeMs: number;
 };
 
+type CacheEntry = { at: number; payload: unknown };
+
 /**
- * GitHub read-only adapter.
- * Prefer fixture when ARC_GITHUB_MODE=fixture (default Phase 2B).
- * Live reads only with token + allowlisted repo; never mutates.
+ * GitHub read-only adapter — Phase 2C-1.
+ * Live mode requires ARC_GITHUB_MODE=live + ARC_GITHUB_TOKEN (narrow scope).
+ * Without authorized credentials, live verification is BLOCKED (fixture retained).
  */
 export class GithubReadAdapter implements GithubAdapter {
   readonly name = "github";
   private mode: "fixture" | "live";
+  /** Test/sim hooks */
+  simulateRateLimit = false;
+  simulateTimeout = false;
+  private cache = new Map<string, CacheEntry>();
 
   constructor() {
     this.mode =
@@ -37,15 +48,83 @@ export class GithubReadAdapter implements GithubAdapter {
         : "fixture";
   }
 
-  /** Explicit: no mutation surface */
+  /** Test-only: switch adapter mode without reconstructing */
+  setModeForTest(mode: "fixture" | "live"): void {
+    this.mode = mode;
+  }
+
+  liveStatus(): { status: "fixture" | "live_ready" | "BLOCKED"; reason: string } {
+    if (this.mode !== "live") {
+      return {
+        status: "fixture",
+        reason: "ARC_GITHUB_MODE is not live — fixture validation only",
+      };
+    }
+    if (!process.env.ARC_GITHUB_TOKEN?.trim()) {
+      return {
+        status: "BLOCKED",
+        reason: "ARC_GITHUB_TOKEN missing — authorized read-only credential unavailable",
+      };
+    }
+    return {
+      status: "live_ready",
+      reason: "Token present; repository allowlist still enforced",
+    };
+  }
+
   assertReadOnly(): void {
-    /* Intentionally empty — class has no deploy/mutate methods */
+    /* no mutation methods */
+  }
+
+  assertRepoAllowed(fullName: string): boolean {
+    return ALLOWED_REPOS.has(fullName);
+  }
+
+  /** Unauthorized repository access must fail closed */
+  async getRepositoryFor(fullName: string): Promise<Observation<{ fullName: string }>> {
+    if (!this.assertRepoAllowed(fullName)) {
+      return {
+        value: null,
+        state: "UNAVAILABLE",
+        source: "github-adapter",
+        observedAt: new Date().toISOString(),
+        note: "repository_not_allowlisted",
+      };
+    }
+    const base = await this.getRepository();
+    return {
+      value: base.value ? { fullName: base.value.fullName } : null,
+      state: base.state,
+      source: base.source,
+      observedAt: base.observedAt,
+      note: base.note,
+    };
+  }
+
+  withMeta<T>(
+    obs: Observation<T>,
+    sourceIdentifier: string,
+    commitSha: string | null = null,
+    cachedAt?: number,
+  ): Observation<T> & { meta: GithubObservationMeta } {
+    const now = Date.now();
+    return {
+      ...obs,
+      meta: {
+        source: obs.source,
+        retrievalTimestamp: obs.observedAt,
+        sourceIdentifier,
+        verificationStatus: obs.state,
+        commitSha,
+        cacheAgeMs: cachedAt != null ? Math.max(0, now - cachedAt) : 0,
+      },
+    };
   }
 
   async getRepository(): Promise<
     Observation<{ fullName: string; defaultBranch: string; allowAutoMerge: boolean }>
   > {
-    if (this.mode === "live" && ALLOWED_REPOS.has("eadala/adala-ai")) {
+    if (this.mode === "live" && this.assertRepoAllowed("eadala/adala-ai")) {
       const live = await this.apiGet(`/repos/eadala/adala-ai`);
       if (live.ok) {
         const j = live.json as {
@@ -62,6 +141,24 @@ export class GithubReadAdapter implements GithubAdapter {
           state: "VERIFIED",
           source: "github-api",
           observedAt: new Date().toISOString(),
+        };
+      }
+      if (live.error === "rate_limited") {
+        return {
+          value: null,
+          state: "DEGRADED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+          note: "rate_limited",
+        };
+      }
+      if (live.error === "timeout") {
+        return {
+          value: null,
+          state: "UNAVAILABLE",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+          note: "timeout",
         };
       }
     }
@@ -135,9 +232,14 @@ export class GithubReadAdapter implements GithubAdapter {
     };
   }
 
-  async listOpenPullRequests(): Promise<Observation<GithubPrSummary[]>> {
+  async listOpenPullRequests(
+    page = 1,
+  ): Promise<Observation<GithubPrSummary[]> & { page: number; pageSize: number }> {
+    const pageSize = DEFAULT_PAGE_SIZE;
     if (this.mode === "live") {
-      const live = await this.apiGet(`/repos/eadala/adala-ai/pulls?state=open&per_page=20`);
+      const live = await this.apiGet(
+        `/repos/eadala/adala-ai/pulls?state=open&per_page=${pageSize}&page=${page}`,
+      );
       if (live.ok && Array.isArray(live.json)) {
         const value = (live.json as Array<Record<string, unknown>>).map((p) => ({
           number: p.number as number,
@@ -152,6 +254,8 @@ export class GithubReadAdapter implements GithubAdapter {
           state: "VERIFIED",
           source: "github-api",
           observedAt: new Date().toISOString(),
+          page,
+          pageSize,
         };
       }
     }
@@ -159,10 +263,10 @@ export class GithubReadAdapter implements GithubAdapter {
       value: [
         {
           number: 9999,
-          title: "[fixture] ARC Phase 2B",
+          title: "[fixture] ARC Phase 2C-1",
           state: "open",
           merged: false,
-          headSha: "df7a79eb9ad7bceb20831282a71659e43c7515a6",
+          headSha: "c9d4966516198ff15e36a9f4d1b51fb2617fda9d",
           baseRef: "main",
         },
       ],
@@ -170,13 +274,24 @@ export class GithubReadAdapter implements GithubAdapter {
       source: "github-fixture",
       observedAt: new Date().toISOString(),
       note: "Fixture PR list",
+      page,
+      pageSize,
     };
   }
 
   async getCommitStatus(sha: string): Promise<Observation<GithubCheckSummary[]>> {
+    if (!/^[0-9a-f]{40}$/i.test(sha) && !/^[0-9a-f]{7,40}$/i.test(sha)) {
+      return {
+        value: null,
+        state: "FAILED",
+        source: "github-adapter",
+        observedAt: new Date().toISOString(),
+        note: "invalid_commit_sha",
+      };
+    }
     if (this.mode === "live") {
       const live = await this.apiGet(
-        `/repos/eadala/adala-ai/commits/${encodeURIComponent(sha)}/check-runs?per_page=20`,
+        `/repos/eadala/adala-ai/commits/${encodeURIComponent(sha)}/check-runs?per_page=${DEFAULT_PAGE_SIZE}`,
       );
       if (live.ok) {
         const runs =
@@ -201,7 +316,40 @@ export class GithubReadAdapter implements GithubAdapter {
       state: "UNVERIFIED",
       source: "github-fixture",
       observedAt: new Date().toISOString(),
-      note: `Fixture checks for ${sha.slice(0, 8)} — workflow success ≠ release approval`,
+      note: `Fixture checks for ${sha.slice(0, 8)} — workflow success ≠ human review ≠ release approval ≠ deployed identity`,
+    };
+  }
+
+  async verifyCommitImmutable(sha: string): Promise<
+    Observation<{ sha: string; treeSha: string | null }>
+  > {
+    if (!/^[0-9a-f]{40}$/i.test(sha)) {
+      return {
+        value: null,
+        state: "FAILED",
+        source: "github-adapter",
+        observedAt: new Date().toISOString(),
+        note: "commit_sha_must_be_full_40_hex",
+      };
+    }
+    if (this.mode === "live") {
+      const live = await this.apiGet(`/repos/eadala/adala-ai/git/commits/${sha}`);
+      if (live.ok) {
+        const j = live.json as { sha?: string; tree?: { sha?: string } };
+        return {
+          value: { sha: String(j.sha ?? sha), treeSha: j.tree?.sha ?? null },
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
+    }
+    return {
+      value: { sha, treeSha: null },
+      state: "UNVERIFIED",
+      source: "github-fixture",
+      observedAt: new Date().toISOString(),
+      note: "Fixture commit verify — tree SHA not live-attested",
     };
   }
 
@@ -245,7 +393,7 @@ export class GithubReadAdapter implements GithubAdapter {
   > {
     if (this.mode === "live") {
       const live = await this.apiGet(
-        `/repos/eadala/adala-ai/pulls/${prNumber}/reviews?per_page=20`,
+        `/repos/eadala/adala-ai/pulls/${prNumber}/reviews?per_page=${DEFAULT_PAGE_SIZE}`,
       );
       if (live.ok && Array.isArray(live.json)) {
         return {
@@ -268,7 +416,26 @@ export class GithubReadAdapter implements GithubAdapter {
     };
   }
 
-  /** SSRF probe helper for tests */
+  /**
+   * GitHub must never be used to assert production deployed identity.
+   */
+  productionDeployedIdentityFromGithub(): Observation<{
+    commitSha: string | null;
+    imageDigest: string | null;
+  }> {
+    return {
+      value: { commitSha: null, imageDigest: null },
+      state: "UNVERIFIED",
+      source: "policy",
+      observedAt: new Date().toISOString(),
+      note: "INV-005: deployed production identity is not inferred from GitHub",
+    };
+  }
+
+  sanitizeForLog(input: unknown): unknown {
+    return redactSecrets(input);
+  }
+
   async probeUrl(url: string): Promise<{ allowed: boolean; error?: string }> {
     const r = await safeFetchJson(url, {
       allowOrigins: githubAllowOrigins(),
@@ -281,9 +448,18 @@ export class GithubReadAdapter implements GithubAdapter {
   private async apiGet(
     path: string,
   ): Promise<{ ok: true; json: unknown } | { ok: false; error: string }> {
+    if (this.simulateRateLimit) return { ok: false, error: "rate_limited" };
+    if (this.simulateTimeout) return { ok: false, error: "timeout" };
+
+    const cacheKey = path;
+    const hit = this.cache.get(cacheKey);
+    if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+      return { ok: true, json: hit.payload };
+    }
+
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
-      "User-Agent": "adalah-arc-phase2b",
+      "User-Agent": "adalah-arc-phase2c1",
     };
     const token = process.env.ARC_GITHUB_TOKEN?.trim();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -293,11 +469,14 @@ export class GithubReadAdapter implements GithubAdapter {
       timeoutMs: 8000,
     });
     if (!r.ok) {
-      return { ok: false, error: String(redactSecrets(r.error)) };
+      const err = String(redactSecrets(r.error));
+      if (r.status === 403 && /rate/i.test(err)) return { ok: false, error: "rate_limited" };
+      return { ok: false, error: err };
     }
     if (r.status === 401 || r.status === 403) {
       return { ok: false, error: `auth_or_permission_${r.status}` };
     }
+    this.cache.set(cacheKey, { at: Date.now(), payload: r.json });
     return { ok: true, json: r.json };
   }
 }
