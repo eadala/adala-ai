@@ -107,7 +107,8 @@
     "test:ai-runtime-isolation": "node --import tsx src/tests/runtime/aiRuntimeIsolationHarness.ts",
     "test:pool-guc-runtime": "node --import tsx src/tests/runtime/poolGucContainmentHarness.ts",
     "test:platform-reliability": "node --import tsx src/tests/runtime/platformReliabilityHarness.ts",
-    "test:reliability-integration-gate": "node --import tsx src/tests/runtime/integrationGate009Harness.ts"
+    "test:reliability-integration-gate": "node --import tsx src/tests/runtime/integrationGate009Harness.ts",
+    "test:phase-010b-gate": "node --import tsx src/tests/runtime/phase010bGateHarness.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1080.0",

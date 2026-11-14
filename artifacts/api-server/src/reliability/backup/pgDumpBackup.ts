@@ -149,11 +149,12 @@ export async function createLogicalBackup(options: BackupOptions): Promise<Backu
 
   try {
     const parsed = parseDatabaseUrl(options.databaseUrl);
-    if (!parsed.database || parsed.database.includes("prod") && process.env.ADALA_ALLOW_PROD_BACKUP !== "1") {
-      /* Soft guard: refuse URLs that look production unless explicitly allowed */
-      if (/prod|production/i.test(options.databaseUrl) && process.env.ADALA_ALLOW_PROD_BACKUP !== "1") {
-        throw new Error("refusing_production_like_database_url");
-      }
+    /* Refuse production-like URLs unless explicitly allowed */
+    if (
+      process.env.ADALA_ALLOW_PROD_BACKUP !== "1" &&
+      (/prod|production/i.test(options.databaseUrl) || /prod|production/i.test(parsed.database))
+    ) {
+      throw new Error("refusing_production_like_database_url");
     }
 
     const dump = await runPgDump({

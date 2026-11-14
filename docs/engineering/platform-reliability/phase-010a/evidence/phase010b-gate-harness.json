@@ -1,0 +1,38 @@
+{
+  "suite": "phase-010b-gate",
+  "passed": 6,
+  "failed": 0,
+  "results": [
+    {
+      "id": "LIVE_UPLOAD_BLOCKED_WITHOUT_AUTH",
+      "ok": true,
+      "detail": "live_backup_upload_blocked: set ADALA_010B_AUTHORIZED=1 only after signed 010-B limited authorization"
+    },
+    {
+      "id": "LOCAL_MODE_ALLOWED",
+      "ok": true,
+      "detail": "{\"ok\":true,\"mode\":\"local\"}"
+    },
+    {
+      "id": "PREFIX_ESCAPE_REJECTED",
+      "ok": true,
+      "detail": "path escape"
+    },
+    {
+      "id": "LOCAL_ROUNDTRIP",
+      "ok": true,
+      "detail": "backups/full/full-1794651119891.dump.enc"
+    },
+    {
+      "id": "LIVE_STILL_BLOCKED",
+      "ok": true,
+      "detail": "no ADALA_010B_AUTHORIZED"
+    },
+    {
+      "id": "SYNTHETIC_KEY_HELPER",
+      "ok": true,
+      "detail": "helper"
+    }
+  ],
+  "note": "No live R2 contacted; 010-B remains NOT_AUTHORIZED"
+}

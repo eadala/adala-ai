@@ -523,15 +523,24 @@ async function runFullBackupCron(): Promise<void> {
       process.env.ADALA_BACKUP_ARTIFACT_DIR ||
       `${process.cwd()}/.adala-backups`;
 
-    const upload = isObjectStorageConfigured()
-      ? async (localPath: string, meta: { id: string; checksum: string }) => {
-          const { readFileSync } = await import("node:fs");
-          const buf = readFileSync(localPath);
-          const key = fullBackupKey();
-          await uploadBackup(key, buf, "application/octet-stream");
-          return `${key}#sha256=${meta.checksum}`;
-        }
-      : undefined;
+    const { assertLiveBackupStorageAllowed } = await import("../reliability/gates/phase010bAuth");
+    const liveGate = assertLiveBackupStorageAllowed("upload");
+    const upload =
+      isObjectStorageConfigured() && liveGate.ok
+        ? async (localPath: string, meta: { id: string; checksum: string }) => {
+            const { readFileSync } = await import("node:fs");
+            const buf = readFileSync(localPath);
+            const key = fullBackupKey();
+            await uploadBackup(key, buf, "application/octet-stream");
+            return `${key}#sha256=${meta.checksum}`;
+          }
+        : undefined;
+    if (isObjectStorageConfigured() && !liveGate.ok) {
+      logger.warn(
+        { reason: liveGate.reason },
+        "[BackupCron] Object storage configured but live upload gated — local artifact only",
+      );
+    }
 
     const record = await createLogicalBackup({
       databaseUrl,

@@ -11,6 +11,9 @@
 This file records the limited-authorization draft supplied for human review.  
 Filing it does **not** authorize execution. Live R2 contact remains forbidden until the authorization record below is completed and the decision is changed from PENDING.
 
+**Related engineering remediation (code only, not human auth):** `13_ENGINEERING_REMEDIATION_DECISION.md`  
+Live uploads additionally require runtime `ADALA_010B_AUTHORIZED=1` (fail-closed).
+
 ---
 
 ## 1. Authorized scope upon signature
