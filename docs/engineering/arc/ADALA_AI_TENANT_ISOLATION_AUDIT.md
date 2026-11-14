@@ -22,6 +22,18 @@ No end-to-end prompt-injection suite executed this audit → cannot claim AI iso
 
 ARC `ai_agent` lacks `deployment:execute` — VERIFIED (ARC tests). Customer AI reaching ARC admin APIs: no shared route found — VERIFIED separation intent.
 
+## Follow-up (subagent source verification)
+
+| Finding | Status |
+|---|---|
+| F-TENANT-AI-CREDITS-001 body/`default` office | **FAILED** |
+| F-TENANT-AI-AGENT-UNSCOPED-001 logs/workflows | **FAILED** |
+| Gateway cache key may fall back to userId/`unknown` | FAILED residual |
+| Copilot `/chat` `requireAuth` only | WEAK |
+| RAG retrieval implementation | NOT_TESTED / absent in app code |
+| Prompt sanitizer present | VERIFIED |
+| Command Center isolated memory | VERIFIED when guard used |
+
 ## Verdict
 
-**AI_TENANT_ISOLATION: UNVERIFIED** (strong gateway patterns; incomplete E2E/RAG/credit/cache proof).
+**AI_TENANT_ISOLATION: FAIL** — confirmed unscoped AI agent routes and credit deduct-by-body; not merely unverified.

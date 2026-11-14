@@ -46,3 +46,13 @@ Result: after `setBypassRlsSession`-equivalent on a connection and `release()`, 
 ## Raw SQL / security-definer
 
 Not exhaustively enumerated — residual UNVERIFIED.
+
+## Follow-up ([Audit Postgres RLS GUC](bc-620965e9-c610-5ca6-959b-5dcfba1d095d))
+
+| Item | Status |
+|---|---|
+| FORCE only on 056 ZTA (~27 tables) | FAILED (partial) |
+| Cron/jobs lack tenant/bypass GUC | FAILED (F-TENANT-CRON-GUC-001) |
+| ZTA-only policies lack `bypass_rls` (SA sees 0 under FORCE) | FAILED for privileged ops |
+| `adala_tenant_ok` helper not in migrations | NOT_TESTED |
+| Prod role inventory | NOT_TESTED this session (local repro DB used for pool leak only) |

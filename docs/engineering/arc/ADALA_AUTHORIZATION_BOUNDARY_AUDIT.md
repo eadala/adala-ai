@@ -29,8 +29,11 @@
 - SA intentional bypass — VERIFIED  
 - AI agent ARC non-authority — VERIFIED  
 
-## Gaps
+## Gaps (expanded)
 
 - Membership cache invalidation on revoke: NOT_TESTED / residual MEDIUM  
 - Exhaustive invitation / cross-tenant invite accept: NOT_TESTED runtime  
-- Complete RBAC matrix (lawyer/accountant/HR/clerk): PARTIAL source review only  
+- Complete RBAC matrix (lawyer/accountant/HR/clerk): PARTIAL; role drift `owner` vs `firm_owner` HIGH residual  
+- `resolveTenantWithTrace` header without membership: **FAILED** (F-TENANT-RESOLVER-TRACE-001)  
+- Marketplace `/office/my/:officeId/*` bare `requireAuth`: **FAILED** (F-TENANT-OFFICE-IDOR-001)  
+

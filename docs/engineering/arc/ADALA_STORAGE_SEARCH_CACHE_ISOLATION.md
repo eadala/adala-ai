@@ -23,6 +23,11 @@ FTS readiness migrations and message tenant tests exist (static). Adversarial cr
 | HTTP/CDN caches | NOT_TESTED | — |
 | AI response caches | NOT_TESTED | — |
 
+## Follow-up
+
+Parallel audit upgraded storage object-download and signed-URL paths to **VERIFIED** at code level (ownership before fetch; FTS with `office_id`). Live R2 E2E remains UNVERIFIED. ([Audit AI storage billing ARC](bc-53b41126-4443-5a9d-aec7-a9702841617d))
+
 ## Verdict
 
-**STORAGE: PARTIAL VERIFIED (controls present) / SEARCH_CACHE: UNVERIFIED adversarial.**
+**STORAGE_ISOLATION: VERIFIED (code) / live UNVERIFIED.**  
+**SEARCH_CACHE_ISOLATION: PARTIAL** (FTS office filter VERIFIED; adversarial + membership TTL residual).

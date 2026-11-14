@@ -12,16 +12,26 @@ Source tracing of representative legal-core and operations routes + existing sta
 
 ## Confirmed failures
 
-### F-TENANT-MOYASAR-001 (HIGH→CRITICAL integrity)
+### F-TENANT-MOYASAR-001 (CRITICAL integrity)
 
-`modules/integrations/webhook.ts`:
-
-- `officeId = body.metadata?.office_id`
-- Optional signature skip
-- `UPDATE payment_transactions ... WHERE id = ${txId}` **without office_id**
-- Same for `gateway_payment_id` ref path
-
+`modules/integrations/webhook.ts` — body `office_id`, optional signature skip, UPDATE without `office_id`.  
 Static suite: `tenantMoyasarWebhookIsolation.static.test.ts` — 4/4 PASS (documents the gap).
+
+### F-TENANT-OFFICE-IDOR-001 (CRITICAL)
+
+`marketplace/office.ts` `/office/my/:officeId/*` — `requireAuth` only; path office trusted (services/team/orders/reviews/articles/domains).
+
+### F-TENANT-PAYMENTS-LIST-001 (CRITICAL/HIGH)
+
+`GET /payments/transactions` — unscoped `SELECT * FROM payment_transactions LIMIT 200`.
+
+### F-TENANT-RESOLVER-TRACE-001 (HIGH)
+
+`resolveTenantWithTrace` trusts `x-tenant-id` without membership.
+
+### F-TENANT-BRANDING-001 (HIGH)
+
+Query/path tenant without ownership checks.
 
 ## Negative matrix (desired) — status
 
@@ -33,9 +43,10 @@ Static suite: `tenantMoyasarWebhookIsolation.static.test.ts` — 4/4 PASS (docum
 | Cross-tenant invoices | NOT_TESTED runtime |
 | Cross-tenant employees | NOT_TESTED runtime |
 | Cross-tenant contracts | NOT_TESTED runtime |
-| Cross-tenant payments | **FAILED** Moyasar path |
-| Cross-tenant workflows | NOT_TESTED |
+| Cross-tenant payments | **FAILED** Moyasar + payments list |
+| Cross-tenant workflows | **FAILED** AI workflows unscoped |
+| Cross-tenant marketplace office | **FAILED** office IDOR |
 
 ## Verdict
 
-Cannot claim API_IDOR_BOLA PASS. Confirmed payment IDOR path + incomplete runtime coverage → **FAILED / UNVERIFIED residual**.
+**API_IDOR_BOLA_SECURITY: FAIL** — multiple confirmed source-level IDOR/BOLA paths.
