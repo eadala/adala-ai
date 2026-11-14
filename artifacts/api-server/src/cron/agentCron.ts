@@ -368,6 +368,8 @@ export function startAgentCron() {
     const agentSchedule = process.env.NODE_ENV === "production" ? "0 */4 * * *" : "0 * * * *";
     cron.schedule(agentSchedule, async () => {
       await withCronOverlapProtection(CRON_JOB_NAMES.agentRun, async () => {
+        const { withSystemDbScope } = await import("../lib/systemDbScope");
+        await withSystemDbScope(async () => {
         logger.info("[AgentCron] 🤖 Starting agent run…");
         await Promise.allSettled([
           runCaseReviewAgent(),
@@ -375,21 +377,28 @@ export function startAgentCron() {
           runAiHealthCheckAgent(),
         ]);
         logger.info("[AgentCron] ✅ Agent run complete");
+        });
       });
     });
 
     /* ── يومياً الساعة 2 صباحاً: اللقطة اليومية ── */
     cron.schedule("0 2 * * *", async () => {
       await withCronOverlapProtection(CRON_JOB_NAMES.agentDailySnapshot, async () => {
+        const { withSystemDbScope } = await import("../lib/systemDbScope");
+        await withSystemDbScope(async () => {
         logger.info("[AgentCron] 📊 Starting daily snapshot…");
         await runDailySnapshotAgent();
+        });
       });
     });
 
     /* ── تشغيل فوري عند البدء (بعد 10 ثوانٍ) ── */
     setTimeout(async () => {
       logger.info("[AgentCron] 🚀 Initial AI health check…");
-      await runAiHealthCheckAgent();
+      const { withSystemDbScope } = await import("../lib/systemDbScope");
+      await withSystemDbScope(async () => {
+        await runAiHealthCheckAgent();
+      });
     }, 10_000);
 
     logger.info("[AgentCron] ✅ All agents registered — hourly + daily at 02:00");
@@ -535,16 +544,22 @@ setTimeout(() => {
   /* لقطات المكاتب كل 6 ساعات */
   cron.schedule("0 */6 * * *", async () => {
     await withCronOverlapProtection(CRON_JOB_NAMES.backupTenant, async () => {
-      logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
-      await runTenantBackupCron();
+      const { withSystemDbScope } = await import("../lib/systemDbScope");
+      await withSystemDbScope(async () => {
+        logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
+        await runTenantBackupCron();
+      });
     });
   });
 
   /* نسخة كاملة يومياً الساعة 02:30 (30 دقيقة بعد daily_snapshot) */
   cron.schedule("30 2 * * *", async () => {
     await withCronOverlapProtection(CRON_JOB_NAMES.backupFull, async () => {
-      logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
-      await runFullBackupCron();
+      const { withSystemDbScope } = await import("../lib/systemDbScope");
+      await withSystemDbScope(async () => {
+        logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
+        await runFullBackupCron();
+      });
     });
   });
 

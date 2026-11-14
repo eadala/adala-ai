@@ -1,0 +1,61 @@
+{
+  "suite": "ai-runtime-isolation",
+  "passed": 6,
+  "failed": 0,
+  "skipped": 1,
+  "results": [
+    {
+      "id": "AI_CREDIT_FORGED_TENANT_BODY",
+      "ok": true,
+      "detail": "HTTP 200 {\"ok\":true,\"balance\":45}",
+      "class": "tool-boundary"
+    },
+    {
+      "id": "AI_AGENT_FORGED_HEADER",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"x-tenant-id is not authorized for this principal\",\"code\":\"PLATFORM_FORBIDDEN_FOR_USER\",\"us",
+      "class": "tool-boundary"
+    },
+    {
+      "id": "AI_AGENT_LOGS_SCOPED",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"log-a\",\"user_email\":null,\"command\":\"cmd-a\",\"intent\":\"test\",\"action_taken\":null,\"success\":tru",
+      "class": "tool-boundary"
+    },
+    {
+      "id": "AI_PROMPT_INJECTION_TENANT_SWITCH",
+      "ok": true,
+      "detail": "HTTP 200 {\"intent\":\"unknown\",\"explanation\":\"لم أفهم الأمر، يرجى إعادة الصياغة\",\"params\":{},\"confidence\":0}",
+      "class": "prompt-injection-sim"
+    },
+    {
+      "id": "AI_TOOL_UNAUTH",
+      "ok": true,
+      "detail": "HTTP 401 {\"error\":\"غير مصرح. يرجى تسجيل الدخول.\"}",
+      "class": "tool-boundary"
+    },
+    {
+      "id": "AI_UNSCOPED_USER",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"خطأ في تحديد المكتب — حاول مجدداً.\"}",
+      "class": "tool-boundary"
+    },
+    {
+      "id": "AI_LIVE_MODEL",
+      "ok": true,
+      "detail": "SKIPPED_BY_DESIGN — live model tests not executed",
+      "class": "live-model-not-run"
+    }
+  ]
+}
+PASS ai runtime isolation harness
+
+---STDERR---
+(node:84623) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[TENANT-ERR] path=/ai-agent/logs userId=user-none resolveTenantId threw: Failed query: 
+    SELECT office_id FROM trial_offices
+    WHERE user_id = $1
+    LIMIT 1
+  
+params: user-none

@@ -1,0 +1,103 @@
+{
+  "suite": "http-adversarial",
+  "passed": 18,
+  "failed": 0,
+  "skipped": 0,
+  "results": [
+    {
+      "id": "OFFICE_IDOR_CROSS",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"غير مصرح بالوصول إلى هذا المكتب\",\"code\":\"OFFICE_FORBIDDEN\"}"
+    },
+    {
+      "id": "OFFICE_SAME_TENANT",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"11111111-1111-4111-8111-111111111111\",\"officeId\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"name\":\"Service A\",\"desc"
+    },
+    {
+      "id": "MULTI_OFFICE_SELECT_B",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"22222222-2222-4222-8222-222222222222\",\"officeId\":\"cfee909e-5821-4085-8c6a-90a3852ae437\",\"name\":\"Service B\",\"desc"
+    },
+    {
+      "id": "PAYMENTS_LIST_A",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"11111111-1111-4111-8111-1111111111aa\",\"office_id\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"description\":\"Pay A\",\""
+    },
+    {
+      "id": "FORGED_HEADER",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"x-tenant-id is not authorized for this principal\",\"code\":\"PLATFORM_FORBIDDEN_FOR_USER\",\"userId\":\"user-a-owner\""
+    },
+    {
+      "id": "REVOKED_MEMBER",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"x-tenant-id is not authorized for this principal\",\"code\":\"PLATFORM_FORBIDDEN_FOR_USER\",\"userId\":\"user-revoked\""
+    },
+    {
+      "id": "AI_CREDITS_CROSS_BODY",
+      "ok": true,
+      "detail": "HTTP 200 {\"ok\":true,\"balance\":49}"
+    },
+    {
+      "id": "AI_AGENT_LOGS_A",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"log-a\",\"user_email\":null,\"command\":\"cmd-a\",\"intent\":\"test\",\"action_taken\":null,\"success\":true,\"execution_ms\":nul"
+    },
+    {
+      "id": "WHATSAPP_UNSIGNED",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"Missing X-Hub-Signature-256 header\"}"
+    },
+    {
+      "id": "WHATSAPP_CROSS_STATUS",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "ROLE_LAWYER_SAME",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"11111111-1111-4111-8111-111111111111\",\"officeId\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"name\":\"Service A\",\"desc"
+    },
+    {
+      "id": "ROLE_ACCOUNTANT_SAME",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"11111111-1111-4111-8111-111111111111\",\"officeId\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"name\":\"Service A\",\"desc"
+    },
+    {
+      "id": "PAYMENTS_PAGINATION_A",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"11111111-1111-4111-8111-1111111111aa\",\"office_id\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"description\":\"Pay A\",\""
+    },
+    {
+      "id": "AI_WORKFLOWS_SCOPED",
+      "ok": true,
+      "detail": "HTTP 200 [{\"id\":\"wf-a\",\"office_id\":\"c9efc92a-41ab-46b4-9aa1-baf867882149\",\"name\":\"WF A\",\"description\":null,\"trigger_type\":null,\"s"
+    },
+    {
+      "id": "MISSING_AUTH",
+      "ok": true,
+      "detail": "HTTP 401 {\"error\":\"غير مصرح. يرجى تسجيل الدخول.\"}"
+    },
+    {
+      "id": "UNAUTHORIZED_USER",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"x-tenant-id is not authorized for this principal\",\"code\":\"PLATFORM_FORBIDDEN_FOR_USER\",\"userId\":\"user-none\",\"s"
+    },
+    {
+      "id": "CONFLICT_PATH_TENANT",
+      "ok": true,
+      "detail": "HTTP 403 {\"error\":\"غير مصرح بالوصول إلى هذا المكتب\",\"code\":\"OFFICE_FORBIDDEN\"}"
+    },
+    {
+      "id": "PRIV_ESC_AI_ADMIN",
+      "ok": true,
+      "detail": "HTTP 401 {\"error\":\"غير مصرح. يرجى تسجيل الدخول.\"}"
+    }
+  ]
+}
+PASS http adversarial harness
+
+---STDERR---
+(node:84564) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)

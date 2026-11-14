@@ -327,6 +327,8 @@ async function caseDeadlineReminders(settings: any, tr: any) {
 }
 
 export async function runEmailCron(): Promise<{ invoices: number; sessions: number; reminders: number; caseDeadlines: number }> {
+  const { withSystemDbScope } = await import("../lib/systemDbScope");
+  return withSystemDbScope(async () => {
   await ensureSchema();
   const settings = await getSettings();
   if (!settings?.enabled) return { invoices: 0, sessions: 0, reminders: 0, caseDeadlines: 0 };
@@ -343,6 +345,7 @@ export async function runEmailCron(): Promise<{ invoices: number; sessions: numb
 
   logger.info({ invoices, sessions, reminders, caseDeadlines }, "Email cron run complete");
   return { invoices, sessions, reminders, caseDeadlines };
+  });
 }
 
 export function startEmailCron() {

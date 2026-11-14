@@ -1,0 +1,108 @@
+PASS PRE061_FORCE_FALSE: both tables ENABLE without FORCE
+PASS M061_FORCE_APPLIED: [{"relname":"pre061_force_gap","relrowsecurity":true,"relforcerowsecurity":true},{"relname":"residual_tenant_rows","relrowsecurity":true,"relforcerowsecurity":true}]
+PASS APP_ROLE_NO_BYPASSRLS: {"current_user":"adala_app","rolbypassrls":false,"rolsuper":false}
+PASS RLS_READ_CROSS_DENY: A cannot read B rows
+PASS RLS_UPDATE_CROSS_DENY: updDenied=false B unchanged
+PASS RLS_DELETE_CROSS_DENY: B row survived delete under A GUC
+PASS RLS_MISSING_GUC_DENY: null GUC → zero rows
+PASS RLS_EMPTY_GUC_DENY: empty GUC → zero rows
+PASS RLS_INVALID_GUC_DENY: invalid GUC → zero rows
+PASS RLS_BYPASS_ON_SCOPED: bypass=on sees all (cron path)
+PASS RLS_BYPASS_OFF_FAILCLOSED: bypass cleared → deny
+PASS RLS_SAME_TENANT_PASS: tenant A sees 1 row
+PASS TX_ROLLBACK_CLEAN: rolled-back insert absent
+PASS POOL_GUC_REUSE: reuse_leak_observed=true; fail-closed reset restores deny (guard required)
+PASS CONCURRENT_TENANT_OPS: parallel A/B connections isolated
+PASS SECURITY_DEFINER_FORCE_RLS: FORCE RLS contains definer to current GUC
+{
+  "suite": "rls-migration-061",
+  "passed": 16,
+  "failed": 0,
+  "skipped": 0,
+  "upgrade_path": "PASS (ENABLE→FORCE via 061 on pre061_force_gap)",
+  "results": [
+    {
+      "id": "PRE061_FORCE_FALSE",
+      "ok": true,
+      "detail": "both tables ENABLE without FORCE"
+    },
+    {
+      "id": "M061_FORCE_APPLIED",
+      "ok": true,
+      "detail": "[{\"relname\":\"pre061_force_gap\",\"relrowsecurity\":true,\"relforcerowsecurity\":true},{\"relname\":\"residual_tenant_rows\",\"relrowsecurity\":true,\"relforcerowsecurity\":true}]"
+    },
+    {
+      "id": "APP_ROLE_NO_BYPASSRLS",
+      "ok": true,
+      "detail": "{\"current_user\":\"adala_app\",\"rolbypassrls\":false,\"rolsuper\":false}"
+    },
+    {
+      "id": "RLS_READ_CROSS_DENY",
+      "ok": true,
+      "detail": "A cannot read B rows"
+    },
+    {
+      "id": "RLS_UPDATE_CROSS_DENY",
+      "ok": true,
+      "detail": "updDenied=false B unchanged"
+    },
+    {
+      "id": "RLS_DELETE_CROSS_DENY",
+      "ok": true,
+      "detail": "B row survived delete under A GUC"
+    },
+    {
+      "id": "RLS_MISSING_GUC_DENY",
+      "ok": true,
+      "detail": "null GUC → zero rows"
+    },
+    {
+      "id": "RLS_EMPTY_GUC_DENY",
+      "ok": true,
+      "detail": "empty GUC → zero rows"
+    },
+    {
+      "id": "RLS_INVALID_GUC_DENY",
+      "ok": true,
+      "detail": "invalid GUC → zero rows"
+    },
+    {
+      "id": "RLS_BYPASS_ON_SCOPED",
+      "ok": true,
+      "detail": "bypass=on sees all (cron path)"
+    },
+    {
+      "id": "RLS_BYPASS_OFF_FAILCLOSED",
+      "ok": true,
+      "detail": "bypass cleared → deny"
+    },
+    {
+      "id": "RLS_SAME_TENANT_PASS",
+      "ok": true,
+      "detail": "tenant A sees 1 row"
+    },
+    {
+      "id": "TX_ROLLBACK_CLEAN",
+      "ok": true,
+      "detail": "rolled-back insert absent"
+    },
+    {
+      "id": "POOL_GUC_REUSE",
+      "ok": true,
+      "detail": "reuse_leak_observed=true; fail-closed reset restores deny (guard required)"
+    },
+    {
+      "id": "CONCURRENT_TENANT_OPS",
+      "ok": true,
+      "detail": "parallel A/B connections isolated"
+    },
+    {
+      "id": "SECURITY_DEFINER_FORCE_RLS",
+      "ok": true,
+      "detail": "FORCE RLS contains definer to current GUC"
+    }
+  ]
+}
+PASS rls migration 061 harness
+
+---STDERR---

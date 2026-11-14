@@ -130,7 +130,29 @@ export async function requireSuperAdmin(req: Request, res: Response, next: NextF
   next();
 }
 
+/**
+ * Test-only identity injection for HTTP adversarial harness.
+ * Requires ADALA_HTTP_SECURITY_TEST=1 and matching X-Adala-Test-Auth secret.
+ * Never enabled in production (NODE_ENV=production refuses).
+ */
+export function resolveTestAuthUserId(req: Request): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+  if (process.env.ADALA_HTTP_SECURITY_TEST !== "1") return null;
+  const secret = process.env.ADALA_TEST_AUTH_SECRET;
+  if (!secret || secret.length < 16) return null;
+  const provided = req.headers["x-adala-test-auth"];
+  if (typeof provided !== "string" || provided !== secret) return null;
+  const userId = req.headers["x-adala-test-user"];
+  if (typeof userId !== "string" || !userId.trim()) return null;
+  return userId.trim();
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const testUser = resolveTestAuthUserId(req);
+  if (testUser) {
+    (req as any).userId = testUser;
+    return next();
+  }
   let auth: ReturnType<typeof getAuth> | null = null;
   try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
@@ -147,9 +169,13 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  * (kernel pattern). All async work triggered by next() sees the same context.
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
-  let auth: ReturnType<typeof getAuth> | null = null;
-  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
-  const userId = auth?.userId;
+  const testUser = resolveTestAuthUserId(req);
+  let userId: string | null | undefined = testUser;
+  if (!userId) {
+    let auth: ReturnType<typeof getAuth> | null = null;
+    try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
+    userId = auth?.userId;
+  }
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }

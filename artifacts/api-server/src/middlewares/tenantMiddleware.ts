@@ -222,6 +222,13 @@ export async function resolveTenantId(
           source: "header_sa",
         });
       }
+
+      /* Explicit x-tenant-id without active membership must fail closed (no silent fallback) */
+      throw new TenantResolutionError(
+        PLATFORM_FORBIDDEN_FOR_USER,
+        "x-tenant-id is not authorized for this principal",
+        { userId, source: "header_forged_or_revoked", officeId: headerTenantId },
+      );
     } catch (err) {
       if (err instanceof TenantResolutionError) throw err;
       /* Header validation DB blip — fall through */
@@ -298,19 +305,26 @@ export async function resolveTenantId(
     }
   }
 
-  /* 4. users.office_id */
+  /* 4. users.office_id — only when active membership still exists (revocation fail-closed) */
   const userRows = await client.execute(sql`
     SELECT office_id FROM users WHERE id = ${userId} LIMIT 1
   `);
   const userOffice = firstVal(userRows, "office_id");
   if (userOffice != null) {
-    const taken = takeCanonicalTenantOrContinue(userOffice, {
-      userId,
-      source: "users.office_id",
-    });
-    if (taken.status === "uuid") {
-      cacheSet(cache, userId, taken.officeId, nowFn());
-      return taken.officeId;
+    const activeForUserOffice = await client.execute(sql`
+      SELECT 1 FROM office_members
+      WHERE user_id = ${userId} AND office_id = ${userOffice} AND status = 'active'
+      LIMIT 1
+    `);
+    if (rowsOf(activeForUserOffice).length > 0) {
+      const taken = takeCanonicalTenantOrContinue(userOffice, {
+        userId,
+        source: "users.office_id",
+      });
+      if (taken.status === "uuid") {
+        cacheSet(cache, userId, taken.officeId, nowFn());
+        return taken.officeId;
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const messagesTable = pgTable("messages", {
   id:          text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  officeId:    text("office_id"),
   caseId:      text("case_id"),
   channel:     text("channel").notNull().default("whatsapp"),
   direction:   text("direction").notNull().default("outbound"),

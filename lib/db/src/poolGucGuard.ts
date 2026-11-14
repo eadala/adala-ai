@@ -28,7 +28,7 @@ export function installPoolGucGuard(pool: pg.Pool): void {
         void resetClient(client)
           .then(() => {
             wrapRelease(client);
-            cb(null, client, done);
+            cb(undefined, client, done);
           })
           .catch((e) => cb(e as Error, undefined as never, done));
       });

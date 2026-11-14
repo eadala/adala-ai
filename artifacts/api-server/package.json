@@ -100,7 +100,12 @@
     "test:orphan-ai-refs": "node --import tsx src/tests/orphanAiRefsRemediation.test.ts",
     "test:money-numeric-batch1": "node --import tsx src/tests/moneyNumericBatch1.test.ts",
     "test:money-numeric-batch2": "node --import tsx src/tests/moneyNumericBatch2.test.ts",
-    "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts"
+    "test:demo-seed": "node --import tsx src/tests/demoSeedPolicy.test.ts",
+    "test:tenant-isolation-gate": "node src/tests/runtime/runTenantIsolationGate.mjs",
+    "test:http-adversarial": "node --import tsx src/tests/runtime/httpAdversarialHarness.ts",
+    "test:rls-061": "node --import tsx src/tests/runtime/rlsMigration061Harness.ts",
+    "test:ai-runtime-isolation": "node --import tsx src/tests/runtime/aiRuntimeIsolationHarness.ts",
+    "test:pool-guc-runtime": "node --import tsx src/tests/runtime/poolGucContainmentHarness.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1080.0",

@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 import { Router, type Request, type Response } from "express";
 import { db, messagesTable } from "@workspace/db";
-import { sql } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { requireProductionBaseUrl } from "../../lib/productionUrl";
@@ -36,25 +35,30 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
      App Secret. We must verify before processing to prevent spoofed events.
      Set WHATSAPP_APP_SECRET in env vars to the Meta App Secret.
   ─────────────────────────────────────────────────────────────────────────── */
+  /* Fail closed — never process unsigned WhatsApp webhooks (P0-006 residual) */
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-  if (appSecret) {
-    const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
-    if (!sigHeader) {
-      res.status(403).json({ error: "Missing X-Hub-Signature-256 header" });
-      return;
-    }
-    const rawBody: Buffer = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body));
-    const expected = "sha256=" + crypto
-      .createHmac("sha256", appSecret)
-      .update(rawBody)
-      .digest("hex");
+  if (!appSecret) {
+    res.status(403).json({ error: "WHATSAPP_APP_SECRET not configured" });
+    return;
+  }
+  const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
+  if (!sigHeader) {
+    res.status(403).json({ error: "Missing X-Hub-Signature-256 header" });
+    return;
+  }
+  const rawBody: Buffer = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body));
+  const expected = "sha256=" + crypto
+    .createHmac("sha256", appSecret)
+    .update(rawBody)
+    .digest("hex");
+  try {
     if (!crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expected))) {
       res.status(403).json({ error: "Invalid webhook signature" });
       return;
     }
-  } else {
-    /* Warn in logs — operator must set WHATSAPP_APP_SECRET before go-live */
-    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED. Set this env var before production.");
+  } catch {
+    res.status(403).json({ error: "Invalid webhook signature" });
+    return;
   }
 
   try {
@@ -66,6 +70,21 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
     for (const entry of (body.entry ?? []) as any[]) {
       for (const change of (entry.changes ?? []) as any[]) {
         const value = change.value ?? {};
+        const phoneNumberId = String(value.metadata?.phone_number_id ?? "");
+        /* Map provider phone id → office (never trust client conversation ownership) */
+        let officeId: string | null = null;
+        if (phoneNumberId) {
+          const mapped = await dbRows(sql`
+            SELECT office_id FROM whatsapp_settings
+            WHERE meta_phone_id = ${phoneNumberId}
+            LIMIT 1
+          `);
+          officeId = mapped[0]?.office_id ? String(mapped[0].office_id) : null;
+        }
+        if (!officeId) {
+          /* Fail closed — unknown provider mapping must not write unscoped messages */
+          continue;
+        }
 
         if (value.messages) {
           for (const msg of value.messages as any[]) {
@@ -87,10 +106,11 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
             else if (/شكو|مشكل/.test(content))          category = "شكوى";
 
             await db.insert(messagesTable).values({
+              officeId,
               channel: "whatsapp", direction: "inbound",
               fromPhone: phone, content, category,
               externalId: msgId, status: "received",
-              metadata: JSON.stringify({ type }),
+              metadata: JSON.stringify({ type, phoneNumberId }),
             }).onConflictDoNothing();
           }
         }
@@ -99,7 +119,10 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
           for (const s of value.statuses as any[]) {
             await db.update(messagesTable)
               .set({ status: s.status as string, updatedAt: new Date() })
-              .where(eq(messagesTable.externalId, s.id as string));
+              .where(and(
+                eq(messagesTable.externalId, s.id as string),
+                eq(messagesTable.officeId, officeId),
+              ));
           }
         }
       }

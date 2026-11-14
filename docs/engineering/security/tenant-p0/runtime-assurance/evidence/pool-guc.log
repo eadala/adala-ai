@@ -1,0 +1,21 @@
+{
+  "suite": "pool-guc-containment",
+  "passed": 2,
+  "failed": 0,
+  "skipped": 0,
+  "results": [
+    {
+      "id": "CHECKOUT_FAILCLOSED",
+      "ok": true,
+      "detail": "n=0"
+    },
+    {
+      "id": "RELEASE_CLEARS_BYPASS",
+      "ok": true,
+      "detail": "{\"b\":\"off\",\"t\":\"__unscoped__\"}"
+    }
+  ]
+}
+PASS pool GUC containment
+
+---STDERR---

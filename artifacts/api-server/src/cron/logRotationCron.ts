@@ -10,10 +10,8 @@ import {
 
 async function runLogRotation(): Promise<void> {
   const results: Record<string, number> = {};
-  /* Privileged system scope — explicit bypass for retention deletes; cleared in finally */
-  const { setBypassRlsSession, clearTenantSessionFailClosed } = await import("../lib/tenantSession");
-  await setBypassRlsSession();
-  try {
+  const { withSystemDbScope } = await import("../lib/systemDbScope");
+  return withSystemDbScope(async () => {
 
   // 1. system_metrics_log — keep 30 days
   const m1 = await db.execute(sql`
@@ -88,9 +86,7 @@ async function runLogRotation(): Promise<void> {
 
   const total = Object.values(results).reduce((a, b) => a + b, 0);
   logger.info({ ...results, total }, `Log rotation complete — purged ${total} rows`);
-  } finally {
-    await clearTenantSessionFailClosed().catch(() => {});
-  }
+  });
 }
 
 export function startLogRotationCron(): void {
