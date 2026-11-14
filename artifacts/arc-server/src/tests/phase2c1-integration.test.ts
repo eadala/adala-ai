@@ -303,7 +303,7 @@ describe("ARC Phase 2C-1 identity & GitHub validation", () => {
     s2.close();
   });
 
-  it("healthz reports 2C1 and Coolify not connected", async () => {
+  it("healthz reports Coolify not connected and deploy disabled", async () => {
     const res = await fetch(`${base}/api/arc/healthz`);
     const body = (await res.json()) as {
       phase: string;
@@ -312,7 +312,7 @@ describe("ARC Phase 2C-1 identity & GitHub validation", () => {
       liveOidc: string;
       liveGithub: string;
     };
-    assert.equal(body.phase, "2C1");
+    assert.ok(["2C1", "2CG"].includes(body.phase));
     assert.equal(body.deploymentExecutionEnabled, false);
     assert.equal(body.coolifyProduction, "NOT_CONNECTED");
     assert.equal(body.liveOidc, "UNVERIFIED");

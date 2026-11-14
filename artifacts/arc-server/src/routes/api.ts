@@ -19,30 +19,76 @@ import {
   approvalStillValid,
   classifyReleaseFacts,
 } from "../lib/evidence.js";
+import {
+  harnessDeployTriggerAvailable,
+  runIntegrationHarness,
+} from "../lib/integrationHarness.js";
+import {
+  validateGithubEnv,
+  validateOidcEnv,
+  redactEnvSnapshot,
+  OIDC_ENV_KEYS,
+  GITHUB_ENV_KEYS,
+} from "../lib/integrationConfig.js";
+import {
+  GITHUB_APP_PERMISSION_SPEC,
+  GITHUB_APP_FORBIDDEN_PERMISSIONS,
+  GITHUB_READONLY_ENDPOINTS,
+  githubAppConfigPresent,
+} from "../adapters/githubApp.js";
 import type { Approval, ApprovalRequest } from "../lib/types.js";
 
 export const apiRouter = Router();
 
-/** Permanent: execution disabled regardless of env / role (2B/2C-1) */
+/** Permanent: execution disabled regardless of env / role */
 const DEPLOY_EXECUTION_ENABLED = false;
 
 apiRouter.get("/healthz", (_req, res) => {
   const oidc = liveOidcStatus();
   const gh = githubAdapter.liveStatus();
+  const oidcEnv = validateOidcEnv();
+  const ghEnv = validateGithubEnv();
   res.json({
     ok: true,
     service: "arc-server",
-    phase: "2C1",
+    phase: "2CG",
     deploymentExecutionEnabled: DEPLOY_EXECUTION_ENABLED,
+    harnessDeployTriggerAvailable: harnessDeployTriggerAvailable(),
     policyVersion: POLICY_VERSION,
     productionConfig: isProductionConfig(),
     oidcMode: process.env.ARC_OIDC_MODE ?? "fixture",
     liveOidc: oidc.status === "live_ready" ? "CONFIGURED" : oidc.status === "BLOCKED" ? "BLOCKED" : "UNVERIFIED",
     liveOidcReason: oidc.reason,
+    liveOidcGate: oidcEnv.liveGate,
     liveGithub: gh.status === "live_ready" ? "CONFIGURED" : gh.status === "BLOCKED" ? "BLOCKED" : "UNVERIFIED",
     liveGithubReason: gh.reason,
+    liveGithubGate: ghEnv.liveGate,
     coolifyProduction: "NOT_CONNECTED",
+    githubAppConfigPresent: githubAppConfigPresent(),
     ts: new Date().toISOString(),
+  });
+});
+
+apiRouter.get("/integration/harness", async (_req, res) => {
+  const report = await runIntegrationHarness();
+  res.json(report);
+});
+
+apiRouter.get("/integration/config", (_req, res) => {
+  res.json({
+    oidc: validateOidcEnv(),
+    github: validateGithubEnv(),
+    envRedacted: {
+      ...redactEnvSnapshot([...OIDC_ENV_KEYS]),
+      ...redactEnvSnapshot([...GITHUB_ENV_KEYS]),
+    },
+    githubApp: {
+      permissions: GITHUB_APP_PERMISSION_SPEC,
+      forbidden: GITHUB_APP_FORBIDDEN_PERMISSIONS,
+      endpoints: GITHUB_READONLY_ENDPOINTS,
+      configPresent: githubAppConfigPresent(),
+    },
+    note: "Placeholder env names only — secret values never returned",
   });
 });
 

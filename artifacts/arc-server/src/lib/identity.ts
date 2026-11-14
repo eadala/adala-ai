@@ -37,6 +37,8 @@ export function isProductionConfig(): boolean {
 
 export function allowDevHmac(): boolean {
   if (isProductionConfig()) return false;
+  /* Phase 2C-G: never substitute HMAC when live OIDC is selected */
+  if ((process.env.ARC_OIDC_MODE ?? "").toLowerCase() === "live") return false;
   return (process.env.ARC_ALLOW_DEV_HMAC ?? "true").toLowerCase() === "true";
 }
 

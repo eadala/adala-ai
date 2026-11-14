@@ -436,7 +436,7 @@ describe("ARC Phase 2B trusted control plane", () => {
       deploymentExecutionEnabled: boolean;
       liveOidc: string;
     };
-    assert.ok(["2B", "2C1"].includes(body.phase));
+    assert.ok(["2B", "2C1", "2CG"].includes(body.phase));
     assert.equal(body.deploymentExecutionEnabled, false);
     assert.ok(["UNVERIFIED", "BLOCKED", "CONFIGURED"].includes(body.liveOidc));
   });
