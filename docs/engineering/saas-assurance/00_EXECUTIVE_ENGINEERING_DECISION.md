@@ -4,6 +4,8 @@
 |---|---|
 | DIRECTIVE_ID | ADALA-SAAS-ENGINEERING-ASSURANCE-007 |
 | BRANCH | `cursor/saas-engineering-assurance-da81` |
+| ASSURANCE_COMMIT | `046fd0b077bef4870c8475c26e97d774de7df1b7` |
+| TREE_SHA_AT_ASSURANCE | `f7d2dd0d2dbe01f8cd98020a176ef2cc588b9d4f` |
 | ASSESSMENT_MODE | Read-only analysis + isolated non-destructive probes |
 | SECURITY_BASELINE | HEAD `22a28a5d…` / tree `149c3a1a…` (P0-005) |
 | CURRENT_TIP_AT_BRANCH_CREATE | `d2f7e369…` (includes local P0-006 runtime assurance commits) |
