@@ -30,16 +30,19 @@ Modular monolith:
 
 Composition: `src/routes/index.ts` mounts dozens of routers; `src/app.ts` wires Clerk, Sentry, helmet, rate-limit, healthz-first.
 
-## Dependency / failure notes
+## Dependency / failure notes ([Architecture fitness inventory](bc-5feb28bf-8c9a-5cd2-9e65-aa287b3dd0f8))
 
 | Finding ID | Severity | Evidence | Mechanism |
 |---|---|---|---|
-| F-ARCH-001 | P1 | Crons in same process as HTTP (`src/cron/*` started with API) | CPU/memory/event-loop contention; deploy restart kills jobs |
-| F-ARCH-002 | P1 | Single shared `pool` in `lib/db/src/index.ts` with no max/timeout | Global saturation → all domains fail together |
-| F-ARCH-003 | P2 | Large `platform` + `ai` surface; many sibling financial routers | Change amplification; testing difficulty |
-| F-ARCH-004 | P2 | External coupling: Clerk, Stripe/Moyasar, Meta WhatsApp, R2/S3, AI providers | Synchronous provider failures propagate without uniform bulkheads |
-| F-ARCH-005 | P2 | ARC separate (good) but Coolify/GitHub boundary documented, not CI-enforced promotion gates | Release complexity |
+| F-ARCH-001 | P1 | Crons + Stripe reconcile + EventBus SSE in API process (`index.ts`) | Restart/OOM kills HTTP and jobs; 512MB heap |
+| F-ARCH-002 | P1 | Single shared `pool` (`lib/db/src/index.ts`) no max/timeout | Global saturation |
+| F-ARCH-003 | P1 | Dual payment stacks: orchestrator vs payments module Moyasar URLs | Drift / change amplification |
+| F-ARCH-004 | P1 | `callAI` hub + unstable call sites (arg-order mismatch risk) | Latent behavioral bugs |
+| F-ARCH-005 | P1 | Stripe boot: `stripe-replit-sync` side-effects every start | Vendor schema coupling |
+| F-ARCH-006 | P2 | Flat ~100 router mounts; raw SQL dominates thin Drizzle schema | Schema change cost |
+| F-ARCH-007 | P2 | JLWM demo seed on production boot path | Startup race / noise |
+| F-ARCH-008 | P2 | Empty `lib/integrations/*` glob; `services/*` outside Dockerfile | Orphaned architecture |
 
 ## Recommendation (minimal)
 
-Keep modular monolith. Introduce explicit **worker process boundary** for crons/backups; keep HTTP API thin. Do **not** split microservices by default.
+Keep modular monolith. Split worker process for crons/backups; unify payment + AI gateways. Do **not** default to microservices.

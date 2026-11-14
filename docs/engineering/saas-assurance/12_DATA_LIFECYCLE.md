@@ -12,12 +12,14 @@
 | Backup retention | NOT VERIFIED | **GAP** |
 | PDPL / KSA obligations | requires legal assessment | **NOT CLAIMED** |
 
-## Findings
+## Findings ([Async backup cost lifecycle](bc-e224a8ab-4d49-57ca-8df5-870eef796b65))
 
 | ID | Sev | Finding |
 |---|---|---|
-| F-LIFE-001 | P1 | No explicit tenant offboarding lifecycle (export→hold check→delete→backup tombstone) |
-| F-LIFE-002 | P1 | Legal hold vs erasure conflict unresolved in code |
-| F-LIFE-003 | P2 | Audit retention policy not tied to regulatory schedule |
+| F-LIFE-001 | P1 | No automated tenant offboarding / wipe / export-on-cancel |
+| F-LIFE-002 | P1 | `legal_holds` are records only — delete paths do not consult holds |
+| F-LIFE-003 | P1 | `retention_policies.auto_delete` has **no enforcing cron** (document scan archives only) |
+| F-LIFE-004 | P2 | Data subject requests are ticket rows — fulfillment manual |
+| F-LIFE-005 | P2 | Policy vs practice: long audit retention vs short `tenant_audit_logs` rotation; `ai_usage_logs` never rotated |
 
 Do not claim PDPL compliance from this engineering audit.

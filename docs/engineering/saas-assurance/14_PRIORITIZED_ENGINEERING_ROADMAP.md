@@ -3,8 +3,9 @@
 ## Phase 0 — Stop-ship ops (before any GO discussion)
 
 1. Isolated PostgreSQL restore drill + evidence (F-DR-001)
-2. Readiness probe + orchestrator wiring (F-REL-003)
-3. Explicit pool sizing + timeouts + saturation metrics (F-PERF-001)
+2. Replace/disable stats-only “full backup” and fake `simulateRestoreTest` (F-DR-002/003)
+3. Readiness probe + orchestrator wiring (F-REL-003)
+4. Explicit pool sizing + timeouts + saturation metrics (F-PERF-001)
 
 ## Phase 1 — Reliability foundation
 

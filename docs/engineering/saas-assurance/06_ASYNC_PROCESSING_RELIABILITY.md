@@ -14,15 +14,16 @@
 
 Evidence: `cronOverlapGuard.ts` documents single-container assumption; `backgroundJobsRegistry.ts` retryPolicy strings; Stripe DLQ in migration 011 + `stripeEventBuffer.ts`.
 
-## Findings
+## Findings ([Async backup cost lifecycle](bc-e224a8ab-4d49-57ca-8df5-870eef796b65))
 
 | ID | Sev | Finding |
 |---|---|---|
-| F-ASYNC-001 | P1 | Overlap locks not distributed — multi-replica → duplicate backups/emails/agents |
-| F-ASYNC-002 | P1 | Most crons at-least-once without inbox/outbox; idempotency uneven |
-| F-ASYNC-003 | P2 | Poison message handling beyond Stripe not standardized |
-| F-ASYNC-004 | P2 | Job cancellation/timeouts not uniform |
+| F-ASYNC-001 | P1 | Overlap locks process-local — multi-replica duplicates |
+| F-ASYNC-002 | P1 | Cron failures drop until next schedule (no catch-up/DLQ except Stripe) |
+| F-ASYNC-003 | P1 | Stripe reconcile `setInterval` **not** wrapped in overlap guard |
+| F-ASYNC-004 | P2 | Poison handling beyond Stripe not standardized |
+| F-ASYNC-005 | P2 | Backup cron silently skips if object storage unset |
 
 ## Recommendation
 
-Before horizontal scale: Redis/PG advisory locks for cron; transactional outbox only where dual-write failure modes proven (payments/notifications). Do not add outbox globally by default.
+Distributed cron locks before scale-out; wrap Stripe reconcile; keep Stripe DLQ pattern; outbox only where dual-write proven.

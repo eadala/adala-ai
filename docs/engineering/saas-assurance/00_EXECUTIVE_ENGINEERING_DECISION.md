@@ -19,14 +19,15 @@
 
 **ENGINEERING_ASSURANCE_DECISION: ASSURANCE_COMPLETE_WITH_BLOCKERS**
 
-The platform is a capable modular monolith with substantial schema-authority testing and frontend route-level code splitting. Operational excellence is **not** production-ready due to:
+The platform is a capable modular monolith with strong multi-gate CI and frontend route-level code splitting. Operational excellence is **not** production-ready due to:
 
 1. **P0** — Backup/restore recoverability unverified (drill BLOCKED).
-2. **P0** — Deployment healthcheck is liveness-only (`/api/healthz` ignores DB readiness).
-3. **P1** — DB pool lacks explicit sizing/timeouts (pg default `max=10`).
-4. **P1** — Cron overlap protection is process-local only (multi-replica unsafe).
-5. **P1** — Retry engine lacks jitter/idempotency classification; provider circuit breakers incomplete.
-6. **P1** — Full-app performance Profiles B–E not executed (only synthetic Profile A baseline).
+2. **P0** — “Full backup” cron is **stats-only** (false DR confidence).
+3. **P0** — DR UI `simulateRestoreTest` always succeeds without restoring.
+4. **P0** — Deployment healthcheck is liveness-only (`/api/healthz` ignores DB).
+5. **P1** — Pool defaults, process-local cron locks, AI soft-quota, dual payment/AI paths, frontend zoom/entry-chunk, R2 retention unused.
+
+Subagent deep-dives incorporated: see `evidence/SUBAGENT_SYNTHESIS.md`.
 
 This assessment does **not** re-run tenant-security tests. Prior security NO-GO for production remains independently binding.
 

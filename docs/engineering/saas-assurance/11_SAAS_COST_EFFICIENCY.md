@@ -22,12 +22,15 @@
 | AI request / token | Provider $ + credit ledger |
 | Subscription month | Plan entitlements vs usage |
 
-## Amplification risks
+## Amplification risks ([Async backup cost lifecycle](bc-e224a8ab-4d49-57ca-8df5-870eef796b65))
 
 | ID | Sev | Risk |
 |---|---|---|
-| F-COST-001 | P1 | Unbounded AI context / agent loops without hard per-tenant circuit |
-| F-COST-002 | P1 | Log/trace volume if OTEL full sampling enabled without budgets |
-| F-COST-003 | P2 | Backup object retention without lifecycle policy → storage creep |
+| F-COST-001 | P1 | Chat soft-deduct: under-balance still allows provider call (`aiChat` deductCredits) |
+| F-COST-002 | P1 | `POST /ai-credits/deduct` trusts client `cost` (after tenant bind) |
+| F-COST-003 | P1 | `ai_usage_logs` not in logRotationCron → DB growth + retention risk |
+| F-COST-004 | P1 | R2 backups: `deleteBackup` never called → unbounded object cost |
+| F-COST-005 | P2 | OTEL full sampling without budgets |
+| F-COST-006 | P2 | Agent cron Gemini health pings = recurring provider spend |
 
-Recommendations: quotas (partially present via credits/entitlements), budget alerts, model routing, storage lifecycle — implement only after metering baselines.
+Recommendations: hard-fail under-balance AI; server-side cost tables; enforce retention jobs; lifecycle on R2.

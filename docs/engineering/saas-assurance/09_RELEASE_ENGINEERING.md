@@ -4,24 +4,25 @@
 
 | Item | Evidence |
 |---|---|
-| CI | `.github/workflows/ci.yml` — tests on push/PR; frozen lockfile; extensive api-server schema/static tests |
-| Lockfile | `pnpm-lock.yaml` present |
-| Docker | root `Dockerfile`, `infra/Dockerfile.api`, `Dockerfile.web`, compose |
-| Deploy docs | `DEPLOY.md` Coolify-oriented |
-| ARC execute | Disabled per ARC docs (not re-tested) |
-| Migrations | numbered SQL under `artifacts/api-server/migrations/` |
-| Tenant isolation gate | `test:tenant-isolation-gate` exists locally; **not** wired into `ci.yml` yet |
+| CI | `.github/workflows/ci.yml` — multi-gate: test, db-migrations, docker-production, typescript, lint, build, security, audit, a11y, architecture, **tenant-isolation**, license, commit-lint; summary requires docker-production success ([Release CI CD inventory](bc-e6b3372c-0e97-5259-8052-baa3d3d4acf8)) |
+| Lockfile | `pnpm-lock.yaml`; CI/`infra/Dockerfile.*` use `--frozen-lockfile` |
+| Root Coolify `Dockerfile` | Uses **`--no-frozen-lockfile`** — divergence from CI |
+| Deploy | Coolify webhook / human-approved; **no GitHub CD deploy job** |
+| ARC execute | `executeDeploy: false` / always 403 (docs + code constants; not re-probed) |
+| Migrations | 001–061 + CI ephemeral PG; file≠prod-applied |
+| Rollback | Documented Coolify prior image; RLS prefer forward-fix |
 
 ## Gaps
 
 | ID | Sev | Finding |
 |---|---|---|
-| F-RELENG-001 | P1 | No canary/staged rollout automation evidenced |
-| F-RELENG-002 | P1 | Artifact provenance (SBOM/signed digests) not evidenced in CI |
-| F-RELENG-003 | P1 | DR drill / load tests absent from CI gates |
-| F-RELENG-004 | P2 | Feature-flag framework not clearly centralized |
-| F-RELENG-005 | P2 | Migration expand/contract discipline uneven across 061-style DDL |
+| F-RELENG-001 | P1 | No canary / progressive delivery |
+| F-RELENG-002 | P1 | No cosign/SLSA/SBOM; Coolify digests NOT_CONNECTED in ARC docs |
+| F-RELENG-003 | P1 | DR restore drill / load Profiles B–E absent from CI |
+| F-RELENG-004 | P1 | Root Dockerfile skips frozen lockfile vs CI |
+| F-RELENG-005 | P2 | Feature flags plan-tied, not release canary |
+| F-RELENG-006 | P2 | GHA dist upload is mutable artifact, not digest-pinned promote |
 
 ## Recommendation
 
-Improve release **reliability evidence** (immutable tags, migration dry-run job, optional gate for `test:tenant-isolation-gate` on security branches). Do **not** activate auto-deploy under this directive.
+Align Coolify image build with frozen lockfile; add restore-drill checklist job; keep auto-deploy **off**.
