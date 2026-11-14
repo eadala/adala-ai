@@ -137,10 +137,10 @@ API prefixes: `/api/rbac/roles`, `/invitations`, `/permissions`, `/my-permission
 | **Name** | Hearings |
 | **Key files** | `src/modules/legal-core/cases.ts` (calendar + CRUD handlers) |
 | **API prefixes** | `/api/cases/hearings/calendar`, `/api/cases/:id/hearings`, `PATCH/DELETE .../hearings/:hid` |
-| **Tables / migrations** | Uses table `case_hearings` — **no `CREATE TABLE` in `migrations/`** found; only runtime `CREATE INDEX` in cases startup |
-| **Tests** | None dedicated |
+| **Tables / migrations** | Uses table `case_hearings` — historically **no `CREATE TABLE` in committed migrations** (only runtime `CREATE INDEX` in cases startup). Workspace also has untracked draft `migrations/062_simulation_schema_gaps_case_hearings_employee_office.sql` that would `CREATE TABLE IF NOT EXISTS case_hearings` + add `employees.office_id` |
+| **Tests** | None dedicated under `src/tests` at discovery time; draft helpers appear under untracked `src/tests/runtime/digitalLawFirm/` |
 | **Classification** | **PARTIAL** |
-| **Notes** | API implemented; schema authority missing (table may exist only if created out-of-band). Simulation should treat hearings as risky until migration owned. Calendar events (`/api/calendar/events`, migration `047`) are a separate scheduling surface. |
+| **Notes** | API implemented; schema ownership was a gap. Treat as PARTIAL until 062 (or equivalent) is committed/applied. Calendar events (`/api/calendar/events`, migration `047`) are a separate scheduling surface. |
 
 ### 4.5 Tasks
 
@@ -286,7 +286,7 @@ API prefixes: `/api/rbac/roles`, `/invitations`, `/permissions`, `/my-permission
 | Clients | `clients` | `003` (+ runtime `deleted_at`) |
 | Cases | `cases` | `003`, `017` (+ `028`, `043` related) |
 | Documents | `documents`, `document_versions`, `document_permissions` | `003`, `033` |
-| Hearings | `case_hearings` | **Missing CREATE in migrations** (indexes only at runtime) |
+| Hearings | `case_hearings` | **Missing CREATE in committed migrations** (indexes only at runtime); draft fix in untracked `062_*.sql` |
 | Tasks | `tasks`, `office_branches` | `015`, `024` |
 | Messages | `messages`, `office_messages`, `message_conversations`, `conversation_members` | `003`, `016`, `029`, `030`, `031`, `052` |
 | HR | `employees`, warnings/investigations, `hr_announcements`, `employee_requests`, `hr_roles`, … | `003`, `048`, `050` |
@@ -394,4 +394,5 @@ const server = createServer(app);
 | AI credits | IMPLEMENTED_AND_TESTABLE |
 
 **Best Clerk-free HTTP proof path today:** `aiCredits` + `office` + `payments` via `httpAdversarialHarness` / `aiRuntimeIsolationHarness`.  
-**Highest schema risk for sim:** `case_hearings` lacking migration ownership.
+**Highest schema risk for sim:** `case_hearings` lacking committed migration ownership (draft `062` present but untracked at discovery).  
+**RBAC gap:** `hr:manage` used by attendance/office-location admin routes but absent from `ALL_PERMISSIONS` / `DEFAULT_ROLES`.
