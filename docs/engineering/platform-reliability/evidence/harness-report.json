@@ -1,0 +1,92 @@
+{
+  "suite": "platform-reliability-008",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "id": "BACKUP_CREATION",
+      "ok": true,
+      "detail": "COMPLETED path=/workspace/.adala-backups-test/adala_full_bk_1794647569541_ha0zgv.dump bytes=1829"
+    },
+    {
+      "id": "BACKUP_INTEGRITY",
+      "ok": true,
+      "detail": "sha256=f0dfba1ba9133cd4"
+    },
+    {
+      "id": "ISOLATED_RESTORE",
+      "ok": true,
+      "detail": "outcome=PASS ms=39"
+    },
+    {
+      "id": "RESTORED_DATA_VALIDATION",
+      "ok": true,
+      "detail": "[{\"stage\":\"INTEGRITY_MARKER\",\"ok\":true,\"detail\":\"adala-reliability-008\"}]"
+    },
+    {
+      "id": "CORRUPTED_BACKUP_REJECTION",
+      "ok": true,
+      "detail": "outcome=FAIL exit=5"
+    },
+    {
+      "id": "MISSING_BACKUP_FAIL",
+      "ok": true,
+      "detail": "outcome=FAIL"
+    },
+    {
+      "id": "UNSAFE_TARGET_REJECTED",
+      "ok": true,
+      "detail": "production_db rejected"
+    },
+    {
+      "id": "LIVENESS",
+      "ok": true,
+      "detail": "alive"
+    },
+    {
+      "id": "STARTUP_BEFORE",
+      "ok": true,
+      "detail": "starting"
+    },
+    {
+      "id": "STARTUP_AFTER",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "READINESS_OK",
+      "ok": true,
+      "detail": "{\"config\":{\"ok\":true},\"database\":{\"ok\":true,\"latencyMs\":13},\"optional_providers\":{\"ok\":true,\"detail\":\"excluded_from_readiness\"}}"
+    },
+    {
+      "id": "READINESS_SHUTDOWN",
+      "ok": true,
+      "detail": "\"shutting_down\""
+    },
+    {
+      "id": "HEALTHZ_HTTP",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "id": "RETRY_JITTER_BOUNDED",
+      "ok": true,
+      "detail": "attempts=2"
+    },
+    {
+      "id": "DOCKER_FROZEN_LOCKFILE",
+      "ok": true,
+      "detail": "frozen-lockfile enforced"
+    },
+    {
+      "id": "DR_NO_UNCONDITIONAL_SUCCESS",
+      "ok": true,
+      "detail": "evidence-driven DR"
+    },
+    {
+      "id": "FULL_BACKUP_NOT_STATS_ONLY",
+      "ok": true,
+      "detail": "pg_dump path wired"
+    }
+  ]
+}

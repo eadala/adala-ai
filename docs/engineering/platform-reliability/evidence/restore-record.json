@@ -1,0 +1,43 @@
+{
+  "outcome": "PASS",
+  "exitCode": 0,
+  "stages": [
+    {
+      "stage": "ARTIFACT_EXISTS",
+      "ok": true
+    },
+    {
+      "stage": "FORMAT",
+      "ok": true
+    },
+    {
+      "stage": "CHECKSUM",
+      "ok": true,
+      "detail": "f0dfba1ba9133cd4"
+    },
+    {
+      "stage": "CREATE_DB",
+      "ok": true
+    },
+    {
+      "stage": "RESTORE",
+      "ok": true,
+      "detail": "code=0"
+    },
+    {
+      "stage": "SCHEMA",
+      "ok": true,
+      "detail": "tables=1"
+    },
+    {
+      "stage": "INTEGRITY_MARKER",
+      "ok": true,
+      "detail": "adala-reliability-008"
+    },
+    {
+      "stage": "SMOKE_READ",
+      "ok": true
+    }
+  ],
+  "restoreDurationMs": 39
+}

@@ -32,6 +32,12 @@ import {
   clearTenantSessionFailClosed,
   setFailClosedTenantSession,
 } from "./lib/tenantSession";
+import {
+  livenessPayload,
+  readinessCheck,
+  startupPayload,
+  setReadinessOk,
+} from "./reliability/probes/readiness";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -45,11 +51,28 @@ if (process.env.SENTRY_DSN) {
 
 const app: Express = express();
 
-// ── Deployment healthcheck — MUST be first, no middleware ─────────────────
-// Coolify/Docker HEALTHCHECK and reverse-proxy probes use /api/healthz (and
-// /api/health → healthz). Keep /api and /api/ping for backwards compat.
-// All three bypass ALL middleware so they always respond immediately.
-app.get("/api/healthz", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
+// ── Probes — MUST be first, no middleware ─────────────────────────────────
+// Liveness (/api/healthz): process alive — no DB (Coolify HEALTHCHECK).
+// Readiness (/api/readyz): DB + startup complete + not shutting down.
+// Startup (/api/startupz): initialization gate.
+app.get("/api/healthz", (_req, res) => {
+  res.status(200).json({ ...livenessPayload(), status: "healthy" });
+});
+app.get("/api/startupz", (_req, res) => {
+  const p = startupPayload();
+  res.status(p.httpStatus).json(p);
+});
+app.get("/api/readyz", async (_req, res) => {
+  const r = await readinessCheck();
+  setReadinessOk(r.ok);
+  res.status(r.httpStatus).json({
+    ok: r.ok,
+    status: r.status,
+    probe: "readiness",
+    checks: r.checks,
+    ts: Date.now(),
+  });
+});
 app.get("/api", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api/ping", (_req, res) => res.status(200).json({ ok: true }));
 

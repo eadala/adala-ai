@@ -1,0 +1,73 @@
+{
+  "directive": "ADALA-PLATFORM-RELIABILITY-REMEDIATION-008",
+  "workflow": [
+    "PRECHECK",
+    "FAILURE_INJECTION",
+    "RECOVERY",
+    "VALIDATION",
+    "REPORT"
+  ],
+  "default_outcome": "NONE \u2014 PASS is never default",
+  "scenarios": [
+    {
+      "id": "missing_backup",
+      "outcome": "FAIL",
+      "evidence": "MISSING_BACKUP_FAIL in harness-report.json"
+    },
+    {
+      "id": "corrupted_backup",
+      "outcome": "FAIL",
+      "evidence": "CORRUPTED_BACKUP_REJECTION exit=5"
+    },
+    {
+      "id": "isolated_restore_success",
+      "outcome": "PASS",
+      "evidence": "ISOLATED_RESTORE ms=35"
+    },
+    {
+      "id": "unsafe_production_target",
+      "outcome": "FAIL",
+      "evidence": "UNSAFE_TARGET_REJECTED"
+    },
+    {
+      "id": "postgres_process_termination",
+      "outcome": "BLOCKED",
+      "reason": "requires privileged process kill in shared env"
+    },
+    {
+      "id": "application_restart",
+      "outcome": "BLOCKED",
+      "reason": "full process supervisor not available in harness"
+    },
+    {
+      "id": "db_connection_interruption",
+      "outcome": "PASS",
+      "evidence": "READINESS reflects DB; shutdown readiness fails"
+    },
+    {
+      "id": "object_storage_unavailability",
+      "outcome": "BLOCKED",
+      "reason": "no live object storage authorized; local artifact path used"
+    },
+    {
+      "id": "worker_restart",
+      "outcome": "BLOCKED",
+      "reason": "worker supervisor not in local harness scope"
+    },
+    {
+      "id": "failed_restore",
+      "outcome": "FAIL",
+      "evidence": "corrupt/missing produce FAIL nonzero exit"
+    },
+    {
+      "id": "recovery_validation_failure",
+      "outcome": "FAIL",
+      "evidence": "checksum mismatch rejects restore"
+    }
+  ],
+  "proposed_rpo_rto": {
+    "proposed_rpo": "24h for logical full dumps (approval required)",
+    "proposed_rto": "4h for disposable restore validation path (approval required)",
+    "achieved": "NOT CLAIMED \u2014 local harness only"
+  }
+}

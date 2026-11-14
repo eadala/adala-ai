@@ -51,3 +51,7 @@ replit.md
 .replit-artifact/
 .cache/
 .local/
+
+# Local reliability backup artifacts (never commit dumps)
+.adala-backups-test/
+**/.adala-backups-test/

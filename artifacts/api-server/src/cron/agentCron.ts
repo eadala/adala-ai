@@ -503,37 +503,92 @@ async function runTenantBackupCron(): Promise<void> {
 
 /**
  * runFullBackupCron — يومياً الساعة 02:30
- * لقطة إحصائية كاملة مشفّرة لكل النظام
+ * Real PostgreSQL logical backup (pg_dump -Fc). Stats-only artifacts are forbidden.
+ * Database-only — not a complete platform backup (objects/secrets separate).
  */
 async function runFullBackupCron(): Promise<void> {
   const t0 = Date.now();
   try {
-    if (!isObjectStorageConfigured()) {
-      logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخة الكاملة");
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      logger.error("[BackupCron] DATABASE_URL missing — full backup FAILED_CAPTURE");
       return;
     }
 
-    const [officeCount, caseCount, clientCount, invoiceCount] = await Promise.all([
-      sqlOne(sql`SELECT COUNT(*) AS c FROM office_registry`).then(r => Number(r.c ?? 0)),
-      sqlOne(sql`SELECT COUNT(*) AS c FROM cases`).then(r => Number(r.c ?? 0)),
-      sqlOne(sql`SELECT COUNT(*) AS c FROM clients`).then(r => Number(r.c ?? 0)),
-      sqlOne(sql`SELECT COUNT(*) AS c FROM client_invoices`).then(r => Number(r.c ?? 0)),
-    ]);
+    const { createLogicalBackup } = await import("../reliability/backup/pgDumpBackup");
+    const { recordBackupCompleted, incBackupMetric } = await import("../reliability/observability/backupMetrics");
+    incBackupMetric("backup_started");
 
-    const fullSnapshot = {
-      type: "full_system",
-      createdAt: new Date().toISOString(),
-      stats: { officeCount, caseCount, clientCount, invoiceCount },
-      version: "2.0-aes256",
-    };
+    const artifactDir =
+      process.env.ADALA_BACKUP_ARTIFACT_DIR ||
+      `${process.cwd()}/.adala-backups`;
 
-    const jsonBuffer = Buffer.from(JSON.stringify(fullSnapshot), "utf8");
-    const payload    = isEncryptionEnabled() ? encryptBuffer(jsonBuffer) : jsonBuffer;
-    const key        = fullBackupKey();
+    const upload = isObjectStorageConfigured()
+      ? async (localPath: string, meta: { id: string; checksum: string }) => {
+          const { readFileSync } = await import("node:fs");
+          const buf = readFileSync(localPath);
+          const key = fullBackupKey();
+          await uploadBackup(key, buf, "application/octet-stream");
+          return `${key}#sha256=${meta.checksum}`;
+        }
+      : undefined;
 
-    await uploadBackup(key, payload);
+    const record = await createLogicalBackup({
+      databaseUrl,
+      artifactDir,
+      upload,
+      label: "adala_full",
+    });
 
-    logger.info(`[BackupCron] ✅ نسخة كاملة: ${officeCount} مكتب، ${caseCount} قضية — ${key} — ${Date.now() - t0}ms`);
+    if (record.status !== "COMPLETED") {
+      incBackupMetric("backup_failed");
+      logger.error(
+        { status: record.status, error: record.error, stages: record.stages },
+        "[BackupCron] ❌ Full logical backup failed",
+      );
+      await sqlExec(sql`
+        INSERT INTO backup_jobs (office_id, file_name, size_bytes, status, backup_type, file_data)
+        VALUES (
+          'platform',
+          ${"full-failed-" + record.id},
+          ${record.sizeBytes ?? 0},
+          ${record.status},
+          'full_logical',
+          ${JSON.stringify({ id: record.id, error: record.error, stages: record.stages, note: "database_only" })}
+        )
+      `).catch(() => {});
+      return;
+    }
+
+    recordBackupCompleted(record.completedAt);
+    await sqlExec(sql`
+      INSERT INTO backup_jobs (office_id, file_name, size_bytes, status, backup_type, file_data)
+      VALUES (
+        'platform',
+        ${"full-" + record.id + ".dump"},
+        ${record.sizeBytes ?? 0},
+        'completed',
+        'full_logical',
+        ${JSON.stringify({
+          id: record.id,
+          checksumSha256: record.checksumSha256,
+          artifactPath: record.artifactPath,
+          stages: record.stages,
+          note: "database_only_not_full_platform_backup",
+          objectStorageUploaded: Boolean(upload),
+        })}
+      )
+    `).catch(() => {});
+
+    logger.info(
+      {
+        id: record.id,
+        bytes: record.sizeBytes,
+        checksum: record.checksumSha256?.slice(0, 16),
+        ms: Date.now() - t0,
+      },
+      "[BackupCron] ✅ Full logical backup COMPLETED",
+    );
   } catch (err) {
     logger.error({ err }, "[BackupCron] ❌ Full backup cron failed");
   }

@@ -167,6 +167,9 @@ process.on("unhandledRejection", (reason: unknown) => {
 
 process.on("SIGTERM", () => {
   logger.info("[SIGTERM] Graceful shutdown initiated");
+  import("./reliability/probes/readiness")
+    .then((m) => m.markShuttingDown())
+    .catch(() => {});
   // Allow in-flight requests ~10s to complete
   setTimeout(() => process.exit(0), 10_000);
 });
@@ -177,5 +180,8 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
+  import("./reliability/probes/readiness")
+    .then((m) => m.markStartupComplete())
+    .catch(() => {});
   logger.info({ port }, "Server listening");
 });

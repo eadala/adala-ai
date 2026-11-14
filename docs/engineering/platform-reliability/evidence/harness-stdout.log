@@ -1,0 +1,117 @@
+
+> @workspace/api-server@0.0.0 test:platform-reliability /workspace/artifacts/api-server
+> node --import tsx src/tests/runtime/platformReliabilityHarness.ts
+
+PASS BACKUP_CREATION: COMPLETED path=/workspace/.adala-backups-test/adala_full_bk_1794647569541_ha0zgv.dump bytes=1829
+PASS BACKUP_INTEGRITY: sha256=f0dfba1ba9133cd4
+PASS ISOLATED_RESTORE: outcome=PASS ms=39
+PASS RESTORED_DATA_VALIDATION: [{"stage":"INTEGRITY_MARKER","ok":true,"detail":"adala-reliability-008"}]
+PASS CORRUPTED_BACKUP_REJECTION: outcome=FAIL exit=5
+PASS MISSING_BACKUP_FAIL: outcome=FAIL
+PASS UNSAFE_TARGET_REJECTED: production_db rejected
+PASS LIVENESS: alive
+PASS STARTUP_BEFORE: starting
+PASS STARTUP_AFTER: ok
+(node:90337) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS READINESS_OK: {"config":{"ok":true},"database":{"ok":true,"latencyMs":13},"optional_providers":{"ok":true,"detail":"excluded_from_readiness"}}
+PASS READINESS_SHUTDOWN: "shutting_down"
+PASS HEALTHZ_HTTP: status=200
+[RetryEngine] jitter-test failed (attempt 1/3), retrying in 1ms…
+PASS RETRY_JITTER_BOUNDED: attempts=2
+PASS DOCKER_FROZEN_LOCKFILE: frozen-lockfile enforced
+PASS DR_NO_UNCONDITIONAL_SUCCESS: evidence-driven DR
+PASS FULL_BACKUP_NOT_STATS_ONLY: pg_dump path wired
+{
+  "suite": "platform-reliability-008",
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "id": "BACKUP_CREATION",
+      "ok": true,
+      "detail": "COMPLETED path=/workspace/.adala-backups-test/adala_full_bk_1794647569541_ha0zgv.dump bytes=1829"
+    },
+    {
+      "id": "BACKUP_INTEGRITY",
+      "ok": true,
+      "detail": "sha256=f0dfba1ba9133cd4"
+    },
+    {
+      "id": "ISOLATED_RESTORE",
+      "ok": true,
+      "detail": "outcome=PASS ms=39"
+    },
+    {
+      "id": "RESTORED_DATA_VALIDATION",
+      "ok": true,
+      "detail": "[{\"stage\":\"INTEGRITY_MARKER\",\"ok\":true,\"detail\":\"adala-reliability-008\"}]"
+    },
+    {
+      "id": "CORRUPTED_BACKUP_REJECTION",
+      "ok": true,
+      "detail": "outcome=FAIL exit=5"
+    },
+    {
+      "id": "MISSING_BACKUP_FAIL",
+      "ok": true,
+      "detail": "outcome=FAIL"
+    },
+    {
+      "id": "UNSAFE_TARGET_REJECTED",
+      "ok": true,
+      "detail": "production_db rejected"
+    },
+    {
+      "id": "LIVENESS",
+      "ok": true,
+      "detail": "alive"
+    },
+    {
+      "id": "STARTUP_BEFORE",
+      "ok": true,
+      "detail": "starting"
+    },
+    {
+      "id": "STARTUP_AFTER",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "READINESS_OK",
+      "ok": true,
+      "detail": "{\"config\":{\"ok\":true},\"database\":{\"ok\":true,\"latencyMs\":13},\"optional_providers\":{\"ok\":true,\"detail\":\"excluded_from_readiness\"}}"
+    },
+    {
+      "id": "READINESS_SHUTDOWN",
+      "ok": true,
+      "detail": "\"shutting_down\""
+    },
+    {
+      "id": "HEALTHZ_HTTP",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "id": "RETRY_JITTER_BOUNDED",
+      "ok": true,
+      "detail": "attempts=2"
+    },
+    {
+      "id": "DOCKER_FROZEN_LOCKFILE",
+      "ok": true,
+      "detail": "frozen-lockfile enforced"
+    },
+    {
+      "id": "DR_NO_UNCONDITIONAL_SUCCESS",
+      "ok": true,
+      "detail": "evidence-driven DR"
+    },
+    {
+      "id": "FULL_BACKUP_NOT_STATS_ONLY",
+      "ok": true,
+      "detail": "pg_dump path wired"
+    }
+  ]
+}
+PASS platform reliability harness

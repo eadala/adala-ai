@@ -1,0 +1,44 @@
+{
+  "id": "bk_1794647569541_ha0zgv",
+  "status": "COMPLETED",
+  "createdAt": "2026-11-14T09:12:49.541Z",
+  "stages": [
+    {
+      "stage": "SCHEDULED",
+      "at": "2026-11-14T09:12:49.542Z",
+      "ok": true
+    },
+    {
+      "stage": "RUNNING",
+      "at": "2026-11-14T09:12:49.542Z",
+      "ok": true
+    },
+    {
+      "stage": "CAPTURED",
+      "at": "2026-11-14T09:12:49.607Z",
+      "ok": true,
+      "detail": "bytes=1829"
+    },
+    {
+      "stage": "UPLOAD_SKIPPED_LOCAL",
+      "at": "2026-11-14T09:12:49.607Z",
+      "ok": true,
+      "detail": "local_artifact_only"
+    },
+    {
+      "stage": "VERIFIED",
+      "at": "2026-11-14T09:12:49.607Z",
+      "ok": true,
+      "detail": "f0dfba1ba9133cd4"
+    },
+    {
+      "stage": "COMPLETED",
+      "at": "2026-11-14T09:12:49.607Z",
+      "ok": true
+    }
+  ],
+  "artifactPath": "/workspace/.adala-backups-test/adala_full_bk_1794647569541_ha0zgv.dump",
+  "sizeBytes": 1829,
+  "checksumSha256": "f0dfba1ba9133cd4a3539301da54121515a169928db37ce9187d4fa8d81e6e1f",
+  "completedAt": "2026-11-14T09:12:49.607Z"
+}

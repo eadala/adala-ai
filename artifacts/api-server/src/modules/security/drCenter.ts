@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- DR center uses dynamic SQL row shapes */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -143,33 +144,115 @@ router.post("/dr/restore-points/:id/test", saGuard, async (req, res) => {
 
     const testResult = await simulateRestoreTest();
     const duration = Date.now() - start;
+    const status =
+      testResult.outcome === "PASS" ? "passed" :
+      testResult.outcome === "BLOCKED" ? "blocked" :
+      testResult.outcome === "NOT_RUN" ? "not_run" : "failed";
 
     await db.execute(sql`
-      UPDATE dr_test_runs SET status=${testResult.success ? 'passed' : 'failed'},
+      UPDATE dr_test_runs SET status=${status},
         result=${JSON.stringify(testResult)}::jsonb, duration_ms=${duration}, completed_at=NOW()
       WHERE id=${run?.id}
     `);
     await db.execute(sql`
-      UPDATE dr_restore_points SET test_status=${testResult.success ? 'passed' : 'failed'}, tested_at=NOW()
+      UPDATE dr_restore_points SET test_status=${status}, tested_at=NOW()
       WHERE id=${id}
     `);
 
-    await auditLog({ ...meta, action: "DR_TEST_RUN", resource: "dr_restore_points", resourceId: id, details: `Test ${testResult.success ? 'passed' : 'failed'}` });
-    res.json({ testRunId: run?.id, success: testResult.success, duration, result: testResult });
+    await auditLog({ ...meta, action: "DR_TEST_RUN", resource: "dr_restore_points", resourceId: id, details: `Test ${testResult.outcome}` });
+    res.json({
+      testRunId: run?.id,
+      success: testResult.success,
+      outcome: testResult.outcome,
+      duration,
+      result: testResult,
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-async function simulateRestoreTest(): Promise<{ success: boolean; steps: any[]; message: string }> {
-  const steps = [
-    { step: "verify_checksum", status: "passed", ms: 120 },
-    { step: "test_db_connection", status: "passed", ms: 45 },
-    { step: "verify_storage_access", status: "passed", ms: 200 },
-    { step: "simulate_table_restore", status: "passed", ms: 380 },
-    { step: "verify_data_integrity", status: "passed", ms: 90 },
-  ];
-  return { success: true, steps, message: "اختبار الاسترداد ناجح" };
+/**
+ * Evidence-driven DR workflow. Never defaults to PASS.
+ * Outcomes: PASS | FAIL | BLOCKED | NOT_RUN
+ */
+async function simulateRestoreTest(): Promise<{
+  success: boolean;
+  outcome: "PASS" | "FAIL" | "BLOCKED" | "NOT_RUN";
+  stages: string[];
+  steps: any[];
+  message: string;
+}> {
+  const stages: string[] = ["PRECHECK"];
+  const steps: any[] = [];
+
+  const artifactDir = process.env.ADALA_BACKUP_ARTIFACT_DIR;
+  const adminUrl = process.env.ADALA_RESTORE_ADMIN_URL || process.env.DATABASE_URL;
+  const restoreUrl = process.env.ADALA_RESTORE_DATABASE_URL;
+
+  if (!artifactDir || !restoreUrl || !adminUrl) {
+    stages.push("BLOCKED");
+    steps.push({ step: "precheck_env", status: "blocked", detail: "ADALA_BACKUP_ARTIFACT_DIR / ADALA_RESTORE_DATABASE_URL required" });
+    return {
+      success: false,
+      outcome: "BLOCKED",
+      stages,
+      steps,
+      message: "DR restore verification BLOCKED — disposable restore env not configured",
+    };
+  }
+
+  try {
+    const { listLocalBackups, verifyBackupChecksum } = await import("../../reliability/backup/pgDumpBackup");
+    const { verifyIsolatedRestore } = await import("../../reliability/dr/restoreVerify");
+    const { incBackupMetric, recordRestoreVerified } = await import("../../reliability/observability/backupMetrics");
+
+    const backups = listLocalBackups(artifactDir);
+    if (!backups.length) {
+      stages.push("FAILURE_INJECTION", "VALIDATION");
+      steps.push({ step: "select_backup", status: "failed", detail: "missing_backup" });
+      incBackupMetric("dr_fail");
+      return { success: false, outcome: "FAIL", stages, steps, message: "No local backup artifact" };
+    }
+
+    const artifactPath = backups[backups.length - 1];
+    stages.push("RECOVERY");
+    if (!verifyBackupChecksum(artifactPath)) {
+      steps.push({ step: "verify_checksum", status: "failed" });
+      incBackupMetric("dr_fail");
+      return { success: false, outcome: "FAIL", stages: [...stages, "VALIDATION"], steps, message: "Checksum/format verification failed" };
+    }
+    steps.push({ step: "verify_checksum", status: "passed" });
+
+    process.env.ADALA_RESTORE_ALLOW = "1";
+    const result = await verifyIsolatedRestore({
+      artifactPath,
+      restoreDatabaseUrl: restoreUrl,
+      adminDatabaseUrl: adminUrl,
+    });
+    stages.push("VALIDATION", "REPORT");
+    for (const s of result.stages) {
+      steps.push({ step: s.stage, status: s.ok ? "passed" : "failed", detail: s.detail });
+    }
+
+    if (result.outcome === "PASS") {
+      recordRestoreVerified(result.restoreDurationMs ?? 0);
+      incBackupMetric("dr_pass");
+      return { success: true, outcome: "PASS", stages, steps, message: "Isolated restore verified" };
+    }
+    incBackupMetric(result.outcome === "BLOCKED" ? "dr_blocked" : "dr_fail");
+    return {
+      success: false,
+      outcome: result.outcome,
+      stages,
+      steps,
+      message: result.error || "Restore verification failed",
+    };
+  } catch (e: any) {
+    stages.push("VALIDATION", "REPORT");
+    steps.push({ step: "exception", status: "failed", detail: e?.message });
+    return { success: false, outcome: "FAIL", stages, steps, message: e?.message || "DR test failed" };
+  }
 }
 
 router.get("/dr/dashboard", saGuard, async (_req, res) => {
