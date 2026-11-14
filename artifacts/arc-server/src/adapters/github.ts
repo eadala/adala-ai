@@ -1,34 +1,69 @@
 import type { GithubAdapter, GithubCheckSummary, GithubPrSummary } from "./types.js";
 import type { Observation } from "../lib/types.js";
+import { githubAllowOrigins, safeFetchJson } from "./httpSafe.js";
+import { redactSecrets } from "../lib/auditStore.js";
+
+const ALLOWED_REPOS = new Set(
+  (process.env.ARC_GITHUB_REPO_ALLOWLIST ?? "eadala/adala-ai")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+const API = "https://api.github.com";
+
+export type GithubObservationMeta = {
+  source: string;
+  retrievalTimestamp: string;
+  sourceIdentifier: string;
+  verificationStatus: Observation<unknown>["state"];
+  commitSha: string | null;
+  cacheAgeMs: number;
+};
 
 /**
  * GitHub read-only adapter.
- * Default: fixture data reflecting last known public API observations.
- * Optional: ARC_GITHUB_TOKEN for live reads (never exposed to browser).
+ * Prefer fixture when ARC_GITHUB_MODE=fixture (default Phase 2B).
+ * Live reads only with token + allowlisted repo; never mutates.
  */
 export class GithubReadAdapter implements GithubAdapter {
   readonly name = "github";
+  private mode: "fixture" | "live";
+
+  constructor() {
+    this.mode =
+      (process.env.ARC_GITHUB_MODE ?? "fixture").toLowerCase() === "live"
+        ? "live"
+        : "fixture";
+  }
+
+  /** Explicit: no mutation surface */
+  assertReadOnly(): void {
+    /* Intentionally empty — class has no deploy/mutate methods */
+  }
 
   async getRepository(): Promise<
     Observation<{ fullName: string; defaultBranch: string; allowAutoMerge: boolean }>
   > {
-    const live = await this.tryFetch("https://api.github.com/repos/eadala/adala-ai");
-    if (live.ok) {
-      const j = live.json as {
-        full_name: string;
-        default_branch: string;
-        allow_auto_merge: boolean;
-      };
-      return {
-        value: {
-          fullName: j.full_name,
-          defaultBranch: j.default_branch,
-          allowAutoMerge: !!j.allow_auto_merge,
-        },
-        state: "VERIFIED",
-        source: "github-api",
-        observedAt: new Date().toISOString(),
-      };
+    if (this.mode === "live" && ALLOWED_REPOS.has("eadala/adala-ai")) {
+      const live = await this.apiGet(`/repos/eadala/adala-ai`);
+      if (live.ok) {
+        const j = live.json as {
+          full_name: string;
+          default_branch: string;
+          allow_auto_merge: boolean;
+        };
+        return {
+          value: {
+            fullName: j.full_name,
+            defaultBranch: j.default_branch,
+            allowAutoMerge: !!j.allow_auto_merge,
+          },
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
     }
     return {
       value: {
@@ -39,7 +74,7 @@ export class GithubReadAdapter implements GithubAdapter {
       state: "UNVERIFIED",
       source: "github-fixture",
       observedAt: new Date().toISOString(),
-      note: live.error,
+      note: "Fixture metadata — not live production evidence",
     };
   }
 
@@ -48,32 +83,32 @@ export class GithubReadAdapter implements GithubAdapter {
   ): Promise<
     Observation<{ protected: boolean; requiredChecks: string[]; enforcement: string }>
   > {
-    /* Public branch endpoint often returns protection summary without admin token */
-    const live = await this.tryFetch(
-      `https://api.github.com/repos/eadala/adala-ai/branches/${encodeURIComponent(branch)}`,
-    );
-    if (live.ok) {
-      const j = live.json as {
-        protected?: boolean;
-        protection?: {
-          enabled?: boolean;
-          required_status_checks?: {
-            contexts?: string[];
-            enforcement_level?: string;
+    if (this.mode === "live") {
+      const live = await this.apiGet(
+        `/repos/eadala/adala-ai/branches/${encodeURIComponent(branch)}`,
+      );
+      if (live.ok) {
+        const j = live.json as {
+          protected?: boolean;
+          protection?: {
+            required_status_checks?: {
+              contexts?: string[];
+              enforcement_level?: string;
+            };
           };
         };
-      };
-      const contexts = j.protection?.required_status_checks?.contexts ?? [];
-      return {
-        value: {
-          protected: !!j.protected,
-          requiredChecks: contexts,
-          enforcement: j.protection?.required_status_checks?.enforcement_level ?? "unknown",
-        },
-        state: "VERIFIED",
-        source: "github-api",
-        observedAt: new Date().toISOString(),
-      };
+        return {
+          value: {
+            protected: !!j.protected,
+            requiredChecks: j.protection?.required_status_checks?.contexts ?? [],
+            enforcement:
+              j.protection?.required_status_checks?.enforcement_level ?? "unknown",
+          },
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
     }
     if (branch === "develop") {
       return {
@@ -90,96 +125,180 @@ export class GithubReadAdapter implements GithubAdapter {
         state: "UNVERIFIED",
         source: "github-fixture",
         observedAt: new Date().toISOString(),
-        note: live.error,
       };
     }
     return {
-      value: {
-        protected: true,
-        requiredChecks: [],
-        enforcement: "non_admins",
-      },
+      value: { protected: true, requiredChecks: [], enforcement: "non_admins" },
       state: "UNVERIFIED",
       source: "github-fixture",
       observedAt: new Date().toISOString(),
-      note: live.error,
     };
   }
 
   async listOpenPullRequests(): Promise<Observation<GithubPrSummary[]>> {
-    const live = await this.tryFetch(
-      "https://api.github.com/repos/eadala/adala-ai/pulls?state=open&per_page=20",
-    );
-    if (live.ok && Array.isArray(live.json)) {
-      const value = (live.json as Array<Record<string, unknown>>).map((p) => ({
-        number: p.number as number,
-        title: p.title as string,
-        state: p.state as string,
-        merged: false,
-        headSha: (p.head as { sha: string }).sha,
-        baseRef: (p.base as { ref: string }).ref,
-      }));
-      return {
-        value,
-        state: "VERIFIED",
-        source: "github-api",
-        observedAt: new Date().toISOString(),
-      };
+    if (this.mode === "live") {
+      const live = await this.apiGet(`/repos/eadala/adala-ai/pulls?state=open&per_page=20`);
+      if (live.ok && Array.isArray(live.json)) {
+        const value = (live.json as Array<Record<string, unknown>>).map((p) => ({
+          number: p.number as number,
+          title: p.title as string,
+          state: p.state as string,
+          merged: false,
+          headSha: (p.head as { sha: string }).sha,
+          baseRef: (p.base as { ref: string }).ref,
+        }));
+        return {
+          value,
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
     }
     return {
-      value: [],
+      value: [
+        {
+          number: 9999,
+          title: "[fixture] ARC Phase 2B",
+          state: "open",
+          merged: false,
+          headSha: "df7a79eb9ad7bceb20831282a71659e43c7515a6",
+          baseRef: "main",
+        },
+      ],
       state: "UNVERIFIED",
       source: "github-fixture",
       observedAt: new Date().toISOString(),
-      note: live.ok ? "unexpected payload" : live.error,
+      note: "Fixture PR list",
     };
   }
 
   async getCommitStatus(sha: string): Promise<Observation<GithubCheckSummary[]>> {
-    const live = await this.tryFetch(
-      `https://api.github.com/repos/eadala/adala-ai/commits/${encodeURIComponent(sha)}/check-runs?per_page=20`,
-    );
-    if (live.ok) {
-      const runs = (live.json as { check_runs?: Array<Record<string, unknown>> }).check_runs ?? [];
-      const value = runs.map((r) => ({
-        name: String(r.name),
-        status: String(r.status),
-        conclusion: r.conclusion == null ? null : String(r.conclusion),
-      }));
-      return {
-        value,
-        state: "VERIFIED",
-        source: "github-api",
-        observedAt: new Date().toISOString(),
-      };
+    if (this.mode === "live") {
+      const live = await this.apiGet(
+        `/repos/eadala/adala-ai/commits/${encodeURIComponent(sha)}/check-runs?per_page=20`,
+      );
+      if (live.ok) {
+        const runs =
+          (live.json as { check_runs?: Array<Record<string, unknown>> }).check_runs ?? [];
+        return {
+          value: runs.map((r) => ({
+            name: String(r.name),
+            status: String(r.status),
+            conclusion: r.conclusion == null ? null : String(r.conclusion),
+          })),
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
     }
     return {
-      value: [],
+      value: [
+        { name: "Gate 1 — TypeScript", status: "completed", conclusion: "success" },
+        { name: "Gate 4 — Security Scan", status: "completed", conclusion: "success" },
+      ],
       state: "UNVERIFIED",
       source: "github-fixture",
       observedAt: new Date().toISOString(),
-      note: `No CI checks loaded for ${sha.slice(0, 8)}: ${live.ok ? "" : live.error}`,
+      note: `Fixture checks for ${sha.slice(0, 8)} — workflow success ≠ release approval`,
     };
   }
 
-  private async tryFetch(
-    url: string,
-  ): Promise<{ ok: true; json: unknown } | { ok: false; error: string }> {
-    try {
-      const headers: Record<string, string> = {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "adalah-arc-phase1",
-      };
-      const token = process.env.ARC_GITHUB_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim();
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
-      if (!res.ok) {
-        return { ok: false, error: `HTTP ${res.status}` };
+  async getReleaseMetadata(tag?: string): Promise<
+    Observation<{ tag: string; draft: boolean; prerelease: boolean; targetCommitish: string }>
+  > {
+    if (this.mode === "live") {
+      const path = tag
+        ? `/repos/eadala/adala-ai/releases/tags/${encodeURIComponent(tag)}`
+        : `/repos/eadala/adala-ai/releases?per_page=1`;
+      const live = await this.apiGet(path);
+      if (live.ok) {
+        const j = Array.isArray(live.json) ? live.json[0] : live.json;
+        if (j && typeof j === "object") {
+          const r = j as Record<string, unknown>;
+          return {
+            value: {
+              tag: String(r.tag_name),
+              draft: !!r.draft,
+              prerelease: !!r.prerelease,
+              targetCommitish: String(r.target_commitish),
+            },
+            state: "VERIFIED",
+            source: "github-api",
+            observedAt: new Date().toISOString(),
+          };
+        }
       }
-      return { ok: true, json: await res.json() };
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : "fetch failed" };
     }
+    return {
+      value: null,
+      state: "UNVERIFIED",
+      source: "github-fixture",
+      observedAt: new Date().toISOString(),
+      note: "No release tag in fixture — UNVERIFIED",
+    };
+  }
+
+  async getPullRequestReviews(prNumber: number): Promise<
+    Observation<Array<{ user: string; state: string }>>
+  > {
+    if (this.mode === "live") {
+      const live = await this.apiGet(
+        `/repos/eadala/adala-ai/pulls/${prNumber}/reviews?per_page=20`,
+      );
+      if (live.ok && Array.isArray(live.json)) {
+        return {
+          value: (live.json as Array<Record<string, unknown>>).map((r) => ({
+            user: String((r.user as { login?: string })?.login ?? "unknown"),
+            state: String(r.state),
+          })),
+          state: "VERIFIED",
+          source: "github-api",
+          observedAt: new Date().toISOString(),
+        };
+      }
+    }
+    return {
+      value: [{ user: "fixture-reviewer", state: "APPROVED" }],
+      state: "UNVERIFIED",
+      source: "github-fixture",
+      observedAt: new Date().toISOString(),
+      note: "Human review fixture — distinct from workflow success",
+    };
+  }
+
+  /** SSRF probe helper for tests */
+  async probeUrl(url: string): Promise<{ allowed: boolean; error?: string }> {
+    const r = await safeFetchJson(url, {
+      allowOrigins: githubAllowOrigins(),
+      timeoutMs: 2000,
+    });
+    if (!r.ok) return { allowed: false, error: r.error };
+    return { allowed: true };
+  }
+
+  private async apiGet(
+    path: string,
+  ): Promise<{ ok: true; json: unknown } | { ok: false; error: string }> {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "adalah-arc-phase2b",
+    };
+    const token = process.env.ARC_GITHUB_TOKEN?.trim();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const r = await safeFetchJson(`${API}${path}`, {
+      allowOrigins: githubAllowOrigins(),
+      headers,
+      timeoutMs: 8000,
+    });
+    if (!r.ok) {
+      return { ok: false, error: String(redactSecrets(r.error)) };
+    }
+    if (r.status === 401 || r.status === 403) {
+      return { ok: false, error: `auth_or_permission_${r.status}` };
+    }
+    return { ok: true, json: r.json };
   }
 }
 

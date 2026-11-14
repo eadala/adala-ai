@@ -9,27 +9,37 @@ import {
   validateApprovalAttempt,
   POLICY_VERSION,
 } from "../policy/engine.js";
-import { issueDevCredential, isProductionConfig } from "../lib/identity.js";
+import { issueDevCredential, isProductionConfig, allowDevHmac } from "../lib/identity.js";
+import { issueFixtureAccessToken } from "../lib/oidc.js";
+import { classifyObservation, correlateIncident, resultFromProbe } from "../lib/monitoring.js";
+import {
+  evaluateEvidenceSet,
+  makeEvidence,
+  releaseIdentityOf,
+  approvalStillValid,
+} from "../lib/evidence.js";
 import type { Approval, ApprovalRequest } from "../lib/types.js";
 
 export const apiRouter = Router();
 
-/** Permanent Phase 2A: execution disabled regardless of env */
+/** Permanent Phase 2B: execution disabled regardless of env / role */
 const DEPLOY_EXECUTION_ENABLED = false;
 
 apiRouter.get("/healthz", (_req, res) => {
   res.json({
     ok: true,
     service: "arc-server",
-    phase: "2A",
+    phase: "2B",
     deploymentExecutionEnabled: DEPLOY_EXECUTION_ENABLED,
     policyVersion: POLICY_VERSION,
     productionConfig: isProductionConfig(),
+    oidcMode: process.env.ARC_OIDC_MODE ?? "fixture",
+    liveOidc: "UNVERIFIED",
     ts: new Date().toISOString(),
   });
 });
 
-/** Local/test credential issuer — blocked when ARC_ENV=production */
+/** Local/test HMAC credential issuer — blocked when ARC_ENV=production */
 apiRouter.post("/dev/issue-token", (req, res) => {
   if (isProductionConfig()) {
     res.status(403).json({
@@ -37,6 +47,10 @@ apiRouter.post("/dev/issue-token", (req, res) => {
       reason: "production_blocks_dev_issuer",
       message: "Development identity issuer disabled in production configuration",
     });
+    return;
+  }
+  if (!allowDevHmac()) {
+    res.status(403).json({ error: "forbidden", reason: "hmac_disabled" });
     return;
   }
   const operatorId = String(req.body?.operatorId ?? "");
@@ -57,8 +71,45 @@ apiRouter.post("/dev/issue-token", (req, res) => {
   res.status(201).json({
     tokenType: "Bearer",
     accessToken: issued.token,
+    identitySource: "hmac_dev",
     note: "Role is server-bound; do not send X-ARC-Role",
   });
+});
+
+/** Local OIDC fixture issuer — never for production */
+apiRouter.post("/dev/issue-oidc-token", async (req, res) => {
+  if (isProductionConfig()) {
+    res.status(403).json({
+      error: "forbidden",
+      reason: "production_blocks_dev_issuer",
+    });
+    return;
+  }
+  const operatorId = String(req.body?.operatorId ?? "owner");
+  try {
+    const token = await issueFixtureAccessToken(operatorId);
+    store.appendAudit({
+      actor: "dev-issuer",
+      action: "identity.issue_oidc_fixture",
+      target: operatorId,
+      requestId: asAuthed(req).requestId,
+      previousState: null,
+      newState: "issued",
+      evidenceReference: null,
+    });
+    res.status(201).json({
+      tokenType: "Bearer",
+      accessToken: token,
+      identitySource: "oidc_fixture",
+      liveIntegration: "UNVERIFIED",
+      note: "Fixture JWT — live OIDC UNVERIFIED in Phase 2B",
+    });
+  } catch (e) {
+    res.status(500).json({
+      error: "oidc_fixture_failed",
+      message: e instanceof Error ? e.message : "unknown",
+    });
+  }
 });
 
 apiRouter.get("/overview", async (_req, res) => {
@@ -391,7 +442,7 @@ apiRouter.post(
     res.status(403).json({
       error: "deployment_disabled",
       message:
-        "Production deployment execution is permanently disabled in Phase 2A for all roles including platform_owner.",
+        "Production deployment execution is permanently disabled in Phase 2B for all roles including platform_owner.",
     });
   },
 );
@@ -409,6 +460,7 @@ apiRouter.post(
       previousState: null,
       newState: "requested",
       evidenceReference: null,
+      critical: true,
     });
     res.status(202).json({
       accepted: true,
@@ -417,3 +469,166 @@ apiRouter.post(
     });
   },
 );
+
+apiRouter.get("/monitoring/classified", (_req, res) => {
+  const checks = store.monitoring.map((m) => classifyObservation(m));
+  const incident = correlateIncident(checks, 5 * 60 * 1000, store.incidents);
+  res.json({
+    checks,
+    timeoutNeverHealthy: resultFromProbe({ timedOut: true }) === "unknown",
+    correlatedIncident: incident,
+  });
+});
+
+apiRouter.get("/evidence/:releaseId", (req, res) => {
+  const release = store.releases.find((r) => r.id === req.params.releaseId);
+  if (!release) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const subject = releaseIdentityOf(release, POLICY_VERSION);
+  const records = [
+    makeEvidence({
+      evidenceType: "source_integrity",
+      source: "arc-release-inventory",
+      subjectIdentity: subject,
+      verificationMethod: "commit_and_tree_sha_format",
+      observationTime: new Date().toISOString(),
+      expirationTime: null,
+      verificationResult:
+        /^[0-9a-f]{40}$/i.test(release.commitSha) && /^[0-9a-f]{40}$/i.test(release.treeSha)
+          ? "PASS"
+          : "FAIL",
+      failureReason: null,
+    }),
+    makeEvidence({
+      evidenceType: "build_integrity",
+      source: "github-fixture",
+      subjectIdentity: subject,
+      verificationMethod: "artifact_digest_presence",
+      observationTime: new Date().toISOString(),
+      expirationTime: null,
+      verificationResult: release.imageDigest ? "PASS" : "UNVERIFIED",
+      failureReason: release.imageDigest ? null : "missing_digest",
+    }),
+    makeEvidence({
+      evidenceType: "human_review",
+      source: "arc-approvals",
+      subjectIdentity: subject,
+      verificationMethod: "independent_reviewer_binding",
+      observationTime: new Date().toISOString(),
+      expirationTime: null,
+      verificationResult: "NOT_RUN",
+      failureReason: "no_independent_approval_yet",
+    }),
+  ];
+  const evaluation = evaluateEvidenceSet(records, [
+    "source_integrity",
+    "build_integrity",
+    "human_review",
+    "backup_readiness",
+    "restore_readiness",
+  ]);
+  const binding = approvalStillValid({
+    bound: subject,
+    current: subject,
+    evidenceExpired: evaluation.expired.length > 0,
+    reviewerRevoked: false,
+  });
+  res.json({
+    releaseIdentity: subject,
+    evidence: records,
+    evaluation,
+    approvalBinding: binding,
+    note: "Missing mandatory evidence blocks release authorization",
+  });
+});
+
+apiRouter.get(
+  "/audit/integrity",
+  requireAuth,
+  requirePermission("audit:read"),
+  (_req, res) => {
+    const result = store.verifyAuditIntegrity();
+    res.json({
+      ...result,
+      wormClaim: false,
+      limitation:
+        "Database administrators can still tamper; app enforces append-only + hash chain detection",
+      durablePath: store.durable.dbPath,
+    });
+  },
+);
+
+apiRouter.get("/github/releases", async (_req, res) => {
+  res.json(await githubAdapter.getReleaseMetadata());
+});
+
+apiRouter.get("/github/pulls/:number/reviews", async (req, res) => {
+  res.json(await githubAdapter.getPullRequestReviews(Number(req.params.number)));
+});
+
+apiRouter.get("/coolify/applications/:id/environment", async (req, res) => {
+  res.json(await coolifyAdapter.getEnvironmentMetadata(req.params.id));
+});
+
+apiRouter.get("/coolify/applications/:id/image", async (req, res) => {
+  res.json(await coolifyAdapter.getImageInfo(req.params.id));
+});
+
+/** Webhook-triggered deployment denial */
+apiRouter.post("/webhooks/deploy", (req, res) => {
+  store.appendAudit({
+    actor: "webhook",
+    action: "deployment.webhook.denied",
+    target: String(req.body?.releaseId ?? "unknown"),
+    requestId: asAuthed(req).requestId,
+    previousState: null,
+    newState: "denied",
+    evidenceReference: "INV-001",
+    critical: true,
+  });
+  res.status(403).json({
+    error: "deployment_disabled",
+    message: "Webhook-triggered deployment is denied in Phase 2B",
+  });
+});
+
+/** Background job execution denial */
+apiRouter.post(
+  "/jobs/deploy",
+  requireAuth,
+  (req, res) => {
+    store.appendAudit({
+      actor: asAuthed(req).operator?.id ?? "anonymous",
+      action: "deployment.job.denied",
+      target: "jobs/deploy",
+      requestId: asAuthed(req).requestId,
+      previousState: null,
+      newState: "denied",
+      evidenceReference: "INV-001",
+      critical: true,
+    });
+    res.status(403).json({
+      error: "deployment_disabled",
+      message: "Background deployment jobs are disabled",
+    });
+  },
+);
+
+apiRouter.post("/internal/execute-deploy", requireAuth, (req, res) => {
+  store.appendAudit({
+    actor: asAuthed(req).operator!.id,
+    action: "deployment.internal.denied",
+    target: "internal/execute-deploy",
+    requestId: asAuthed(req).requestId,
+    previousState: null,
+    newState: "denied",
+    evidenceReference: "INV-001",
+    critical: true,
+  });
+  res.status(403).json({
+    error: "deployment_disabled",
+    message: "Internal service deployment execution denied",
+  });
+});

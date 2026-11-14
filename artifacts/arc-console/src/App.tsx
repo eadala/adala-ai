@@ -5,17 +5,17 @@ import { Badge } from "./components/Badge";
 
 const NAV = [
   ["/", "Executive Overview"],
-  ["/applications", "Applications"],
-  ["/releases", "Releases"],
+  ["/applications", "Applications & Environments"],
+  ["/releases", "Release Inventory"],
   ["/compare", "Release Comparison"],
   ["/gates", "Security Gates"],
   ["/approvals", "Approval Center"],
-  ["/deployments", "Deployment History"],
-  ["/monitoring", "Monitoring"],
-  ["/incidents", "Incidents"],
-  ["/backup", "Backup Readiness"],
+  ["/github", "GitHub Integration"],
+  ["/coolify", "Coolify Integration"],
+  ["/monitoring", "Monitoring & Incidents"],
+  ["/backup", "Backup & Restore Evidence"],
   ["/audit", "Audit Trail"],
-  ["/settings", "Settings"],
+  ["/settings", "Operator Access & Settings"],
 ] as const;
 
 function Shell({ children }: { children: ReactNode }) {
@@ -25,7 +25,7 @@ function Shell({ children }: { children: ReactNode }) {
     <div className="shell" dir={dir}>
       <aside className="nav">
         <h1 className="brand">Adalah Release Control</h1>
-        <div className="brand-sub">ARC · Phase 1 read-only MVP</div>
+        <div className="brand-sub">ARC · Phase 2B trusted control plane</div>
         {NAV.map(([href, label]) => (
           <Link key={href} href={href} className={loc === href ? "active" : ""}>
             {label}
@@ -298,13 +298,15 @@ function ApprovalsPage() {
         disabled.
       </p>
       <div className="banner">
-        Phase 1 UI is read-oriented. Use authenticated API to request/decide approvals in tests.
+        Deployment execution DISABLED for every role. Platform Owner cannot bypass independent
+        review. Mock vs verified data is labeled on every observation.
       </div>
       <div className="card stack">
-        <div>1. Request deployment review (release_manager)</div>
-        <div>2. Independent reviewer approves bound SHA + digest</div>
-        <div>3. Production operator executes only when kill-switch + all gates PASS</div>
-        <div>4. Material SHA/digest change invalidates prior approval</div>
+        <div>1. Request deployment review (release_manager) — artifact-bound</div>
+        <div>2. Independent reviewer approves bound SHA + digest (not Platform Owner)</div>
+        <div>3. AI agents may summarize evidence only — never approve</div>
+        <div>4. Digest/env/policy/evidence change invalidates prior approval</div>
+        <div>5. No production deploy controls in this console</div>
       </div>
     </>
   );
@@ -358,34 +360,34 @@ export function App() {
         <Route path="/compare" component={ComparePage} />
         <Route path="/gates" component={GatesPage} />
         <Route path="/approvals" component={ApprovalsPage} />
-        <Route path="/deployments">
+        <Route path="/github">
           <SimpleListPage
-            title="Deployment History"
-            lead="Coolify mock history — live digest UNVERIFIED."
-            path="/coolify/applications/coolify-app-adala-mock/deployments"
+            title="GitHub Integration"
+            lead="Read-only repository/PR/check observations. Fixture ≠ live verified evidence."
+            path="/github/repository"
+            render={(d) => <pre className="mono">{JSON.stringify(d, null, 2)}</pre>}
+          />
+        </Route>
+        <Route path="/coolify">
+          <SimpleListPage
+            title="Coolify Integration"
+            lead="Mock Coolify only in Phase 2B — production connection blocked. executeDeploy=false."
+            path="/coolify/applications"
             render={(d) => <pre className="mono">{JSON.stringify(d, null, 2)}</pre>}
           />
         </Route>
         <Route path="/monitoring">
           <SimpleListPage
-            title="Monitoring"
-            lead="Read-only observations with explicit evidence states."
-            path="/monitoring"
-            render={(d) => <pre className="mono">{JSON.stringify(d, null, 2)}</pre>}
-          />
-        </Route>
-        <Route path="/incidents">
-          <SimpleListPage
-            title="Incidents"
-            lead="Pre-existing production defects tracked separately from RC."
-            path="/incidents"
+            title="Monitoring & Incidents"
+            lead="Healthy / degraded / failed / unknown / stale — timeouts never become healthy."
+            path="/monitoring/classified"
             render={(d) => <pre className="mono">{JSON.stringify(d, null, 2)}</pre>}
           />
         </Route>
         <Route path="/backup">
           <SimpleListPage
-            title="Backup Readiness"
-            lead="Schedule ≠ restore proof."
+            title="Backup & Restore Evidence"
+            lead="Schedule ≠ restore proof. Readiness gates remain fail-closed when UNVERIFIED."
             path="/backup"
             render={(d) => <pre className="mono">{JSON.stringify(d, null, 2)}</pre>}
           />
@@ -393,8 +395,14 @@ export function App() {
         <Route path="/audit">
           <div>
             <h2 className="page-title">Audit Trail</h2>
-            <p className="page-lead">Append-only events. Requires operator auth (auditor role).</p>
-            <div className="banner">Open via API with X-ARC-* headers in Phase 1.</div>
+            <p className="page-lead">
+              Append-only JSONL + SQLite hash chain. Requires Bearer identity (auditor). No
+              X-ARC-Role.
+            </p>
+            <div className="banner">
+              Not WORM — DB admin tampering detectable via chain verify, not prevented at OS
+              level.
+            </div>
           </div>
         </Route>
         <Route path="/settings" component={SettingsPage} />

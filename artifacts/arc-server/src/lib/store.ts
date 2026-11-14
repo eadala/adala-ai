@@ -13,15 +13,22 @@ import type {
   ReleaseRecord,
 } from "./types.js";
 import { seedData } from "../fixtures/seed.js";
+import { DurableAuditStore } from "./auditStore.js";
 
 function defaultAuditPath(): string {
   return resolve(
     process.env.ARC_AUDIT_PATH?.trim() ||
-      resolve(process.cwd(), "data", "audit.jsonl"),
+      resolve(process.cwd(), "data", `audit.${process.pid}.jsonl`),
   );
 }
 
-/** In-memory Phase 1 store + durable append-only audit JSONL */
+function defaultAuditDbPath(jsonlPath: string): string {
+  if (process.env.ARC_AUDIT_DB?.trim()) return resolve(process.env.ARC_AUDIT_DB.trim());
+  if (jsonlPath.endsWith(".jsonl")) return jsonlPath.replace(/\.jsonl$/, `.${process.pid}.sqlite`);
+  return resolve(process.cwd(), "data", `arc-audit.${process.pid}.sqlite`);
+}
+
+/** In-memory domain store + durable JSONL + SQLite hash-chained audit */
 export class ArcStore {
   environments: EnvironmentRecord[] = [];
   applications: ApplicationRecord[] = [];
@@ -33,11 +40,15 @@ export class ArcStore {
   monitoring: MonitoringObservation[] = [];
   backupAttestations: BackupAttestation[] = [];
   readonly auditPath: string;
-  /** Technical limitation: file append-only, not cryptographic WORM */
-  readonly auditIntegrityEnforced = false;
+  readonly durable: DurableAuditStore;
+  /** Hash-chain integrity enforced in SQLite store */
+  readonly auditIntegrityEnforced = true;
+  /** When true, security-critical mutations fail if durable append fails */
+  failClosedOnAudit = true;
 
-  constructor(auditPath?: string) {
+  constructor(auditPath?: string, auditDbPath?: string) {
     this.auditPath = auditPath ?? defaultAuditPath();
+    this.durable = new DurableAuditStore(auditDbPath ?? defaultAuditDbPath(this.auditPath));
     const s = seedData();
     this.environments = s.environments;
     this.applications = s.applications;
@@ -65,7 +76,17 @@ export class ArcStore {
     }
   }
 
-  appendAudit(event: Omit<AuditEvent, "id" | "timestamp"> & { timestamp?: string }): AuditEvent {
+  appendAudit(
+    event: Omit<AuditEvent, "id" | "timestamp"> & {
+      timestamp?: string;
+      outcome?: string;
+      actorType?: string;
+      environment?: string;
+      releaseId?: string | null;
+      metadata?: unknown;
+      critical?: boolean;
+    },
+  ): AuditEvent {
     const full: AuditEvent = {
       id: randomUUID(),
       timestamp: event.timestamp ?? new Date().toISOString(),
@@ -80,15 +101,43 @@ export class ArcStore {
     this.auditEvents.push(full);
     try {
       mkdirSync(dirname(this.auditPath), { recursive: true });
-      appendFileSync(this.auditPath, `${JSON.stringify(full)}\n`, { encoding: "utf8", mode: 0o600 });
+      appendFileSync(this.auditPath, `${JSON.stringify(full)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
     } catch (e) {
-      /* Durability failure is logged to stderr; event still in memory */
       console.error(
         JSON.stringify({
-          msg: "audit_persist_failed",
+          msg: "audit_jsonl_persist_failed",
           error: e instanceof Error ? e.message : "unknown",
         }),
       );
+    }
+    try {
+      this.durable.append({
+        id: full.id,
+        actorId: full.actor,
+        actorType: event.actorType ?? "operator",
+        action: full.action,
+        resource: full.target,
+        requestCorrelationId: full.requestId,
+        outcome: event.outcome ?? full.newState ?? "recorded",
+        releaseId: event.releaseId ?? null,
+        environment: event.environment,
+        metadata: event.metadata ?? {
+          previousState: full.previousState,
+          newState: full.newState,
+          evidenceReference: full.evidenceReference,
+        },
+        timestamp: full.timestamp,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown";
+      console.error(JSON.stringify({ msg: "audit_durable_persist_failed", error: msg }));
+      /* Fail-closed only for explicit critical successful state changes — not auth denials */
+      if (this.failClosedOnAudit && event.critical === true) {
+        throw new Error(`audit_fail_closed:${msg}`);
+      }
     }
     return full;
   }
@@ -97,7 +146,10 @@ export class ArcStore {
     return this.auditEvents;
   }
 
-  /** No public API to mutate/delete audit — enforce in routes */
+  verifyAuditIntegrity(): { ok: boolean; brokenAt?: number; reason?: string } {
+    return this.durable.verifyChain();
+  }
+
   attemptAuditMutation(): never {
     throw new Error("audit_mutation_forbidden");
   }

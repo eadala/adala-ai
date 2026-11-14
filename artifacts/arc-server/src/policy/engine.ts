@@ -10,7 +10,7 @@ import type {
 } from "../lib/types.js";
 import { isAiAgent, isIndependentReviewer } from "../lib/auth.js";
 
-export const POLICY_VERSION = "arc-policy-v1-phase1";
+export const POLICY_VERSION = "arc-policy-v2-phase2b";
 
 export type PolicyInput = {
   release: ReleaseRecord;
@@ -300,17 +300,15 @@ export function validateApprovalAttempt(attempt: ApprovalAttempt): {
     return { ok: false, reason: "AI agents cannot act as independent reviewers or approvers" };
   }
   if (attempt.decision === "approve") {
-    if (!isIndependentReviewer(attempt.actorRole) && attempt.actorRole !== "platform_owner") {
-      /* Phase 1: independent_reviewer required for independent-review gate;
-         platform_owner may request but self-approval of own release rejected below */
-    }
     if (attempt.actorId === attempt.releaseAuthorId) {
       return { ok: false, reason: "self-approval rejected (separation of duties)" };
     }
-    if (attempt.decision === "approve" && !isIndependentReviewer(attempt.actorRole)) {
+    /* INV-008: Platform Owner cannot satisfy independent human approval */
+    if (!isIndependentReviewer(attempt.actorRole)) {
       return {
         ok: false,
-        reason: "independent_reviewer role required for approval grant in Phase 1",
+        reason:
+          "independent_reviewer role required for approval grant (platform_owner cannot bypass)",
       };
     }
   }

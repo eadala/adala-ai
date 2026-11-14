@@ -35,7 +35,7 @@ export function createApp() {
       });
       return;
     }
-    res.setHeader("X-ARC-Phase", "2A");
+    res.setHeader("X-ARC-Phase", "2B");
     res.setHeader("X-ARC-Deployment-Execution", "disabled");
     res.setHeader("X-Request-Id", asAuthed(req).requestId);
     next();
