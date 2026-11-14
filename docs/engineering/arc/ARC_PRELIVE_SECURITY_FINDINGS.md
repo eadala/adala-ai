@@ -5,19 +5,13 @@
 
 ---
 
-### F-PRELIVE-001
+### F-PRELIVE-001 — CLOSED (ARC-SEC-FIX-003)
 
-- **Severity:** MEDIUM  
-- **Component:** `scripts/arc-live-validation.sh`  
-- **Evidence:** Script uses unrestricted `ARC_BASE_URL` for curl when authorized  
-- **Root cause:** Trusts operator env without loopback/allowlist  
-- **Impact:** Mis-aimed live validation could contact unintended ARC host  
-- **Reproduction:** Inspect script lines 15, 71–95 (authorized branch not executed)  
-- **Remediation:** Allow only `127.0.0.1`/`localhost` or explicit allowlist; add `curl --max-time`  
-- **Regression test:** Assert BASE_URL validation fails for non-local hosts  
-- **Acceptance:** Live validation blocked unless URL allowlisted  
-
-**Does not block PRELIVE_GO for human setup**; **must fix before LIVE validation authorization**.
+- **Severity:** MEDIUM (historical)  
+- **Component:** `scripts/arc-live-validation.sh` + `lib/validationBaseUrl.ts`  
+- **Remediation:** Loopback-default allowlist, DNS binding checks, proxy deny, curl `--max-time`/`--max-redirs 0`, CLI preflight  
+- **Evidence:** `ARC_PRELIVE_F001_CLOSURE_EVIDENCE.md`; tests **129/129**  
+- **Acceptance:** Unauthorized destinations denied; local fixtures OK; deploy still disabled
 
 ---
 
