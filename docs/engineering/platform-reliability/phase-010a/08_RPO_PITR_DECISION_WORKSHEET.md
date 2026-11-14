@@ -22,11 +22,22 @@
 | B. Logical every N hours | ≤ N hours | Increase cron frequency + storage cost | Need tighter RPO without WAL ops burden |
 | C. WAL + PITR | Minutes (if archiving healthy) | Managed Postgres continuous archive + restore tests | Hard RPO << dump interval; regulated recovery |
 
-## Proposed interim (pending approval)
+## Phase decisions (as of 010-B limited-authorization DRAFT)
 
-- **Non-prod RPO target:** 24h (Option A) until measured dump reliability and staging exist
-- **Production RPO:** **UNDECIDED** — must be set before production GO
-- **Do not claim** achieved RPO/RTO from local drills alone
+- **Phase 010-B scope:** Option **A** — logical backup used only to validate the storage-and-restore workflow (see `12_PHASE_010B_LIMITED_AUTHORIZATION_DRAFT.md`). This is a **test-scope** choice, not a signed production RPO.
+- **Production RPO:** **UNDECIDED** — must be set before production GO.
+- **WAL/PITR:** separate architecture decision and authorization; **not** in 010-B scope.
+- **Do not claim** achieved RPO/RTO from local drills or from an unapproved 010-B draft.
+
+### Mapping note (assessment vs Cursor options)
+
+| Assessment proposal | Cursor option |
+|---------------------|---------------|
+| 24h daily logical | ≈ A |
+| ~1h without requiring WAL | ≈ B with N=1 |
+| ~5 minutes | ≈ C (WAL + PITR) |
+
+A design target of ≤1h for critical operational data remains a **recommendation only** until owners sign the matrix.
 
 ## Sign-off fields
 
