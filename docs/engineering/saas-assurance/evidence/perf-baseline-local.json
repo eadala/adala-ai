@@ -1,0 +1,37 @@
+{
+  "suite": "saas-assurance-007-perf-baseline",
+  "profile": "A-baseline",
+  "assumptions": "synthetic local http+pg SELECT 1; not full Express/Clerk stack; not production SLO",
+  "results": [
+    {
+      "path": "/api/healthz",
+      "n": 100,
+      "concurrency": 10,
+      "errors": 0,
+      "p50_ms": 2.298,
+      "p95_ms": 18.306,
+      "p99_ms": 20.369,
+      "max_ms": 20.537,
+      "mean_ms": 4.177
+    },
+    {
+      "path": "/api/readyz",
+      "n": 50,
+      "concurrency": 5,
+      "errors": 0,
+      "p50_ms": 1.507,
+      "p95_ms": 34.778,
+      "p99_ms": 35.12,
+      "max_ms": 35.418,
+      "mean_ms": 5.187
+    }
+  ],
+  "memory": {
+    "rss0": 66756608,
+    "rss1": 90017792,
+    "heapUsed0": 8528536,
+    "heapUsed1": 12362752
+  },
+  "poolDefaultMax": 10,
+  "measuredAt": "2026-11-14T08:54:26.695Z"
+}

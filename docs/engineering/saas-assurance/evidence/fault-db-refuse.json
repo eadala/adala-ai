@@ -1,0 +1,6 @@
+{
+  "suite": "saas-assurance-007-fault-db-refuse",
+  "observed_ms": 2.25,
+  "error": "connect ECONNREFUSED 127.0.0.1:1",
+  "note": "connection refused to port 1; timeout budget not set on app pool"
+}
