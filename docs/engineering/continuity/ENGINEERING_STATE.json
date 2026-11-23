@@ -2,14 +2,20 @@
   "project_identifier": "ADALA-AI",
   "directive_id": "ADALA-049-PHOENIX-III-ENGINEERING-CONTINUITY",
   "current_branch": "cursor/phase-049-engineering-continuity-da81",
-  "current_commit": "PENDING_COMMIT",
-  "current_tree": "PENDING_TREE",
+  "current_commit": "0efe60762daa11fcb082721c8c3604d74368446a",
+  "current_tree": "e4c239eb67461a738342633c247a996690e21309",
   "last_verified_milestone": "phase-049-engineering-continuity",
   "last_local_backup": {
-    "status": "PENDING_BUNDLE",
-    "bundle_path": null,
-    "sha256_path": null,
-    "external_copy": "/opt/cursor/artifacts/adala-backups/"
+    "status": "LOCAL_BUNDLE_INTEGRITY_VERIFIED",
+    "dev_tip_commit": "0efe60762daa11fcb082721c8c3604d74368446a",
+    "clean_tree_commit": "822fa3af9b82d71507c84c64c7481864db195740",
+    "tree": "e4c239eb67461a738342633c247a996690e21309",
+    "bundle_path": "docs/engineering/continuity/artifacts/phase-049-engineering-continuity-0efe60762daa.bundle",
+    "sha256": "6628f4dcc45d71b56fda6c2183a78dc91c07e240e78c12d751fef092cdcbe806",
+    "sha256_path": "docs/engineering/continuity/artifacts/phase-049-engineering-continuity-0efe60762daa.bundle.sha256",
+    "manifest_path": "docs/engineering/continuity/artifacts/phase-049-engineering-continuity-0efe60762daa.manifest.json",
+    "external_copy": "/opt/cursor/artifacts/adala-backups/phase-049-engineering-continuity-0efe60762daa.bundle",
+    "contaminated_blob_absent": true
   },
   "last_remotely_verified_backup": {
     "repo": "adalahai/adala-ai-private-recovery-2026",
@@ -21,6 +27,7 @@
   },
   "test_status": {
     "ai_gateway_tenant_unit": "PASS",
+    "local_bundle_restore": "PASS",
     "typecheck_libs": "FAIL_PREEXISTING",
     "api_server_tsc": "FAIL_PREEXISTING",
     "tenant_rls_harness": "BLOCKED"
@@ -28,6 +35,7 @@
   "security_status": {
     "p0_open_in_049_scope": "NONE",
     "ai_gateway_fail_closed": "VERIFIED",
+    "baseline_capture_redacted": "VERIFIED",
     "phase_031_backup_immutable": "VERIFIED"
   },
   "known_blockers": [
@@ -35,9 +43,10 @@
     "RAG runtime MISSING (schema 021 only)",
     "Remote milestone push for Phase 049 not authorized",
     "Full tenant/RLS harness not re-run this session",
-    "Pre-existing typecheck failures in generated/client libs"
+    "Pre-existing typecheck failures in generated/client libs",
+    "Tip ancestry may still contain historical contaminated objects (tree cleaned; orphan bundle clean)"
   ],
-  "next_executable_task": "After owner authorizes: remote backup of phase-049 verified tip to backup/milestones/phase-049-<sha>; then RAG authz design or approved Phase 033 product scope",
-  "updated_at_utc": "2026-11-23T20:55:00Z",
+  "next_executable_task": "Owner-authorize remote backup of phase-049 clean-tree commit to backup/milestones/phase-049-<sha>; then RAG authz design or approved Phase 033 product scope; re-run tenant/RLS harness",
+  "updated_at_utc": "2026-11-23T21:00:00Z",
   "notes": "No secrets stored in this manifest."
 }
