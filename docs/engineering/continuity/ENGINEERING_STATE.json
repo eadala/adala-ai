@@ -1,0 +1,43 @@
+{
+  "project_identifier": "ADALA-AI",
+  "directive_id": "ADALA-049-PHOENIX-III-ENGINEERING-CONTINUITY",
+  "current_branch": "cursor/phase-049-engineering-continuity-da81",
+  "current_commit": "PENDING_COMMIT",
+  "current_tree": "PENDING_TREE",
+  "last_verified_milestone": "phase-049-engineering-continuity",
+  "last_local_backup": {
+    "status": "PENDING_BUNDLE",
+    "bundle_path": null,
+    "sha256_path": null,
+    "external_copy": "/opt/cursor/artifacts/adala-backups/"
+  },
+  "last_remotely_verified_backup": {
+    "repo": "adalahai/adala-ai-private-recovery-2026",
+    "branch": "backup/phase-031-clean",
+    "commit": "8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b",
+    "tree": "ea8b8e85510bf68787b64a5de29f079f443f0a1a",
+    "status": "INTACT_ACCESSIBLE",
+    "phase_049_remote_transfer": "NOT_PERFORMED"
+  },
+  "test_status": {
+    "ai_gateway_tenant_unit": "PASS",
+    "typecheck_libs": "FAIL_PREEXISTING",
+    "api_server_tsc": "FAIL_PREEXISTING",
+    "tenant_rls_harness": "BLOCKED"
+  },
+  "security_status": {
+    "p0_open_in_049_scope": "NONE",
+    "ai_gateway_fail_closed": "VERIFIED",
+    "phase_031_backup_immutable": "VERIFIED"
+  },
+  "known_blockers": [
+    "Phase 033 master product specification unavailable (RECONSTRUCTED scope only)",
+    "RAG runtime MISSING (schema 021 only)",
+    "Remote milestone push for Phase 049 not authorized",
+    "Full tenant/RLS harness not re-run this session",
+    "Pre-existing typecheck failures in generated/client libs"
+  ],
+  "next_executable_task": "After owner authorizes: remote backup of phase-049 verified tip to backup/milestones/phase-049-<sha>; then RAG authz design or approved Phase 033 product scope",
+  "updated_at_utc": "2026-11-23T20:55:00Z",
+  "notes": "No secrets stored in this manifest."
+}

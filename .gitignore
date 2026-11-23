@@ -51,3 +51,6 @@ replit.md
 .replit-artifact/
 .cache/
 .local/
+
+# Local Git bundle recovery artifacts (checksums/manifests remain tracked)
+docs/engineering/continuity/artifacts/*.bundle

@@ -71,6 +71,7 @@
     "test:reliability-036": "node --import tsx src/tests/jlwmReliabilitySchemaAuthority036.test.ts",
     "test:financial-037": "node --import tsx src/tests/financialRemainingSchemaAuthority037.test.ts",
     "test:marketplace-038": "node --import tsx src/tests/marketplaceClientPortalSchemaAuthority038.test.ts",
+    "test:ai-gateway-tenant": "node --import tsx src/tests/aiGatewayTenant.test.ts",
     "test:ai-credits-039": "node --import tsx src/tests/aiCreditsUsageSchemaAuthority039.test.ts",
     "test:ai-provider-040": "node --import tsx src/tests/aiProviderEngineSchemaAuthority040.test.ts",
     "test:ai-events-041": "node --import tsx src/tests/aiEventsSchemaAuthority041.test.ts",
