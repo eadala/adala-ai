@@ -1,8 +1,8 @@
 # Operation Phoenix — Final Decision Report
 
 DIRECTIVE_ID: ADALA-040X-OPERATION-PHOENIX  
-CURRENT_HEAD: _(filled at commit)_  
-CURRENT_TREE: _(filled at commit)_  
+CURRENT_HEAD: `1a4cae71e54c9c859a41bdab134988703a0fc935`  
+CURRENT_TREE: `b41b6b206cae6cb8221b6c340761a8f68d0ee5fa`  
 
 SECRET_PROVIDER: GitHub  
 SECRET_TYPE: `ghs_` App/Actions token (+ JWT-shaped)  
