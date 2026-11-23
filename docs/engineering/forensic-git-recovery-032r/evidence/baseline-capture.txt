@@ -1,0 +1,39 @@
+=== TIMESTAMP_UTC ===
+2026-11-23T19:02:48Z
+=== REPO_ROOT ===
+/agent/repos/adala-ai
+/agent/repos/adala-ai
+=== BRANCH ===
+cursor/lineage-recovery-integration-032-da81
+=== HEAD ===
+4a046164673ff0c196df768649e164f4d12b7c36
+=== TREE ===
+fed7a53d59f7e2f3fea69b2d2a36c8a4995c58f8
+=== STATUS ===
+## cursor/lineage-recovery-integration-032-da81
+?? docs/engineering/forensic-git-recovery-032r/
+1
+=== OBJECT_FORMAT ===
+sha1
+=== REMOTES ===
+origin	https://x-access-token:ghs_1210556_eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRobmQiLCJjdHgiOiJkemp4Nk9FOHF1eE9JQWlrNTdTeFRhby16Z05hMnNVSm1XYnByWG1YZzRvYVFzSFJzWVVSYWhuS1g0bzkzNEEiLCJleHAiOjE3OTU0NjQxNDIsImlhdCI6MTc5NTQ2MDU0MiwiaXNzIjoiZ2l0aHViIiwianRpIjoiYTk2MzBiOTMtOGZjYy00NGY5LWJlYmUtYTE2ODYyOGYxMWU0IiwidmVyIjozfQ.t9jiKSr8G9Y3EBZRF0m4UtjG5AXo6TGwdR_15H9kQNy3dMn0bV_ny1bv6atOsOBismg7rd6YbOZ4Mcy7FK9heA@github.com/eadala/adala-ai (fetch)
+origin	https://x-access-token:ghs_1210556_eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRobmQiLCJjdHgiOiJkemp4Nk9FOHF1eE9JQWlrNTdTeFRhby16Z05hMnNVSm1XYnByWG1YZzRvYVFzSFJzWVVSYWhuS1g0bzkzNEEiLCJleHAiOjE3OTU0NjQxNDIsImlhdCI6MTc5NTQ2MDU0MiwiaXNzIjoiZ2l0aHViIiwianRpIjoiYTk2MzBiOTMtOGZjYy00NGY5LWJlYmUtYTE2ODYyOGYxMWU0IiwidmVyIjozfQ.t9jiKSr8G9Y3EBZRF0m4UtjG5AXo6TGwdR_15H9kQNy3dMn0bV_ny1bv6atOsOBismg7rd6YbOZ4Mcy7FK9heA@github.com/eadala/adala-ai (push)
+=== LOCAL_BRANCHES ===
+  cursor/legal-financial-product-completion-031-da81 8685f64a docs(031): align final decision SHAs with tip
+* cursor/lineage-recovery-integration-032-da81       4a046164 docs(032): lineage recovery blocked — Phase 030 object missing
+  cursor/recovery-production-readiness-da81          b3d9a0af docs(recovery): note 6abb08e DB Migrations cancelled; tip must reconfirm
+  main                                               c9667a0b feat(db): Migration 057 monitoring isolation rls_* schema authority (#137)
+=== WORKTREES ===
+/agent/repos/adala-ai  4a046164 [cursor/lineage-recovery-integration-032-da81]
+=== TAGS ===
+(tag count: 0)
+=== DISK ===
+/dev/vdc        254G  8.7G  245G   4% /
+=== PHASE031 ===
+8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b
+ea8b8e85510bf68787b64a5de29f079f443f0a1a
+=== RECOVERY_BASE ===
+commit
+=== PHASE030 ===
+fatal: git cat-file: could not get object info
+fatal: git cat-file: could not get object info

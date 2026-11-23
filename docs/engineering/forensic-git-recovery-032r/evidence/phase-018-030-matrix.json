@@ -1,0 +1,142 @@
+[
+  {
+    "phase": "017",
+    "expected_sha": "05131194",
+    "name": "product-capability-discovery",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "018",
+    "expected_sha": "294680b7",
+    "name": "wave-a-privileged-control-plane",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "019",
+    "expected_sha": "2944eab4",
+    "name": "wave-b-tenant-lifecycle-billing",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "020",
+    "expected_sha": "aa0cc574",
+    "name": "privileged-identity-delegation-wave-c",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "021",
+    "expected_sha": "135e4c68",
+    "name": "privileged-identity-readiness",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "022",
+    "expected_sha": "4e23d5a9",
+    "name": "legal-operations-assurance",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "023",
+    "expected_sha": "d0c6c5f1",
+    "name": "finance-accounting-hr-assurance",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "024",
+    "expected_sha": "f352cf79",
+    "name": "financial-safety-accounting",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "025",
+    "expected_sha": "dc6e02ac",
+    "name": "client-portal-correspondence",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "026",
+    "expected_sha": "24b2604a",
+    "name": "comprehensive-integration-audit",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "027",
+    "expected_sha": "ecd07cc5",
+    "name": "migration-ai-integration-closure",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "028",
+    "expected_sha": "1815b5de",
+    "name": "clean-install-rag-assurance",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "029",
+    "expected_sha": "8857b406",
+    "name": "secure-legal-rag-implementation",
+    "source": "DOCUMENTED_IN_TRACKER",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  },
+  {
+    "phase": "030",
+    "expected_sha": "4d76a954944e17ae920346dd80ae484a3400d310",
+    "name": "rag-semantic-provider-readiness",
+    "source": "DIRECTIVE_REQUIRED_FULL",
+    "available": false,
+    "type": null,
+    "confidence": "HIGH_ABSENCE",
+    "verification": "FAIL_MISSING"
+  }
+]
