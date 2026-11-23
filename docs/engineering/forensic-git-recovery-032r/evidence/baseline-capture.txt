@@ -1,3 +1,7 @@
+=== REDACTED BY PHASE 049 ===
+Original capture retained as metadata only. Live credentials removed.
+Contaminated blob OID 3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925 must not reappear in tip tree.
+
 === TIMESTAMP_UTC ===
 2026-11-23T19:02:48Z
 === REPO_ROOT ===
@@ -16,8 +20,8 @@ fed7a53d59f7e2f3fea69b2d2a36c8a4995c58f8
 === OBJECT_FORMAT ===
 sha1
 === REMOTES ===
-origin	https://x-access-token:ghs_1210556_eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRobmQiLCJjdHgiOiJkemp4Nk9FOHF1eE9JQWlrNTdTeFRhby16Z05hMnNVSm1XYnByWG1YZzRvYVFzSFJzWVVSYWhuS1g0bzkzNEEiLCJleHAiOjE3OTU0NjQxNDIsImlhdCI6MTc5NTQ2MDU0MiwiaXNzIjoiZ2l0aHViIiwianRpIjoiYTk2MzBiOTMtOGZjYy00NGY5LWJlYmUtYTE2ODYyOGYxMWU0IiwidmVyIjozfQ.t9jiKSr8G9Y3EBZRF0m4UtjG5AXo6TGwdR_15H9kQNy3dMn0bV_ny1bv6atOsOBismg7rd6YbOZ4Mcy7FK9heA@github.com/eadala/adala-ai (fetch)
-origin	https://x-access-token:ghs_1210556_eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRobmQiLCJjdHgiOiJkemp4Nk9FOHF1eE9JQWlrNTdTeFRhby16Z05hMnNVSm1XYnByWG1YZzRvYVFzSFJzWVVSYWhuS1g0bzkzNEEiLCJleHAiOjE3OTU0NjQxNDIsImlhdCI6MTc5NTQ2MDU0MiwiaXNzIjoiZ2l0aHViIiwianRpIjoiYTk2MzBiOTMtOGZjYy00NGY5LWJlYmUtYTE2ODYyOGYxMWU0IiwidmVyIjozfQ.t9jiKSr8G9Y3EBZRF0m4UtjG5AXo6TGwdR_15H9kQNy3dMn0bV_ny1bv6atOsOBismg7rd6YbOZ4Mcy7FK9heA@github.com/eadala/adala-ai (push)
+origin	https://x-access-token:[REDACTED]@github.com/eadala/adala-ai (fetch)
+origin	https://x-access-token:[REDACTED]@github.com/eadala/adala-ai (push)
 === LOCAL_BRANCHES ===
   cursor/legal-financial-product-completion-031-da81 8685f64a docs(031): align final decision SHAs with tip
 * cursor/lineage-recovery-integration-032-da81       4a046164 docs(032): lineage recovery blocked — Phase 030 object missing

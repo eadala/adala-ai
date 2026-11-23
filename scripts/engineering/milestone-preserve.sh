@@ -23,27 +23,39 @@ BUNDLE_NAME="${SAFE_NAME}-${COMMIT:0:12}.bundle"
 BUNDLE="$OUT_DIR/$BUNDLE_NAME"
 REFNAME="refs/backup/milestones/${SAFE_NAME}-${COMMIT:0:12}"
 
+# Clean tree checkpoint: orphan commit with the same tree as REF so ancestral
+# contaminated blobs are not packed into the recovery artifact.
+CLEAN_MSG="clean-tree-checkpoint ${SAFE_NAME} from ${COMMIT}"
+CLEAN_COMMIT="$(git commit-tree "$TREE" -m "$CLEAN_MSG")"
+CLEAN_REF="refs/backup/milestones/${SAFE_NAME}-clean-tree-${COMMIT:0:12}"
 git update-ref "$REFNAME" "$COMMIT"
-# Standalone tip bundle (includes reachable history from tip).
-git bundle create "$BUNDLE" "$REFNAME"
+git update-ref "$CLEAN_REF" "$CLEAN_COMMIT"
+echo "CLEAN_TREE_COMMIT=$CLEAN_COMMIT"
+echo "DEV_TIP_COMMIT=$COMMIT (may still have contaminated ancestry in full history)"
+
+# Bundle ONLY the orphan clean-tree commit (lossless for tip tree contents).
+git bundle create "$BUNDLE" "$CLEAN_REF"
 cp -f "$BUNDLE" "$EXT_DIR/$BUNDLE_NAME"
 sha256sum "$BUNDLE" | tee "${BUNDLE}.sha256"
 cp -f "${BUNDLE}.sha256" "$EXT_DIR/${BUNDLE_NAME}.sha256"
-./scripts/engineering/backup-integrity.sh "$BUNDLE" "$COMMIT" "$TREE"
+./scripts/engineering/backup-integrity.sh "$BUNDLE" "$CLEAN_COMMIT" "$TREE"
 
 MANIFEST="$OUT_DIR/${SAFE_NAME}-${COMMIT:0:12}.manifest.json"
-python3 - "$MANIFEST" "$MILESTONE" "$COMMIT" "$TREE" "$REFNAME" "$BUNDLE" <<'PY'
+python3 - "$MANIFEST" "$MILESTONE" "$COMMIT" "$TREE" "$REFNAME" "$BUNDLE" "$CLEAN_COMMIT" "$CLEAN_REF" <<'PY'
 import json, sys, datetime
-path, milestone, commit, tree, refname, bundle = sys.argv[1:]
+path, milestone, commit, tree, refname, bundle, clean_commit, clean_ref = sys.argv[1:]
 doc = {
   "milestone": milestone,
-  "commit": commit,
+  "dev_tip_commit": commit,
+  "clean_tree_commit": clean_commit,
   "tree": tree,
-  "backup_ref": refname,
+  "backup_ref": clean_ref,
+  "dev_tip_ref": refname,
   "bundle": bundle,
   "sha256_file": bundle + ".sha256",
   "created_at_utc": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
   "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
   "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer",
 }
 open(path, "w", encoding="utf-8").write(json.dumps(doc, indent=2) + "\n")

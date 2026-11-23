@@ -28,6 +28,13 @@
 - `scripts/engineering/session-continuity.sh` — start-of-session state read.
 - Manifest: `docs/engineering/continuity/ENGINEERING_STATE.json`
 
+### 4. Contaminated forensic capture redaction
+
+- Redacted `docs/engineering/forensic-git-recovery-032r/evidence/baseline-capture.txt` (removed live `ghs_`/`gho_` material).
+- Contaminated blob `3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925` no longer present in tip **tree**.
+- Local milestone bundles use orphan clean-tree commits so ancestral contaminated objects are not packed.
+- Full tip **ancestry** is not rewritten (non-destructive); Phase 031 private clean backup remains the immutable clean history evidence.
+
 ## Non-actions (intentional)
 
 - No production deploy.

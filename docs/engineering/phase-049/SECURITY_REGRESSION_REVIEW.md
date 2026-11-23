@@ -14,6 +14,7 @@ AI gateway tenant resolution, docker-compose local password defaults, backup aut
 | S-049-04 | P1 | RAG runtime still missing while schema exists — risk of partial/unscoped future implementation | **OPEN** — deferred; do not ship RAG without authz design |
 | S-049-05 | P2 | Full tenant/RLS harness not re-executed in this session | **OPEN / BLOCKED** on available test DB infra |
 | S-049-06 | P0 | Gateway used `requireAuth` (no `tenantId`) + checked unset `req.isAdmin` | **FIXED** — `requireAuthWithTenant`; `isAiGatewayAdmin` reads `isSuperAdmin`; reject `platform`; cache-stats SA-only |
+| S-049-07 | P0 | Tip tree still contained contaminated forensic `baseline-capture.txt` blob `3f1a3e36…` | **FIXED** — content redacted (new OID); clean-tree orphan bundles exclude ancestral contamination; tip ancestry history not rewritten |
 
 ## Unresolved P0 in implemented scope
 
