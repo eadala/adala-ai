@@ -1,0 +1,427 @@
+إذا كنت تريد أن تصبح **عدالة AI** منصة بمستوى Clio وHubSpot وSalesforce، فلا تجعل النسخ الاحتياطي مجرد زر "تحميل قاعدة البيانات"، بل اجعلها **مركز إدارة البيانات Data Center** متكاملاً، لأن مكاتب المحاماة تهتم بأن بياناتها ملك لها ويمكن نقلها أو استعادتها في أي وقت.
+
+---
+
+# مركز البيانات Data Center
+
+داخل إعدادات المكتب:
+
+```text
+الإعدادات
+│
+├── الأمان
+├── النسخ الاحتياطي
+├── التصدير والاستيراد
+├── التخزين السحابي
+├── الاستعادة
+├── سجل العمليات
+└── مركز البيانات
+```
+
+---
+
+# النسخ الاحتياطي
+
+## النسخ التلقائية
+
+يمكن للمكتب تحديد:
+
+* يومي.
+* أسبوعي.
+* شهري.
+* فوري.
+
+مع:
+
+```text
+عدد النسخ المحتفظ بها
+
+7
+30
+90
+365
+غير محدود
+```
+
+---
+
+## النسخ اليدوي
+
+زر:
+
+```text
+إنشاء نسخة احتياطية الآن
+```
+
+ويتم إنشاء:
+
+```text
+backup-2026-01-10.zip
+```
+
+---
+
+# ربط النسخ بالاستضافة
+
+من داخل لوحة التحكم:
+
+```text
+مزود التخزين
+
+○ Local Storage
+
+○ Cloudflare R2 ⭐
+
+○ Amazon S3
+
+○ Backblaze B2
+
+○ Google Cloud Storage
+
+○ Azure Blob
+```
+
+---
+
+# صفحة إعداد الربط
+
+```text
+Access Key
+
+Secret Key
+
+Bucket Name
+
+Region
+
+Endpoint
+
+SSL
+
+اختبار الاتصال
+
+[حفظ]
+```
+
+---
+
+# البرمجة من داخل المنصة
+
+## الإعدادات
+
+```text
+النظام
+│
+├── البريد الإلكتروني
+├── الرسائل
+├── الذكاء الاصطناعي
+├── التخزين
+├── النسخ الاحتياطي
+├── بوابات الدفع
+├── WhatsApp
+├── OpenAI
+├── Gemini
+└── API Keys
+```
+
+---
+
+# إدارة مفاتيح الخدمات
+
+```text
+OPENAI_API_KEY
+
+GEMINI_API_KEY
+
+SMTP_HOST
+
+SMTP_PORT
+
+SMTP_USER
+
+SMTP_PASSWORD
+
+S3_ACCESS_KEY
+
+S3_SECRET_KEY
+
+STRIPE_SECRET_KEY
+
+MOYASAR_KEY
+
+TWILIO_KEY
+```
+
+بدلاً من تعديل ملفات البيئة يدوياً.
+
+---
+
+# تصدير البيانات
+
+داخل كل قسم:
+
+## العملاء
+
+```text
+PDF
+Excel
+CSV
+JSON
+```
+
+---
+
+## القضايا
+
+```text
+PDF
+Excel
+CSV
+Word
+JSON
+```
+
+---
+
+## العقود
+
+```text
+DOCX
+PDF
+RTF
+TXT
+```
+
+---
+
+## الفواتير
+
+```text
+PDF
+Excel
+CSV
+XML
+```
+
+---
+
+## المستندات
+
+```text
+ZIP
+```
+
+---
+
+# تصدير كامل المكتب
+
+زر:
+
+```text
+تصدير كامل البيانات
+```
+
+وينشئ:
+
+```text
+office-export.zip
+```
+
+ويحتوي:
+
+```text
+clients.xlsx
+
+cases.xlsx
+
+invoices.pdf
+
+contracts.docx
+
+documents/
+
+messages.csv
+
+users.csv
+
+settings.json
+
+audit_logs.csv
+```
+
+---
+
+# الاستيراد
+
+يدعم:
+
+```text
+CSV
+
+Excel
+
+JSON
+
+ZIP
+```
+
+ويمكن نقل مكتب كامل إلى عدالة AI أو العكس.
+
+---
+
+# سجل النسخ
+
+| التاريخ    | النوع  | الحجم  | الحالة |
+| ---------- | ------ | ------ | ------ |
+| 2026-01-10 | يومي   | 320 MB | ناجح   |
+| 2026-01-09 | أسبوعي | 315 MB | ناجح   |
+
+---
+
+# الاستعادة
+
+```text
+استعادة نسخة
+
+○ استعادة كاملة
+
+○ العملاء فقط
+
+○ القضايا فقط
+
+○ المستندات فقط
+
+○ الفواتير فقط
+```
+
+---
+
+# API
+
+```text
+GET /api/backups
+
+POST /api/backups/create
+
+POST /api/backups/restore
+
+GET /api/export/all
+
+GET /api/export/clients
+
+GET /api/export/cases
+
+POST /api/import
+```
+
+---
+
+# جدول قاعدة البيانات
+
+```text
+backup_settings
+
+backup_jobs
+
+backup_files
+
+restore_history
+
+export_jobs
+
+import_jobs
+
+storage_providers
+
+system_settings
+
+api_keys
+
+environment_variables
+```
+
+---
+
+# الباقات
+
+### Starter
+
+* نسخ يومية.
+* تصدير Excel وPDF.
+
+### Basic
+
+* نسخ يومية.
+* CSV وJSON.
+
+### Professional
+
+* نسخ يومية وأسبوعية.
+* تصدير كامل المكتب.
+
+### Business
+
+* ربط Cloud Storage.
+* استيراد وتصدير كامل.
+
+### Premium
+
+* استعادة بنقرة واحدة.
+* أرشيف طويل الأجل.
+
+### Ultimate
+
+* نسخ لحظية.
+* تخزين متعدد.
+* استعادة جزئية.
+* سياسة احتفاظ غير محدودة.
+
+---
+
+# المعمارية البرمجية التي أوصي بها
+
+```text
+server/
+
+services/
+
+backupService.ts
+
+restoreService.ts
+
+exportService.ts
+
+importService.ts
+
+storage/
+
+localStorage.ts
+
+cloudflareR2.ts
+
+amazonS3.ts
+
+backblazeB2.ts
+
+googleStorage.ts
+
+azureStorage.ts
+
+settings/
+
+systemSettings.ts
+
+apiKeys.ts
+
+routes/
+
+backups.ts
+
+exports.ts
+
+imports.ts
+
+storage.ts
+```
+
+وبذلك تصبح **عدالة AI** منصة تمنح مكاتب المحاماة سيطرة كاملة على بياناتها، مع إمكانية النسخ الاحتياطي، والتصدير، والاستيراد، وربط التخزين السحابي، وإدارة الإعدادات البرمجية والخدمات من داخل المنصة نفسها دون الحاجة للدخول إلى الخادم أو تعديل ملفات البيئة يدوياً، وهو مستوى قريب جداً من HubSpot وSalesforce وClio.

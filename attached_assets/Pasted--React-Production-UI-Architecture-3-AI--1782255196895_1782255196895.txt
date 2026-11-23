@@ -1,0 +1,289 @@
+تمام — الآن سأعطيك هيكل واجهات React جاهز (Production UI Architecture) للـ 3 لوحات في عدالة AI بطريقة قابلة للتنفيذ مباشرة داخل مشروعك (Vite + React + TS + shadcn/ui).
+
+الفكرة هنا: نفس التطبيق، لكن 3 تطبيقات منطقية داخل Router واحد.
+
+⸻
+
+🧱 عدالة AI — Frontend Architecture (Role-Based UI System)
+
+⸻
+
+1️⃣ هيكل المشروع (Frontend)
+
+src/
+ ├── app/
+ │    ├── routes/
+ │    │     ├── OfficeRoutes.tsx
+ │    │     ├── OwnerRoutes.tsx
+ │    │     ├── DevRoutes.tsx
+ │    ├── layouts/
+ │    │     ├── OfficeLayout.tsx
+ │    │     ├── OwnerLayout.tsx
+ │    │     ├── DevLayout.tsx
+ │    ├── guards/
+ │    │     ├── RoleRoute.tsx
+ │    │     ├── PermissionGate.tsx
+ │
+ ├── modules/
+ │    ├── cases/
+ │    ├── clients/
+ │    ├── finance/
+ │    ├── hr/
+ │    ├── ai/
+ │
+ ├── dashboards/
+ │    ├── office/
+ │    ├── owner/
+ │    ├── dev/
+
+⸻
+
+🧭 2️⃣ Routing الرئيسي (App Router)
+
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import OfficeRoutes from "./app/routes/OfficeRoutes";
+import OwnerRoutes from "./app/routes/OwnerRoutes";
+import DevRoutes from "./app/routes/DevRoutes";
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/office/*" element={<OfficeRoutes />} />
+        <Route path="/owner/*" element={<OwnerRoutes />} />
+        <Route path="/dev/*" element={<DevRoutes />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+⸻
+
+🏢 3️⃣ Office Dashboard (المكتب)
+
+Layout
+
+export default function OfficeLayout({ children }) {
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 p-6 bg-gray-50">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+⸻
+
+Pages
+
+/office/dashboard
+/office/cases
+/office/clients
+/office/finance
+/office/ai
+/office/calendar
+
+⸻
+
+Dashboard UI (مثال)
+
+export default function OfficeDashboard() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card title="القضايا">
+        128 قضية نشطة
+      </Card>
+      <Card title="العملاء">
+        54 عميل
+      </Card>
+      <Card title="الإيرادات">
+        120,000 SAR
+      </Card>
+    </div>
+  );
+}
+
+⸻
+
+🧑‍💼 4️⃣ Owner Dashboard (مالك المكتب)
+
+Layout مختلف
+
+* إدارة كاملة
+* تحليلات
+* إعدادات
+
+⸻
+
+Pages
+
+/owner/dashboard
+/owner/team
+/owner/roles
+/owner/billing
+/owner/analytics
+/owner/settings
+
+⸻
+
+Dashboard (تحليلات)
+
+export default function OwnerDashboard() {
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <AnalyticsCard title="أداء المكتب">
+        +32% نمو هذا الشهر
+      </AnalyticsCard>
+      <AnalyticsCard title="المحامين">
+        أعلى إنتاجية: أحمد
+      </AnalyticsCard>
+      <AnalyticsCard title="القضايا المغلقة">
+        87 قضية
+      </AnalyticsCard>
+      <AnalyticsCard title="الإيرادات الصافية">
+        450,000 SAR
+      </AnalyticsCard>
+    </div>
+  );
+}
+
+⸻
+
+🧑‍💻 5️⃣ Developer Dashboard (أنت / النظام)
+
+Pages
+
+/dev/dashboard
+/dev/tenants
+/dev/users
+/dev/logs
+/dev/ai-usage
+/dev/backup
+/dev/security
+
+⸻
+
+Dev Dashboard (Control Center)
+
+export default function DevDashboard() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card title="عدد المكاتب">
+        120 مكتب
+      </Card>
+      <Card title="طلبات AI">
+        45,000 طلب
+      </Card>
+      <Card title="الأخطاء">
+        12 خطأ اليوم
+      </Card>
+    </div>
+  );
+}
+
+⸻
+
+🔐 6️⃣ Role-Based Route Guard (مهم جداً)
+
+import { Navigate } from "react-router-dom";
+export default function RoleRoute({ role, allowed, children }) {
+  if (!allowed.includes(role)) {
+    return <Navigate to="/unauthorized" />;
+  }
+  return children;
+}
+
+⸻
+
+مثال استخدام
+
+<RoleRoute role={user.role} allowed={["firm_owner"]}>
+  <OwnerDashboard />
+</RoleRoute>
+
+⸻
+
+🧠 7️⃣ Permission Gate (داخل الصفحات)
+
+export function PermissionGate({ permission, children }) {
+  const { permissions } = usePermissions();
+  if (!permissions.includes(permission)) return null;
+  return children;
+}
+
+⸻
+
+مثال
+
+<PermissionGate permission="cases:delete">
+  <DeleteCaseButton />
+</PermissionGate>
+
+⸻
+
+🧭 8️⃣ Sidebar ديناميكي حسب الدور
+
+const menu = {
+  lawyer: ["cases", "clients", "ai"],
+  accountant: ["finance", "reports"],
+  owner: ["team", "analytics", "settings"],
+  dev: ["tenants", "logs", "backup"]
+};
+
+⸻
+
+🔥 9️⃣ أهم نقطة (Critical Design Rule)
+
+❌ لا تعتمد على الواجهة
+
+حتى لو:
+
+* الزر مخفي
+* الصفحة غير موجودة
+
+👉 يجب أن API يمنع الطلب
+
+⸻
+
+🧱 10️⃣ النتيجة النهائية
+
+بعد تطبيق هذا:
+
+🟢 Office App
+
+تشغيل يومي للقضايا والعملاء
+
+🟢 Owner App
+
+إدارة + أرباح + تحكم كامل
+
+🟢 Dev App
+
+مراقبة + Backup + Debug + AI cost
+
+⸻
+
+🚀 ماذا حققنا هنا؟
+
+أنت الآن عندك:
+
+* SaaS UI Architecture كامل
+* Separation of Roles حقيقي
+* Dashboard Isolation
+* Scalable Frontend System
+
+⸻
+
+🔥 الخطوة التالية (اختياري مهم جداً)
+
+أقدر الآن أبني لك:
+
+🟢 Design System كامل (UI Kit)
+
+🟢 أو Admin Panel جاهز بـ shadcn/ui
+
+🟢 أو ربط كامل مع RBAC backend اللي سويته
+
+فقط قل:
+“أبغى UI كامل جاهز للتنفيذ”

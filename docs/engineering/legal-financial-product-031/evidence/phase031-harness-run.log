@@ -1,0 +1,30 @@
+
+━━━ Phase 031 Legal & Financial Product ━━━
+
+  ✅ G0 baseline branch + working tree
+── Clean install incl. 061 ──
+  ✅ clean install applies 061 (55/59)
+  ✅ 061 fee_agreements + refund_requests + client_visible
+[FinancialCore] Migration 037 financial schema not ready — missing financial_accounts (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCore] Migration 037 financial schema not ready — missing ledger_entries (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCore] Migration 037 financial schema not ready — missing wallets (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCore] Migration 037 financial schema not ready — missing lawyer_payouts (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCompletions] Migration 037 financial schema not ready — missing office_tax_settings (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCompletions] Migration 037 financial schema not ready — missing invoice_revisions (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+[FinancialCompletions] Migration 037 financial schema not ready — missing invoice_seq (apply artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql)
+  ✅ fee agreement create + installments + activate
+  ✅ fee agreement forged tenant + cross-office denied
+  ✅ fee agreement amend + audit history
+  ✅ client-visible appointment create + portal list
+  ✅ client reschedule + cancel appointment
+  ✅ client message → lawyer reply → client view
+  ✅ refund workflow fake transport + credit note + live refuse
+  ✅ period-close design present; no unauthorized mutations
+  ✅ reconciliation report tenant-scoped
+  ✅ financial invariants: installment sum + refund cap
+  ✅ RLS refund_requests isolation
+  ✅ browser E2E correspondence + appointments
+  ✅ no live external ops markers
+
+━━━ Results: 16/16 PASS (0 fail) ━━━
+

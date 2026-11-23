@@ -1,0 +1,132 @@
+🔐 Permission Matrix — Legal SaaS System (RBAC Model)
+
+هذا نموذج جاهز لتطبيقه مباشرة في النظام (Backend + Frontend Guards + API Middleware).
+
+⸻
+
+👥 الأدوار (Roles)
+
+* Owner (مالك المكتب)
+* Admin (مدير المكتب)
+* Lawyer (محامي)
+* Clerk (موظف إداري / كاتب)
+
+⸻
+
+🧩 مبدأ التصميم
+
+* Owner = Full Access (System Super Admin داخل نطاق المكتب)
+* Admin = إدارة تشغيلية بدون صلاحيات حساسة مالية/ملكية
+* Lawyer = تنفيذ قانوني مرتبط بالقضايا فقط
+* Clerk = إدخال بيانات + مهام مساندة فقط
+* الافتراضي: Deny All → Explicit Allow
+
+⸻
+
+📊 Permission Matrix
+
+Module / Feature	Owner	Admin	Lawyer	Clerk
+🧑‍💼 Employee Management (قائمة الموظفين)	✅ Full Access	👁️ View + Manage (limited)	❌ No Access	❌ No Access
+🔽 Employee Dropdown (UI Selector)	✅ Visible + Editable	👁️ Visible (based on scope)	❌ Hidden	❌ Hidden
+⚖️ Cases (القضايا)	✅ Full CRUD	✅ Manage	✅ Assigned Cases Only	👁️ View / Update Tasks
+📂 Case Creation	✅	✅	❌	❌
+👨‍⚖️ Case Assignment	✅	✅	❌	❌
+👤 CRM (العملاء)	✅ Full CRUD	✅ Full CRUD	👁️ Read Only (linked)	👁️ Limited
+📄 Contracts	✅ Full CRUD	✅ Manage	👁️ View / Draft	❌
+📝 Document Engine	✅ Full Access	✅ Manage	✅ Create / Edit Own Docs	👁️ Templates Only
+📑 Templates	✅ Manage	✅ Manage	👁️ Use Only	❌
+✉️ Communication Hub	✅ Full Access	✅ Full Access	✅ Case-related only	❌
+📅 Calendar / Appointments	✅ Full Access	✅ Manage Office Calendar	👁️ Assigned Only	👁️ View Tasks
+⏰ Tasks	✅ Full Access	✅ Manage All Tasks	✅ Own Tasks / Cases	👁️ Assigned Tasks Only
+🔔 Reminders	✅ Full	✅ Full	👁️ Case-related only	👁️ Personal only
+💰 Billing / Payments	✅ Full Access	❌ View Only (optional)	❌ No Access	❌ No Access
+⚙️ System Settings	✅ Full Access	⚠️ Limited Settings	❌ No Access	❌ No Access
+📊 Reports & Analytics	✅ Full	✅ Office Level	👁️ Personal Performance	❌ No Access
+👥 User Roles & Permissions	✅ Full Control	❌ No Access	❌ No Access	❌ No Access
+
+⸻
+
+🔒 Critical RBAC Rules (Must Enforce)
+
+1) Visibility ≠ Disabled
+
+* ❌ ممنوع: عرض عنصر Disabled
+* ✅ الصحيح: Hide completely if no permission
+
+⸻
+
+2) Backend Enforcement Mandatory
+
+كل API لازم يتحقق من الصلاحية:
+
+if (!user.hasPermission("cases.read")) {
+   return 403
+}
+
+⸻
+
+3) Owner Override Rule
+
+if (role == OWNER) {
+   grant ALL permissions within tenant scope
+}
+
+⸻
+
+4) Scoped Access (Important)
+
+* Lawyer يرى فقط:
+    * القضايا الموكلة له
+* Clerk يرى فقط:
+    * المهام + البيانات المساعدة
+* Admin يرى المكتب بالكامل لكن بدون صلاحيات حساسة (مالية / ملكية)
+
+⸻
+
+🧠 Suggested Permission Keys (Implementation Ready)
+
+cases.read
+cases.write
+cases.assign
+clients.read
+clients.write
+contracts.manage
+documents.generate
+employees.manage
+billing.view
+settings.manage
+reports.view
+tasks.manage
+calendar.manage
+
+⸻
+
+🧱 Frontend Guard Example
+
+<Can permission="employees.manage">
+   <EmployeeDropdown />
+</Can>
+
+⸻
+
+🧠 Backend Middleware Example
+
+authorize("employees.manage")
+
+⸻
+
+🚨 أهم نقطة تصميمية
+
+إذا لم يتم توحيد النظام بهذا الشكل:
+
+ستستمر مشكلة “UI يعرض شيء و Backend يمنع شيء آخر”
+
+وهذا أخطر نوع من الـ RBAC bugs في الأنظمة القانونية.
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك:
+
+* ￼ 🧱 Database schema للصلاحيات (Role-Permission Tables)
+* ￼ ⚙️ NestJS / Laravel RBAC implementation جاهز
+* ￼ 🔐 أو نظام Dynamic Permissions (لكل مكتب تخصيص صلاحياته)

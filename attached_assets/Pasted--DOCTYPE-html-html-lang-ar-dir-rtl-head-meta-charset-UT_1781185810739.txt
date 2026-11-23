@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>باقات منصة عدالة AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Tajawal', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<section class="py-16 px-4">
+    <div class="max-w-7xl mx-auto">
+        <h2 class="text-4xl font-bold text-center mb-4">اختر باقتك في عدالة AI</h2>
+        <p class="text-center text-gray-600 mb-12">خصوصية بياناتك محمية بتشفير عسكري AES-256</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            
+            <!-- الباقة 1: مستشار -->
+            <div class="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition">
+                <h3 class="text-xl font-bold mb-2">المستشار القانوني</h3>
+                <div class="text-3xl font-bold my-4">99 <span class="text-sm font-normal text-gray-500">ر.س/شهر</span></div>
+                <div class="text-green-600 text-sm mb-4 font-bold">الشهر الأول مجاناً</div>
+                <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                    <li>✅ قضايا محدودة + بحث قانوني</li>
+                    <li>✅ 50 عملية ذكاء اصطناعي</li>
+                </ul>
+                <button class="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700">اشتراك إلكتروني</button>
+            </div>
+
+            <!-- الباقة 2: محامي صغير -->
+            <div class="bg-blue-50 p-8 rounded-3xl border-2 border-blue-600 shadow-lg">
+                <span class="bg-blue-600 text-white px-3 py-1 rounded-full text-xs">الأكثر طلباً</span>
+                <h3 class="text-xl font-bold mt-2 mb-2">المحامي الصغير</h3>
+                <div class="text-3xl font-bold my-4">299 <span class="text-sm font-normal text-gray-500">ر.س/شهر</span></div>
+                <div class="text-green-600 text-sm mb-4 font-bold">الشهر الأول مجاناً</div>
+                <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                    <li>✅ CRM + عقود + متجر وموقع</li>
+                    <li>✅ 200 عملية ذكاء اصطناعي</li>
+                </ul>
+                <button class="w-full py-3 bg-blue-600 text-white rounded-xl">اشتراك إلكتروني</button>
+            </div>
+
+            <!-- الباقة 3: مكتب محاماة -->
+            <div class="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition">
+                <h3 class="text-xl font-bold mb-2">مكتب المحاماة</h3>
+                <div class="text-3xl font-bold my-4">999 <span class="text-sm font-normal text-gray-500">ر.س/شهر</span></div>
+                <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                    <li>✅ بوابة الموكل + تقارير مالية</li>
+                    <li>✅ 1,000 عملية ذكاء اصطناعي</li>
+                </ul>
+                <button class="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black">اشتراك إلكتروني</button>
+            </div>
+
+            <!-- الباقة 4: المكتب المتقدم -->
+            <div class="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition">
+                <h3 class="text-xl font-bold mb-2">المكتب المتقدم</h3>
+                <div class="text-3xl font-bold my-4">4,999 <span class="text-sm font-normal text-gray-500">ر.س/شهر</span></div>
+                <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                    <li>✅ محاكي خصم + أدوات متقدمة</li>
+                    <li>✅ 5,000 عملية ذكاء اصطناعي</li>
+                </ul>
+                <button class="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black">اشتراك إلكتروني</button>
+            </div>
+
+            <!-- الباقة 5: الشركات -->
+            <div class="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition">
+                <h3 class="text-xl font-bold mb-2">الشركات القانونية</h3>
+                <div class="text-3xl font-bold my-4">9,999 <span class="text-sm font-normal text-gray-500">ر.س/شهر</span></div>
+                <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                    <li>✅ ميزات كاملة + دعم خاص</li>
+                    <li>✅ ذكاء اصطناعي غير محدود</li>
+                </ul>
+                <button class="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black">اشتراك إلكتروني</button>
+            </div>
+
+            <!-- الباقة 6: المؤسسات -->
+            <div class="bg-gray-900 p-8 rounded-3xl text-white shadow-xl">
+                <h3 class="text-xl font-bold mb-2">باقة المؤسسات</h3>
+                <div class="text-2xl font-bold my-4">تواصل معنا للتحديد</div>
+                <p class="text-gray-400 text-sm mb-6">تخصيص كامل حسب احتياج كيانك القانوني.</p>
+                <button class="w-full py-3 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-200">طلب عرض سعر</button>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+</body>
+</html>

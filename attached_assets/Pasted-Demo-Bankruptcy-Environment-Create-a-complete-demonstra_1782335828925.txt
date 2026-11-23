@@ -1,0 +1,379 @@
+Demo Bankruptcy Environment
+
+Create a complete demonstration environment for Adalah Bankruptcy.
+
+Important:
+
+This is Demo Data only.
+
+Do not affect production logic.
+
+Do not affect real offices.
+
+Create realistic sample data for:
+
+Office: مكتب الشمال للمحاماة
+
+Office: مكتب الجنوب للمحاماة
+
+All records must be clearly marked:
+
+is_demo = true
+
+⸻
+
+Office North
+
+Create:
+
+8 Bankruptcy Cases
+
+3 Opening Requests
+
+45 Creditors
+
+120 Claims
+
+35 Assets
+
+22 Liabilities
+
+18 Meetings
+
+6 Distributions
+
+25 Reports
+
+40 Tasks
+
+15 Alerts
+
+⸻
+
+Office South
+
+Create:
+
+6 Bankruptcy Cases
+
+2 Opening Requests
+
+30 Creditors
+
+75 Claims
+
+20 Assets
+
+14 Liabilities
+
+12 Meetings
+
+4 Distributions
+
+18 Reports
+
+25 Tasks
+
+10 Alerts
+
+⸻
+
+Opening Requests
+
+Generate realistic companies:
+
+شركة النور التجارية
+
+شركة الخليج الصناعية
+
+شركة البناء المتقدم
+
+شركة المدى اللوجستية
+
+شركة التقنية الحديثة
+
+Each request should include:
+
+Financial data
+
+Uploaded documents
+
+AI Analysis
+
+Readiness Score
+
+Procedure Recommendation
+
+Lifecycle Status
+
+⸻
+
+Bankruptcy Cases
+
+Distribute statuses:
+
+Draft
+
+Court Submission
+
+Claims Collection
+
+Claims Verification
+
+Assets Management
+
+Meetings
+
+Distribution
+
+Closed
+
+⸻
+
+Creditors
+
+Generate realistic creditor types:
+
+Banks
+
+Suppliers
+
+Employees
+
+Government Entities
+
+ZATCA
+
+Landlords
+
+Service Providers
+
+⸻
+
+Claims
+
+Generate:
+
+Approved
+
+Rejected
+
+Under Review
+
+Disputed
+
+Pending
+
+With realistic amounts.
+
+⸻
+
+Assets
+
+Generate:
+
+Real Estate
+
+Vehicles
+
+Equipment
+
+Accounts Receivable
+
+Investments
+
+Intellectual Property
+
+With estimated values.
+
+⸻
+
+Liabilities
+
+Generate:
+
+Bank Loans
+
+Supplier Debts
+
+Employee Claims
+
+Government Obligations
+
+Tax Obligations
+
+Lease Obligations
+
+⸻
+
+Meetings
+
+Generate:
+
+Upcoming Meetings
+
+Completed Meetings
+
+Voting Meetings
+
+Creditors Meetings
+
+Trustee Meetings
+
+Include attendance data.
+
+⸻
+
+Distributions
+
+Generate:
+
+Draft
+
+Approved
+
+Executed
+
+With realistic percentages.
+
+⸻
+
+AI Analysis
+
+Populate all AI dashboards.
+
+Generate:
+
+Eligibility Scores
+
+Risk Scores
+
+Recovery Scores
+
+Liquidity Scores
+
+Confidence Scores
+
+Recommendations
+
+Financial Observations
+
+⸻
+
+Court Packages
+
+Generate at least:
+
+10 Complete Court Packages
+
+Stored in reports.
+
+⸻
+
+Workflow Engine
+
+Populate all workflow stages.
+
+Display cases across all stages.
+
+Show realistic completion percentages.
+
+⸻
+
+Tasks
+
+Generate:
+
+High Priority
+
+Medium Priority
+
+Low Priority
+
+Completed
+
+Overdue
+
+Assigned
+
+Unassigned
+
+⸻
+
+Alerts
+
+Generate:
+
+Info
+
+Warning
+
+High
+
+Critical
+
+Across multiple cases.
+
+⸻
+
+Executive Dashboard
+
+Ensure all KPI widgets display meaningful data.
+
+No empty states.
+
+No blank charts.
+
+No zero-value dashboards.
+
+⸻
+
+Creditor Portal Demo
+
+Create:
+
+20 demo creditor submissions
+
+Different statuses
+
+Attachments
+
+Tracking numbers
+
+⸻
+
+Public Bankruptcy Portal
+
+Populate:
+
+Upcoming Meetings
+
+Statistics
+
+Recent Activity
+
+Case Summaries
+
+Services
+
+Announcements
+
+⸻
+
+Final Requirement
+
+Every section of Adalah Bankruptcy must appear fully operational during demonstrations.
+
+No empty tables.
+
+No empty charts.
+
+No empty dashboards.
+
+No placeholder text.
+
+All demo data must be isolated and removable via:
+
+Delete Demo Environment
+
+without affecting production data.

@@ -1,0 +1,412 @@
+ADALAH AI — DOCUMENT CENTER V2 ENTERPRISE UPGRADE
+
+المهمة
+
+قم بتطوير مركز المستندات الحالي دون كسر أي وظيفة موجودة ودون تعديل سلوك النظام الحالي.
+
+يجب اعتبار النظام الحالي مستقراً ومنتجياً.
+
+جميع الإضافات الجديدة يجب أن تكون Backward Compatible وقابلة للتشغيل الفوري.
+
+⸻
+
+FEATURE 1 — DOCUMENT VERSION CONTROL
+
+الهدف
+
+تحويل المستندات إلى نظام متعدد الإصدارات.
+
+عدم استبدال الملف الأصلي عند التعديل.
+
+إنشاء نسخة جديدة تلقائياً.
+
+⸻
+
+Database
+
+إنشاء جدول:
+
+document_versions
+
+fields:
+
+* id
+* document_id
+* office_id
+* version_number
+* storage_key
+* checksum
+* file_size
+* uploaded_by
+* created_at
+* change_summary
+* is_current
+
+Indexes:
+
+(document_id)
+
+(document_id, version_number)
+
+(office_id)
+
+⸻
+
+Business Rules
+
+عند رفع نسخة جديدة:
+
+1. لا يتم حذف النسخة السابقة
+2. يتم إنشاء Version جديد
+3. تحديث is_current
+4. تسجيل العملية في audit_logs
+
+⸻
+
+UI
+
+إضافة تبويب:
+
+📚 سجل الإصدارات
+
+يعرض:
+
+Version
+
+Author
+
+Date
+
+Size
+
+Changes
+
+Current Version
+
+Restore
+
+Download
+
+Compare
+
+⸻
+
+FEATURE 2 — DOCUMENT PERMISSIONS
+
+الهدف
+
+التحكم الدقيق بالمستندات.
+
+⸻
+
+Database
+
+document_permissions
+
+fields:
+
+* id
+* document_id
+* office_id
+* permission_type
+* role_id
+* user_id
+* created_at
+
+permission_type:
+
+OWNER
+
+TEAM
+
+MANAGEMENT
+
+HR
+
+FINANCE
+
+CUSTOM
+
+⸻
+
+Access Control
+
+كل عملية:
+
+View
+
+Download
+
+Update
+
+Archive
+
+Delete
+
+Share
+
+تمر عبر:
+
+DocumentPermissionGuard
+
+⸻
+
+UI
+
+إضافة:
+
+🔒 صلاحيات المستند
+
+اختيارات:
+
+* المالك فقط
+* الفريق
+* الإدارة
+* المحاسبة
+* الموارد البشرية
+* مخصص
+
+⸻
+
+FEATURE 3 — RETENTION POLICY ENGINE
+
+الهدف
+
+إدارة دورة حياة المستندات.
+
+⸻
+
+Database
+
+retention_policies
+
+fields:
+
+* id
+* office_id
+* category
+* retention_years
+* archive_after_days
+* auto_delete
+* created_at
+
+⸻
+
+Default Policies
+
+وكالة = 10 سنوات
+
+عقد = 10 سنوات
+
+فاتورة = 7 سنوات
+
+إفلاس = 10 سنوات
+
+خبرة = 10 سنوات
+
+مستندات موظفين = 5 سنوات
+
+⸻
+
+Scheduled Jobs
+
+Daily Retention Scanner
+
+يقوم بـ:
+
+* تحديد الملفات القريبة من الانتهاء
+* إرسال إشعارات
+* أرشفة الملفات
+* تنفيذ الحذف الآمن عند الموافقة
+
+⸻
+
+UI
+
+إضافة:
+
+🗄️ سياسات الاحتفاظ
+
+يعرض:
+
+الفئة
+
+مدة الاحتفاظ
+
+الحالة
+
+عدد المستندات المتأثرة
+
+⸻
+
+FEATURE 4 — OCR & AI DOCUMENT INTELLIGENCE
+
+الهدف
+
+تحويل المستندات إلى بيانات قابلة للبحث والتحليل.
+
+⸻
+
+Pipeline
+
+Upload
+
+↓
+
+Object Storage
+
+↓
+
+OCR Extraction
+
+↓
+
+Metadata Extraction
+
+↓
+
+AI Classification
+
+↓
+
+Indexing
+
+↓
+
+Search
+
+⸻
+
+Database
+
+document_ai_metadata
+
+fields:
+
+* id
+* document_id
+* office_id
+* extracted_text
+* summary
+* document_type
+* parties
+* dates
+* obligations
+* amounts
+* confidence_score
+* processed_at
+
+⸻
+
+AI Tasks
+
+بعد رفع الملف:
+
+Generate Summary
+
+Extract Parties
+
+Extract Dates
+
+Extract Amounts
+
+Extract Obligations
+
+Detect Document Type
+
+Generate Search Index
+
+⸻
+
+Search
+
+إضافة:
+
+Semantic Search
+
+Full Text Search
+
+AI Search
+
+Category Search
+
+⸻
+
+UI
+
+إضافة تبويب:
+
+🤖 الذكاء المستندي
+
+الأدوات:
+
+* تلخيص المستند
+* استخراج الأطراف
+* استخراج التواريخ
+* استخراج المبالغ
+* استخراج الالتزامات
+* تصنيف المستند
+
+⸻
+
+AUDIT INTEGRATION
+
+تسجيل كامل لكل:
+
+Upload
+
+Download
+
+View
+
+Edit
+
+Archive
+
+Delete
+
+Restore
+
+Version Create
+
+Permission Change
+
+OCR Process
+
+AI Analysis
+
+⸻
+
+COMPLIANCE
+
+تطبيق:
+
+Tenant Isolation
+
+PDPL Controls
+
+Audit Trail
+
+Signed URLs
+
+Checksum Validation
+
+Encryption At Rest
+
+Encryption In Transit
+
+Document Access Tracking
+
+⸻
+
+SUCCESS CRITERIA
+
+* عدم كسر أي وظيفة حالية
+* الحفاظ على جميع الملفات الحالية
+* الحفاظ على جميع APIs الحالية
+* TypeScript Zero Errors
+* Production Ready
+* Enterprise Ready
+* Support Millions Of Documents
+* Support Large Law Firms
+* Full Compatibility With Cases, Contracts, Bankruptcy, Experts And Finance Modules

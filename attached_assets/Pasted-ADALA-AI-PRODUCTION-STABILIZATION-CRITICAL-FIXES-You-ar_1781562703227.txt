@@ -1,0 +1,257 @@
+ADALA AI — PRODUCTION STABILIZATION & CRITICAL FIXES
+
+You are the Lead Staff Engineer for Adala AI.
+
+Your mission is NOT to add new features.
+
+Your mission is to make the platform production-ready, secure, stable, fast, and maintainable.
+
+PRIMARY OBJECTIVE
+
+Execute a full platform stabilization pass across frontend, backend, database, authentication, security, performance, and multi-tenant architecture.
+
+Do not remove existing business functionality.
+
+Preserve all current features.
+
+Focus only on fixing defects, hardening security, improving reliability, and reducing technical debt.
+
+⸻
+
+PHASE 1 — SECURITY HARDENING
+
+Audit Logging
+
+Implement mandatory audit logging for all critical actions:
+
+* Create Case
+* Update Case
+* Delete Case
+* Create Client
+* Update Client
+* Delete Client
+* Document Upload
+* Document Delete
+* Invoice Create
+* Invoice Update
+* Invoice Delete
+* User Invite
+* User Removal
+* Permission Changes
+* Login Events
+* Payment Events
+
+All audit logs must include:
+
+* user_id
+* office_id
+* action
+* resource_type
+* resource_id
+* timestamp
+* ip_address
+* user_agent
+
+No critical action should bypass audit logging.
+
+⸻
+
+Tenant Isolation
+
+Remove any fallback tenant behavior.
+
+If tenant resolution fails:
+
+* Reject request
+* Return 403
+* Log security event
+
+Never fallback to default tenant.
+
+Verify office_id filtering across all tenant routes.
+
+Audit every route for tenant leakage risks.
+
+⸻
+
+Input Validation
+
+Implement Zod validation on:
+
+* Cases
+* Clients
+* Invoices
+* Documents
+* Payments
+* Marketplace Orders
+* Office Settings
+* User Management
+
+Reject invalid requests before controller execution.
+
+Create centralized validation middleware.
+
+⸻
+
+Session Security
+
+Remove localStorage session storage for client portal.
+
+Use:
+
+* HttpOnly Cookies
+* Secure Cookies
+* SameSite Protection
+
+Verify logout invalidates sessions correctly.
+
+⸻
+
+File Upload Security
+
+Allow only approved file types:
+
+* PDF
+* DOCX
+* XLSX
+* JPG
+* JPEG
+* PNG
+
+Block executable files.
+
+Validate MIME type and extension.
+
+Enforce upload size limits.
+
+⸻
+
+CSP Enforcement
+
+Convert CSP from Report-Only to Enforced Mode.
+
+Remove unsafe CSP directives.
+
+Ensure frontend compatibility.
+
+⸻
+
+Rate Limiting
+
+Apply rate limiting to:
+
+* Login
+* Register
+* Password Reset
+* Public APIs
+* AI Endpoints
+* Marketplace Endpoints
+
+Prevent abuse and brute-force attacks.
+
+⸻
+
+PHASE 2 — DATABASE OPTIMIZATION
+
+Create missing indexes for all foreign keys.
+
+Review slow queries.
+
+Eliminate sequential scans where possible.
+
+Verify all tenant-scoped tables contain office_id indexes.
+
+Review duplicate tables and identify safe consolidation opportunities.
+
+Do not delete tables automatically.
+
+Generate migration recommendations only.
+
+⸻
+
+PHASE 3 — PERFORMANCE OPTIMIZATION
+
+Reduce backend bundle size.
+
+Use dynamic imports where appropriate.
+
+Remove dead code.
+
+Improve tree shaking.
+
+Optimize large route files.
+
+Reduce unnecessary frontend renders.
+
+Verify React Query cache strategy.
+
+Ensure lazy loading remains intact.
+
+⸻
+
+PHASE 4 — ERROR HANDLING
+
+Create centralized error handling.
+
+Standardize API responses.
+
+Remove inconsistent try/catch patterns.
+
+Add structured error logging.
+
+Prevent white-screen failures.
+
+Ensure all lazy-loaded pages have safe fallbacks.
+
+⸻
+
+PHASE 5 — CODE QUALITY
+
+Extract duplicated utilities:
+
+* translation helpers
+* image helpers
+* WhatsApp formatting helpers
+* common response helpers
+
+Create shared utility modules.
+
+Reduce code duplication.
+
+Improve maintainability.
+
+⸻
+
+PHASE 6 — PRODUCTION READINESS CHECK
+
+Run full audit and generate report including:
+
+* Security Score
+* Performance Score
+* Database Score
+* Code Quality Score
+* Production Readiness Score
+
+List every issue fixed.
+
+List remaining warnings.
+
+List remaining technical debt.
+
+⸻
+
+IMPORTANT RULES
+
+1. Do not create new features.
+2. Do not redesign UI.
+3. Do not modify business logic unless required for security or stability.
+4. Do not remove existing functionality.
+5. Maintain backward compatibility.
+6. Keep TypeScript strict mode passing.
+7. Keep build successful.
+8. Keep all tests passing.
+9. Fix root causes, not symptoms.
+10. Commit changes in logical batches with clear descriptions.
+
+Final goal:
+Transform Adala AI from “Advanced MVP” into a secure, stable, production-ready Legal SaaS platform.

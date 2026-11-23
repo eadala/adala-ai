@@ -1,0 +1,166 @@
+تمام. بما أنك قلت “نعم”، سأعطيك إعداد جاهز Production-grade لمنصة React/TypeScript (مناسب لعدالة AI) يشمل: ESLint + TypeScript + Pre-commit + قواعد تمنع الأخطاء اللي ظهرت عندك أصلًا.
+
+⸻
+
+🧱 إعداد Production Ready (عدالة AI)
+
+1) ESLint (القلب الأساسي لمنع الأخطاء)
+
+📦 التثبيت
+
+npm i -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-import
+
+⸻
+
+⚙️ eslint.config.js (أو .eslintrc)
+
+module.exports = {
+  root: true,
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint", "react", "react-hooks", "import"],
+  extends: [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  rules: {
+    // 🔴 React Hooks Safety
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    // 🔴 Prevent duplicate JSX props (className issue)
+    "react/no-duplicate-props": "error",
+    // 🔴 Import order (fix monitoring issues)
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal"],
+        "alphabetize": { "order": "asc" }
+      }
+    ],
+    // 🔴 Prevent unused vars (setError / missing imports)
+    "@typescript-eslint/no-unused-vars": "error",
+    // 🔴 Enforce consistent toast usage
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.property.name='error']",
+        "message": "Use toast({ variant: 'destructive' }) instead of toast.error()"
+      }
+    ]
+  }
+}
+
+⸻
+
+2) TypeScript (رفع مستوى الأمان)
+
+tsconfig.json (مهم جدًا)
+
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true
+  }
+}
+
+⸻
+
+3) Pre-commit (Husky + lint-staged)
+
+📦 التثبيت
+
+npm i -D husky lint-staged
+npx husky init
+
+⸻
+
+package.json
+
+{
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "tsc --noEmit"
+    ]
+  }
+}
+
+⸻
+
+pre-commit hook
+
+npx husky add .husky/pre-commit "npx lint-staged"
+
+⸻
+
+4) منع أخطاءك الحالية مباشرة (مهم)
+
+❌ يمنع تلقائيًا:
+
+* useToast() خارج component ❌
+* toast.error() ❌
+* duplicate className ❌
+* missing setState ❌
+* imports غير مرتبة ❌
+* hook order mistakes ❌
+
+⸻
+
+5) React Hook Safety Layer (اختياري قوي جدًا)
+
+لو تبغى مستوى أعلى:
+
+npm i -D eslint-plugin-react-hooks
+
+مفعل عندك في config أعلاه.
+
+⸻
+
+6) تحسين Architecture (مهم لمنصة SaaS)
+
+أقترح تضيف هذا الهيكل:
+
+src/
+  shared/
+    ui/
+    hooks/
+    utils/
+  features/
+    marketplace/
+    office/
+    auth/
+  services/
+    api/
+    toast/
+
+⸻
+
+📊 النتيجة بعد هذا النظام
+
+بعد تطبيقه:
+
+* 🔴 90% من أخطاء runtime تختفي قبل التشغيل
+* 🔴 أي misuse لـ hooks يتم منعه فورًا
+* 🔴 توحيد toast API بالكامل
+* 🔴 منع duplicate JSX attributes
+* 🔴 رفع جودة الكود لمستوى SaaS production
+
+⸻
+
+إذا تبغى الخطوة التالية
+
+أقدر أرفع لك المستوى أكثر إلى:
+
+🚀 1) Architecture SaaS كامل (multi-tenant)
+
+🚀 2) Design system tokens جاهز (بديل Tailwind عشوائي)
+
+🚀 3) CI/CD pipeline على Hetzner + Coolify
+
+🚀 4) مراقبة أخطاء realtime (Sentry + logs)
+
+قل لي فقط: “اكمل للنشر” أو “اكمل للمعمارية”

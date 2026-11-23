@@ -1,0 +1,814 @@
+{
+  "appName": "ADALAH AI",
+  "tagline": "Legal Office Management System",
+  "logout": "Sign Out",
+  "search": "Search cases, documents...",
+  "systemAdmin": "System Admin",
+  "language": "Language",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "add": "Add",
+  "back": "Back",
+  "loading": "Loading...",
+  "noData": "No data available",
+  "confirm": "Confirm",
+  "close": "Close",
+  "upgrade": "Upgrade Plan",
+  "featureLocked": "This feature is not available in your current plan — upgrade to unlock",
+  "nav": {
+    "groups": {
+      "legal_ops": "Legal Operations",
+      "financial": "Financial Management",
+      "communication": "Communication & Schedule",
+      "ai": "Artificial Intelligence",
+      "hr": "Human Resources",
+      "analytics": "Analytics & Compliance",
+      "website": "Legal Presence",
+      "admin": "Administration",
+      "super_admin": "Super Admin",
+      "accounting": "Accounting"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "cases": "Cases",
+      "clients": "Clients (CRM)",
+      "contracts": "Contracts",
+      "documents": "Documents",
+      "letters": "Letter Templates",
+      "finance_center": "Finance Center",
+      "collections": "Collections",
+      "invoices": "Invoices",
+      "billing": "Subscription & Billing",
+      "payment_center": "Payment Center",
+      "financial_core": "Financial Core",
+      "studio": "Adala Studio",
+      "messages": "Messages",
+      "support": "Support",
+      "reminders": "Reminders",
+      "email_notifications": "Email Notifications",
+      "notification_settings": "Notification Settings",
+      "calendar": "Calendar & Appointments",
+      "hearings_calendar": "Hearings Calendar",
+      "client_portal": "Client Portal",
+      "ai_copilot": "Adl — AI Copilot",
+      "ai_hub": "AI Hub",
+      "ai_router": "AI Router Dashboard",
+      "branches": "Branch Management",
+      "adoul": "Adoul — Legal Assistant",
+      "ui_builder": "AI UI Builder",
+      "command_center": "Command Center",
+      "ai_assistant": "AI Admin Assistant",
+      "ai_agents": "AI Agents",
+      "ai_chat": "AI Chat",
+      "opponent_simulator": "Opponent Simulator",
+      "judge_prep": "Judge Questions Predictor",
+      "legal_research": "Legal Research",
+      "arbitration": "Arbitration & Mediation",
+      "employees": "Employees",
+      "attendance": "Attendance",
+      "leaves": "Leave Management",
+      "payroll": "Payroll",
+      "warnings": "Warnings & Investigations",
+      "tasks": "Tasks",
+      "performance_analytics": "Performance Analytics",
+      "risk_management": "Risk Management",
+      "compliance": "Legal Compliance",
+      "office_management": "Smart Office Website",
+      "marketplace": "Legal Marketplace",
+      "mediators": "Mediators & Collaborators",
+      "hr_enterprise": "Enterprise HR",
+      "hr_center": "HR Center",
+      "hr_systems": "Internal Systems",
+      "org_structure": "Org Structure",
+      "team_permissions": "Team & Permissions",
+      "firm_admin": "Office Manager Dashboard",
+      "users": "Team",
+      "office_settings": "Office Settings",
+      "theme_builder": "Theme Builder",
+      "backup_center": "Data Center & Backup",
+      "storage_settings": "Smart Storage Manager",
+      "super_admin_panel": "Super Admin Dashboard",
+      "revenues": "Revenues",
+      "expenses": "Expenses",
+      "cashflow": "Cash Flow",
+      "bank_accounts": "Bank Accounts",
+      "advances": "Advances",
+      "financial_reports": "Financial Reports",
+      "financial_statements": "Financial Statements",
+      "login_tracking": "Login Tracking",
+      "financial_intelligence": "Financial Intelligence"
+    }
+  },
+  "landing": {
+    "nav": {
+      "showcase": "Platform Demo",
+      "features": "Features",
+      "how": "How It Works",
+      "security": "Security",
+      "pricing": "Pricing",
+      "faq": "FAQ"
+    },
+    "signIn": "Sign In",
+    "startFree": "Start Free",
+    "startFreeNow": "Start Free Now",
+    "bookDemo": "Book a Live Demo",
+    "hero": {
+      "badge": "The all-in-one Legal SaaS platform for firms worldwide",
+      "titleLine1": "Smarter",
+      "titleLine2": "Legal Management",
+      "titleHighlight": "Powered by Artificial Intelligence",
+      "subtitle": "Adala AI is a full-stack legal SaaS for law firms and companies. Cases, clients, contracts, documents, billing, financials, HR, and AI — all in one secure, globally scalable platform.",
+      "noCard": "No credit card",
+      "quickSetup": "Setup in minutes",
+      "arabicSupport": "Arabic & English support",
+      "interactive": "Full interactive demo",
+      "explore": "Explore the Platform"
+    },
+    "trust": {
+      "tagline": "Trusted by thousands of lawyers and law firms worldwide",
+      "offices": "Law Firms",
+      "cases": "Cases Managed",
+      "satisfaction": "System Uptime",
+      "timeSaving": "Time Saved"
+    },
+    "features": {
+      "label": "Features",
+      "title": "Everything Your Firm Needs in One Platform",
+      "subtitle": "30+ integrated modules to run your legal practice more efficiently and scale faster",
+      "items": [
+        {
+          "title": "Case Management",
+          "desc": "Track all your cases and deadlines at a glance with advanced filtering and PDF export"
+        },
+        {
+          "title": "AI Legal Agents",
+          "desc": "6 specialized agents: Contracts, Litigation, Corporate, Compliance, IP, Collections"
+        },
+        {
+          "title": "Contract Management",
+          "desc": "Draft and track contracts with automatic expiry alerts and full archiving"
+        },
+        {
+          "title": "Client CRM",
+          "desc": "Complete client profile with full case history and dedicated client portal"
+        },
+        {
+          "title": "Appointments & Sessions",
+          "desc": "Smart calendar with automatic reminders before hearings and calendar sync"
+        },
+        {
+          "title": "Invoices & Collections",
+          "desc": "Create professional invoices with multiple templates and auto payment tracking"
+        },
+        {
+          "title": "Document Management",
+          "desc": "Central document library with OCR, smart search, and direct case linking"
+        },
+        {
+          "title": "Client Portal",
+          "desc": "Private link for each client to track their case, download documents and pay invoices"
+        },
+        {
+          "title": "Opponent Simulator",
+          "desc": "Argue against an AI lawyer to find weaknesses in your case before the hearing"
+        },
+        {
+          "title": "Smart Legal Research",
+          "desc": "AI-powered search across regulations and judicial precedents"
+        },
+        {
+          "title": "Financial Reports",
+          "desc": "Profit & loss, cash flow, and revenue breakdown reports"
+        },
+        {
+          "title": "HR Management",
+          "desc": "Manage staff records, roles, professional credentials, and disciplinary actions"
+        },
+        {
+          "title": "Payroll & Attendance",
+          "desc": "Accurate tracking of attendance, leaves, and payroll for legal staff"
+        },
+        {
+          "title": "Office Website",
+          "desc": "Professional office page with services for sale and online appointment booking"
+        },
+        {
+          "title": "Official Letters",
+          "desc": "Generate formal legal correspondence with professional templates and e-signature"
+        },
+        {
+          "title": "Payment Center",
+          "desc": "Secure electronic payment processing with bank and escrow account management"
+        },
+        {
+          "title": "E-Signature",
+          "desc": "Sign and certify legal documents electronically with a secure link for each party — no printing needed"
+        },
+        {
+          "title": "Mobile App",
+          "desc": "Full access from your phone to manage cases, clients, contracts and create new files anywhere"
+        },
+        {
+          "title": "Client Self-Service Accounts",
+          "desc": "Client self-registration via OTP to track their cases, message you and upload documents directly"
+        },
+        {
+          "title": "Auto Backup Center",
+          "desc": "Automated cloud backup scheduling with full encryption and one-click recovery"
+        },
+        {
+          "title": "Audit Log & Security",
+          "desc": "Comprehensive tracking of all team actions with a full change history for compliance and accountability"
+        },
+        {
+          "title": "WhatsApp Notifications",
+          "desc": "Instant client updates via WhatsApp when case status changes or a hearing is approaching"
+        }
+      ]
+    },
+    "ai": {
+      "label": "✦ Artificial Intelligence",
+      "title": "Smart Legal Assistant",
+      "titleHighlight": "Working with You 24/7",
+      "subtitle": "Ask it anything about your firm — from hearing schedules to case summaries and contract risk analysis.",
+      "available": "● Online",
+      "assistantName": "Smart Admin Assistant",
+      "askPlaceholder": "Ask the assistant...",
+      "items": [
+        {
+          "title": "Document Analysis",
+          "desc": "Extract key points from any contract or document with high accuracy"
+        },
+        {
+          "title": "Risk Assessment",
+          "desc": "Detect dangerous clauses in contracts and suggest amendments"
+        },
+        {
+          "title": "Case Summaries",
+          "desc": "Instant summary of any case with key events and deadlines"
+        },
+        {
+          "title": "Smart Legal Research",
+          "desc": "Precise search in laws and legal regulations in Arabic and English"
+        }
+      ]
+    },
+    "how": {
+      "label": "Get Started",
+      "title": "Launch Your Firm in 4 Steps",
+      "subtitle": "Getting started with Adala AI takes less than 2 minutes",
+      "steps": [
+        {
+          "n": "1",
+          "title": "Create Your Firm",
+          "desc": "Register an account and customize your firm's visual identity in 2 minutes"
+        },
+        {
+          "n": "2",
+          "title": "Add Clients & Cases",
+          "desc": "Import your existing data or add it manually with ease"
+        },
+        {
+          "n": "3",
+          "title": "Activate AI",
+          "desc": "Let the smart assistant analyze your documents and answer your queries"
+        },
+        {
+          "n": "4",
+          "title": "Manage Everything",
+          "desc": "Everything in one dashboard — from anywhere, on any device"
+        }
+      ]
+    },
+    "security": {
+      "label": "Security & Privacy",
+      "title": "Enterprise-Grade Security",
+      "subtitle": "Your legal data is fully protected with the highest security standards",
+      "items": [
+        {
+          "title": "AES-256 Encryption",
+          "desc": "All data encrypted in transit and at rest with the highest encryption standards"
+        },
+        {
+          "title": "Full Multi-Tenant Isolation",
+          "desc": "Each firm is completely isolated — no data sharing between firms"
+        },
+        {
+          "title": "Daily Backups",
+          "desc": "Automatic daily backups with the ability to restore data at any time"
+        },
+        {
+          "title": "Comprehensive Audit Logs",
+          "desc": "Complete log of every operation with full user attribution"
+        },
+        {
+          "title": "Advanced RBAC Permissions",
+          "desc": "Fine-grained control over each team member's access rights"
+        },
+        {
+          "title": "Reliable Infrastructure",
+          "desc": "Hosted on reliable servers with 99.9% uptime guarantee and high performance"
+        }
+      ]
+    },
+    "testimonials": {
+      "title": "What Our Clients Say",
+      "subtitle": "Real reviews from lawyers and law firms using Adala AI",
+      "items": [
+        {
+          "name": "Khalid Al-Saidi",
+          "role": "Lawyer — Law Firm",
+          "text": "The platform saved me at least 6 hours a week in file and correspondence management. The AI assistant answers with amazing accuracy in Arabic."
+        },
+        {
+          "name": "Al-Barqi Law Office",
+          "role": "Law Office — 20 Staff",
+          "text": "The best Arabic platform for managing law offices. Transitioning from traditional methods to Adala AI completely transformed how we work."
+        },
+        {
+          "name": "Noura Al-Shamri",
+          "role": "Legal Consultant — Advisory Firm",
+          "text": "The client portal has significantly elevated our firm's professionalism. Clients are very happy with the ability to follow their cases directly."
+        }
+      ]
+    },
+    "pricing": {
+      "label": "Plans & Pricing",
+      "title": "Invest in Your Firm's Growth — Not Software",
+      "subtitle": "Start free · Upgrade when ready · No credit card · No contracts",
+      "mostPopular": "⭐ Most Popular",
+      "allServices": "All Services",
+      "viewAll": "Compare All 7 Plans in Detail",
+      "plans": [
+        {
+          "name": "Explorer — Free Forever",
+          "price": "0",
+          "period": "SAR · Always",
+          "cta": "Start Free Now",
+          "features": [
+            "Up to 5 active cases",
+            "1 user",
+            "1 GB storage",
+            "5,000 AI credits",
+            "Smart reminders",
+            "Legal calendar",
+            "PDF export"
+          ]
+        },
+        {
+          "name": "Master — Most Popular",
+          "price": "899",
+          "period": "SAR/month",
+          "cta": "Start Now — Top Pick",
+          "features": [
+            "5 users · 50 GB storage",
+            "100,000 AI credits/month",
+            "🤖 Advanced AI (GPT-4/Claude)",
+            "📊 AI case analytics",
+            "🔍 OCR — text extraction",
+            "💾 Daily auto-backup",
+            "Advanced reports + KPIs"
+          ]
+        },
+        {
+          "name": "Legend — For the Elite",
+          "price": "Contact Us",
+          "period": "",
+          "cta": "Book a Call with Our Team",
+          "features": [
+            "Everything unlimited, no restrictions",
+            "🤖 AI trained on your firm's data",
+            "🏗️ Dedicated private infrastructure",
+            "📜 99.99% SLA with legal contract",
+            "🌟 Dedicated success manager 24/7",
+            "🚀 Free data migration from any system",
+            "🔒 Highest security standards on the market"
+          ]
+        }
+      ]
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "subtitle": "Everything you want to know about Adala AI",
+      "items": [
+        {
+          "q": "Is there a free trial?",
+          "a": "Yes, the free plan is available forever with no expiry. All paid plans come with a full 30-day free trial — all features unlocked, no restrictions, no credit card required."
+        },
+        {
+          "q": "Does the platform fully support Arabic?",
+          "a": "Yes, the platform is built from the ground up for Arabic and fully supports RTL. The AI assistant also handles Arabic with high accuracy."
+        },
+        {
+          "q": "Can I import my existing data?",
+          "a": "Absolutely. We support data import from Excel, CSV, and common systems. Our support team will help you with migration for free."
+        },
+        {
+          "q": "How is my data stored? Is it secure?",
+          "a": "Your data is protected with AES-256 encryption and stored completely isolated from other firms (Multi-tenant). Automatic daily backups."
+        },
+        {
+          "q": "Can the platform be used on mobile?",
+          "a": "Yes, the platform is fully responsive on mobile and tablets. iOS and Android apps are coming soon."
+        },
+        {
+          "q": "Do you support custom visual identity for the firm?",
+          "a": "Yes, the Professional plan and above allow customization of logo, colors, and invoice templates. The Enterprise plan allows full White Label."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Start Your Journey Toward a",
+      "titleHighlight": "Smarter, More Efficient Law Firm",
+      "subtitle": "Join hundreds of law firms that trust Adala AI. Start free today.",
+      "noCard": "No credit card required",
+      "arabicSupport": "Full Arabic support"
+    },
+    "privacy": {
+      "badge": "🔒 Security & Privacy",
+      "title": "Your Privacy and File Confidentiality Are Our Priority",
+      "subtitle": "No firm can access another firm's files, and your data is only accessible by authorized users within your firm. Your data is protected with AES-256 encryption and stored in a completely isolated environment.",
+      "learnMore": "Learn about our security standards and data protection",
+      "items": [
+        {
+          "icon": "🔐",
+          "label": "AES-256 Encryption",
+          "desc": "For all stored data"
+        },
+        {
+          "icon": "🏗️",
+          "label": "Full Firm Isolation",
+          "desc": "Multi-tenant isolation"
+        },
+        {
+          "icon": "🛡️",
+          "label": "Data Privacy Compliance",
+          "desc": "International data protection standards"
+        },
+        {
+          "icon": "💾",
+          "label": "Daily Backups",
+          "desc": "Recovery in under 4 hours"
+        }
+      ]
+    },
+    "footer": {
+      "tagline": "The First all-in-one Legal Operating System for firms worldwide",
+      "platform": "Platform",
+      "company": "Company",
+      "support": "Support",
+      "copyright": "© 2026 Adala AI — All rights reserved",
+      "allSystemsNormal": "● All systems operational",
+      "platformLinks": [
+        "Features",
+        "Pricing",
+        "System Status",
+        "Roadmap"
+      ],
+      "companyLinks": [
+        "About Adala AI",
+        "Blog",
+        "Partnerships",
+        "Contact Us"
+      ],
+      "supportLinks": [
+        "Help Center",
+        "Privacy Policy",
+        "Terms & Conditions",
+        "Security & Data Protection"
+      ]
+    },
+    "dashboard": {
+      "tab0": "Dashboard",
+      "tab1": "Cases",
+      "tab2": "Clients",
+      "tab3": "Invoices",
+      "tab4": "AI Assistant",
+      "openCases": "Open Cases",
+      "upcomingSessions": "Upcoming Sessions",
+      "activeClients": "Active Clients",
+      "pendingInvoices": "Pending Invoices",
+      "activeClient": "Active Client",
+      "paid": "Paid",
+      "pending": "Pending"
+    },
+    "showcase": {
+      "badge": "Adala in 60 Seconds",
+      "title": "See How",
+      "titleHighlight": "Adala Works",
+      "subtitle": "Browse 15 real platform modules and see how a case is managed end-to-end from intake to collection",
+      "viewDetails": "View Full Details",
+      "journeyLabel": "Complete Workflow",
+      "journeyTitle": "From client intake to collecting your legal fees",
+      "journeySteps": [
+        "Client Intake",
+        "Open Case",
+        "Upload Documents",
+        "AI Analysis",
+        "Draft Contract",
+        "Issue Invoice",
+        "Payment Link",
+        "Client Pays",
+        "Case Follow-up",
+        "Close File"
+      ],
+      "paymentTitle": "Collect Your Legal Fees From Anywhere",
+      "paymentSubtitle": "Integrated payment gateway supporting credit cards, Mada, Apple Pay, and STC Pay",
+      "paymentFeatures": [
+        "Issue invoice in seconds",
+        "Direct payment links",
+        "International credit cards",
+        "Real-time payment tracking",
+        "Automated notifications",
+        "Live financial reports"
+      ],
+      "startFree": "Start Your Free Trial Now",
+      "viewAll": "View All Adala Features",
+      "moduleOf": "Module",
+      "of15": "of 15",
+      "prev": "Previous",
+      "next": "Next",
+      "startFreeShort": "Start Free",
+      "noCardRequired": "Start free — no credit card required",
+      "screens": [
+        {
+          "title": "Main Dashboard",
+          "subtitle": "Full firm overview at a glance",
+          "features": [
+            "152 active cases at a glance",
+            "1.8M revenue updated in real time",
+            "Smart charts and instant analytics",
+            "Session and critical deadline alerts"
+          ]
+        },
+        {
+          "title": "Case Management",
+          "subtitle": "Track every case from open to close",
+          "features": [
+            "Professional table with advanced filtering",
+            "Auto-link documents and clients",
+            "Smart case priority analysis",
+            "Export reports in multiple formats"
+          ]
+        },
+        {
+          "title": "Case Details",
+          "subtitle": "Every detail about the case in one screen",
+          "features": [
+            "AI analysis with 85% success probability",
+            "Visual timeline of case stages",
+            "Auto-categorized attachments",
+            "Team notes and legal comments"
+          ]
+        },
+        {
+          "title": "Client Management",
+          "subtitle": "Your complete client database",
+          "features": [
+            "183 clients categorized by type",
+            "Track revenue per client",
+            "Full contact history and case log",
+            "Professional client profiles"
+          ]
+        },
+        {
+          "title": "Documents & Smart Search",
+          "subtitle": "Search 784 documents in natural language",
+          "features": [
+            "AI-powered Arabic search in seconds",
+            "Automatic document classification",
+            "Quick preview without downloading",
+            "Secure sharing with the team"
+          ]
+        },
+        {
+          "title": "Legal AI Assistant",
+          "subtitle": "Your smart legal assistant around the clock",
+          "features": [
+            "Analyze case strengths and weaknesses",
+            "Draft professional legal briefs",
+            "Suggest defense strategies",
+            "Search judicial precedents"
+          ]
+        },
+        {
+          "title": "Opponent Simulator",
+          "subtitle": "Practice the confrontation before court day",
+          "features": [
+            "Predict opponent arguments with 87% accuracy",
+            "Suggest effective legal rebuttals",
+            "Analyze weaknesses in their position",
+            "Full trial scenario practice"
+          ]
+        },
+        {
+          "title": "Session Preparation",
+          "subtitle": "Never enter the courtroom unprepared",
+          "features": [
+            "Interactive calendar of all hearings",
+            "Preparation checklist per session",
+            "Automatic reminders before hearings",
+            "Comprehensive briefing file per case"
+          ]
+        },
+        {
+          "title": "Electronic Invoices",
+          "subtitle": "ZATCA-compliant invoice in seconds",
+          "features": [
+            "ZATCA-compliant invoices",
+            "Instant delivery via email and WhatsApp",
+            "Real-time payment status tracking",
+            "Automated monthly financial reports"
+          ]
+        },
+        {
+          "title": "Payment Center",
+          "subtitle": "Collect your legal fees from anywhere",
+          "features": [
+            "Direct payment links in one click",
+            "Accept international credit cards",
+            "Real-time payment status tracking",
+            "Instant transfer to bank account"
+          ]
+        },
+        {
+          "title": "Financial Collections",
+          "subtitle": "96% collection rate with smart follow-up",
+          "features": [
+            "Automatic reminders for overdue clients",
+            "Flexible payment scheduling",
+            "Detailed aging reports",
+            "Instant payment notifications"
+          ]
+        },
+        {
+          "title": "Human Resources",
+          "subtitle": "Manage your legal team professionally",
+          "features": [
+            "Complete files for 38 employees",
+            "Automated salaries, bonuses, and commissions",
+            "Periodic performance reviews",
+            "Interactive organizational chart"
+          ]
+        },
+        {
+          "title": "Attendance Tracking",
+          "subtitle": "Digital attendance with instant reports",
+          "features": [
+            "Digital attendance without biometrics",
+            "Daily and monthly attendance reports",
+            "Automatic leave calculation",
+            "Repeated absence alerts"
+          ]
+        },
+        {
+          "title": "Office Website",
+          "subtitle": "Professional digital presence for your firm",
+          "features": [
+            "Ready-made website in minutes",
+            "Services and specializations page",
+            "Contact and initial consultation form",
+            "Search engine visibility"
+          ]
+        },
+        {
+          "title": "Legal Services Store",
+          "subtitle": "Turn your legal expertise into digital income",
+          "features": [
+            "Sell services directly to clients",
+            "Paid online consultations",
+            "Ready-made customizable contracts",
+            "Client ratings and reviews"
+          ]
+        }
+      ]
+    },
+    "payment": {
+      "badge": "Global Electronic Payment",
+      "tagline": "Don't just manage cases…",
+      "title": "Collect Your Legal Fees",
+      "titleHighlight": "From Anywhere in the World",
+      "subtitle": "Turn consultations, contracts, and cases into real revenue through electronic invoices and direct payment links — all inside Adala.",
+      "tagline2": "From first consultation to collecting fees… everything happens inside Adala",
+      "stats": [
+        {
+          "label": "Total Invoices",
+          "sub": "invoices this month"
+        },
+        {
+          "label": "Paid Invoices",
+          "sub": "96% collection rate"
+        },
+        {
+          "label": "Revenue Collected",
+          "sub": "SAR this month"
+        },
+        {
+          "label": "Collection Rate",
+          "sub": "Highest in the industry"
+        }
+      ],
+      "journeyBadge": "Complete Collection Journey",
+      "journeyTitle": "From client intake to collecting fees in 7 steps",
+      "journeySteps": [
+        {
+          "label": "New Client",
+          "desc": "Receive and register client data"
+        },
+        {
+          "label": "Proposal/Contract",
+          "desc": "Create the legal proposal and contract"
+        },
+        {
+          "label": "E-Invoice",
+          "desc": "Issue ZATCA invoice in seconds"
+        },
+        {
+          "label": "Payment Link",
+          "desc": "Send direct link via WhatsApp"
+        },
+        {
+          "label": "Instant Payment",
+          "desc": "Card / Mada / Apple Pay"
+        },
+        {
+          "label": "Auto Update",
+          "desc": "Invoice status changes instantly"
+        },
+        {
+          "label": "Dashboard",
+          "desc": "Revenue appears in reports in real time"
+        }
+      ],
+      "resultTitle": "Result: Your Fees in Your Account",
+      "resultDesc": "While you focus on the case, Adala manages the entire collection process on your behalf",
+      "collectionRate": "collection rate",
+      "featuresBadge": "What You Get",
+      "featuresTitle": "Complete Collection System",
+      "featuresTitleHighlight": "Inside Adala",
+      "features": [
+        "Create an invoice in under a minute",
+        "Send a direct payment link in one click",
+        "Receive payments electronically",
+        "Auto-track overdue invoices",
+        "Automated payment reminders for clients",
+        "Comprehensive real-time financial reports",
+        "Manage all revenue from one dashboard"
+      ],
+      "invoiceActive": "● Active",
+      "accepts": "Accepts:",
+      "sendWhatsapp": "Send via WhatsApp",
+      "paymentLink": "Electronic Payment Link",
+      "problemsBadge": "Why do many law firms lose their fees?",
+      "problemsTitle": "Challenges facing",
+      "problemsTitleRed": "every law firm",
+      "problemsTitleSuffix": "… and how Adala solves them",
+      "problemLabel": "Problem",
+      "solutionLabel": "Adala's Solution",
+      "problems": [
+        {
+          "problem": "Forgetting to follow up on pending invoices loses thousands in revenue every month",
+          "solution": "Automatic client reminders and smart tracking for every invoice until payment"
+        },
+        {
+          "problem": "Delayed collections affect cash flow and hinder firm growth",
+          "solution": "Instant payment links sent to clients reduce average payment time from 30 days to 3 days"
+        },
+        {
+          "problem": "No clear financial reports — you don't know where your revenue is going",
+          "solution": "Real-time financial dashboard: every dollar recorded, every invoice tracked, every report ready in one click"
+        },
+        {
+          "problem": "Without a collection system, chasing clients is exhausting and unprofessional",
+          "solution": "Fully professional collection system: from issuing the invoice to sending the payment receipt"
+        }
+      ],
+      "globalBadge": "Global Electronic Payment",
+      "globalTitle": "Firms can issue invoices, send payment links, and track payment status electronically — all from inside Adala",
+      "globalSubtitle": "Whether the client is in Riyadh, Dubai, or London — the payment link reaches them instantly and they pay in seconds.",
+      "globalMethods": [
+        {
+          "label": "Global Payments",
+          "desc": "Visa / Mastercard / SWIFT"
+        },
+        {
+          "label": "Local Payments",
+          "desc": "Mada / STC Pay / Apple Pay"
+        },
+        {
+          "label": "Instant Transfer",
+          "desc": "To bank account within 24 hours"
+        },
+        {
+          "label": "PCI DSS Security",
+          "desc": "Global banking security standard"
+        }
+      ],
+      "ctaStart": "Start Collecting Electronically Now",
+      "ctaView": "See How Adala Works",
+      "ctaFooter": "No credit card · 3-minute setup · Full Arabic & English support"
+    }
+  }
+}

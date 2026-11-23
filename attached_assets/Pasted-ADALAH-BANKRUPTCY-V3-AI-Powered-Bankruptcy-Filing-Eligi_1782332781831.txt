@@ -1,0 +1,522 @@
+ADALAH BANKRUPTCY V3
+
+AI-Powered Bankruptcy Filing & Eligibility System
+
+Overview
+
+Implement a complete Pre-Bankruptcy Assessment and Bankruptcy Filing Management System integrated with the existing Adalah Bankruptcy Operating System.
+
+This module manages the full lifecycle before court filing, from financial assessment through AI analysis to automatic court package preparation.
+
+The new module must integrate with existing Bankruptcy V2 components without modifying or replacing current workflows, tables, routes, permissions, or subscriptions.
+
+All functionality must be additive and backward compatible.
+
+⸻
+
+New Section
+
+Add a new main section:
+
+طلبات افتتاح إجراءات الإفلاس
+
+Position:
+
+Before Bankruptcy Cases
+
+Navigation:
+
+الإفلاس وإعادة الهيكلة
+
+* طلبات افتتاح الإجراءات
+* ملفات الإفلاس
+* الدائنون
+* المطالبات
+* الأصول
+* الالتزامات
+* الاجتماعات
+* التوزيعات
+* التقارير
+* الذكاء الاصطناعي
+
+⸻
+
+Database
+
+Create:
+
+bk_opening_requests
+
+Fields:
+
+id
+
+office_id
+
+request_number
+
+company_name
+
+commercial_registration
+
+entity_type
+
+industry
+
+employee_count
+
+annual_revenue
+
+total_assets
+
+total_liabilities
+
+available_cash
+
+due_debts
+
+procedure_recommendation
+
+eligibility_score
+
+risk_score
+
+status
+
+created_by
+
+created_at
+
+updated_at
+
+⸻
+
+Create:
+
+bk_opening_request_documents
+
+Fields:
+
+id
+
+office_id
+
+request_id
+
+document_type
+
+file_name
+
+file_url
+
+uploaded_at
+
+⸻
+
+Request Lifecycle
+
+Draft
+
+Under Assessment
+
+Documents Pending
+
+AI Analysis
+
+Ready For Filing
+
+Under Legal Review
+
+Approved For Submission
+
+Submitted To Court
+
+Converted To Bankruptcy Case
+
+Closed
+
+Cancelled
+
+⸻
+
+AI Eligibility Engine
+
+Purpose:
+
+Determine the most appropriate bankruptcy procedure.
+
+Analyze:
+
+Total Assets
+
+Total Liabilities
+
+Working Capital
+
+Cash Position
+
+Outstanding Debts
+
+Revenue Trends
+
+Expense Trends
+
+Liquidity Ratios
+
+Debt Ratios
+
+Financial Statements
+
+Uploaded Documents
+
+Historical Financial Performance
+
+⸻
+
+AI Outputs
+
+Eligibility Score
+
+0-100
+
+Financial Distress Score
+
+0-100
+
+Liquidity Risk Score
+
+0-100
+
+Recovery Potential Score
+
+0-100
+
+Confidence Level
+
+0-100
+
+⸻
+
+Recommended Procedure
+
+AI must recommend one of:
+
+Preventive Settlement
+
+Financial Reorganization
+
+Liquidation
+
+Administrative Liquidation
+
+Not Eligible
+
+Provide detailed reasoning for recommendation.
+
+⸻
+
+Bankruptcy Readiness Assessment
+
+AI generates:
+
+Executive Summary
+
+Financial Health Assessment
+
+Risk Assessment
+
+Recommended Actions
+
+Required Documents
+
+Missing Information
+
+Legal Observations
+
+Priority Actions
+
+⸻
+
+Smart Document Analysis
+
+AI automatically analyzes:
+
+Financial Statements
+
+Bank Statements
+
+Loan Agreements
+
+Supplier Contracts
+
+Employment Records
+
+Tax Documents
+
+Lease Agreements
+
+Court Judgments
+
+Execution Instruments
+
+Invoices
+
+Supporting Documents
+
+⸻
+
+Intelligent Data Extraction
+
+Extract:
+
+Assets
+
+Liabilities
+
+Creditors
+
+Debtors
+
+Loans
+
+Guarantees
+
+Cash Balances
+
+Payment Obligations
+
+Automatically populate related records.
+
+Human review required before saving.
+
+⸻
+
+Court Filing Package Generator
+
+One Click Action:
+
+Generate Bankruptcy Filing Package
+
+Automatically generate:
+
+Opening Petition
+
+Bankruptcy Filing Request
+
+Financial Summary
+
+Assets Register
+
+Liabilities Register
+
+Creditors Register
+
+Executive Financial Report
+
+Document Index
+
+Case Timeline
+
+Supporting Evidence Register
+
+AI Assessment Report
+
+⸻
+
+AI Legal Assistant
+
+Create dedicated assistant:
+
+Bankruptcy Filing AI
+
+Capabilities:
+
+Review filing readiness
+
+Detect missing requirements
+
+Identify legal risks
+
+Suggest filing strategy
+
+Recommend procedure
+
+Highlight weak evidence
+
+Generate legal summaries
+
+Draft supporting memoranda
+
+Draft filing notes
+
+Generate court-ready language
+
+⸻
+
+Filing Readiness Score
+
+Display:
+
+Readiness Percentage
+
+Example:
+
+82% Ready For Filing
+
+Requirements Missing:
+
+2 Documents
+
+1 Financial Statement
+
+1 Creditor Schedule
+
+⸻
+
+Convert To Bankruptcy Case
+
+After approval:
+
+Convert Opening Request
+
+→ Bankruptcy Case
+
+Automatically transfer:
+
+Company Data
+
+Creditors
+
+Assets
+
+Liabilities
+
+Documents
+
+AI Reports
+
+Workflow State
+
+Maintain full audit history.
+
+⸻
+
+Executive Dashboard Integration
+
+Add KPIs:
+
+Opening Requests
+
+Ready For Filing
+
+Submitted To Court
+
+Converted Cases
+
+Average Filing Readiness
+
+Average Eligibility Score
+
+AI Recommendation Distribution
+
+⸻
+
+Notifications
+
+Automatic notifications when:
+
+Assessment Complete
+
+AI Analysis Complete
+
+Documents Missing
+
+Ready For Filing
+
+Legal Review Required
+
+Court Package Generated
+
+Case Converted
+
+⸻
+
+AI Governance
+
+AI may:
+
+Analyze
+
+Recommend
+
+Generate
+
+Summarize
+
+Draft
+
+Predict
+
+AI may never:
+
+Submit To Court
+
+Approve Filing
+
+Approve Claims
+
+Approve Distributions
+
+Close Cases
+
+Final legal authority remains with authorized human users.
+
+⸻
+
+Enterprise Requirements
+
+Multi-Tenant Isolation
+
+Office-Level Security
+
+Audit Logging
+
+Version History
+
+Permission Enforcement
+
+Background Processing
+
+Queue Support
+
+Large Document Handling
+
+Arabic RTL Support
+
+Court-Ready Output
+
+⸻
+
+Business Goal
+
+Transform Adalah Bankruptcy into a complete end-to-end Bankruptcy Lifecycle Platform covering:
+
+Pre-Filing Assessment
+
+Eligibility Analysis
+
+Court Filing Preparation
+
+Case Management
+
+Claims Administration
+
+Asset Management
+
+Creditor Services
+
+Distributions
+
+AI-Assisted Decision Support
+
+From initial financial distress assessment to final case closure.

@@ -1,0 +1,220 @@
+سأعطيك AI Router جاهز عمليًا (Production-style) لـ Node.js يدير:
+
+* OpenAI
+* DeepSeek
+* Redis Cache
+* تصنيف الطلب (Routing)
+* تقليل التكلفة تلقائيًا
+
+⸻
+
+1. التثبيت
+
+npm init -y
+npm install express axios dotenv ioredis crypto
+
+⸻
+
+2. ملف البيئة .env
+
+OPENAI_API_KEY=your_openai_key
+DEEPSEEK_API_KEY=your_deepseek_key
+REDIS_URL=redis://localhost:6379
+PORT=3000
+
+⸻
+
+3. AI Router الأساسي (core/aiRouter.js)
+
+import axios from "axios";
+import crypto from "crypto";
+import Redis from "ioredis";
+const redis = new Redis(process.env.REDIS_URL);
+// -------------------------
+// 1. Hash للـ Cache
+// -------------------------
+function hashInput(input) {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+// -------------------------
+// 2. تصنيف الطلب (Router)
+// -------------------------
+function classifyRequest(text) {
+  const length = text.length;
+  const legalKeywords = ["عقد", "قانون", "دعوى", "بند", "محكمة", "تحليل"];
+  const isLegal = legalKeywords.some(k => text.includes(k));
+  if (length < 80 && !isLegal) {
+    return "cheap"; // أسئلة بسيطة
+  }
+  if (length < 500 && isLegal) {
+    return "mid"; // تحليل متوسط
+  }
+  return "premium"; // عقود كبيرة / تحليل حساس
+}
+// -------------------------
+// 3. استدعاء DeepSeek (رخيص)
+// -------------------------
+async function callDeepSeek(prompt) {
+  const res = await axios.post(
+    "https://api.deepseek.com/v1/chat/completions",
+    {
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+      },
+    }
+  );
+  return res.data.choices[0].message.content;
+}
+// -------------------------
+// 4. استدعاء OpenAI (قوي)
+// -------------------------
+async function callOpenAI(prompt) {
+  const res = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+    }
+  );
+  return res.data.choices[0].message.content;
+}
+// -------------------------
+// 5. AI Router الرئيسي
+// -------------------------
+export async function aiRouter(prompt) {
+  const key = hashInput(prompt);
+  // 🔴 CACHE CHECK
+  const cached = await redis.get(key);
+  if (cached) {
+    return {
+      source: "cache",
+      data: JSON.parse(cached),
+    };
+  }
+  // 🧠 CLASSIFY
+  const level = classifyRequest(prompt);
+  let result;
+  if (level === "cheap") {
+    result = await callDeepSeek(prompt);
+  }
+  if (level === "mid") {
+    result = await callDeepSeek(prompt); // أو نموذج متوسط
+  }
+  if (level === "premium") {
+    result = await callOpenAI(prompt);
+  }
+  // 💾 SAVE CACHE (24 ساعة)
+  await redis.set(key, JSON.stringify(result), "EX", 60 * 60 * 24);
+  return {
+    source: level,
+    data: result,
+  };
+}
+
+⸻
+
+4. السيرفر (server.js)
+
+import express from "express";
+import dotenv from "dotenv";
+import { aiRouter } from "./core/aiRouter.js";
+dotenv.config();
+const app = express();
+app.use(express.json());
+app.post("/ai", async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    const result = await aiRouter(prompt);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.listen(process.env.PORT, () => {
+  console.log("AI Router running on port", process.env.PORT);
+});
+
+⸻
+
+5. كيف يعمل النظام داخل عدالة
+
+User
+ ↓
+API /ai
+ ↓
+AI Router
+ ↓
+[Cache Check]
+ ↓
+Classify Request
+ ↓
+DeepSeek (cheap/mid)
+OpenAI (premium)
+ ↓
+Redis Cache Save
+ ↓
+Response
+
+⸻
+
+6. ماذا حققت بهذا النظام؟
+
+1. خفض التكلفة 60–80%
+
+لأن:
+
+* الأسئلة البسيطة لا تذهب لنماذج غالية
+* التكرار لا يعاد معالجته
+
+⸻
+
+2. سرعة أعلى
+
+* Cache = رد فوري تقريباً
+
+⸻
+
+3. تحكم كامل في المصاريف
+
+كل طلب يمر من Router
+
+⸻
+
+4. قابل للتطوير
+
+يمكنك لاحقاً إضافة:
+
+* Gemini
+* Claude
+* نموذج قانوني سعودي خاص
+* تحليل ملفات PDF
+* RAG (بحث داخل العقود)
+
+⸻
+
+7. التطوير القادم (مهم جداً لعدالة)
+
+إذا تريد المستوى التالي، ￼ أقدر أبني لك:
+
+🔥 AI Legal Agent System
+
+* وكيل تحليل عقود
+* وكيل قضايا
+* وكيل فواتير
+* وكيل بحث قانوني داخل ملفات الشركة
+
+ويكون كل واحد يستخدم هذا الـ Router نفسه لكن بذكاء أعلى.
+
+⸻
+
+إذا تريد، الخطوة التالية ￼ أقدر أحول هذا إلى:
+“نظام كامل داخل عدالة + Multi-Tenant + صلاحيات + تتبع تكلفة لكل مكتب”

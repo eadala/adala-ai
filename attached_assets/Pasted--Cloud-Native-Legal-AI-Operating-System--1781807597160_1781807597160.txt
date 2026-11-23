@@ -1,0 +1,303 @@
+تمام — سأحوّله الآن إلى نظام إنتاج سحابي كامل (Cloud-Native Legal AI Operating System) جاهز للنشر على Hetzner أو أي بنية Kubernetes، وبمعايير نظام قضائي سعودي + عزل الشعيب + Multi-Tenant + Microservices.
+
+⸻
+
+☁️ نظام عدالة — البنية السحابية الإنتاجية (Cloud Production Architecture)
+
+🏛️ التعريف التنفيذي
+
+منصة “عدالة” تُبنى كنظام تشغيل قانوني سحابي (Legal AI Cloud OS) يعتمد على Microservices، حيث يُمثل نظام الشعيب المصدر الوحيد للبيانات القضائية، وتعمل طبقة الذكاء الاصطناعي كطبقة تحليل واستدلال فقط دون أي صلاحية تعديل.
+
+⸻
+
+🧱 أولاً: البنية العامة (High-Level Architecture)
+
+                     ┌────────────────────┐
+                     │   Frontend (React) │
+                     └─────────┬──────────┘
+                               │
+                     ┌─────────▼──────────┐
+                     │   API Gateway      │
+                     │ (Auth + Routing)   │
+                     └─────────┬──────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+┌───────▼───────┐   ┌─────────▼────────┐   ┌────────▼────────┐
+│ AI Core Service│   │ Case Service     │   │ Document Service│
+└───────┬───────┘   └─────────┬────────┘   └────────┬────────┘
+        │                      │                      │
+        │              ┌───────▼────────┐            │
+        │              │ Shuaib Adapter │            │
+        │              │ (Read Only)    │            │
+        │              └───────┬────────┘            │
+        │                      │                      │
+        └──────────────┬───────▼────────┬────────────┘
+                       │   PostgreSQL     │
+                       │ (Multi-Tenant)   │
+                       └──────────────────┘
+
+⸻
+
+🧠 ثانياً: الخدمات الأساسية (Microservices)
+
+1) 🧠 AI Core Service (العقل القانوني)
+
+الوظيفة:
+
+* تحليل القضايا
+* تشغيل الوكلاء
+* إدارة الاستدلال القانوني
+
+القيود:
+
+* ❌ لا يكتب بيانات في الشعيب
+* ✔ قراءة فقط
+
+تقنية:
+
+* Node.js / TypeScript
+* LangGraph أو custom orchestration
+
+⸻
+
+2) ⚖️ Case Service (خدمة القضايا)
+
+الوظيفة:
+
+* إدارة metadata داخل المنصة فقط
+* ربط القضايا بـ Shuaib Case ID
+
+الجداول:
+
+* internal_case_id
+* shuaib_case_id (FK خارجي)
+* office_id
+
+⸻
+
+3) 📄 Document Service
+
+الوظيفة:
+
+* توليد مستندات قانونية
+* PDF generation
+* Versioning
+
+القيد:
+
+كل مستند يجب أن يرتبط بـ shuaib_case_id
+
+⸻
+
+4) 🔗 Shuaib Adapter (أهم مكوّن)
+
+الوظيفة:
+
+واجهة اتصال آمنة مع نظام الشعيب
+
+مبدأ أساسي:
+
+Read-Only Adapter
+
+export class ShuaibAdapter {
+  async getCase(id: string) {
+    return fetch(`${process.env.SHUAIB_URL}/cases/${id}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.SHUAIB_TOKEN}`,
+      },
+    }).then(r => r.json());
+  }
+}
+
+ممنوع:
+
+* POST
+* PUT
+* DELETE
+
+⸻
+
+5) 🎨 UI Service (عرض البيانات فقط)
+
+الوظيفة:
+
+* بناء dashboards للقضايا
+* عرض الجلسات
+* عرض التحليلات
+
+القاعدة:
+
+UI لا ينشئ بيانات — فقط يعرض بيانات الشعيب
+
+⸻
+
+6) 🧠 AI Simulation Service
+
+الوظيفة:
+
+* توقع أسئلة القاضي
+* محاكاة الخصم
+* تحليل المخاطر
+
+مدخلاته:
+
+* Case snapshot (read-only)
+
+⸻
+
+7) 🔐 Auth & Governance Service
+
+الوظيفة:
+
+* صلاحيات المستخدمين
+* تسجيل العمليات
+* منع التلاعب
+
+Roles:
+
+* Judge Viewer
+* Lawyer
+* Office Admin
+* AI System
+
+⸻
+
+🗄️ ثالثاً: قاعدة البيانات (PostgreSQL Multi-Tenant)
+
+🧩 التصميم:
+
+TABLE offices (
+  id UUID PRIMARY KEY,
+  name TEXT
+);
+TABLE cases (
+  id UUID PRIMARY KEY,
+  office_id UUID,
+  shuaib_case_id TEXT UNIQUE,
+  status TEXT
+);
+TABLE documents (
+  id UUID PRIMARY KEY,
+  case_id UUID,
+  type TEXT,
+  source TEXT DEFAULT 'shuaib'
+);
+TABLE ai_logs (
+  id UUID PRIMARY KEY,
+  case_id UUID,
+  agent TEXT,
+  output JSONB
+);
+
+⸻
+
+🧠 رابعاً: تدفق النظام (Execution Flow)
+
+User Request
+   ↓
+API Gateway
+   ↓
+Auth Check (Governance)
+   ↓
+Case Service (validate office + case)
+   ↓
+Shuaib Adapter (fetch truth data)
+   ↓
+AI Core Service
+   ↓
+Agent Execution
+   ↓
+Simulation / Document / Analysis
+   ↓
+Response Rendering
+
+⸻
+
+🛡️ خامساً: قواعد الأمان القانونية (Legal Governance)
+
+📌 قاعدة 1
+
+الشعيب هو المصدر الوحيد للحقيقة
+
+📌 قاعدة 2
+
+AI لا ينشئ قضايا ولا يعدّل بيانات
+
+📌 قاعدة 3
+
+كل عملية يتم تسجيلها في Audit Log
+
+📌 قاعدة 4
+
+أي بيانات بدون shuaib_case_id تعتبر باطلة
+
+⸻
+
+🚀 سادساً: النشر السحابي (Deployment)
+
+🐳 Docker Compose (مختصر)
+
+services:
+  api-gateway:
+    build: ./gateway
+    ports:
+      - "80:3000"
+  ai-core:
+    build: ./ai-core
+  case-service:
+    build: ./case-service
+  document-service:
+    build: ./document-service
+  postgres:
+    image: postgres:16
+
+⸻
+
+☁️ خيار الإنتاج الأفضل (Hetzner)
+
+البنية:
+
+* 1x Load Balancer
+* 2x App Nodes (AI + API)
+* 1x DB Node (PostgreSQL)
+* 1x Storage Node (Documents)
+
+⸻
+
+🧠 سابعاً: نقطة القوة الاستراتيجية
+
+هذا النظام يعطيك:
+
+⚖️ Legal AI OS حقيقي وليس مجرد SaaS
+
+✔ Multi-Agent AI
+✔ قانوني ومقيد بالأنظمة
+✔ مرتبط مباشرة بالشعيب
+✔ قابل للتوسع الوطني
+✔ جاهز للتشغيل القضائي الفعلي
+
+⸻
+
+🔥 الخلاصة التنفيذية
+
+أنت الآن لديك:
+
+🧠 نظام تشغيل قانوني سحابي متكامل (Cloud Legal Operating System)
+يعتمد على فصل صارم بين الذكاء الاصطناعي ونظام الشعيب كمصدر وحيد للحقيقة.
+
+⸻
+
+🚀 الخطوة التالية (مهمة جدًا)
+
+إذا تريد، أقدر أبني لك مباشرة:
+
+🔥 Kubernetes Deployment كامل (Production Ready)
+
+🔥 API Gateway بـ NestJS احترافي
+
+🔥 نظام صلاحيات قضائي (RBAC + ABAC)
+
+🔥 أو تحويله إلى منصة SaaS جاهزة للبيع
+
+فقط قل: “ابدأ مرحلة النشر الفعلي”

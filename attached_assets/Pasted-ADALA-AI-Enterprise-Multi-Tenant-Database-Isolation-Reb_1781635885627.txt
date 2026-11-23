@@ -1,0 +1,288 @@
+ADALA AI — Enterprise Multi-Tenant Database Isolation Rebuild
+
+أعد بناء نظام العزل متعدد المكاتب بالكامل داخل منصة عدالة AI وفق نموذج:
+
+* Shared PostgreSQL Database
+* Shared Schema
+* Row Level Security (RLS)
+* JWT Authentication
+* Tenant Middleware
+* Zero Trust Architecture
+
+الهدف
+
+منع أي Cross-Tenant Data Leakage على مستوى:
+
+* Database
+* API
+* AI Modules
+* HR System
+* Accounting System
+* Support Tickets
+* File Storage
+* Search
+* Reports
+* Exports
+
+⸻
+
+Database Architecture
+
+جميع المكاتب تستخدم قاعدة بيانات PostgreSQL واحدة.
+
+جميع الجداول متعددة العملاء يجب أن تحتوي على:
+
+office_id UUID NOT NULL
+
+⸻
+
+Mandatory Tables
+
+تأكد من وجود office_id في جميع الجداول التالية:
+
+* cases
+* clients
+* contracts
+* invoices
+* payments
+* expenses
+* ledger_entries
+* documents
+* legal_documents
+* employees
+* office_users
+* tasks
+* calendar_events
+* support_tickets
+* ticket_comments
+* notifications
+* audit_logs
+* login_logs
+* ai_sessions
+* ai_tasks
+
+إنشاء Index على office_id لكل جدول.
+
+⸻
+
+JWT Authentication
+
+اعتمد JWT كمصدر وحيد لهوية المستخدم والمكتب.
+
+يجب أن يحتوي JWT على:
+
+{
+  "user_id": "...",
+  "office_id": "...",
+  "role_id": "..."
+}
+
+يمنع استخدام:
+
+* query parameters
+* request headers
+* local storage
+
+لتحديد office_id.
+
+⸻
+
+Tenant Middleware
+
+أنشئ Tenant Middleware مركزي.
+
+المهام:
+
+* التحقق من JWT
+* استخراج user_id
+* استخراج office_id
+* استخراج role_id
+
+ثم إضافة:
+
+req.userId
+req.officeId
+req.roleId
+
+في جميع الطلبات.
+
+رفض الطلب عند غياب أي قيمة.
+
+⸻
+
+PostgreSQL Row Level Security
+
+فعّل RLS على جميع الجداول متعددة العملاء.
+
+مثال:
+
+ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+
+إنشاء Policy:
+
+CREATE POLICY tenant_isolation
+ON cases
+USING (
+  office_id =
+  current_setting('app.tenant_id')::uuid
+);
+
+كرر السياسة لجميع الجداول متعددة العملاء.
+
+⸻
+
+Tenant Context Injection
+
+في بداية كل Request:
+
+SELECT set_config(
+  'app.tenant_id',
+  $1,
+  true
+);
+
+بحيث يتم تمرير office_id القادم من JWT.
+
+⸻
+
+Query Security
+
+إنشاء Query Wrapper مركزي.
+
+يمنع أي استعلام مباشر على الجداول متعددة العملاء.
+
+إضافة فحص تلقائي يكتشف:
+
+* SELECT بدون Tenant Context
+* UPDATE بدون Tenant Context
+* DELETE بدون Tenant Context
+
+ويسجلها داخل:
+
+security_events
+
+⸻
+
+AI Isolation Layer
+
+يمنع أي SQL مباشر من وحدات الذكاء الاصطناعي.
+
+إنشاء AI Gateway فقط.
+
+الدوال المسموحة:
+
+* getCase()
+* getClient()
+* listCases()
+* listContracts()
+* listInvoices()
+
+جميعها تعتمد على office_id القادم من Tenant Context.
+
+⸻
+
+HR Isolation
+
+جميع وحدات الموارد البشرية يجب أن تعتمد على:
+
+users
+offices
+office_users
+roles
+permissions
+role_permissions
+
+ولا يسمح بعرض أي موظف أو صلاحية خارج office_id الحالي.
+
+⸻
+
+Accounting Isolation
+
+تطبيق RLS على:
+
+* invoices
+* payments
+* expenses
+* ledger_entries
+
+جميع التقارير المالية يجب أن تعتمد على:
+
+office_id
+
+فقط.
+
+⸻
+
+Support Ticket Isolation
+
+جميع التذاكر والمرفقات والتعليقات مرتبطة بـ:
+
+office_id
+
+مع تفعيل RLS.
+
+⸻
+
+File Storage Isolation
+
+إعادة تنظيم الملفات:
+
+office_id/
+ ├─ clients/
+ ├─ cases/
+ ├─ contracts/
+ ├─ invoices/
+ └─ documents/
+
+منع الوصول المباشر.
+
+السماح فقط بـ Signed URLs.
+
+التحقق من office_id قبل إنشاء رابط التحميل.
+
+⸻
+
+Security Monitoring
+
+إنشاء مراقب أمني يكتشف:
+
+* Cross Tenant Attempts
+* Missing Tenant Filters
+* Unauthorized AI Queries
+* Suspicious Exports
+
+وتسجيلها داخل:
+
+security_events
+
+⸻
+
+Automated Red Team Tests
+
+إنشاء اختبارات تلقائية للتحقق من:
+
+* Database Isolation
+* API Isolation
+* Search Isolation
+* Export Isolation
+* AI Isolation
+* HR Isolation
+* Accounting Isolation
+* Ticket Isolation
+
+أي تسريب بين المكاتب يجب أن يؤدي إلى فشل الاختبارات.
+
+⸻
+
+Success Criteria
+
+يجب أن تصبح المنصة:
+
+* Zero Cross-Tenant Data Leakage
+* RLS Enforced
+* JWT Secured
+* AI Safe
+* Enterprise SaaS Ready
+* Production Ready
+
+نفّذ جميع التعديلات على قاعدة البيانات والـ Backend والـ API والذكاء الاصطناعي دون كسر الوظائف الحالية.

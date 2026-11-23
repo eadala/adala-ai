@@ -1,0 +1,265 @@
+تمام—هذا تحويل UI Kit كامل إلى Tailwind CSS Design System جاهز للاستخدام مباشرة داخل مشروعك (Replit / Next / React / أي Frontend).
+
+سأبنيه بشكل عملي: Tokens + Components + Layout + Cards (مع حل مشكلة الكروت الكبيرة والخط الصغير بشكل جذري).
+
+⸻
+
+🧭 1) Tailwind Config (Design System Core)
+
+📄 tailwind.config.js
+
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: "#1E3A8A",
+        bg: "#F8FAFC",
+        card: "#FFFFFF",
+        border: "#E2E8F0",
+        success: "#16A34A",
+        warning: "#F59E0B",
+        danger: "#DC2626"
+      },
+      fontFamily: {
+        sans: ["IBM Plex Sans Arabic", "sans-serif"]
+      },
+      borderRadius: {
+        sm: "8px",
+        md: "12px",
+        lg: "16px"
+      },
+      spacing: {
+        1: "4px",
+        2: "8px",
+        3: "12px",
+        4: "16px",
+        5: "24px",
+        6: "32px",
+        7: "48px"
+      }
+    }
+  }
+};
+
+⸻
+
+🧱 2) Base Card System (حل مشكلتك الأساسية)
+
+📌 قاعدة مهمة:
+
+الكرت الكبير + خط صغير = فشل بصري
+→ الحل: Typography أكبر + padding مضبوط + hierarchy
+
+⸻
+
+📄 Card.tsx / Card.jsx
+
+export default function Card({ children }) {
+  return (
+    <div className="
+      bg-white 
+      border border-border 
+      rounded-md 
+      p-4 
+      hover:shadow-md 
+      transition 
+      font-sans
+    ">
+      {children}
+    </div>
+  );
+}
+
+⸻
+
+⚖️ 3) Case Card (القضايا) — الإصلاح الحقيقي
+
+import Card from "./Card";
+export default function CaseCard({ caseItem }) {
+  return (
+    <Card>
+      {/* TITLE */}
+      <div className="text-[18px] font-semibold text-gray-900">
+        قضية رقم #{caseItem.number}
+      </div>
+      {/* BADGE */}
+      <div className="mt-2">
+        <span className={`
+          text-xs px-3 py-1 rounded-full
+          ${caseItem.statusType === "warning" ? "bg-yellow-100 text-yellow-800" : ""}
+          ${caseItem.statusType === "success" ? "bg-green-100 text-green-800" : ""}
+          ${caseItem.statusType === "danger" ? "bg-red-100 text-red-800" : ""}
+        `}>
+          {caseItem.status}
+        </span>
+      </div>
+      {/* META */}
+      <div className="mt-3 text-[14px] text-gray-500 leading-relaxed">
+        المحكمة: {caseItem.court}
+        <br />
+        آخر تحديث: {caseItem.updatedAt}
+      </div>
+      {/* ACTION */}
+      <button className="
+        mt-4 
+        bg-primary 
+        text-white 
+        px-4 py-2 
+        rounded-md 
+        text-sm 
+        hover:opacity-90
+      ">
+        عرض التفاصيل
+      </button>
+    </Card>
+  );
+}
+
+⸻
+
+📊 4) Stats Card (إصلاح الفراغ البصري)
+
+import Card from "./Card";
+export default function StatsCard({ label, value }) {
+  return (
+    <Card>
+      <div className="text-sm text-gray-500">
+        {label}
+      </div>
+      <div className="text-[28px] font-bold text-primary mt-1">
+        {value}
+      </div>
+    </Card>
+  );
+}
+
+⸻
+
+🧷 5) Button System (موحد)
+
+export function Button({ children, variant = "primary" }) {
+  const base = "px-4 py-2 rounded-md text-sm transition";
+  const variants = {
+    primary: "bg-primary text-white hover:opacity-90",
+    secondary: "border border-border text-gray-700 bg-white",
+    danger: "bg-red-600 text-white"
+  };
+  return (
+    <button className={`${base} ${variants[variant]}`}>
+      {children}
+    </button>
+  );
+}
+
+⸻
+
+🏷️ 6) Badge System
+
+export function Badge({ type = "default", children }) {
+  const styles = {
+    success: "bg-green-100 text-green-800",
+    warning: "bg-yellow-100 text-yellow-800",
+    danger: "bg-red-100 text-red-800",
+    default: "bg-gray-100 text-gray-700"
+  };
+  return (
+    <span className={`
+      text-xs px-3 py-1 rounded-full
+      ${styles[type]}
+    `}>
+      {children}
+    </span>
+  );
+}
+
+⸻
+
+📐 7) Dashboard Layout (Grid System)
+
+export default function DashboardGrid({ children }) {
+  return (
+    <div className="
+      grid 
+      grid-cols-1 
+      md:grid-cols-3 
+      gap-4
+    ">
+      {children}
+    </div>
+  );
+}
+
+⸻
+
+🧭 8) Dashboard Example (شكل احترافي فعلي)
+
+import StatsCard from "./StatsCard";
+import CaseCard from "./CaseCard";
+import DashboardGrid from "./DashboardGrid";
+export default function Dashboard() {
+  return (
+    <div className="p-6 bg-bg font-sans">
+      {/* STATS */}
+      <DashboardGrid>
+        <StatsCard label="القضايا المفتوحة" value="24" />
+        <StatsCard label="العقود" value="12" />
+        <StatsCard label="المستخدمون" value="89" />
+      </DashboardGrid>
+      {/* CASES */}
+      <div className="mt-6 space-y-4">
+        <CaseCard caseItem={{
+          number: 48392,
+          status: "قيد المراجعة",
+          statusType: "warning",
+          court: "الرياض العامة",
+          updatedAt: "اليوم"
+        }} />
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+⚠️ الحل الجذري لمشكلتك السابقة
+
+قبل:
+
+* كرت كبير + خط صغير → فراغ بصري ميت ❌
+
+الآن في Tailwind System:
+
+✔ font sizes أكبر (16–18px للعناوين)
+✔ padding مضبوط (16px ثابت)
+✔ no fixed height
+✔ hierarchy واضحة (title → badge → meta → action)
+✔ grid responsive
+
+⸻
+
+🚀 النتيجة بعد هذا التحويل
+
+ستحصل على:
+
+* UI حديث مثل SaaS عالمي (Stripe / Notion style)
+* توازن بصري مضبوط
+* كروت “حية” وليست فارغة
+* تجربة قانونية واضحة وسهلة
+* قابل للتوسع بدون إعادة تصميم
+
+⸻
+
+إذا تبغى الخطوة التالية (مهم جدًا)
+
+أقدر أرفع لك النظام لمستوى أعلى:
+
+🔥 Sidebar + Topbar احترافي كامل
+
+🔥 Dark Mode جاهز
+
+🔥 صفحة “القضايا” UI كامل
+
+🔥 أو تحويله إلى Design System مؤسسي كامل (Figma-ready)
+
+بس قل:
+“ابني Dashboard كامل”

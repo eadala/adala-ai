@@ -1,0 +1,155 @@
+/**
+ * Launch Gate & Runtime Shield — API Routes
+ */
+
+import { Router } from "express";
+import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
+import { runLaunchGate } from "../../core/launchGate";
+import { getShieldStatus, banIp, unbanIp, getBannedIps } from "../../core/runtimeShield";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+
+const router = Router();
+
+/* ── readiness — schema owned by Migration 054 ── */
+let launchGateSchemaReady = false;
+async function ensureLaunchGateSchemaReady(): Promise<void> {
+  if (launchGateSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.ct_security_events') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[launchGate] Migration 054 schema not ready — ct_security_events missing");
+      return;
+    }
+    launchGateSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensureLaunchGateSchemaReady().catch(() => {});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   POST /api/launch-gate/run
+   Run all 8 gates and return the GO/NO-GO report
+──────────────────────────────────────────────────────────────────────────── */
+router.post("/launch-gate/run", requireSuperAdmin, async (req, res) => {
+  try {
+    const report = await runLaunchGate();
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   GET /api/launch-gate/status
+   Last cached report or quick health
+──────────────────────────────────────────────────────────────────────────── */
+router.get("/launch-gate/status", requireSuperAdmin, async (req, res) => {
+  const shield = getShieldStatus();
+  res.json({ shield, timestamp: new Date().toISOString() });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   GET /api/launch-gate/shield
+   Live runtime shield status
+──────────────────────────────────────────────────────────────────────────── */
+router.get("/launch-gate/shield", requireSuperAdmin, (req, res) => {
+  res.json(getShieldStatus());
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   GET /api/launch-gate/threats
+   Recent threat events from DB
+──────────────────────────────────────────────────────────────────────────── */
+router.get("/launch-gate/threats", requireSuperAdmin, async (req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, event_type, severity, description, request_path,
+             request_method, client_ip, user_id, office_id, resolved, created_at
+      FROM ct_security_events
+      ORDER BY created_at DESC
+      LIMIT 100
+    `);
+    const events = (rows as any).rows ?? rows;
+    res.json({ events });
+  } catch {
+    res.json({ events: [] });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   POST /api/launch-gate/resolve/:id
+   Resolve a threat event
+──────────────────────────────────────────────────────────────────────────── */
+router.post("/launch-gate/resolve/:id", requireSuperAdmin, async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  try {
+    await db.execute(sql`
+      UPDATE ct_security_events SET resolved=true, resolved_at=NOW() WHERE id=${id}
+    `);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "فشل التحديث" });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   POST /api/launch-gate/ban-ip
+   Ban a suspicious IP
+──────────────────────────────────────────────────────────────────────────── */
+router.post("/launch-gate/ban-ip", requireSuperAdmin, async (req, res) => {
+  const { ip } = req.body as { ip: string };
+  if (!ip) { res.status(400).json({ error: "IP مطلوب" }); return; }
+  banIp(ip);
+  res.json({ ok: true, message: `تم حظر ${ip}` });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   POST /api/launch-gate/unban-ip
+──────────────────────────────────────────────────────────────────────────── */
+router.post("/launch-gate/unban-ip", requireSuperAdmin, async (req, res) => {
+  const { ip } = req.body as { ip: string };
+  if (!ip) { res.status(400).json({ error: "IP مطلوب" }); return; }
+  unbanIp(ip);
+  res.json({ ok: true, message: `تم رفع الحظر عن ${ip}` });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   GET /api/launch-gate/banned-ips
+──────────────────────────────────────────────────────────────────────────── */
+router.get("/launch-gate/banned-ips", requireSuperAdmin, (req, res) => {
+  res.json({ ips: getBannedIps() });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   GET /api/launch-gate/stats
+   Aggregate security stats for dashboard
+──────────────────────────────────────────────────────────────────────────── */
+router.get("/launch-gate/stats", requireSuperAdmin, async (req, res) => {
+  try {
+    const totalRow = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events`);
+    const unresolvedRow = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events WHERE resolved=false`);
+    const p0Row = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events WHERE severity='P0'`);
+    const todayRow = await db.execute(sql`SELECT COUNT(*) as cnt FROM ct_security_events WHERE created_at > NOW() - INTERVAL '24 hours'`);
+    const bySeverity = await db.execute(sql`
+      SELECT severity, COUNT(*) as cnt FROM ct_security_events GROUP BY severity ORDER BY severity
+    `);
+
+    const tr = (r: any) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0);
+
+    res.json({
+      total: tr(totalRow),
+      unresolved: tr(unresolvedRow),
+      p0Count: tr(p0Row),
+      todayCount: tr(todayRow),
+      bySeverity: ((bySeverity as any).rows ?? bySeverity),
+      shield: getShieldStatus(),
+    });
+  } catch {
+    res.json({ total: 0, unresolved: 0, p0Count: 0, todayCount: 0, bySeverity: [], shield: getShieldStatus() });
+  }
+});
+
+export default router;

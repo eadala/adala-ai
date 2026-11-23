@@ -1,0 +1,409 @@
+إذا كنت تستخدم **Replit + React + TypeScript + Express + PostgreSQL + Drizzle** فأنصح أن تجعل الخدمات مرتبطة بالباقات عن طريق قاعدة البيانات وليس كتابة الشروط داخل الكود.
+
+## shared/plans.ts
+
+```ts
+export const subscriptionPlans = [
+
+{
+id: "starter",
+name: "Starter",
+price: 99,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: false,
+seo: false,
+clientPortal: false,
+ai: false,
+ocr: false,
+api: false,
+whatsapp: false,
+branches: false
+
+},
+
+limits: {
+
+users: 1,
+services: 10,
+storageGb: 1
+
+}
+
+},
+
+{
+id: "basic",
+name: "Basic",
+price: 299,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: true,
+seo: false,
+clientPortal: false,
+ai: false,
+ocr: false,
+api: false,
+whatsapp: false,
+branches: false
+
+},
+
+limits: {
+
+users: 3,
+services: 25,
+storageGb: 10
+
+}
+
+},
+
+{
+id: "professional",
+name: "Professional",
+price: 799,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: true,
+seo: true,
+clientPortal: true,
+ai: true,
+ocr: true,
+api: false,
+whatsapp: false,
+branches: false
+
+},
+
+limits: {
+
+users: 10,
+services: 100,
+storageGb: 50
+
+}
+
+},
+
+{
+id: "business",
+name: "Business",
+price: 1999,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: true,
+seo: true,
+clientPortal: true,
+ai: true,
+ocr: true,
+api: false,
+whatsapp: false,
+branches: false,
+customDomain: true
+
+},
+
+limits: {
+
+users: 25,
+services: null,
+storageGb: 200
+
+}
+
+},
+
+{
+id: "premium",
+name: "Premium",
+price: 3999,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: true,
+seo: true,
+clientPortal: true,
+ai: true,
+ocr: true,
+api: true,
+whatsapp: true,
+branches: false,
+customDomain: true
+
+},
+
+limits: {
+
+users: 50,
+services: null,
+storageGb: 500
+
+}
+
+},
+
+{
+id: "ultimate",
+name: "Ultimate",
+price: 9999,
+
+features: {
+
+website: true,
+serviceStore: true,
+payments: true,
+booking: true,
+blog: true,
+seo: true,
+clientPortal: true,
+ai: true,
+ocr: true,
+api: true,
+whatsapp: true,
+branches: true,
+workflow: true,
+sla: true,
+assistant: true,
+customDomain: true
+
+},
+
+limits: {
+
+users: 100,
+services: null,
+storageGb: 1024
+
+}
+
+}
+
+];
+```
+
+---
+
+## دالة التحقق من الخدمة
+
+### shared/utils/hasFeature.ts
+
+```ts
+export function hasFeature(
+
+officePlan: any,
+
+feature: string
+
+) {
+
+return officePlan?.features?.[feature] === true;
+
+}
+```
+
+---
+
+## الاستخدام
+
+### إظهار متجر الخدمات
+
+```tsx
+{
+hasFeature(
+office.plan,
+"serviceStore"
+)
+
+&&
+
+<MenuItem>
+
+متجر الخدمات القانونية
+
+</MenuItem>
+}
+```
+
+---
+
+### الموقع الخارجي
+
+```tsx
+{
+hasFeature(
+office.plan,
+"website"
+)
+
+&&
+
+<MenuItem>
+
+الموقع الإلكتروني
+
+</MenuItem>
+}
+```
+
+---
+
+### الدفع الإلكتروني
+
+```tsx
+{
+hasFeature(
+office.plan,
+"payments"
+)
+
+&&
+
+<MenuItem>
+
+الدفع الإلكتروني
+
+</MenuItem>
+}
+```
+
+---
+
+### الذكاء الاصطناعي
+
+```tsx
+{
+hasFeature(
+office.plan,
+"ai"
+)
+
+&&
+
+<MenuItem>
+
+عدالة AI
+
+</MenuItem>
+}
+```
+
+---
+
+### API
+
+```tsx
+{
+hasFeature(
+office.plan,
+"api"
+)
+
+&&
+
+<MenuItem>
+
+API
+
+</MenuItem>
+}
+```
+
+---
+
+## تنبيه عمولة الدفع الإلكتروني
+
+داخل صفحة الدفع:
+
+```tsx
+<Alert>
+
+<AlertDescription>
+
+عند استخدام خدمات الدفع الإلكتروني عبر منصة عدالة AI يتم استقطاع عمولة تشغيل وإدارة بنسبة 10% من قيمة المدفوعات المحصلة، بالإضافة إلى رسوم مزود خدمة الدفع إن وجدت.
+
+</AlertDescription>
+
+</Alert>
+```
+
+---
+
+## صفحة الموقع الخارجي
+
+تكون متاحة لجميع الباقات:
+
+```tsx
+{
+hasFeature(
+office.plan,
+"website"
+)
+
+&&
+
+<WebsiteSettings />
+}
+```
+
+---
+
+## صفحة متجر الخدمات
+
+```tsx
+{
+hasFeature(
+office.plan,
+"serviceStore"
+)
+
+&&
+
+<ServiceStorePage />
+}
+```
+
+---
+
+## صفحة الدفع
+
+```tsx
+{
+hasFeature(
+office.plan,
+"payments"
+)
+
+&&
+
+<PaymentsPage />
+}
+```
+
+---
+
+هذه الطريقة هي الأقرب لمعمارية **Shopify وHubSpot وStripe** لأنها تجعل جميع أجزاء المنصة تعمل تلقائياً حسب الباقة، وعند ترقية المكتب تتفعل الخدمات الجديدة مباشرة دون تعديل الكود.

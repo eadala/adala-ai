@@ -1,0 +1,128 @@
+تمام—بما أن النظام مستقر الآن، الأفضل تعمل Migration احترافية آمنة (Zero-Downtime قدر الإمكان) لإرجاع id من TEXT إلى UUID بشكل صحيح بدل تركه على وضع مؤقت.
+
+سأعطيك نسخة إنتاجية معيارية (PostgreSQL-safe):
+
+⸻
+
+✅ Migration احترافية: TEXT → UUID (PostgreSQL)
+
+🔹 الخيار الآمن (Recommended Production Migration)
+
+هذا الأسلوب يتجنب كسر العلاقات أو فقدان البيانات
+
+BEGIN;
+-- 1. إضافة عمود UUID مؤقت
+ALTER TABLE ai_workflows
+ADD COLUMN id_uuid UUID;
+-- 2. تعبئة القيم (تحويل النص إلى UUID إن كان صالح)
+-- أو توليد UUID جديد إذا النص غير صالح
+UPDATE ai_workflows
+SET id_uuid = CASE
+    WHEN id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    THEN id::uuid
+    ELSE gen_random_uuid()
+END;
+-- 3. جعل العمود الجديد NOT NULL
+ALTER TABLE ai_workflows
+ALTER COLUMN id_uuid SET NOT NULL;
+-- 4. إزالة الـ primary key القديم (إن كان مرتبط بـ id)
+ALTER TABLE ai_workflows DROP CONSTRAINT ai_workflows_pkey;
+-- 5. حذف العمود القديم
+ALTER TABLE ai_workflows DROP COLUMN id;
+-- 6. إعادة تسمية العمود الجديد
+ALTER TABLE ai_workflows RENAME COLUMN id_uuid TO id;
+-- 7. إعادة تعيين primary key
+ALTER TABLE ai_workflows ADD PRIMARY KEY (id);
+COMMIT;
+
+⸻
+
+🔐 إذا عندك جداول مرتبطة (IMPORTANT جداً)
+
+أي جدول فيه:
+
+ai_workflow_id (TEXT)
+
+لازم تعمل نفس التحويل:
+
+ALTER TABLE child_table
+ADD COLUMN workflow_id_uuid UUID;
+UPDATE child_table
+SET workflow_id_uuid = workflow_id::uuid;
+ALTER TABLE child_table DROP COLUMN workflow_id;
+ALTER TABLE child_table RENAME COLUMN workflow_id_uuid TO workflow_id;
+
+⸻
+
+⚙️ نسخة محسنة (إذا تستخدم Node.js migrations)
+
+إذا تستخدم node-pg-migrate أو Prisma raw SQL:
+
+export async function up(pgm) {
+  pgm.sql(`
+    BEGIN;
+    ALTER TABLE ai_workflows ADD COLUMN id_uuid UUID;
+    UPDATE ai_workflows
+    SET id_uuid = CASE
+      WHEN id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      THEN id::uuid
+      ELSE gen_random_uuid()
+    END;
+    ALTER TABLE ai_workflows ALTER COLUMN id_uuid SET NOT NULL;
+    ALTER TABLE ai_workflows DROP CONSTRAINT ai_workflows_pkey;
+    ALTER TABLE ai_workflows DROP COLUMN id;
+    ALTER TABLE ai_workflows RENAME COLUMN id_uuid TO id;
+    ALTER TABLE ai_workflows ADD PRIMARY KEY (id);
+    COMMIT;
+  `);
+}
+
+⸻
+
+🚨 نقاط احترافية مهمة جداً (لا تتجاهلها)
+
+1. فعّل extension إذا غير موجود
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+(لـ gen_random_uuid())
+
+⸻
+
+2. لا تستخدم CAST مباشر في الإنتاج
+
+❌ خطأ:
+
+ALTER COLUMN id TYPE uuid USING id::uuid;
+
+✔️ فقط إذا كنت متأكد 100% أن كل القيم UUID صالحة
+
+⸻
+
+3. بعد migration
+
+تأكد:
+
+SELECT id FROM ai_workflows LIMIT 10;
+
+لازم تشوف UUIDs حقيقية.
+
+⸻
+
+🧠 الخلاصة الاستراتيجية
+
+أنت الآن:
+
+* أصلحت blocker (ممتاز)
+* لكن استخدمت حل مؤقت (TEXT)
+
+الخطوة الصحيحة التالية هي:
+👉 تحويل النظام بالكامل إلى UUID بشكل نظيف Controlled Migration
+
+⸻
+
+إذا تريد، أقدر أعمل لك المرحلة التالية:
+
+🔧 “Migration Plan كامل لكل عدالة AI (جميع الجداول + العلاقات + queues + agents) بحيث تصير Production-grade فعلياً”
+
+وهذا مهم جداً إذا ناوي تكبر المنصة فعلياً.

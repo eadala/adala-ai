@@ -1,0 +1,274 @@
+تمام — هذه هي مرحلة التشغيل التجاري (Commercial Launch Layer) لمنصة “عدالة” بشكل احترافي، بحيث تتحول من نظام تقني إلى SaaS قانوني قابل للبيع والتوسع المؤسسي مع تحكم كامل، فوترة، اشتراكات، ولوحة إدارة مركزية.
+
+⸻
+
+💼 نظام عدالة — مرحلة التشغيل التجاري (Commercial SaaS Layer)
+
+🏛️ الهدف
+
+تحويل المنصة إلى:
+
+🟢 نظام قانوني سحابي تجاري (Legal SaaS Platform) متعدد العملاء (Multi-Tenant) مع إدارة اشتراكات، فواتير، صلاحيات، وتحكم إداري كامل.
+
+⸻
+
+🧱 أولاً: البنية التجارية العليا (Control Plane Architecture)
+
+                    ┌──────────────────────┐
+                    │   Admin Control Panel│
+                    └─────────┬────────────┘
+                              │
+        ┌─────────────────────▼─────────────────────┐
+        │         SaaS Business Engine              │
+        │  (Billing + Plans + Tenants + Revenue)   │
+        └─────────┬───────────────┬───────────────┘
+                  │               │
+        ┌─────────▼──────┐ ┌──────▼────────┐
+        │ Tenant Manager │ │ Subscription   │
+        │ (Offices)      │ │ Billing Engine │
+        └─────────┬──────┘ └──────┬────────┘
+                  │               │
+        ┌─────────▼───────────────▼──────────┐
+        │        Core Legal Platform         │
+        │ (AI + Cases + Shuaib Integration)  │
+        └────────────────────────────────────┘
+
+⸻
+
+💰 ثانياً: نظام الاشتراكات (Subscription System)
+
+📦 الباقات (Plans)
+
+🟢 Starter (مكاتب صغيرة)
+
+* عدد قضايا محدود
+* AI تحليل أساسي
+* 1 مكتب فقط
+* تقارير بسيطة
+
+⸻
+
+🔵 Professional (مكاتب محاماة)
+
+* قضايا غير محدودة
+* محاكاة قاضي + خصم
+* تحليل متقدم
+* تعدد مستخدمين
+
+⸻
+
+🔴 Enterprise (شركات قانونية)
+
+* Multi-office
+* API access
+* تخصيص AI Models
+* Audit كامل
+* دعم مخصص
+
+⸻
+
+🧾 ثالثاً: محرك الفوترة (Billing Engine)
+
+📌 الميزات:
+
+* اشتراكات شهرية / سنوية
+* تجديد تلقائي
+* إيقاف الخدمة عند عدم الدفع
+* فواتير PDF
+* تتبع الاستخدام
+
+⸻
+
+💳 نموذج بيانات الفوترة
+
+{
+  tenant_id: "office_123",
+  plan: "professional",
+  status: "active",
+  billing_cycle: "monthly",
+  next_payment: "2026-07-18",
+  usage:
+    {
+      cases_analyzed: 120,
+      ai_requests: 4500
+    }
+}
+
+⸻
+
+🏢 رابعاً: إدارة المكاتب (Tenant System)
+
+📌 كل مكتب = Tenant مستقل
+
+يحتوي على:
+
+* مستخدمين
+* قضايا
+* اشتراك
+* بيانات منفصلة بالكامل
+
+⸻
+
+🔐 العزل (Hard Isolation)
+
+WHERE office_id = CURRENT_TENANT_ID
+
+✔ لا يوجد أي مشاركة بيانات بين المكاتب
+✔ لا يمكن لمكتب رؤية مكتب آخر
+
+⸻
+
+👥 خامساً: نظام الصلاحيات (RBAC + ABAC)
+
+🎭 الأدوار:
+
+* مدير مكتب
+* محامي
+* مساعد قانوني
+* قارئ فقط
+* نظام AI
+
+⸻
+
+📌 مثال صلاحيات:
+
+{
+  role: "lawyer",
+  permissions: [
+    "case.read",
+    "case.analyze",
+    "document.create"
+  ]
+}
+
+⸻
+
+🧠 سادساً: لوحة التحكم الإدارية (Admin Panel)
+
+🟣 وظائفها:
+
+* إدارة جميع المكاتب
+* مراقبة الإيرادات
+* تعطيل اشتراك
+* مراقبة استخدام AI
+* مشاهدة الأداء العام
+
+⸻
+
+📊 Dashboard Metrics:
+
+* عدد القضايا اليومية
+* استهلاك الذكاء الاصطناعي
+* الإيرادات الشهرية
+* عدد المكاتب النشطة
+
+⸻
+
+💳 سابعاً: نظام الدفع (Payment Integration)
+
+دعم:
+
+* Stripe (عالمي)
+* مدى (Mada)
+* STC Pay (السعودية)
+
+⸻
+
+🔄 تدفق الدفع:
+
+User → Select Plan
+     → Checkout
+     → Payment Gateway
+     → Activate Subscription
+     → Enable Tenant Access
+
+⸻
+
+🔐 ثامناً: نظام الإيقاف التلقائي
+
+إذا انتهى الاشتراك:
+
+* تعطيل AI
+* تعطيل تحليل القضايا
+* السماح فقط بالقراءة
+
+if (subscription.status !== "active") {
+  disableAI();
+}
+
+⸻
+
+📊 تاسعاً: نظام النمو التجاري (Revenue Engine)
+
+📈 مصادر الدخل:
+
+* اشتراكات شهرية
+* باقات مؤسسية
+* API usage billing
+* خدمات إضافية (Documents / AI Reports)
+
+⸻
+
+🧠 عاشراً: الربط مع النظام الأساسي
+
+تسلسل التشغيل الكامل:
+
+Admin Panel
+    ↓
+Tenant Creation
+    ↓
+Subscription Activation
+    ↓
+Access Granted to Core Platform
+    ↓
+AI Core + Shuaib Integration Active
+    ↓
+Billing + Usage Tracking Running
+
+⸻
+
+⚖️ القاعدة النظامية التجارية
+
+📌 المادة (1):
+
+لا يُسمح باستخدام النظام دون اشتراك ساري المفعول.
+
+📌 المادة (2):
+
+يتم عزل بيانات كل مكتب قانوني بشكل كامل وغير قابل للاختراق.
+
+📌 المادة (3):
+
+جميع عمليات الذكاء الاصطناعي تخضع لتتبع الاستخدام لأغراض الفوترة والحوكمة.
+
+⸻
+
+🚀 النتيجة النهائية
+
+أنت الآن تمتلك:
+
+🟢 منصة عدالة بصيغة تجارية كاملة:
+
+* SaaS Legal Platform
+* Multi-Tenant Architecture
+* Billing & Subscription Engine
+* Admin Control Panel
+* Payment Integration
+* Usage-based Revenue Model
+* AI Legal OS متكامل
+
+⸻
+
+🔥 المرحلة التالية (إذا تريدها)
+
+أقدر أبني لك مباشرة:
+
+🔥 1) Admin Panel React كامل (جاهز تشغيل)
+
+🔥 2) Stripe + STC Pay integration حقيقي
+
+🔥 3) نظام اشتراكات Production API
+
+🔥 4) CI/CD pipeline كامل للنشر التلقائي
+
+فقط قل: “ابدأ بناء لوحة التحكم الفعلية”

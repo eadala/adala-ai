@@ -1,0 +1,315 @@
+تمام — هذه حزمة نظام الفواتير المالي الكامل لمنصة عدالة AI بشكل إنتاجي (Production-Ready) تشمل:
+المواصفات + قاعدة البيانات + المحرك المالي + API + الـ UI + نظام الضريبة المرن + نظام الإصلاح + الأمان المحاسبي.
+
+⸻
+
+🧠 أولاً: التصميم المعماري (Financial Architecture)
+
+🎯 الهدف
+
+إنشاء Financial Core Engine مستقل يمنع أي خطأ في:
+
+* العملات
+* الضريبة
+* الفواتير
+* الإيرادات
+* التقارير
+
+🧱 الطبقات
+
+UI Layer (React)
+        ↓
+API Layer (Node/NestJS)
+        ↓
+Financial Core Engine (Strict Rules)
+        ↓
+Database (PostgreSQL)
+
+⸻
+
+🗄️ ثانياً: قاعدة البيانات (Production Schema)
+
+📦 invoices
+
+* id (UUID)
+* office_id
+* client_id
+* case_id (nullable)
+* contract_id (nullable)
+* subtotal (DECIMAL 12,2)
+* tax_enabled (BOOLEAN)
+* tax_rate (DECIMAL 5,2) DEFAULT 15
+* tax_amount (DECIMAL 12,2)
+* total (DECIMAL 12,2)
+* currency (VARCHAR DEFAULT ‘SAR’)
+* status (
+    Draft,
+    Sent,
+    Viewed,
+    Paid,
+    Partially_Paid,
+    Overdue,
+    Cancelled,
+    Refunded
+    )
+* issued_at
+* created_at
+* updated_at
+
+⸻
+
+📦 invoice_items
+
+* id
+* invoice_id
+* description
+* quantity
+* unit_price (DECIMAL 12,2)
+* line_total (DECIMAL 12,2)
+
+⸻
+
+📦 payments
+
+* id
+* invoice_id
+* amount
+* method (cash, card, bank_transfer)
+* paid_at
+
+⸻
+
+📦 offices
+
+* id
+* name
+* tax_enabled
+* default_tax_rate
+
+⸻
+
+📦 clients
+
+* id
+* office_id
+* name
+* tax_exempt (BOOLEAN)
+
+⸻
+
+📦 audit_logs
+
+* id
+* office_id
+* user_id
+* entity_type
+* entity_id
+* action
+* old_value (JSONB)
+* new_value (JSONB)
+* ip_address
+* created_at
+
+⸻
+
+⚙️ ثالثاً: المحرك المالي (Financial Core Engine)
+
+// FinancialCore.ts — Single Source of Truth
+export type Money = number;
+export interface TaxConfig {
+  enabled: boolean;
+  rate: number; // default 15%
+}
+export class FinancialCore {
+  static calculateSubtotal(items: { quantity: number; unitPrice: number }[]): Money {
+    return items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+  }
+  static calculateTax(subtotal: Money, tax: TaxConfig): Money {
+    if (!tax.enabled) return 0;
+    return +(subtotal * (tax.rate / 100)).toFixed(2);
+  }
+  static calculateTotal(subtotal: Money, taxAmount: Money): Money {
+    return +(subtotal + taxAmount).toFixed(2);
+  }
+  static format(amount: Money): string {
+    return new Intl.NumberFormat('ar-SA', {
+      style: 'currency',
+      currency: 'SAR'
+    }).format(amount);
+  }
+  static buildInvoice(items: any[], tax: TaxConfig) {
+    const subtotal = this.calculateSubtotal(items);
+    const taxAmount = this.calculateTax(subtotal, tax);
+    const total = this.calculateTotal(subtotal, taxAmount);
+    return {
+      subtotal,
+      taxAmount,
+      total,
+      currency: "SAR"
+    };
+  }
+}
+
+⸻
+
+🌐 رابعاً: API النظام المالي (REST / Node.js)
+
+// POST /api/invoices/create
+export async function createInvoice(req, res) {
+  const { items, tax_enabled, tax_rate, client_id } = req.body;
+  const subtotal = FinancialCore.calculateSubtotal(items);
+  const taxAmount = FinancialCore.calculateTax(subtotal, {
+    enabled: tax_enabled,
+    rate: tax_rate ?? 15
+  });
+  const total = FinancialCore.calculateTotal(subtotal, taxAmount);
+  const invoice = await db.invoice.create({
+    data: {
+      client_id,
+      subtotal,
+      tax_enabled,
+      tax_rate,
+      tax_amount: taxAmount,
+      total,
+      currency: "SAR",
+      status: "Draft"
+    }
+  });
+  return res.json(invoice);
+}
+
+⸻
+
+🧾 خامساً: واجهة المستخدم (UI - Invoice Design)
+
+💡 العرض الصحيح
+
+* لا تستخدم “هللة”
+* لا تستخدم أرقام خام
+* اعرض دائمًا:
+
+1,500.00 ر.س
+
+⸻
+
+🧾 نموذج الفاتورة
+
+┌──────────────────────────────┐
+│ فاتورة رقم: INV-2026-0001   │
+├──────────────────────────────┤
+│ العميل: شركة الشمال         │
+│ الحالة: غير مدفوعة          │
+├──────────────────────────────┤
+│ الإجمالي الفرعي: 1,000.00   │
+│ الضريبة (15%): 150.00       │  ← إذا مفعلة فقط
+│ الإجمالي: 1,150.00 ر.س      │
+└──────────────────────────────┘
+
+⸻
+
+🔐 سادساً: قواعد منع الأخطاء (Strict Rules)
+
+❌ ممنوع تماماً
+
+* /100
+* *100
+* تخزين هللة بدون وضوح
+* اختلاف API عن UI
+* حساب ضريبة في الواجهة
+
+⸻
+
+✅ مسموح فقط عبر Core Engine
+
+* FinancialCore.calculateSubtotal
+* FinancialCore.calculateTax
+* FinancialCore.calculateTotal
+
+⸻
+
+⚖️ سابعاً: نظام الضريبة المرن
+
+📌 القاعدة
+
+الضريبة ليست إلزامية
+
+حالات التشغيل:
+
+الحالة	النتيجة
+tax_enabled = true	يتم الحساب
+tax_enabled = false	لا يوجد ضريبة
+client.tax_exempt = true	يتم تجاهل الضريبة
+
+⸻
+
+🔎 ثامناً: نظام التدقيق المالي (Audit)
+
+أي تغيير يتم تسجيله:
+
+user_id
+invoice_id
+old_value
+new_value
+timestamp
+ip_address
+
+⸻
+
+🚨 تاسعاً: Prompt إصلاح كامل (Production Fix)
+
+CRITICAL FINANCIAL SYSTEM AUDIT — ADAH AI
+Scan entire codebase and fix all financial inconsistencies.
+TASKS:
+1. Normalize all currency handling to SAR (decimal only)
+2. Remove all /100 and *100 operations
+3. Fix VAT logic to be optional per:
+   - office
+   - client
+   - invoice
+4. Ensure:
+   - API = source of truth
+   - UI = formatting only
+   - DB = decimal values only
+5. Replace all labels:
+   "هللة" → "ريال سعودي"
+6. Enforce FinancialCore usage everywhere.
+7. Validate:
+   - invoices
+   - payments
+   - revenue reports
+8. Add audit logging for all financial changes.
+9. Block invoice deletion if payments exist.
+OUTPUT:
+- list of affected files
+- list of corrected bugs
+- financial risk report
+- confirmation of system integrity
+PRIORITY: P0 FINANCIAL CRITICAL SYSTEM
+
+⸻
+
+🧩 النتيجة النهائية للنظام
+
+بعد تطبيق هذا التصميم:
+
+✅ النظام يصبح:
+
+* محاسبي قانوني
+* آمن ماليًا
+* خالٍ من أخطاء التحويل
+* قابل للتوسع عالميًا
+* متوافق مع السعودية (VAT 15%)
+* يدعم عملاء بدون ضريبة
+
+⸻
+
+🚀 إذا أردت الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+* 🔷 ￼ Dashboard فواتير احترافي (Stripe-level)
+* 🔷 ￼ نظام محاسبة كامل (Income / Expense)
+* 🔷 ￼ نظام تقارير مالية ذكي AI
+* 🔷 أو ￼ تحويله إلى Microservice مستقل
+
+فقط قل: “حوّله إلى نظام محاسبة كامل”

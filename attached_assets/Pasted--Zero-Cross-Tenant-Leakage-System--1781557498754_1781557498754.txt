@@ -1,0 +1,238 @@
+تمام—هذا هو Zero Cross-Tenant Leakage System بشكل عملي وقابل للتطبيق داخل “عدالة”، بدون تعقيد زائد لكن مع حماية صارمة فعلياً.
+
+⸻
+
+🛡️ Adala AI — ZERO CROSS-TENANT LEAKAGE SYSTEM
+
+🔒 الهدف
+
+منع 100% من حالات:
+
+أي مكتب يرى بيانات مكتب آخر (Cases / Clients / Finance / Docs)
+
+حتى لو حصل خطأ برمجي.
+
+⸻
+
+🧱 1. ARCHITECTURE OVERLAY (طبقة فوق النظام الحالي)
+
+Request
+  ↓
+Auth Layer (Clerk)
+  ↓
+Tenant Resolver
+  ↓
+ENFORCED TENANT CONTEXT
+  ↓
+Scoped DB Layer (MANDATORY)
+  ↓
+Services
+  ↓
+Database
+
+⸻
+
+🔐 2. TENANT CONTEXT (القلب الحقيقي للنظام)
+
+يتم فرضه على كل Request
+
+export function getTenantContext(req) {
+  const tenantId = req.user?.tenant_id;
+  if (!tenantId) {
+    throw new Error("Missing tenant context");
+  }
+  return { tenantId };
+}
+
+⸻
+
+🚨 3. FORCED SCOPED DATABASE (أهم جزء)
+
+بدل ما المطور ينسى tenant_id:
+
+نخلي DB نفسها “تفرض العزل”
+
+export function createScopedDB(tenantId: string) {
+  return {
+    cases: {
+      findMany: (args = {}) =>
+        db.cases.findMany({
+          ...args,
+          where: {
+            ...args.where,
+            tenant_id: tenantId
+          }
+        }),
+      findFirst: (args = {}) =>
+        db.cases.findFirst({
+          ...args,
+          where: {
+            ...args.where,
+            tenant_id: tenantId
+          }
+        })
+    },
+    clients: {
+      findMany: (args = {}) =>
+        db.clients.findMany({
+          ...args,
+          where: {
+            ...args.where,
+            tenant_id: tenantId
+          }
+        })
+    }
+  };
+}
+
+⸻
+
+❌ 4. منع الخطأ الأكبر (RAW QUERIES)
+
+أي استخدام لـ:
+
+db.query(...)
+db.$queryRaw(...)
+
+يتم حظره أو مراقبته:
+
+if (query.includes("cases") && !query.includes("tenant_id")) {
+  throw new Error("CROSS-TENANT RISK DETECTED");
+}
+
+⸻
+
+🧠 5. SERVICE LAYER ENFORCEMENT
+
+كل Service يجب أن يكون Tenant-aware
+
+export class CaseService {
+  constructor(private db, private tenantId) {}
+  async getCases() {
+    return this.db.cases.findMany({
+      where: { tenant_id: this.tenantId }
+    });
+  }
+}
+
+⸻
+
+🧾 6. AI ISOLATION LOCK (مهم جداً عندك)
+
+AI لا يرى إلا بيانات المكتب الحالي فقط
+
+export function buildAIContext(tenantData) {
+  return {
+    strict_scope: true,
+    cases: tenantData.cases,
+    clients: tenantData.clients,
+    documents: tenantData.documents
+  };
+}
+
+❌ ممنوع:
+
+* أي global data
+* أي cross-tenant aggregation
+
+⸻
+
+🔍 7. RUNTIME LEAK DETECTOR
+
+يراقب أي خروج بيانات غير صحيح
+
+function detectLeak(result, tenantId) {
+  if (result?.some(r => r.tenant_id !== tenantId)) {
+    throw new Error("DATA LEAK DETECTED");
+  }
+}
+
+⸻
+
+🧪 8. AUTOMATED ISOLATION TEST
+
+يتم تشغيله دائماً قبل الإنتاج:
+
+test("no cross tenant leakage", async () => {
+  const t1Cases = await api.asTenant("A").getCases();
+  const t2Cases = await api.asTenant("B").getCases();
+  expect(t1Cases.some(c => c.tenant_id === "B")).toBe(false);
+});
+
+⸻
+
+🧱 9. DATABASE SAFETY RULE (CRITICAL)
+
+إلزامي على مستوى schema:
+
+* كل جدول يحتوي:
+
+tenant_id UUID NOT NULL
+
+* index:
+
+INDEX (tenant_id)
+
+⸻
+
+🚦 10. FAIL-SAFE MODE
+
+إذا حدث أي شك في العزل:
+
+if (isIsolationRisk) {
+  BLOCK_REQUEST();
+  LOG_TO_SENTRY();
+}
+
+⸻
+
+📊 النتيجة بعد تطبيق النظام
+
+قبل:
+
+* احتمال خطأ بسيط = تسريب بيانات بين العملاء
+
+بعد:
+
+* حتى لو المطور نسي tenant_id → النظام يمنعه تلقائياً
+
+⸻
+
+🧠 أقوى ميزة هنا
+
+العزل ليس مسؤولية المطور بعد الآن
+
+بل:
+
+النظام نفسه يمنع أي خطأ تصميمي
+
+⸻
+
+⚠️ أهم نقطة
+
+هذا النظام لا يعتمد على:
+
+* الذكاء الاصطناعي
+* القواعد اليدوية
+* الانتباه البشري
+
+بل على:
+
+enforced architecture guardrails
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية (مهم جداً)
+
+أقدر أبني لك:
+
+🔥 “Production Hardening Pack”
+
+يشمل:
+
+* Sentry integration كامل (جاهز)
+* DB leak detection dashboard
+* Stripe reconciliation monitor
+* security audit automation
+
+فقط قل: ￼ قفل الإنتاج بالكامل

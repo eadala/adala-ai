@@ -1,0 +1,114 @@
+الخطأ واضح من الصورة:
+
+PUSH_REJECTED
+The push was rejected by the remote. This is usually because the remote has commits that aren’t in the local repository.
+
+وهذا يعني أن GitHub يحتوي على Commits أحدث من الموجودة في Replit، لذلك Git يرفض الـ Push حتى لا يكتب فوقها.
+
+وبما أنك تعمل في Replit مع GitHub ومع وجود أكثر من مطور أو Agent، فلا تستخدم Force Push.
+
+أرسل للمبرمج هذا الأمر الاحترافي:
+
+⸻
+
+P0 Critical Git Synchronization Directive
+
+يوجد حالياً خطأ:
+
+PUSH_REJECTED
+The remote contains commits that do not exist locally.
+
+ممنوع استخدام:
+
+* git push –force
+* git push -f
+* إعادة إنشاء المستودع
+* حذف تاريخ Git
+* تعطيل Branch Protection
+
+المطلوب
+
+أجرِ تشخيصاً كاملاً قبل أي تعديل.
+
+اعرض النتائج التالية:
+
+git status
+git branch -vv
+git remote -v
+git log --graph --decorate --oneline --all -20
+git fetch origin
+git status
+git rev-parse HEAD
+git rev-parse origin/main
+git merge-base HEAD origin/main
+git branch --contains origin/main
+git branch --contains HEAD
+
+بعد ذلك حدد سبب المشكلة بدقة، هل هي:
+
+* Local behind remote
+* Remote ahead
+* Diverged history
+* Merge conflict
+* Rebase state
+* Branch protection
+* Required pull request
+* Required status checks
+* Feature branch mismatch
+
+بعد التشخيص
+
+إذا كان السبب أن GitHub يحتوي Commits أحدث:
+
+نفذ مزامنة آمنة دون فقدان أي Commit:
+
+git fetch origin
+git pull --rebase origin main
+
+إذا ظهرت تعارضات:
+
+* حل جميع التعارضات.
+* أكمل rebase.
+* تحقق أن المشروع يبني بنجاح.
+* ثم نفذ Push عادي.
+
+إذا كانت Branch Protection تمنع الـ Push:
+
+لا تحاول تجاوزها.
+
+أنشئ Feature Branch:
+
+git checkout -b feature/git-sync-fix
+
+ثم:
+
+* Push للفرع الجديد.
+* افتح Pull Request.
+* دع GitHub Actions تعمل.
+* ادمج بعد نجاح جميع الفحوصات.
+
+التقرير المطلوب
+
+بعد الانتهاء أرسل تقريراً يتضمن:
+
+* سبب المشكلة الحقيقي.
+* عدد Commits المحلية.
+* عدد Commits الموجودة على GitHub.
+* هل حدث Divergence.
+* هل تم استخدام Rebase أو Merge.
+* هل حدث أي فقدان للبيانات (يجب أن يكون: لا).
+* SHA قبل الإصلاح.
+* SHA بعد الإصلاح.
+* حالة:
+
+git status
+
+* نتيجة:
+
+Ahead / Behind = 0 / 0
+
+* إثبات أن:
+
+Local HEAD = origin/main
+
+ولا تُنفذ أي Force Push أو أي عملية قد تغيّر تاريخ المستودع إلا إذا تمت الموافقة عليها صراحةً وبعد توثيق السبب.

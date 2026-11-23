@@ -1,0 +1,145 @@
+استخدم هذا الأمر، فهو يركز على التحقق المستقل دون إجراء أي تعديل أو Commit جديد، ويُلزم المبرمج بتقديم أدلة فعلية وليس مجرد استنتاجات:
+
+⸻
+
+P0 Final Production Verification & Release Certification
+
+بعد إصلاح حالة Git ومزامنة المستودع، أريد تنفيذ تدقيق مستقل ونهائي للتأكد من أن بيئة التطوير وGitHub وبيئة الإنتاج متطابقة بالكامل.
+
+قواعد التنفيذ
+
+* ممنوع إجراء أي تعديل على الكود.
+* ممنوع إنشاء Commit أو Merge أو Rebase أو Cherry-pick أو Force Push.
+* المطلوب هو التحقق فقط وإرفاق الأدلة.
+
+⸻
+
+المرحلة الأولى — Git Integrity Audit
+
+اعرض نتائج الأوامر التالية كاملة:
+
+git status
+git branch -vv
+git log --oneline -5
+git rev-parse HEAD
+git rev-parse origin/main
+git remote -v
+
+ثم أكد:
+
+* Working Tree Clean
+* Ahead = 0
+* Behind = 0
+* لا يوجد Merge قيد التنفيذ
+* لا يوجد Rebase قيد التنفيذ
+* لا يوجد Cherry-pick قيد التنفيذ
+
+⸻
+
+المرحلة الثانية — Build Verification
+
+من بيئة نظيفة نفّذ:
+
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint
+pnpm build
+
+ثم أرفق:
+
+* مدة البناء
+* عدد أخطاء TypeScript
+* عدد أخطاء ESLint
+* نجاح Build
+
+⸻
+
+المرحلة الثالثة — GitHub CI Verification
+
+تحقق من آخر GitHub Actions Run وأرفق:
+
+* Run Number
+* Commit SHA
+* Workflow Name
+* جميع Quality Gates
+* مدة التنفيذ
+* النتيجة النهائية
+
+ويجب التأكد أن جميع البوابات ناجحة.
+
+⸻
+
+المرحلة الرابعة — Production Verification
+
+تحقق من بيئة الإنتاج فقط دون تعديلها.
+
+يشمل:
+
+* HTTP Status
+* API Health
+* Security Headers
+* جميع الخدمات الأساسية
+* الصفحة الرئيسية
+* تسجيل الدخول
+* أهم المسارات الرئيسية
+* أي أخطاء Runtime أو JavaScript
+* حالة قاعدة البيانات
+* حالة التخزين
+* حالة Stripe
+* حالة الذكاء الاصطناعي
+
+⸻
+
+المرحلة الخامسة — Version Consistency
+
+أثبت بالأدلة أن:
+
+* Replit HEAD
+* GitHub main
+* GitHub Actions Build
+* Production Deployment (إن أمكن التحقق)
+
+تشير جميعها إلى نفس الإصدار، أو وضّح بدقة أي اختلاف وأسبابه.
+
+⸻
+
+المرحلة السادسة — Remaining Risks
+
+أنشئ جدولاً يتضمن:
+
+* المخاطر الحرجة (Critical)
+* المخاطر العالية
+* المخاطر المتوسطة
+* المخاطر المنخفضة
+
+ولكل عنصر اذكر:
+
+* السبب
+* التأثير
+* مستوى الخطورة
+* التوصية
+
+⸻
+
+المرحلة السابعة — Production Readiness Certificate
+
+في نهاية التقرير أصدر شهادة نهائية تتضمن:
+
+* Current Commit SHA
+* GitHub Commit SHA
+* Latest CI Run
+* Build Status
+* TypeScript Status
+* ESLint Status
+* Production Status
+* Git Synchronization Status
+* Security Status
+* Performance Status
+* Overall Platform Status
+
+ويجب أن تكون النتيجة إحدى الحالتين فقط:
+
+* PRODUCTION READY مع ذكر الأدلة.
+* NOT PRODUCTION READY مع حصر جميع الأسباب التي تمنع الإطلاق.
+
+المطلوب تقرير يعتمد على نتائج فعلية وأدلة تشغيلية، وليس على افتراضات أو استنتاجات.

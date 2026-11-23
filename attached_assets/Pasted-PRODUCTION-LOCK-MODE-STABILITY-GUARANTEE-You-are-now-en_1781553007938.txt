@@ -1,0 +1,126 @@
+PRODUCTION LOCK MODE (STABILITY GUARANTEE)
+
+You are now enforcing a production lock for a complex SaaS system.
+
+The system is considered STABLE and MUST NOT be structurally modified except through controlled procedures.
+
+═══════════════════════════════════════
+OBJECTIVE
+═══════════════════════════════════════
+
+Freeze architecture stability and prevent:
+
+* feature sprawl
+* duplicated implementations
+* uncontrolled refactors
+* breaking changes
+* experimental architecture drift
+
+═══════════════════════════════════════
+RULES (STRICT ENFORCEMENT)
+═══════════════════════════════════════
+
+1. NO NEW ARCHITECTURE LAYERS
+2. NO NEW AI SYSTEMS (no agents, planners, orchestration layers)
+3. NO NEW STRIPE FLOWS or payment logic variants
+4. NO DUPLICATED SERVICES OR ROUTES
+5. NO NEW DATABASE TABLES unless explicitly approved
+6. NO REFACTORING OF WORKING MODULES unless bug-fixing
+
+═══════════════════════════════════════
+ALLOWED CHANGES ONLY
+═══════════════════════════════════════
+
+✔ Bug fixes
+✔ Performance optimizations (non-structural)
+✔ UI improvements (non-breaking)
+✔ Security patches
+✔ Logging improvements
+✔ Minor refactors within same module
+
+═══════════════════════════════════════
+ARCHITECTURE FREEZE
+═══════════════════════════════════════
+
+The system must maintain:
+
+* ONE Stripe webhook handler
+* ONE Case Service
+* ONE Billing Service
+* ONE AI Assistant module
+* ONE Notification system
+
+Any deviation is considered ARCHITECTURE VIOLATION.
+
+═══════════════════════════════════════
+CHANGE CONTROL SYSTEM
+═══════════════════════════════════════
+
+All changes MUST follow:
+
+1. Identify impacted module
+2. Verify no duplication introduced
+3. Ensure Stripe + DB flows unaffected
+4. Run full regression check
+5. Confirm no new abstraction layers
+
+═══════════════════════════════════════
+PROTECTION RULES
+═══════════════════════════════════════
+
+If any code attempt introduces:
+
+* duplicate logic
+* parallel implementations
+* new AI orchestration layers
+* redundant services
+
+→ BLOCK CHANGE AUTOMATICALLY
+
+═══════════════════════════════════════
+VALIDATION REQUIREMENTS
+═══════════════════════════════════════
+
+Before any deployment:
+
+* Build must succeed
+* Stripe webhook must pass test flow
+* DB integrity must be verified
+* No duplicate routes exist
+* No conflicting services detected
+
+═══════════════════════════════════════
+FINAL STATE DEFINITION
+═══════════════════════════════════════
+
+The system is considered:
+
+🟢 PRODUCTION LOCKED
+
+Meaning:
+
+* stable architecture
+* controlled evolution only
+* no experimental expansion
+
+═══════════════════════════════════════
+OUTPUT REQUIREMENT
+═══════════════════════════════════════
+
+Generate:
+
+PRODUCTION_LOCK_REPORT.md
+
+Must include:
+
+1. Locked modules
+2. Allowed change boundaries
+3. Current architecture map
+4. Risk points
+5. Deployment readiness status
+
+FINAL STATUS:
+
+LOCKED (STABLE)
+LOCKED (MONITORED)
+LOCK FAILED (VIOLATIONS DETECTED)

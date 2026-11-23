@@ -1,0 +1,302 @@
+تمام — خليني أحول لك هذا إلى نظام تنفيذي كامل (End-to-End Blueprint + شبه جاهز للتطوير) لعدالة AI، بحيث تقدر تبدأ تبنيه مباشرة بدون ما تبقى “فكرة”.
+
+سأعطيك 4 طبقات متكاملة:
+
+⸻
+
+🧠 1) مشروع كامل (Monorepo Architecture)
+
+adala-ai/
+│
+├── apps/
+│   ├── web/                 # React Dashboard
+│   ├── admin/               # Admin Panel
+│
+├── services/
+│   ├── api/                # NestJS Backend
+│   ├── ai-gateway/         # AI Router + Providers
+│   ├── billing/            # Wallet + Invoices
+│
+├── packages/
+│   ├── db/                 # Prisma Schema
+│   ├── shared/             # Types + Utils
+│
+└── infra/
+    ├── docker/
+    ├── nginx/
+
+⸻
+
+⚙️ 2) AI Gateway (القلب الحقيقي للنظام)
+
+🔷 AI Entry Point
+
+// ai-gateway/src/ai.service.ts
+export class AIService {
+  constructor(
+    private router: AIRouter,
+    private policy: PolicyEngine,
+    private billing: BillingService
+  ) {}
+  async run(input: AIRequest) {
+    const provider = this.policy.select(input);
+    const result = await this.router.execute(provider, input.prompt);
+    await this.billing.charge({
+      tenantId: input.tenantId,
+      provider,
+      tokens: result.tokens,
+    });
+    return result.text;
+  }
+}
+
+⸻
+
+🔀 AI Router (Multi Provider System)
+
+export class AIRouter {
+  constructor(private providers: Record<string, AIProvider>) {}
+  async execute(provider: string, prompt: string) {
+    try {
+      return await this.providers[provider].generate(prompt);
+    } catch (e) {
+      return this.fallback(prompt);
+    }
+  }
+  async fallback(prompt: string) {
+    return this.providers["gemini"].generate(prompt);
+  }
+}
+
+⸻
+
+🧠 Policy Engine (ذكاء القرار)
+
+export class PolicyEngine {
+  select(input: AIRequest) {
+    if (input.type === "legal_contract") return "claude";
+    if (input.cost_sensitive) return "gemini";
+    if (input.fast_mode) return "gemini_flash";
+    return "openai";
+  }
+}
+
+⸻
+
+💰 3) نظام الفوترة (Billing Engine)
+
+⸻
+
+📦 Prisma DB
+
+model Tenant {
+  id      String @id @default(cuid())
+  name    String
+  balance Float
+  plan    String
+}
+model AIUsage {
+  id        String @id @default(cuid())
+  tenantId  String
+  provider  String
+  tokens    Int
+  cost      Float
+  createdAt DateTime @default(now())
+}
+model Invoice {
+  id        String @id @default(cuid())
+  tenantId  String
+  amount    Float
+  status    String
+  createdAt DateTime @default(now())
+}
+
+⸻
+
+🧮 Cost Engine
+
+export class CostEngine {
+  private rates = {
+    openai: 0.002,
+    claude: 0.003,
+    gemini: 0.0005
+  };
+  calc(provider: string, tokens: number) {
+    return tokens * this.rates[provider];
+  }
+}
+
+⸻
+
+💳 Wallet System
+
+export class WalletService {
+  async charge(tenantId: string, cost: number) {
+    const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+    if (tenant.balance < cost) {
+      throw new Error("Insufficient balance");
+    }
+    await db.tenant.update({
+      where: { id: tenantId },
+      data: { balance: tenant.balance - cost }
+    });
+  }
+}
+
+⸻
+
+📜 Logging Usage
+
+await db.aIUsage.create({
+  data: {
+    tenantId,
+    provider,
+    tokens,
+    cost
+  }
+});
+
+⸻
+
+🧑‍💼 4) لوحة التحكم (Admin + Clients)
+
+⸻
+
+🧑‍💼 A) Admin Dashboard
+
+🔥 Features
+
+📊 Real-time AI Monitoring
+
+* Requests/sec
+* latency
+* model usage
+
+⸻
+
+💰 Revenue Dashboard
+
+* Cost per provider
+* Profit margin
+* Top customers
+
+⸻
+
+⚙️ AI Provider Control
+
+* enable/disable models
+* update API keys
+* pricing control
+
+⸻
+
+🚨 Alerts System
+
+* spike usage
+* API failure
+* cost anomaly
+
+⸻
+
+🏢 B) Client Dashboard (المكاتب القانونية)
+
+⸻
+
+📊 Overview
+
+* الرصيد
+* الاستخدام
+* الفواتير
+
+⸻
+
+⚙️ AI Settings
+
+{
+  "mode": "balanced",
+  "default_provider": "auto",
+  "legal_precision": true
+}
+
+⸻
+
+Modes
+
+Mode	Description
+⚡ Fast	أرخص وأسرع
+⚖️ Balanced	توازن
+🧠 Accurate	دقة قانونية عالية
+
+⸻
+
+📜 AI History
+
+* كل استعلام
+* الرد
+* التكلفة
+
+⸻
+
+💳 Billing
+
+* شحن رصيد
+* فواتير PDF
+* اشتراكات شهرية
+
+⸻
+
+⚖️ 5) النظام القانوني الذكي (Core Feature لعدالة AI)
+
+⸻
+
+🧠 Legal Prompt Engine
+
+export class LegalEngine {
+  build(type: string, data: any) {
+    const prompts = {
+      contract: `اكتب عقد قانوني سعودي مطابق للأنظمة: ${data}`,
+      lawsuit: `صغ لائحة دعوى قانونية: ${data}`,
+      analysis: `حلل هذا المستند قانونياً: ${data}`
+    };
+    return prompts[type];
+  }
+}
+
+⸻
+
+⚖️ Smart Routing قانوني
+
+Task	Model
+عقود	Claude
+قضايا	GPT-4o
+تحليل	GPT-4o
+تلخيص	Gemini
+سريع	Gemini Flash
+
+⸻
+
+🧠 Legal Guardrails
+
+* يمنع hallucination
+* يضيف “صياغة نظامية سعودية”
+* يفرض structure قانوني
+
+⸻
+
+🚀 6) Features متقدمة (ميزة تنافس B.AI)
+
+⸻
+
+🔹 Cache Layer
+
+cache.set(hash(prompt), result);
+
+⸻
+
+🔹 Auto Model Switching
+
+if (cost > limit) switch to cheaper model
+
+⸻
+
+🔹

@@ -1,0 +1,291 @@
+بما أنك تريده كـ كود احترافي فعلي يمكن إعطاؤه للمطور، فالأفضل أن يكون على شكل وثيقة تصميم تنفيذية وليس مجرد أفكار متفرقة.
+
+Adalah AI – Case Intelligence Layer (Production Architecture)
+
+الهدف
+
+إضافة طبقة ذكاء تشغيلي قانوني (Legal Operations Intelligence Layer) فوق النظام الحالي بحيث تصبح عدالة قادرة على قياس وتحليل وإدارة:
+
+* القضايا
+* العقود
+* المستندات
+* المهام
+* المحامين
+* العملاء
+
+بنفس الطريقة التي تراقب بها البنية التحتية حالياً CPU و RAM و Database.
+
+⸻
+
+Architecture
+
+Cases
+Contracts
+Documents
+Tasks
+Lawyers
+Clients
+     │
+     ▼
+Case Intelligence Engine
+     │
+     ├── Metrics Engine
+     ├── Workload Analyzer
+     ├── Risk Analyzer
+     ├── SLA Monitor
+     └── Recommendation Engine
+     │
+     ▼
+Prometheus Metrics
+     │
+     ▼
+Grafana Dashboards
+     │
+     ▼
+Decision Engine
+
+⸻
+
+Service Structure
+
+services/case-intelligence/
+├── src/
+│   ├── index.ts
+│   ├── metrics.ts
+│   ├── analyzers/
+│   │   ├── caseAnalyzer.ts
+│   │   ├── contractAnalyzer.ts
+│   │   ├── documentAnalyzer.ts
+│   │   ├── lawyerAnalyzer.ts
+│   │   └── slaAnalyzer.ts
+│   ├── exporters/
+│   │   └── prometheus.ts
+│   └── recommendations.ts
+│
+├── Dockerfile
+└── package.json
+
+⸻
+
+Core Metrics
+
+Cases
+
+active_cases_total
+closed_cases_total
+overdue_cases_total
+critical_cases_total
+avg_case_completion_days
+
+⸻
+
+Contracts
+
+contracts_total
+contracts_pending_signature
+contracts_expiring_30_days
+contracts_completed
+
+⸻
+
+Documents
+
+documents_total
+documents_pending_review
+documents_approved
+documents_rejected
+
+⸻
+
+Tasks
+
+tasks_open
+tasks_overdue
+tasks_completed
+avg_task_completion_time
+
+⸻
+
+Lawyers
+
+lawyer_workload_score
+lawyer_response_time_minutes
+lawyer_open_cases
+lawyer_open_tasks
+
+⸻
+
+Prometheus Exporter
+
+import client from "prom-client";
+export const activeCasesGauge =
+  new client.Gauge({
+    name: "active_cases_total",
+    help: "Number of active legal cases"
+  });
+export const overdueCasesGauge =
+  new client.Gauge({
+    name: "overdue_cases_total",
+    help: "Number of overdue legal cases"
+  });
+export const contractsPendingGauge =
+  new client.Gauge({
+    name: "contracts_pending_signature",
+    help: "Contracts waiting for signature"
+  });
+
+⸻
+
+Case Analyzer
+
+export async function analyzeCases(db) {
+  const active =
+    await db.case.count({
+      where: {
+        status: "ACTIVE"
+      }
+    });
+  const overdue =
+    await db.case.count({
+      where: {
+        deadline: {
+          lt: new Date()
+        },
+        status: {
+          not: "CLOSED"
+        }
+      }
+    });
+  return {
+    active,
+    overdue
+  };
+}
+
+⸻
+
+Lawyer Workload Scoring
+
+export function calculateLawyerLoad({
+  openCases,
+  openTasks,
+  hearings
+}) {
+  const score =
+      openCases * 0.5
+    + openTasks * 0.3
+    + hearings * 0.2;
+  return Math.min(
+    Math.round(score),
+    100
+  );
+}
+
+⸻
+
+Legal Risk Scoring
+
+export function calculateLegalRisk({
+  overdueCases,
+  overdueTasks,
+  pendingContracts
+}) {
+  let score = 0;
+  score += overdueCases * 5;
+  score += overdueTasks * 2;
+  score += pendingContracts;
+  return Math.min(score, 100);
+}
+
+⸻
+
+Recommendation Engine
+
+if (overdueCases > 10) {
+  recommendations.push(
+    "Increase legal team allocation"
+  );
+}
+if (pendingContracts > 20) {
+  recommendations.push(
+    "Activate contract review workflow"
+  );
+}
+if (lawyerLoad > 85) {
+  recommendations.push(
+    "Redistribute assignments"
+  );
+}
+
+⸻
+
+Decision Engine Integration
+
+إضافة نوع جديد من التنبيهات:
+
+LEGAL_WORKLOAD_CRITICAL
+LEGAL_RISK_HIGH
+CONTRACT_BOTTLENECK
+LAWYER_OVERLOAD
+DOCUMENT_REVIEW_DELAY
+
+⸻
+
+Grafana Dashboard
+
+Legal Operations Overview
+
+Panels:
+
+* Active Cases
+* Overdue Cases
+* Critical Cases
+* Pending Contracts
+* Pending Reviews
+* Lawyer Load
+* Legal Risk Score
+* Case Completion Time
+* SLA Compliance
+
+⸻
+
+API Endpoints
+
+GET /case-intelligence/status
+GET /case-intelligence/recommendations
+GET /case-intelligence/metrics
+GET /case-intelligence/legal-risk
+
+⸻
+
+Output Example
+
+{
+  "legalRisk": 28,
+  "activeCases": 284,
+  "overdueCases": 3,
+  "pendingContracts": 12,
+  "lawyerLoad": "MEDIUM",
+  "recommendations": [
+    "Redistribute assignments"
+  ]
+}
+
+⸻
+
+Final Result
+
+بعد إضافة Case Intelligence Layer تصبح عدالة:
+
+* Infrastructure Aware
+* Risk Aware
+* Business Aware
+* Product Aware
+* Legal Operations Aware
+
+وبذلك تتحول من منصة إدارة قانونية إلى:
+
+Legal Operations Intelligence Platform
+
+:::
+هذه الطبقة هي التي أوصي فعلاً ببنائها الآن قبل أي طبقات ذكاء إضافية، لأنها مرتبطة مباشرة بقيمة عدالة الأساسية: القضايا والعقود والمستندات والمحامين.

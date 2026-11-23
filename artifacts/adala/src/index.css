@@ -1,0 +1,1113 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary-border: var(--secondary-border);
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-border: var(--muted-border);
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-border: var(--accent-border);
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive-border: var(--destructive-border);
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-primary-border: var(--sidebar-primary-border);
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-accent-border: var(--sidebar-accent-border);
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: 'Tajawal', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+  --opaque-button-border-intensity: -8;
+
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
+
+  /* Adala Design System v2 — Primary #0B1F3B + Accent #2563EB */
+  --background: 210 40% 98%;
+  --foreground: 215 69% 14%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 215 69% 14%;
+  --card-border: 214 32% 90%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 69% 14%;
+  --popover-border: 214 32% 90%;
+
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 214 32% 91%;
+  --secondary-foreground: 215 69% 14%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 20% 48%;
+
+  --accent: 221 83% 96%;
+  --accent-foreground: 221 83% 35%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 32% 90%;
+  --input: 214 32% 90%;
+  --ring: 221 83% 53%;
+
+  --chart-1: 221 83% 53%;
+  --chart-2: 142 71% 40%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 271 81% 56%;
+
+  /* ── Sidebar: dark navy — matches landing page nav (PRIMARY=#0B1F3B) ── */
+  --sidebar: 215 73% 9%;
+  --sidebar-foreground: 210 40% 94%;
+  --sidebar-border: 215 50% 16%;
+  --sidebar-primary: 221 83% 58%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 215 55% 14%;
+  --sidebar-accent-foreground: 210 40% 94%;
+  --sidebar-ring: 221 83% 58%;
+
+  --radius: 0.625rem;
+
+  --primary-border: hsl(var(--primary));
+  --secondary-border: hsl(var(--secondary));
+  --muted-border: hsl(var(--muted));
+  --accent-border: hsl(var(--accent));
+  --destructive-border: hsl(var(--destructive));
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+}
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    overflow-x: hidden;
+    max-width: 100%;
+    /* Typography System — Adala v2 */
+    font-size: 16px;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100%;
+    position: relative;
+    /* ── Unified Typography Foundation ── */
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 400;
+    font-size: 1rem;             /* 16px — baseline for Arabic clarity */
+    line-height: 1.75;
+    letter-spacing: 0em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ── Heading scale (H1 → H6) ── */
+  h1, .h1 {
+    font-size: 1.875rem;   /* 30px */
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+  h2, .h2 {
+    font-size: 1.5rem;     /* 24px */
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  h3, .h3 {
+    font-size: 1.25rem;    /* 20px */
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.015em;
+  }
+  h4, .h4 {
+    font-size: 1.0625rem;  /* 17px */
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  h5, .h5 {
+    font-size: 0.9375rem;  /* 15px */
+    font-weight: 600;
+    line-height: 1.55;
+  }
+  h6, .h6 {
+    font-size: 0.875rem;   /* 14px */
+    font-weight: 600;
+    line-height: 1.55;
+  }
+
+  /* ── Paragraph & inline ── */
+  p {
+    font-weight: 400;
+    line-height: 1.8;
+  }
+
+  /* ── Labels, captions, small ── */
+  label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  small, .text-xs {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  /* ── Table base ── */
+  td {
+    font-size: 0.875rem;   /* 14px */
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  th {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Input / select / textarea ── */
+  input, select, textarea {
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* ── Button base ── */
+  button {
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE SIDEBAR ANIMATION
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0.4; }
+  to   { transform: translateX(0);    opacity: 1;   }
+}
+@keyframes slideInFromLeft {
+  from { transform: translateX(-100%); opacity: 0.4; }
+  to   { transform: translateX(0);     opacity: 1;   }
+}
+
+/* Custom slim scrollbar for the sidebar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--sidebar-border)) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--sidebar-border));
+  border-radius: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LANDING PAGE FADE-IN ANIMATIONS
+   lp-fade / lp-hero-* initial hidden state → JS adds lp-visible
+   ═══════════════════════════════════════════════════════════════ */
+.lp-fade,
+.lp-hero-0, .lp-hero-1, .lp-hero-2, .lp-hero-3, .lp-hero-4,
+.lp-hero-mock {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1),
+              transform 0.65s cubic-bezier(0.16,1,0.3,1);
+  will-change: opacity, transform;
+}
+.lp-fade.lp-visible,
+.lp-hero-0.lp-visible, .lp-hero-1.lp-visible,
+.lp-hero-2.lp-visible, .lp-hero-3.lp-visible,
+.lp-hero-4.lp-visible, .lp-hero-mock.lp-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL DESIGN SYSTEM v3 — ADALA PLATFORM
+   Same spirit as the landing page — dark navy + vivid blue
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── App content area: subtle dot-grid (matches landing page) ── */
+.app-bg {
+  background-color: hsl(210 40% 97%);
+  background-image:
+    radial-gradient(hsl(221 83% 53% / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ── Premium card — glassy with depth ── */
+.card-elevated {
+  background: hsl(0 0% 100%);
+  border: 1px solid hsl(214 32% 91%);
+  box-shadow:
+    0 1px 2px rgba(11,31,59,0.04),
+    0 4px 12px rgba(11,31,59,0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+.card-elevated:hover {
+  box-shadow:
+    0 2px 6px rgba(11,31,59,0.08),
+    0 10px 28px rgba(37,99,235,0.08);
+  border-color: hsl(221 83% 53% / 0.25);
+  transform: translateY(-1px);
+}
+
+/* ── Section header label — like landing page section titles ── */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.75rem;
+}
+.section-label::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 14px;
+  background: hsl(var(--primary));
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Stat card — landing-style big number ── */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1.5rem 1.5rem 1.25rem;
+  background: white;
+  border: 1px solid hsl(214 32% 91%);
+  box-shadow: 0 2px 12px rgba(11,31,59,0.06);
+  transition: all 0.2s ease;
+}
+.stat-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(37,99,235,0.04) 100%);
+  pointer-events: none;
+}
+.stat-card:hover {
+  box-shadow: 0 6px 24px rgba(37,99,235,0.12);
+  border-color: hsl(221 83% 53% / 0.3);
+  transform: translateY(-2px);
+}
+.stat-card .stat-value {
+  font-family: 'Tajawal', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: hsl(215 69% 14%);
+}
+.stat-card .stat-label {
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(215 20% 48%);
+  margin-top: 0.375rem;
+}
+.stat-card .stat-icon {
+  position: absolute;
+  top: 1.125rem;
+  left: 1.125rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Page header consistency ── */
+.page-header {
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  padding: 1rem 1.5rem;
+}
+
+/* ── Gradient section background ── */
+.section-gradient {
+  background: linear-gradient(160deg, hsl(var(--background)) 0%, hsl(221 83% 97%) 100%);
+}
+
+/* ── App fade-in — staggered entrance for dashboard sections ── */
+.app-fade {
+  animation: appFadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+.app-fade-1 { animation-delay: 0.05s; }
+.app-fade-2 { animation-delay: 0.12s; }
+.app-fade-3 { animation-delay: 0.19s; }
+.app-fade-4 { animation-delay: 0.26s; }
+.app-fade-5 { animation-delay: 0.33s; }
+.app-fade-6 { animation-delay: 0.40s; }
+
+@keyframes appFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Quick action button — landing style ── */
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background: white;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+.quick-action:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  background: hsl(var(--primary) / 0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(37,99,235,0.1);
+}
+
+/* ── Professional table header ── */
+thead tr th {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── App page title ── */
+.app-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: hsl(215 69% 14%);
+  line-height: 1.25;
+}
+@media (min-width: 768px) {
+  .app-page-title { font-size: 1.875rem; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY SYSTEM v2 — DASHBOARD ENHANCEMENTS
+   Ensures dashboard matches landing page visual weight
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Card titles & headings inside the app shell ── */
+.card-title,
+[class*="card"] h2,
+[class*="card"] h3,
+[class*="card"] h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+/* ── Shadcn CardTitle component override ── */
+.text-card-foreground {
+  font-weight: 600;
+}
+
+/* ── Sidebar nav items — medium weight for clarity ── */
+.sidebar-item,
+[class*="sidebar"] span,
+[class*="sidebar"] a {
+  font-weight: 500;
+}
+
+/* ── Muted text — slightly heavier than browser default ── */
+.text-muted-foreground {
+  font-weight: 400;
+}
+
+/* ── Data values in tables / stat cards ── */
+.font-mono,
+[class*="tabular-nums"] {
+  font-family: 'Tajawal', sans-serif;
+  font-weight: 500;
+}
+
+/* ── Badge / pill text — must be legible ── */
+[class*="badge"],
+[class*="pill-"] {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* ── Form labels — consistent with design system ── */
+[class*="FormLabel"],
+[class*="form-label"],
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+/* ── Select / Dropdown item text ── */
+[role="option"],
+[role="menuitem"],
+[role="menuitemradio"] {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* ── Dialog / Sheet titles ── */
+[role="dialog"] h2,
+[role="dialog"] [class*="DialogTitle"],
+[role="dialog"] [class*="SheetTitle"] {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+/* ── Tooltip text ── */
+[role="tooltip"] {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* ── Navigation breadcrumbs ── */
+[aria-label="breadcrumb"] * {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* ── Empty state text ── */
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.empty-state-desc {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.75;
+}
+
+/* ── KPI / stat numbers — bold & impactful ── */
+.kpi-value,
+.stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* ── Section labels — all-caps micro labels ── */
+.section-label,
+.group-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Prevent any class from going below weight 400 ── */
+.font-thin   { font-weight: 400 !important; }
+.font-light  { font-weight: 400 !important; }
+.font-extralight { font-weight: 400 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   @media print — PDF / طباعة
+   يُظهر المحتوى بخلفية بيضاء ونص داكن لتوفير الحبر والوضوح
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  :root {
+    --background: 0 0% 100% !important;
+    --foreground: 222 47% 10% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 222 47% 10% !important;
+    --muted: 0 0% 95% !important;
+    --muted-foreground: 222 30% 30% !important;
+    --border: 222 20% 75% !important;
+    --primary: 43 74% 40% !important;
+    --primary-foreground: 0 0% 100% !important;
+    --sidebar: 0 0% 100% !important;
+    --sidebar-foreground: 222 47% 10% !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* إخفاء عناصر التنقل والأشرطة الجانبية */
+  aside,
+  header,
+  nav,
+  .print\\:hidden,
+  [class*="print:hidden"],
+  button:not([data-print="true"]) {
+    display: none !important;
+  }
+
+  /* ضبط التخطيط للطباعة */
+  body {
+    background: white !important;
+    color: #1a2744 !important;
+    font-size: 12pt !important;
+  }
+
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .flex-1.overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* البطاقات */
+  .bg-card,
+  .bg-sidebar,
+  [class*="bg-muted"] {
+    background: white !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  /* النصوص */
+  .text-white,
+  .text-foreground,
+  .text-sidebar-foreground {
+    color: #1a2744 !important;
+  }
+
+  .text-muted-foreground {
+    color: #6b7280 !important;
+  }
+
+  /* الجداول */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  th, td {
+    border: 1px solid #d1d5db !important;
+    padding: 6pt 8pt !important;
+    color: #1a2744 !important;
+    background: white !important;
+  }
+  th {
+    background: #f3f4f6 !important;
+    font-weight: bold !important;
+  }
+
+  /* الفاتورة */
+  .invoice-print-area {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 20pt !important;
+  }
+
+  /* إخفاء رسائل الخطأ والأدوات */
+  [role="dialog"],
+  [role="tooltip"],
+  .sonner-toast-container {
+    display: none !important;
+  }
+
+  /* فاصل الصفحات */
+  .page-break-before { page-break-before: always !important; }
+  .page-break-after  { page-break-after: always !important; }
+
+  /* الرسوم البيانية — تأكد من الظهور */
+  svg, canvas {
+    max-width: 100% !important;
+  }
+
+  /* الترويسة للطباعة */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   LANDING PAGE LIGHT THEME HELPERS
+   Applied when html has data-theme="light" attribute
+   (set by OfficeThemeProvider when theme is light)
+═══════════════════════════════════════════════════════ */
+html[data-theme="light"] .lp-t          { color: var(--lp-text, #0F172A) !important; }
+html[data-theme="light"] .lp-tm         { color: var(--lp-text-muted, rgba(15,23,42,0.60)) !important; }
+html[data-theme="light"] .lp-ts         { color: var(--lp-text-subtle, rgba(15,23,42,0.35)) !important; }
+html[data-theme="light"] .lp-nav-link   { color: var(--lp-text-muted, rgba(15,23,42,0.60)) !important; }
+html[data-theme="light"] .lp-nav-link:hover { color: var(--lp-text, #0F172A) !important; }
+html[data-theme="light"] .lp-section-border { border-color: rgba(0,0,0,0.06) !important; }
+html[data-theme="light"] .lp-stat-label     { color: var(--lp-text-muted, rgba(15,23,42,0.55)) !important; }
+html[data-theme="light"] .lp-trust-tag      { color: var(--lp-text-subtle, rgba(15,23,42,0.35)) !important; }
+
+/* ═══════════════════════════════════════════════════════
+   LANDING PAGE OVERFLOW CONTAINMENT
+   Prevents any child from expanding the layout viewport
+   on mobile (critical for iOS Safari RTL pages)
+═══════════════════════════════════════════════════════ */
+.lp-root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.lp-root *,
+.lp-root *::before,
+.lp-root *::after {
+  box-sizing: border-box;
+}
+
+/* Prevent non-absolute elements from exceeding container */
+.lp-root section,
+.lp-root div:not([class*="absolute"]):not([class*="fixed"]),
+.lp-root img,
+.lp-root video,
+.lp-root table {
+  max-width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE SIDEBAR DRAWER ANIMATION
+═══════════════════════════════════════════════════════ */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1;   }
+}
+
+@keyframes slideUpIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE UX — Touch targets, smooth scroll, overflow fix
+═══════════════════════════════════════════════════════ */
+
+/* Smooth scrolling everywhere */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Global touch target minimum — WCAG 2.5.5 */
+button,
+[role="button"],
+a,
+input[type="checkbox"],
+input[type="radio"],
+select {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+/* Exception: icon-only buttons (w-7, h-7 etc.) */
+button[class*="h-6"],
+button[class*="h-7"],
+button[class*="h-8"],
+button[class*="w-6"],
+button[class*="w-7"],
+button[class*="w-8"] {
+  min-height: unset;
+  min-width: unset;
+}
+
+/* Custom scrollbar — thin, matches theme */
+::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: hsl(var(--border)); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.5); }
+* { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+
+/* Horizontal overflow prevention for app shell */
+.app-shell {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Responsive table helper — wraps any raw table for mobile */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Data cards — mobile-first list items */
+.data-card {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 0.875rem 1rem;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.data-card:active { transform: scale(0.985); }
+.data-card:hover  { box-shadow: 0 2px 12px hsl(var(--primary) / 0.08); border-color: hsl(var(--primary) / 0.25); }
+
+/* Status badge — semantic colors */
+.status-open     { background: hsl(214 100% 97%); color: hsl(214 80% 40%); border-color: hsl(214 60% 80%); }
+.status-progress { background: hsl(38 100% 96%);  color: hsl(38 90% 35%);  border-color: hsl(38 70% 75%);  }
+.status-closed   { background: hsl(220 15% 95%);  color: hsl(220 15% 40%); border-color: hsl(220 10% 80%);  }
+.status-paid     { background: hsl(142 72% 95%);  color: hsl(142 60% 30%); border-color: hsl(142 50% 75%);  }
+.status-pending  { background: hsl(48 100% 96%);  color: hsl(48 90% 30%);  border-color: hsl(48 70% 70%);   }
+
+/* Page-level padding — consistent across all pages */
+@media (max-width: 640px) {
+  .page-content {
+    padding: 0.75rem !important;
+  }
+}
+
+/* Fix Dialog/Modal scroll after close — critical bug */
+body:not([style*="overflow: hidden"]) {
+  overflow-y: auto !important;
+}
+
+/* Prevent text-overflow in table cells on mobile */
+@media (max-width: 768px) {
+  td, th { word-break: break-word; }
+}
+
+/* iOS momentum scrolling for scrollable areas */
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Bottom sheet animation */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.bottom-sheet {
+  animation: slideUpSheet 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Image viewer backdrop */
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#adala-image-viewer {
+  animation: fadeInBackdrop 0.18s ease-out;
+}
+
+/* Focus ring — accessibility */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* RTL table fix — headers always right-aligned */
+[dir="rtl"] th { text-align: right; }
+[dir="rtl"] td { text-align: right; }
+
+/* Truncate helpers */
+.line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+/* Card grid — responsive */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+}
+
+/* ── Finance / Ticket status pills ── */
+.pill-paid     { @apply bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.pill-pending  { @apply bg-amber-50   text-amber-700   border border-amber-200   rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.pill-overdue  { @apply bg-red-50     text-red-700     border border-red-200     rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.pill-open     { @apply bg-blue-50    text-blue-700    border border-blue-200    rounded-full px-2.5 py-0.5 text-xs font-medium; }
+.pill-closed   { @apply bg-slate-50   text-slate-600   border border-slate-200   rounded-full px-2.5 py-0.5 text-xs font-medium; }
+
+/* ── Mobile nav drawer animation (RTL) ── */
+@media (max-width: 768px) {
+  .mobile-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL MOBILE RESPONSIVE IMPROVEMENTS
+   تحسينات شاملة للجوال والتابلت
+═══════════════════════════════════════════════════════ */
+
+/* Ensure all tables with fixed min-widths scroll horizontally */
+.overflow-x-auto table,
+.overflow-auto table {
+  min-width: max-content;
+}
+
+/* App main content — prevent horizontal overflow */
+main {
+  overflow-x: hidden;
+}
+
+/* TabsList — allow horizontal scroll on very small screens */
+[role="tablist"] {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[role="tablist"]::-webkit-scrollbar { display: none; }
+
+/* Cards inside grids — never overflow their column */
+.card-in-grid {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Inputs & selects — 100% width on mobile */
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  /* Page headings — scale down on mobile */
+  h1 { font-size: clamp(1.4rem, 5vw, 2.5rem); }
+  h2 { font-size: clamp(1.1rem, 4vw, 1.8rem); }
+
+  /* Dialog / modal — full width on mobile */
+  [role="dialog"] {
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem !important;
+  }
+
+  /* Stat/KPI numbers — don't overflow */
+  .stat-value, .kpi-value {
+    font-size: clamp(1rem, 6vw, 2.5rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* iPad / tablet — sidebar visible at md, content adapts */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Slightly tighter padding on tablet */
+  .app-bg {
+    padding: 1rem;
+  }
+}
+
+/* Prevent any direct child of body from causing horizontal scroll */
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Adaptive Mobile Layer — Enterprise UX enhancements
+   ───────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+
+  /* ── Touch targets: minimum 44×44px (WCAG 2.2) ── */
+  button, [role="button"], a, [role="link"],
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exception: icon-only small buttons (already styled) */
+  button.h-7, button.h-8 {
+    min-height: unset;
+    min-width: unset;
+  }
+
+  /* ── Form fields: larger, keyboard-friendly ── */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px !important; /* prevents iOS zoom on focus */
+    padding: 12px 14px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  textarea {
+    min-height: 80px;
+  }
+
+  /* ── Full-width buttons in forms ── */
+  .dialog-footer-mobile button,
+  form button[type="submit"] {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  /* ── Card touch feedback ── */
+  .card-interactive {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  /* ── Smooth momentum scrolling ── */
+  .overflow-y-auto,
+  .overflow-auto,
+  [data-scroll-area] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* ── Typography: readable on small screens ── */
+  h1 { font-size: clamp(1.25rem, 5vw, 1.75rem) !important; }
+  h2 { font-size: clamp(1.1rem, 4vw, 1.375rem) !important; }
+
+  /* ── Spacing: tighter on mobile ── */
+  .space-y-6 { --tw-space-y-reverse: 0; margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse))); margin-bottom: calc(1rem * var(--tw-space-y-reverse)); }
+
+  /* ── Horizontal overflow: show scroll hint ── */
+  .overflow-x-auto {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .overflow-x-auto::-webkit-scrollbar { display: none; }
+
+  /* ── Pull-to-refresh visual hint ── */
+  @keyframes ptr-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Bottom sheet z-index safety ── */
+  [data-radix-popper-content-wrapper] {
+    z-index: 200 !important;
+  }
+
+  /* ── Grid: force single column in forms on mobile ── */
+  .mobile-single-col.grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Safe area padding for bottom fixed elements ── */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  /* ── Reduce motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ── Tablet: intermediate experience (768–1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Cards: two-column default on tablet */
+  .tablet-grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Touch-friendly buttons on tablet */
+  button, [role="button"] {
+    min-height: 40px;
+  }
+
+  /* Input sizing */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select {
+    font-size: 15px;
+    min-height: 42px;
+  }
+}
+
+/* ── Skeleton pulse animation ── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse {
+  animation: skeleton-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── High Contrast Mode ── */
+@media (forced-colors: active) {
+  .bg-primary { background-color: ButtonFace !important; color: ButtonText !important; }
+  .border { border-color: ButtonText !important; }
+}

@@ -1,0 +1,96 @@
+يمكنك إرسال هذا البرومبت الاحترافي:
+
+⸻
+
+🚨 Production Verification — No More Assumptions
+
+بعد اكتمال Publish، أوقف أي تعديلات على الكود ولا تُنشئ أي Commit أو Publish جديد حتى تنتهي من التحقق.
+
+أريد تقرير تحقق من بيئة Production فقط، وليس من الـ Workspace المحلي أو الـ Build المحلي.
+
+المطلوب
+
+1. Deployment Verification
+    * أثبت أن آخر Deployment هو الذي يعمل فعلياً.
+    * اذكر:
+        * Commit SHA
+        * وقت النشر
+        * Deployment ID (إن وجد)
+        * هل تم استبدال الإصدار السابق بالكامل.
+2. Bundle Verification
+    * استخرج اسم ملف JavaScript الذي يقدمه Production حالياً.
+    * أكد أنه ليس:
+
+index-Bp3NanmM.js
+
+    * اذكر اسم الـ Bundle الجديد.
+    * تحقق أن جميع ملفات JS وCSS الجديدة ترجع HTTP 200 وليس 404.
+3. Clerk Verification
+    * افحص:
+
+/api/__clerk/v1/environment
+
+    * أرفق:
+        * HTTP Status
+        * Response Body
+    * أكد أن الخطأ:
+
+host_invalid
+
+        لم يعد موجوداً.
+4. Bundle Content Audit
+    أثبت أن الـ Bundle المنشور يحتوي على:
+    * VITE_CLERK_PROXY_URL
+    * publishableKeyFromHost
+    * pk_live_
+    واذكر مكان وجودها داخل الـ Bundle.
+5. Runtime Verification
+    افتح الموقع المنشور في متصفح نظيف (Incognito) مع تعطيل الكاش، ثم افحص:
+    * Console
+    * Network
+    وأثبت:
+    * عدم وجود JavaScript Errors.
+    * عدم وجود Requests فاشلة.
+    * عدم وجود ملفات 404.
+    * عدم وجود Infinite Loading.
+6. Clerk Runtime
+    تحقق أثناء التشغيل من:
+    * Clerk.isLoaded
+    * useAuth().isLoaded
+    * useAuth().isSignedIn
+    وأثبت القيم الفعلية.
+7. Application Verification
+    تحقق أن:
+    * الصفحة الرئيسية تعمل.
+    * صفحة تسجيل الدخول تعمل.
+    * لوحة التحكم تعمل بعد تسجيل الدخول.
+    * لا تظهر شاشة “جاري التحميل…”.
+8. HTTP Headers
+    اعرض رؤوس الاستجابة لكل من:
+    * /
+    * index.html
+    * index-*.js
+    مع:
+    * Cache-Control
+    * ETag
+    * Last-Modified
+    * cf-cache-status
+9. Evidence Required
+    لا أريد استنتاجات.
+    لكل نتيجة أرفق الدليل الفعلي (Logs، Headers، HTTP Status، أسماء الملفات، أو لقطات من Console/Network).
+10. Final Verdict
+
+في نهاية التقرير أعطني جدولاً واحداً فقط:
+
+البند	الحالة
+Latest Deployment Running	✅ / ❌
+New Bundle Served	✅ / ❌
+Clerk Environment Healthy	✅ / ❌
+Clerk.isLoaded = true	✅ / ❌
+No JavaScript Errors	✅ / ❌
+Landing Page Works	✅ / ❌
+Login Works	✅ / ❌
+Dashboard Works	✅ / ❌
+Infinite Loading Removed	✅ / ❌
+
+إذا فشل أي بند، فتوقف فوراً وحدد أول نقطة فشل مع السبب الجذري والأدلة، ولا تقترح أي تعديل قبل إثبات سبب الفشل.

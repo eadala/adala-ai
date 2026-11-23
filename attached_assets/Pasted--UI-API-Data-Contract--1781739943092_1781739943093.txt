@@ -1,0 +1,213 @@
+تمام — الآن نحول الفكرة إلى مواصفات تنفيذ فعلية (UI + API + Data Contract) بحيث تقدر تطبقها مباشرة داخل مشروع عدالة بدون اجتهادات.
+
+⸻
+
+⚖️ نظام القضايا المطوّر (Implementation Spec)
+
+🧠 الهدف
+
+تحويل القضية إلى Entity تشغيلية كاملة تحتوي على:
+
+* المحكمة + الدائرة
+* الجلسات (تاريخ كامل + جلسة قادمة)
+* ربط الفرع والمحامي
+* جاهزية للذكاء الاصطناعي
+
+⸻
+
+1) 🗄️ نموذج البيانات النهائي (Case Schema)
+
+Case {
+  id: string;
+  // Basic
+  caseNumber: string;
+  title: string;
+  type: "civil" | "commercial" | "criminal" | "labor";
+  status: "new" | "in_progress" | "on_hold" | "closed";
+  // Court
+  court: {
+    id: string;
+    name: string;
+    code: string;
+    city: string;
+  };
+  district: {
+    number: number;
+    type: string;
+  };
+  // Hearings
+  nextHearing: {
+    date: string;
+    status: "scheduled" | "postponed" | "confirmed";
+  };
+  hearings: Hearing[];
+  // Relations
+  branchId: string;
+  assignedLawyerId: string;
+  createdAt: string;
+}
+
+⸻
+
+2) 🗄️ API التصميم (Backend Contracts)
+
+⸻
+
+➕ إنشاء قضية
+
+POST /api/cases
+{
+  "caseNumber": "12345",
+  "title": "نزاع تجاري",
+  "type": "commercial",
+  "courtId": "ct-01",
+  "districtNumber": 2,
+  "branchId": "b1",
+  "assignedLawyerId": "u10"
+}
+
+⸻
+
+📄 جلب القضايا
+
+GET /api/cases?branchId=b1
+
+⸻
+
+📅 إضافة جلسة
+
+POST /api/cases/:id/hearings
+{
+  "date": "2026-07-15T10:00:00Z",
+  "courtRoom": "A-12",
+  "notes": "جلسة مرافعة"
+}
+
+⸻
+
+🔁 تحديث الجلسة القادمة تلقائياً
+
+POST /api/cases/:id/sync-next-hearing
+
+⸻
+
+3) ⚙️ منطق الجلسة القادمة (Core Logic)
+
+function calculateNextHearing(hearings: Hearing[]) {
+  return hearings
+    .filter(h => new Date(h.date) > new Date())
+    .sort((a, b) => +new Date(a.date) - +new Date(b.date))[0] || null;
+}
+
+⸻
+
+4) 🖥️ UI — صفحة تفاصيل القضية
+
+📍 المسار
+
+/cases/:id
+
+⸻
+
+🧩 Layout
+
+┌──────────────────────────────┐
+│ القضية #12345               │
+├──────────────────────────────┤
+│ 🏛️ المحكمة: التجارية - الرياض │
+│ ⚖️ الدائرة: 2               │
+│                              │
+│ 📅 الجلسة القادمة           │
+│ 15 يوليو 2026 - 10:00       │
+│                              │
+│ 📌 الحالة: نشطة             │
+├──────────────────────────────┤
+│ 📅 سجل الجلسات              │
+│ - 01/06/2026 انتهت          │
+│ - 20/05/2026 مؤجلة          │
+├──────────────────────────────┤
+│ 🧠 تحليل AI                 │
+│ - توصية: إعداد مذكرة مبكرة  │
+│ - مخاطرة: تأجيل محتمل       │
+└──────────────────────────────┘
+
+⸻
+
+5) 🧠 AI Integration (قيمة عدالة الأساسية)
+
+قبل الجلسة:
+
+حلل القضية التالية وقدم:
+- نقاط القوة
+- نقاط الضعف
+- استراتيجية الجلسة القادمة
+- احتمالات التأجيل
+
+المدخلات:
+
+* بيانات القضية
+* سجل الجلسات
+* المحكمة والدائرة
+* المستندات
+
+⸻
+
+6) 🔔 نظام التنبيهات (Notifications Engine)
+
+function checkHearingAlerts(date: string) {
+  const diff = new Date(date).getTime() - Date.now();
+  if (diff < 7 * 24 * 60 * 60 * 1000) return "7_days";
+  if (diff < 3 * 24 * 60 * 60 * 1000) return "3_days";
+  if (diff < 24 * 60 * 60 * 1000) return "24_hours";
+  return null;
+}
+
+⸻
+
+7) 🏢 ربط الفروع (Multi-Branch Rule)
+
+كل API لازم يفلتر:
+
+WHERE tenant_id = ?
+AND branch_id = ?
+
+⸻
+
+8) 📊 لوحة التحكم (Cases Dashboard)
+
+📊 القضايا النشطة: 120
+📅 جلسات هذا الأسبوع: 18
+⚖️ قضايا متأخرة: 6
+🔥 أكثر محكمة ازدحاماً:
+- التجارية - الرياض
+⚠️ تنبيهات:
+- 3 جلسات خلال 24 ساعة
+
+⸻
+
+9) 🔥 أهم نتيجة للنظام
+
+بعد هذا التنفيذ:
+
+✔ القضية أصبحت كيان حي (Live Entity)
+✔ الجلسات تدير نفسها
+✔ الجلسة القادمة محسوبة تلقائياً
+✔ النظام مرتبط بالمحكمة والدائرة
+✔ AI يدخل في كل مرحلة
+✔ جاهز للتوسع SaaS متعدد الفروع
+
+⸻
+
+🚀 إذا تريد الخطوة التالية (مهم جداً)
+
+أقدر الآن أبني لك واحد من التالي مباشرة:
+
+🔥 1. كود React كامل لصفحة القضية (Production UI)
+
+🔥 2. نظام Calendar للجلسات مثل Google Calendar داخل عدالة
+
+🔥 3. نظام تنبيهات واتساب + Email + Push
+
+🔥 4. ذكاء اصطناعي يتنبأ بنتيجة القضية
+
+قل لي فقط: أكمل أي طبقة أولاً

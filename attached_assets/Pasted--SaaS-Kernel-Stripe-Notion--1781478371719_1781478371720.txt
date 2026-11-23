@@ -1,0 +1,207 @@
+تمام—هذا هو SaaS Kernel الحقيقي لمنصة عدالة (مستوى إنتاج قوي مثل Stripe/Notion من ناحية العزل متعدد العملاء).
+
+الفكرة هنا:
+
+لا نترك العزل للمطور… بل نجعله “قانون داخل النظام نفسه”.
+
+⸻
+
+🧠 Adala SaaS Kernel (Core Architecture)
+
+الهدف
+
+تحقيق 4 ضمانات لا يمكن كسرها:
+
+1. ❌ لا يمكن الوصول لأي بيانات بدون Tenant
+2. ❌ لا يمكن تنفيذ Query بدون فلترة مكتب
+3. ❌ لا يمكن تجاوز الصلاحيات حتى لو حدث bug
+4. ❌ كل عملية يتم تسجيلها (Audit Trail)
+
+⸻
+
+🔴 1) Tenant Context Kernel (مصدر الحقيقة)
+
+import { AsyncLocalStorage } from "node:async_hooks";
+export const TenantContext = new AsyncLocalStorage();
+export function runWithTenant(context, callback) {
+  return TenantContext.run(context, callback);
+}
+export function getTenant() {
+  const store = TenantContext.getStore();
+  if (!store) throw new Error("NO_TENANT_CONTEXT");
+  return store;
+}
+
+⸻
+
+🔥 2) Kernel Middleware (إجبار السياق)
+
+export function tenantKernel(req, res, next) {
+  const userId = req.auth?.userId;
+  const officeId = req.auth?.sessionClaims?.officeId;
+  if (!userId || !officeId) {
+    return res.status(401).json({ error: "Unauthorized Tenant Access" });
+  }
+  runWithTenant({ userId, officeId }, () => next());
+}
+
+⸻
+
+🧱 3) Secure DB Layer (قلب النظام)
+
+❌ ممنوع استخدام db مباشرة
+
+✅ استخدام Kernel DB
+
+export function createKernelDB(db) {
+  return new Proxy(db, {
+    get(target, tableName) {
+      const table = target[tableName];
+      return {
+        findMany: async (builder = (q) => q) => {
+          const tenant = getTenant();
+          let query = db.select().from(table);
+          query = query.where(eq(table.officeId, tenant.officeId));
+          query = builder(query);
+          return query;
+        },
+        findOne: async (id) => {
+          const tenant = getTenant();
+          return db
+            .select()
+            .from(table)
+            .where(
+              and(
+                eq(table.id, id),
+                eq(table.officeId, tenant.officeId)
+              )
+            );
+        },
+        insert: async (data) => {
+          const tenant = getTenant();
+          return db.insert(table).values({
+            ...data,
+            officeId: tenant.officeId, // 🔥 forced injection
+          });
+        },
+      };
+    },
+  });
+}
+
+⸻
+
+🔒 4) Row-Level Security (DB SAFETY LAYER)
+
+إذا تستخدم PostgreSQL (مهم جدًا):
+
+ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_cases
+ON cases
+USING (office_id = current_setting('app.office_id')::text);
+
+وفي Node:
+
+await db.execute(sql`
+  SET app.office_id = ${officeId}
+`);
+
+⸻
+
+🧠 5) Query Guard (منع أي bypass)
+
+export function guardQuery(sqlString: string) {
+  if (!sqlString.includes("office_id")) {
+    throw new Error("BLOCKED: Missing tenant filter");
+  }
+}
+
+⸻
+
+🔥 6) Audit Kernel (تسجيل كل شيء)
+
+export async function audit(action, meta = {}) {
+  const tenant = getTenant();
+  await db.insert(audit_logs).values({
+    officeId: tenant.officeId,
+    userId: tenant.userId,
+    action,
+    meta,
+    createdAt: new Date(),
+  });
+}
+
+⸻
+
+🧱 7) Full Request Flow (كيف يشتغل النظام)
+
+Request →
+  tenantKernel middleware →
+    AsyncLocalStorage (tenant injected) →
+      createKernelDB →
+        ALL queries auto-filtered →
+          audit log recorded →
+            response
+
+⸻
+
+🚨 8) الحظر النهائي (Zero Trust Rule)
+
+أضف هذا ESLint rule:
+
+{
+  "rules": {
+    "no-direct-db-access": "error",
+    "require-tenant-context": "error"
+  }
+}
+
+وتجبر:
+
+const db = createKernelDB(rawDB);
+
+ولا يُسمح باستخدام raw DB إطلاقًا.
+
+⸻
+
+🔐 النتيجة النهائية
+
+قبل Kernel:
+
+* احتمال تسريب بيانات بين المكاتب ❌
+* Queries غير آمنة ❌
+* اعتماد على المطور ❌
+
+بعد Kernel:
+
+* 🔒 مستحيل قراءة بيانات بدون tenant
+* 🔒 مستحيل bypass للـ office isolation
+* 🔒 أي bug يتم احتواؤه داخل السياق
+* 🔒 كل شيء قابل للتتبع (Audit-ready)
+
+⸻
+
+🟢 تقييم معماري
+
+هذا المستوى يضع “عدالة” في:
+
+* Multi-tenant SaaS grade
+* Fintech-level isolation
+* Legal-grade data protection
+
+⸻
+
+🚀 الخطوة التالية (اختياري لكن مهم جدًا)
+
+إذا تريد نرفع النظام أكثر، ￼ أقدر أبني لك:
+
+🔵 “Legal SaaS Security Layer”
+
+يشمل:
+
+* تشفير بيانات كل مكتب بمفتاح منفصل
+* منع حتى DBA من قراءة بيانات المكاتب
+* Data residency per tenant
+* Zero-trust API gateway
+
+قل فقط: ￼ Security++

@@ -1,0 +1,264 @@
+تمام — خلّينا نرفع نظام الفروع في عدالة إلى مستوى SaaS احترافي فعلي (Production Grade Multi-Branch System) وليس مجرد CRUD.
+
+سأعطيك تصميم + كود + قواعد هندسية تستخدمها شركات SaaS الحقيقية.
+
+⸻
+
+⚖️ نظام الفروع الاحترافي (Enterprise Branch System)
+
+الفكرة الأساسية
+
+بدل “فروع = جدول إضافي”، يصبح عندك:
+
+Multi-Branch Isolation Layer + RBAC + Data Partitioning + Audit + AI Scope Control
+
+⸻
+
+1. التصميم المعماري (المستوى الاحترافي)
+
+                    ┌────────────────────┐
+                    │   API Gateway      │
+                    └─────────┬──────────┘
+                              ↓
+        ┌────────────────────────────────────┐
+        │  Tenant Context Resolver           │
+        │  (tenant + branch + role)         │
+        └─────────┬──────────────────────────┘
+                  ↓
+     ┌─────────────────────────────────────────┐
+     │  Domain Services Layer                  │
+     │  - Cases Service                        │
+     │  - Clients Service                     │
+     │  - Documents Service                   │
+     └─────────┬──────────────────────────────┘
+               ↓
+     ┌─────────────────────────────────────────┐
+     │ Branch Isolation Middleware (CORE)      │
+     └─────────┬──────────────────────────────┘
+               ↓
+     ┌─────────────────────────────────────────┐
+     │ PostgreSQL + Row Level Security (RLS)   │
+     └─────────────────────────────────────────┘
+
+⸻
+
+2. أهم نقطة احترافية (RLS)
+
+بدل ما تعتمد فقط على WHERE conditions…
+
+نستخدم:
+
+🔥 PostgreSQL Row Level Security
+
+ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY branch_isolation ON cases
+USING (
+  tenant_id = current_setting('app.tenant_id')::text
+  AND branch_id = current_setting('app.branch_id')::text
+);
+
+✔ هذا يمنع أي تسريب بيانات حتى لو فيه bug في الكود
+
+⸻
+
+3. Context Middleware (قلب النظام)
+
+export function setTenantContext(req, res, next) {
+  const tenantId = req.headers["x-tenant-id"];
+  const branchId = req.headers["x-branch-id"];
+  const userId = req.headers["x-user-id"];
+  if (!tenantId) return res.status(401).json({ error: "No tenant" });
+  req.context = {
+    tenantId,
+    branchId,
+    userId,
+  };
+  // تمريرها لـ PostgreSQL RLS
+  req.dbQuery = async (query, params) => {
+    await db.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantId]);
+    await db.query(`SELECT set_config('app.branch_id', $1, true)`, [branchId]);
+    return db.query(query, params);
+  };
+  next();
+}
+
+⸻
+
+4. نموذج الفروع (Production Schema)
+
+CREATE TABLE office_branches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE, -- مهم للتوسع
+  location TEXT,
+  manager_user_id TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+5. ربط كل شيء بالفرع (Core Rule)
+
+أي جدول في النظام يجب أن يحتوي:
+
+tenant_id TEXT NOT NULL,
+branch_id UUID NOT NULL
+
+يشمل:
+
+* cases
+* clients
+* documents
+* invoices
+* tasks
+* AI logs
+
+⸻
+
+6. API احترافي لإنشاء فرع
+
+app.post("/branches", async (req, res) => {
+  const { tenantId } = req.context;
+  const { name, location, managerUserId } = req.body;
+  const existing = await req.dbQuery(
+    `SELECT COUNT(*) FROM office_branches WHERE tenant_id = $1`,
+    [tenantId]
+  );
+  const plan = await getTenantPlan(tenantId);
+  if (plan.branches !== "unlimited" &&
+      parseInt(existing.rows[0].count) >= plan.branches) {
+    return res.status(403).json({
+      error: "تم تجاوز حد الفروع في الباقة"
+    });
+  }
+  const result = await req.dbQuery(
+    `INSERT INTO office_branches (tenant_id, name, location, manager_user_id)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [tenantId, name, location, managerUserId]
+  );
+  res.json(result.rows[0]);
+});
+
+⸻
+
+7. مستوى الصلاحيات (Enterprise RBAC)
+
+SUPER_ADMIN → كل الفروع + كل البيانات
+OFFICE_ADMIN → كل الفروع داخل المكتب
+BRANCH_MANAGER → فرع واحد فقط
+LAWYER → قضايا محددة
+CLIENT → ملفه فقط
+
+⸻
+
+8. أهم جزء: AI Scope Isolation (مهم جداً لعدالة)
+
+كل طلب AI يجب أن يكون “مقيد بالفرع”
+
+function buildAIPrompt(context, prompt) {
+  return `
+أنت مساعد قانوني داخل نظام عدالة.
+النطاق المسموح:
+- المكتب: ${context.tenantId}
+- الفرع: ${context.branchId}
+لا تستخدم أي بيانات خارج هذا الفرع.
+المستندات:
+${context.documents}
+السؤال:
+${prompt}
+`;
+}
+
+⸻
+
+9. نقل القضايا بين الفروع (Enterprise Feature)
+
+app.post("/cases/transfer", async (req, res) => {
+  const { caseId, targetBranchId } = req.body;
+  await req.dbQuery(
+    `UPDATE cases
+     SET branch_id = $1
+     WHERE id = $2`,
+    [targetBranchId, caseId]
+  );
+  res.json({ success: true });
+});
+
+⸻
+
+10. لوحة الإدارة الاحترافية (UI)
+
+/dashboard/branches
+
+تحتوي:
+
+* جدول الفروع
+* عدد القضايا لكل فرع
+* أداء كل فرع (KPIs)
+* استهلاك AI لكل فرع
+* نقل القضايا Drag & Drop
+* تغيير مدير الفرع
+
+⸻
+
+11. أهم إضافة احترافية (AI Per Branch Costing)
+
+كل فرع له:
+- AI usage
+- cost per month
+- revenue per branch
+- most active users
+
+✔ هذا يحول عدالة إلى SaaS ربحي حقيقي
+
+⸻
+
+12. الشكل النهائي للنظام
+
+Tenant (مكتب قانوني)
+   ├── Branch Riyadh
+   │     ├── Cases
+   │     ├── Clients
+   │     ├── AI Brain
+   │
+   ├── Branch Jeddah
+   │     ├── Cases
+   │     ├── Clients
+   │     ├── AI Brain
+   │
+   └── Branch Dammam
+         ├── Cases
+         ├── Clients
+         ├── AI Brain
+
+⸻
+
+13. النتيجة النهائية
+
+بعد هذا:
+
+✔ نظام SaaS حقيقي
+✔ Multi-Tenant + Multi-Branch
+✔ أمان عالي (RLS)
+✔ ذكاء اصطناعي معزول لكل فرع
+✔ قابل للبيع للشركات
+✔ قابل للتوسع عالميًا
+
+⸻
+
+إذا تريد الخطوة التالية (الأهم)
+
+أقدر أبني لك أحد هذه مباشرة:
+
+🔥 1. Dashboard احترافي كامل للفروع (React + UI جاهز)
+
+🔥 2. نظام تقارير ربحي لكل فرع (Revenue / AI Cost / Profit)
+
+🔥 3. نظام “نقل ذكي للقضايا” مع توصيات AI
+
+🔥 4. تحويل عدالة إلى “Legal Operating System كامل”
+
+قل لي فقط: أي اتجاه تريد نكمل فيه.

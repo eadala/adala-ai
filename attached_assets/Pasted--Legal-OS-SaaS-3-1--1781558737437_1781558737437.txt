@@ -1,0 +1,266 @@
+تمام—خلّينا نحوّل “Legal OS” إلى منتج SaaS كامل قابل للبيع والتوسع، مع 3 طبقات واضحة:
+
+1. 🌐 صفحة تعريفية لكل مكتب محاماة (Public Legal Profile)
+2. 💳 نظام باقات وروابط مجانية/مدفوعة (Billing + Plans)
+3. 🧠 لوحة تحكم متقدمة للمكتب + صلاحيات مالك المنصة (Platform Owner)
+
+⸻
+
+⚖️ Adala AI — Legal OS SaaS Expansion Layer
+
+⸻
+
+🌐 1. PUBLIC LAW FIRM PAGE (صفحة المحامي العامة)
+
+هذه ليست صفحة تعريف بسيطة
+
+بل:
+
+🔹 موقع كامل لكل مكتب داخل المنصة
+
+⸻
+
+🧭 مكوناتها:
+
+Law Firm Public Page
+ ├── Hero Section (اسم المكتب + شعار)
+ ├── About Office (تعريف قانوني احترافي)
+ ├── Services (خدمات المكتب)
+ ├── Team (المحامين والموظفين)
+ ├── Case Studies (اختياري)
+ ├── Contact Form
+ ├── Booking / Consultation
+ └── Login CTA (الدخول للمنصة)
+
+⸻
+
+🧱 مثال كود بسيط:
+
+function LawFirmPage({ firm }) {
+  return (
+    <div>
+      <header>
+        <h1>{firm.name}</h1>
+        <p>{firm.description}</p>
+      </header>
+      <section>
+        <h2>الخدمات</h2>
+        {firm.services.map(s => <p>{s}</p>)}
+      </section>
+      <section>
+        <h2>تواصل معنا</h2>
+        <ContactForm firmId={firm.id} />
+      </section>
+      <section>
+        <LoginButton />
+      </section>
+    </div>
+  );
+}
+
+⸻
+
+💳 2. PLANS & BILLING SYSTEM (الباقات + الروابط)
+
+كل مكتب له باقة
+
+🟢 Free Plan
+
+* رابط تعريفي مجاني
+* صفحة مكتب بسيطة
+* تسجيل دخول محدود
+
+🟡 Pro Plan
+
+* نظام قضايا كامل
+* AI مساعد
+* تقارير
+
+🔴 Enterprise
+
+* صلاحيات كاملة + API + white label
+
+⸻
+
+🔗 نظام الروابط
+
+Free Link:
+https://adala.ai/f/office-name
+Paid Link:
+https://adala.ai/b/office-name/pro
+
+⸻
+
+🧠 توليد الروابط من الإدارة:
+
+function generatePlanLink(office, plan) {
+  return `${BASE_URL}/${plan}/${office.slug}`;
+}
+
+⸻
+
+💰 لوحة الباقات (Admin)
+
+function PlansAdmin() {
+  return (
+    <div>
+      <PlanCard name="Free" price="0" />
+      <PlanCard name="Pro" price="199 SAR" />
+      <PlanCard name="Enterprise" price="Custom" />
+      <button>إنشاء باقة جديدة</button>
+    </div>
+  );
+}
+
+⸻
+
+🧠 3. LAWYER PORTAL (بوابة المحامي)
+
+هذا هو قلب النظام لكل مكتب
+
+يحتوي:
+
+Lawyer Dashboard
+ ├── Cases
+ ├── Clients
+ ├── Calendar
+ ├── Documents
+ ├── AI Assistant
+ ├── Billing
+ ├── Reports
+ └── Settings
+
+⸻
+
+🧱 مثال UI:
+
+function LawyerDashboard() {
+  return (
+    <div className="grid">
+      <Sidebar />
+      <MainPanel>
+        <CasesWidget />
+        <AIInsightsWidget />
+        <RevenueWidget />
+      </MainPanel>
+    </div>
+  );
+}
+
+⸻
+
+🔐 4. ROLE & PERMISSION SYSTEM (مهم جداً)
+
+داخل كل مكتب:
+
+Roles = {
+  OWNER: "صلاحيات كاملة داخل المكتب",
+  ADMIN: "إدارة العمليات",
+  LAWYER: "إدارة القضايا",
+  ASSISTANT: "مهام فقط",
+  CLIENT: "عرض محدود"
+};
+
+⸻
+
+🔒 صلاحيات المنصة (Platform Owner)
+
+أنت (مالك النظام) لديك:
+
+PLATFORM_OWNER = {
+  manage_all_offices: true,
+  override_billing: true,
+  access_all_cases: true,
+  disable_tenant: true,
+  modify_plans: true
+};
+
+⸻
+
+🧠 5. ADMIN CONTROL CENTER (مركز التحكم العام)
+
+Platform Admin Panel
+ ├── Offices
+ ├── Subscriptions
+ ├── Payments
+ ├── AI Usage
+ ├── System Health
+ ├── Logs
+ └── Permissions
+
+⸻
+
+🧱 مثال:
+
+function AdminPanel() {
+  return (
+    <div>
+      <OfficesTable />
+      <RevenueChart />
+      <AIUsageStats />
+      <SystemHealth />
+    </div>
+  );
+}
+
+⸻
+
+🧠 6. FULL SYSTEM FLOW
+
+Visitor → Law Firm Page
+        ↓
+Free Plan Access OR Paid Upgrade
+        ↓
+Login Portal
+        ↓
+Lawyer Dashboard (Legal OS)
+        ↓
+Cases + AI + Billing + Docs
+        ↓
+Platform Admin Oversight
+
+⸻
+
+🚀 7. ماذا أصبحت المنصة الآن؟
+
+تحولت من:
+
+نظام قضايا
+
+إلى:
+
+⚖️ Legal SaaS Operating System
+
+يحتوي:
+
+* 🌐 مواقع مكاتب محاماة
+* 💳 نظام اشتراكات كامل
+* 🧠 ذكاء قانوني داخل القضايا
+* 📊 لوحة تشغيل للمكاتب
+* 🔐 صلاحيات متعددة الطبقات
+* 🧭 منصة مركزية تدير الجميع
+
+⸻
+
+💡 أهم نقطة استراتيجية
+
+أنت الآن لا تبني “برنامج محامين”
+
+بل:
+
+🏢 منصة تشغيل كاملة لسوق المحاماة (Legal Marketplace + OS + SaaS)
+
+⸻
+
+🚀 الخطوة التالية (اختياري لكن مهم)
+
+أقدر أبني لك:
+
+🔥 “Legal Marketplace Layer”
+
+* دليل محامين عام مثل (Upwork قانوني)
+* طلب قضية + مزايدة محامين
+* تقييمات + سمعة قانونية
+* ربط مباشر مع القضايا داخل النظام
+
+فقط قل: ￼ ابني السوق القانوني داخل المنصة

@@ -1,0 +1,121 @@
+You are a Senior Production Reliability Engineer working on a multi-tenant legal SaaS platform (Adala AI).
+
+Your mission is to harden the system to production-grade stability without changing architecture.
+
+────────────────────────────
+PHASE 1 — SECURITY LOCKDOWN
+────────────────────────────
+
+1. Enforce CSP (Content Security Policy)
+- Change from report-only → enforced mode
+- Block:
+  - inline scripts
+  - unsafe-eval
+  - unknown external domains
+- Add nonce-based support if needed
+
+2. Add Zod validation layer (CRITICAL)
+- Apply to ALL endpoints:
+  /clients
+  /cases
+  /invoices
+  /documents
+  /auth routes
+
+Rules:
+- Reject invalid payload BEFORE controller logic
+- Return unified validation error format:
+  {
+    "error": "VALIDATION_ERROR",
+    "fields": []
+  }
+
+3. Strengthen tenant isolation
+- Ensure EVERY DB query includes office_id filter
+- Add defensive guard in service layer (not only middleware)
+- Fail hard if office_id missing (no fallback allowed)
+
+────────────────────────────
+PHASE 2 — ERROR SYSTEM UNIFICATION
+────────────────────────────
+
+4. Standardize API error responses:
+All errors MUST follow:
+
+{
+  "success": false,
+  "error": {
+    "code": string,
+    "message": string,
+    "details": optional
+  }
+}
+
+- Remove inconsistent error formats across controllers
+- Ensure 401/403/500 all follow same structure
+
+────────────────────────────
+PHASE 3 — PERFORMANCE OPTIMIZATION
+────────────────────────────
+
+5. Reduce frontend bundle size (target: 6MB → <3.5MB)
+
+Actions:
+- Remove duplicate dependencies
+- Enable tree-shaking for UI libraries
+- Lazy load:
+  - dashboard modules
+  - copilot module
+  - documents module
+- Split vendor chunk
+
+6. Audit database indexes
+- Identify unused indexes
+- Remove redundant indexes
+- Optimize slow queries using EXPLAIN ANALYZE logic assumption
+
+────────────────────────────
+PHASE 4 — OBSERVABILITY ENHANCEMENT
+────────────────────────────
+
+7. Enhance audit_logs system:
+- Add request_id (UUID per request)
+- Add correlation_id across services
+- Ensure logs are append-only (no update/delete)
+- Add optional hash chaining field for integrity
+
+8. Prepare future external logging sink:
+- structure logs for Elastic / Loki compatibility
+
+────────────────────────────
+PHASE 5 — PAYMENT & EVENTS (LOW PRIORITY BUT COMPLETE)
+────────────────────────────
+
+9. Add Stripe event logging:
+- payment_intent.succeeded
+- invoice.paid
+- charge.failed
+
+Log into audit_logs with office_id
+
+────────────────────────────
+FINAL ACCEPTANCE CRITERIA
+────────────────────────────
+
+System is valid ONLY if:
+
+✔ No API has unvalidated input
+✔ CSP is enforced (not report-only)
+✔ No inconsistent error formats exist
+✔ No fallback tenant exists anywhere
+✔ All logs include request_id
+✔ Frontend bundle reduced significantly
+✔ No orphan or duplicate DB indexes introduced
+
+────────────────────────────
+IMPORTANT RULE
+────────────────────────────
+
+Do NOT refactor architecture.
+Do NOT rewrite modules.
+Only apply surgical production hardening patches.

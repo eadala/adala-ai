@@ -1,0 +1,212 @@
+إليك برومبت احترافي بصيغة Engineering Directive يوجّه المطور أو الـ AI Agent للعمل بطريقة منهجية، ويمنع التخمين ويُلزم بإثبات كل نتيجة بالأدلة:
+
+⸻
+
+P0 Critical Production Incident — Root Cause Analysis & Resolution Directive
+
+المهمة: إنهاء مشكلة شاشة “جاري التحميل…” في بيئة الإنتاج (https://adalahai.com) باستخدام منهجية Evidence-Based Engineering، وليس عبر التجربة والخطأ.
+
+قواعد التنفيذ (Mandatory)
+
+* لا تفترض أي سبب دون دليل.
+* لا تطبق أي Workaround أو Hack.
+* لا تغيّر أي منطق معماري إلا إذا ثبت أنه السبب الجذري.
+* لا تُغلق المهمة حتى يتم التحقق من الإنتاج (Production) بالكامل.
+* يجب أن يكون كل استنتاج مدعوماً بأدلة (Logs، Network، Headers، Build Artifacts، Runtime).
+
+⸻
+
+المرحلة الأولى — Root Cause Analysis
+
+حدد السبب الحقيقي الذي يمنع Clerk من الوصول إلى حالة isLoaded = true.
+
+قم بالتحقق من العناصر التالية:
+
+1. Clerk Configuration
+
+راجع وأثبت:
+
+* CLERK_SECRET_KEY
+* CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PROXY_URL
+
+مع توضيح:
+
+* هل المفاتيح Live أم Test.
+* هل جميعها تنتمي إلى نفس Clerk Instance.
+* هل يتم حقنها أثناء Build أم أثناء Runtime.
+
+⸻
+
+2. Production Bundle Audit
+
+افحص ملفات الإنتاج.
+
+ابحث داخل الـ Bundle عن:
+
+* pk_live
+* pk_test
+* proxyUrl
+* /api/__clerk
+* clerk.adalahai.com
+* publishableKeyFromHost
+
+ثم أثبت:
+
+* أي Publishable Key مستخدم فعلياً.
+* هل proxyUrl موجود داخل الـ Bundle.
+* هل الـ Bundle هو أحدث إصدار.
+
+⸻
+
+3. Deployment Verification
+
+أثبت أن آخر Commit منشور فعلاً.
+
+قدم:
+
+* Commit SHA
+* Deployment ID
+* Build Logs
+* أسماء ملفات JS/CSS الجديدة
+* Last Modified
+* Cache-Control
+* ETag
+
+وتأكد أنه لا يتم تحميل أي Bundle قديم.
+
+⸻
+
+4. Network Verification
+
+تحقق من:
+
+* /api/__clerk/v1/environment
+* /api/healthz
+* الصفحة الرئيسية
+* ملفات JS
+* ملفات CSS
+
+وسجل:
+
+* Status Code
+* Response Body
+* Cache Headers
+* Cloudflare Headers
+
+⸻
+
+5. Runtime Analysis
+
+أثبت:
+
+* هل React يكتمل تحميله.
+* هل Clerk يبدأ التهيئة.
+* هل يحدث DNS Lookup إلى clerk.adalahai.com.
+* هل يستخدم Proxy.
+* هل توجد أخطاء Console.
+* هل توجد Exceptions غير معالجة.
+
+⸻
+
+المرحلة الثانية — الإصلاح
+
+بعد تحديد السبب الجذري فقط:
+
+* نفذ أقل تعديل ممكن.
+* لا تغير أي ملف غير مرتبط بالمشكلة.
+* حافظ على التوافق مع معمارية المشروع.
+* لا تضف حلولاً مؤقتة.
+
+يجب توثيق:
+
+* الملفات المعدلة.
+* سبب تعديل كل ملف.
+* أثر كل تعديل.
+
+⸻
+
+المرحلة الثالثة — Production Validation
+
+بعد إعادة النشر، أثبت نجاح الإصلاح بالأدلة التالية:
+
+Clerk
+
+* /api/__clerk/v1/environment → HTTP 200
+* لا يوجد host_invalid
+* لا توجد أخطاء Proxy
+* لا توجد أخطاء DNS
+* Clerk.isLoaded === true
+
+⸻
+
+Authentication
+
+اختبر:
+
+* فتح صفحة تسجيل الدخول.
+* إنشاء حساب.
+* تسجيل الدخول.
+* تسجيل الخروج.
+* إعادة تسجيل الدخول.
+* الدخول إلى Dashboard.
+* تحديث الصفحة.
+* فتح رابط مباشر داخل النظام.
+
+⸻
+
+Frontend
+
+أثبت أن:
+
+* الصفحة الرئيسية تظهر مباشرة.
+* لا توجد شاشة تحميل دائمة.
+* React يعمل بالكامل.
+* جميع Assets تُحمّل بنجاح.
+* لا توجد ملفات JavaScript أو CSS تعيد 404.
+
+⸻
+
+Production Health
+
+تحقق من:
+
+* /api/healthz
+* /api/status
+* /api/billing/plans
+
+ويجب أن تعود جميعها بحالة HTTP 200.
+
+⸻
+
+Logs
+
+راجع آخر 30 دقيقة من سجلات الإنتاج.
+
+أثبت:
+
+* عدم وجود Runtime Errors.
+* عدم وجود Crash أو Restart.
+* عدم وجود أخطاء Clerk.
+* عدم وجود أخطاء Build.
+* عدم وجود أخطاء Deployment.
+
+⸻
+
+التقرير النهائي المطلوب
+
+لا أريد وصفاً عاماً، بل تقريراً فنياً يتضمن:
+
+1. السبب الجذري الحقيقي (Root Cause).
+2. الأدلة التي تثبت هذا السبب.
+3. التعديلات المنفذة مع مبرراتها.
+4. نتائج Build وDeployment.
+5. نتائج اختبارات Production.
+6. أسماء الـ Bundles الجديدة.
+7. Commit SHA المنشور.
+8. Deployment ID.
+9. أي مخاطر متبقية إن وجدت.
+10. تأكيد صريح بأن المشكلة أُغلقت بناءً على Runtime Evidence وليس على نجاح البناء أو CI فقط.
+
+لا تُعتبر المهمة مكتملة إلا إذا اختفت شاشة “جاري التحميل…” في بيئة الإنتاج، وأصبح النظام يعمل بشكل طبيعي مع إثبات ذلك بالأدلة التشغيلية الفعلية.

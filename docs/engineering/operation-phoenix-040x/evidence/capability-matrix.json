@@ -1,0 +1,92 @@
+[
+  {
+    "cap": "1 Authentication/Clerk",
+    "class": "VERIFIED_PRESENT",
+    "note": "auth modules + clerk refs"
+  },
+  {
+    "cap": "2 Multi-tenant authorization",
+    "class": "VERIFIED_PRESENT",
+    "note": "tenant middleware patterns"
+  },
+  {
+    "cap": "3 PostgreSQL RLS",
+    "class": "VERIFIED_PRESENT",
+    "note": "migrations 056/059/060"
+  },
+  {
+    "cap": "4 GUC containment",
+    "class": "VERIFIED_PRESENT",
+    "note": "set_config usage"
+  },
+  {
+    "cap": "5 Super Admin authz",
+    "class": "VERIFIED_PRESENT",
+    "note": "privileged identity modules"
+  },
+  {
+    "cap": "6 Legal case management",
+    "class": "VERIFIED_PRESENT",
+    "note": "legal-core module"
+  },
+  {
+    "cap": "7 Client portal",
+    "class": "VERIFIED_PRESENT",
+    "note": "client-portal.ts"
+  },
+  {
+    "cap": "8 Financial ledger",
+    "class": "VERIFIED_PRESENT",
+    "note": "financial module"
+  },
+  {
+    "cap": "9 Stripe/Moyasar boundaries",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "payment code present; live blocked"
+  },
+  {
+    "cap": "10 AI gateway tenant isolation",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "ai module; full isolation needs tests"
+  },
+  {
+    "cap": "11 RAG document authorization",
+    "class": "VERIFIED_MISSING",
+    "note": "no rag module/072-075 on tip"
+  },
+  {
+    "cap": "12 Audit logging",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "audit refs present"
+  },
+  {
+    "cap": "13 File storage authz",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "storage paths"
+  },
+  {
+    "cap": "14 DB migrations",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "max on tip: 061_legal_financial_product_completion.sql; 062-075 absent"
+  },
+  {
+    "cap": "15 API test coverage",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "test scripts exist; not re-run this command"
+  },
+  {
+    "cap": "16 Browser E2E",
+    "class": "UNKNOWN",
+    "note": "Playwright present historically; not executed this command"
+  },
+  {
+    "cap": "17 Deployment safety",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "CI build-only; Coolify UNKNOWN"
+  },
+  {
+    "cap": "18 Operational monitoring",
+    "class": "PARTIALLY_IMPLEMENTED",
+    "note": "monitoring module exists"
+  }
+]

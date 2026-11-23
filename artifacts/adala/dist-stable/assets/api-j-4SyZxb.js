@@ -1,0 +1,1 @@
+import{a as e}from"./index-LVnuQI4L.js";const n="/".replace(/\/$/,"");async function i(t,s){const o=`${n}/api${t.startsWith("/")?t:"/"+t}`,r=await e(o,s);if(!r.ok){const a=await r.json().catch(()=>({error:r.statusText}));throw new Error(a?.error??`HTTP ${r.status}`)}return r.json()}export{i as A};

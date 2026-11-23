@@ -1,0 +1,201 @@
+ADALA AI ZERO-BUG RECOVERY MODE
+
+STOP ALL CURRENT TASKS.
+
+Treat this project as a production SaaS platform that must pass a CTO-level audit before launch.
+
+Your goal is NOT to add features.
+
+Your goal is to discover and eliminate every architectural, performance, reliability, UI, security, deployment, and data integrity issue.
+
+STEP 1 — BUILD THE PROJECT
+
+Run:
+
+* npm install
+* npm run build
+* npm run lint
+* npm run typecheck
+
+Capture every error.
+
+Do not continue until all build errors are resolved.
+
+⸻
+
+STEP 2 — RUNTIME INVESTIGATION
+
+Launch the application.
+
+Visit every route automatically.
+
+Monitor:
+
+* Console errors
+* Network failures
+* API failures
+* React crashes
+* White screens
+* Hydration issues
+
+Create a complete failure map.
+
+⸻
+
+STEP 3 — DASHBOARD FORENSICS
+
+Verify every dashboard metric.
+
+Trace each number back to:
+
+* Database query
+* Service layer
+* API endpoint
+* Frontend component
+
+Remove:
+
+* Mock values
+* Placeholder values
+* Duplicate calculations
+
+All statistics must be validated.
+
+⸻
+
+STEP 4 — RESPONSIVE AUDIT
+
+Test all pages on:
+
+* 320px
+* 375px
+* 390px
+* 414px
+* 768px
+* 1024px
+* 1440px
+
+Fix:
+
+* Overflow
+* Broken layouts
+* Desktop-only designs
+* Misaligned cards
+* Navigation issues
+
+The platform must be mobile-first.
+
+⸻
+
+STEP 5 — PERFORMANCE RECOVERY
+
+Measure:
+
+* Bundle size
+* Page load speed
+* Memory usage
+* API response time
+
+Apply:
+
+* Lazy loading
+* Dynamic imports
+* Route splitting
+* Query caching
+* Image optimization
+* Component memoization
+
+Target:
+
+Performance score above 95.
+
+⸻
+
+STEP 6 — SECURITY AUDIT
+
+Inspect:
+
+* Authentication
+* Authorization
+* API access
+* Secrets
+* Environment variables
+
+Fix every security weakness.
+
+⸻
+
+STEP 7 — DATABASE OPTIMIZATION
+
+Detect:
+
+* Slow queries
+* Missing indexes
+* Duplicate records
+* N+1 queries
+
+Optimize database performance.
+
+⸻
+
+STEP 8 — ERROR BOUNDARIES
+
+Ensure:
+
+Every route has:
+
+* Loading state
+* Empty state
+* Error state
+* Retry state
+
+The application must never display a blank page.
+
+⸻
+
+STEP 9 — CLEANUP
+
+Remove:
+
+* Dead code
+* Duplicate components
+* Unused packages
+* Unused hooks
+* Unused APIs
+
+Reduce complexity.
+
+⸻
+
+STEP 10 — FINAL CERTIFICATION
+
+Generate:
+
+ADALA_AI_AUDIT_REPORT.md
+
+Include:
+
+* Issues found
+* Root causes
+* Files modified
+* Performance gains
+* Security improvements
+* Remaining risks
+
+Do not stop until:
+
+✔ Build passes
+
+✔ No runtime crashes
+
+✔ No white screen
+
+✔ Mobile responsive
+
+✔ Valid statistics
+
+✔ Stable APIs
+
+✔ Clean console
+
+✔ Production ready

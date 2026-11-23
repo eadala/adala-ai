@@ -1,0 +1,252 @@
+تمام—سأدمج لك كل ما سبق (AI داخل القضايا + لوحة القضية + الخدمات) مع طبقة جديدة اسمها:
+
+🧠 Autonomous Legal Assistant Mode (شبه ذاتي لكن مضبوط بالحدود)
+
+الفكرة هنا ليست “ذكاء يتحكم”، بل:
+
+AI ينفّذ اقتراحات جاهزة داخل نظام القضايا لكن دائمًا عبر موافقة أو قواعد أمان.
+
+⸻
+
+🧠 Adala AI — Autonomous Legal Assistant (Safe Semi-Autonomy)
+
+⸻
+
+🧩 1. ماذا يعني “شبه ذاتي” هنا؟
+
+النظام يقوم بـ 3 مستويات:
+
+المستوى	السلوك
+🟢 Assist	تحليل + اقتراح فقط
+🟡 Recommend Actions	يقترح إجراءات جاهزة (Tasks / Alerts / Drafts)
+🔴 Execute with Approval	ينفذ فقط بعد موافقة المستخدم
+
+⸻
+
+🧱 2. ARCHITECTURE (دمج كامل مع النظام السابق)
+
+Case Core System
+      ↓
+Case Services (CRUD + Rules)
+      ↓
+Event System
+      ↓
+AI Intelligence Layer
+      ↓
+Autonomous Decision Engine
+      ↓
+Approval Gate (Human-in-the-loop)
+      ↓
+Execution Layer
+
+⸻
+
+🧠 3. AUTONOMOUS DECISION ENGINE
+
+هذا هو “عقل القرار”
+
+export class LegalAutonomyEngine {
+  constructor(private ai: any) {}
+  async analyze(caseData) {
+    return this.ai.generate({
+      prompt: `
+        Analyze this legal case and suggest actions.
+        Output STRICT JSON:
+        {
+          risks: [],
+          suggestions: [],
+          autoTasks: [],
+          alerts: []
+        }
+        IMPORTANT:
+        - Do NOT execute actions
+        - Only propose structured actions
+      `,
+      context: caseData
+    });
+  }
+}
+
+⸻
+
+⚙️ 4. ACTION CLASSIFICATION SYSTEM
+
+كل شيء AI يقترحه يصنّف:
+
+type AIAction =
+  | "CREATE_TASK"
+  | "SEND_MESSAGE"
+  | "REQUEST_DOCUMENT"
+  | "SCHEDULE_HEARING"
+  | "ALERT_ONLY";
+
+⸻
+
+🧾 5. AUTONOMOUS OUTPUT FORMAT
+
+{
+  "risks": [
+    "تأخير في المستندات"
+  ],
+  "suggestions": [
+    "تجهيز مذكرة دفاع"
+  ],
+  "autoTasks": [
+    {
+      "type": "CREATE_TASK",
+      "title": "إعداد مذكرة دفاع",
+      "requiresApproval": true
+    }
+  ],
+  "alerts": [
+    "موعد جلسة قريب خلال 3 أيام"
+  ]
+}
+
+⸻
+
+🔐 6. APPROVAL GATE (مهم جداً)
+
+لا يوجد تنفيذ مباشر
+
+export async function approvalGate(action) {
+  if (action.requiresApproval) {
+    return {
+      status: "pending_approval",
+      action
+    };
+  }
+  return executeAction(action);
+}
+
+⸻
+
+🧠 7. AUTO TASK GENERATION (ذكي لكن آمن)
+
+async function generateTasks(aiOutput) {
+  return aiOutput.autoTasks.map(task => ({
+    ...task,
+    status: "pending_approval"
+  }));
+}
+
+⸻
+
+💬 8. AI INSIDE CASE UI (تحديث جديد)
+
+نضيف 3 أقسام داخل صفحة القضية:
+
+🧠 AI Insights
+
+* تحليل القضية
+
+⚡ Suggested Actions
+
+* مهام مقترحة
+
+🟡 Pending Approvals
+
+* أشياء AI يريد تنفيذها
+
+⸻
+
+🧭 UI ADDITION
+
+function AutonomousPanel({ caseId }) {
+  const { data } = useAutonomousAI(caseId);
+  return (
+    <div className="auto-panel">
+      <h3>🧠 الذكاء شبه الذاتي</h3>
+      <section>
+        <h4>⚠️ المخاطر</h4>
+        {data.risks.map(r => <p>{r}</p>)}
+      </section>
+      <section>
+        <h4>⚡ اقتراحات</h4>
+        {data.suggestions.map(s => <p>{s}</p>)}
+      </section>
+      <section>
+        <h4>🟡 إجراءات تحتاج موافقة</h4>
+        {data.autoTasks.map(t => (
+          <div>
+            <p>{t.title}</p>
+            <button>Approve</button>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+⸻
+
+🔄 9. EVENT FLOW (المنطق الكامل)
+
+Case Updated
+     ↓
+AI Analysis Triggered
+     ↓
+Autonomy Engine Generates Actions
+     ↓
+Actions Classified
+     ↓
+Approval Gate
+     ↓
+If Approved → Execute via Services
+     ↓
+Log to Timeline
+
+⸻
+
+🚨 10. RULES الأمنية (ضرورية جداً)
+
+AI ممنوع من:
+
+* تعديل القضايا مباشرة
+* تغيير الحالة (status)
+* تعديل بيانات مالية
+* تجاوز tenant isolation
+* تنفيذ بدون approval
+
+⸻
+
+🧠 11. WHAT YOU GET (النتيجة الفعلية)
+
+بعد الدمج:
+
+النظام يصبح:
+
+⚖️ Case Management System
+
+🧠 Legal AI Analyst
+
+⚡ Action Suggestion Engine
+
+🟡 Semi-Autonomous Workflow System
+
+⸻
+
+💡 أهم نقطة (بصراحة هندسية)
+
+هذا التصميم يعطيك:
+
+ذكاء قوي بدون فقدان السيطرة
+
+وليس:
+
+AI يتحكم بالنظام (وهذا خطر في الأنظمة القانونية)
+
+⸻
+
+🚀 إذا تبغى الخطوة التالية
+
+أقدر أبني لك المستوى الأخير:
+
+🔥 “Full Legal Operating System”
+
+* إدارة مكاتب كاملة من داخل القضية
+* ربط العقود + الفواتير + القضايا في شاشة واحدة
+* AI يتنبأ بنتيجة القضية
+* نظام SLA للمحامين
+
+فقط قل: ￼ حوّلها إلى نظام تشغيل قانوني كامل

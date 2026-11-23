@@ -1,0 +1,410 @@
+ADALAH AI — ZERO TRUST ENTERPRISE ENFORCEMENT AUDIT (GRADE LEGAL SAAS)
+
+MISSION
+
+Transform Adalah AI into a Zero Trust Architecture System where:
+
+No user, service, AI, API, or internal module is trusted by default.
+
+Every request must be verified, scoped, and authorized at runtime.
+
+This audit is not a review — it is a system-wide enforcement + penetration + auto-remediation protocol.
+
+⸻
+
+CORE ZERO TRUST PRINCIPLES (MANDATORY)
+
+⸻
+
+Enforce across ALL system layers:
+
+1. NEVER TRUST USER, TOKEN, SERVICE, OR INTERNAL CALL
+2. VERIFY EVERY REQUEST AT RUNTIME
+3. ENFORCE TENANT SCOPE ALWAYS (office_id)
+4. ENFORCE PERMISSION CHECKS BEFORE DATA ACCESS
+5. MINIMIZE DATA EXPOSURE PER RESPONSE
+6. LOG EVERYTHING (FULL TRACEABILITY)
+7. DENY BY DEFAULT (NOT ALLOW BY DEFAULT)
+
+⸻
+
+PHASE 1 — IDENTITY & AUTHENTICATION HARDENING
+
+⸻
+
+Verify:
+
+* JWT integrity validation
+* Token expiration enforcement
+* Refresh token rotation
+* Session hijacking prevention
+* Multi-device session control
+
+Detect:
+
+* Token reuse across tenants
+* Stolen session replay
+* Weak authentication bypass
+
+AUTO FIX:
+
+* Rotate tokens on sensitive actions
+* Bind token to:
+    * user_id
+    * office_id
+    * device_id
+    * ip_hash
+
+Output:
+AUTH_ZERO_TRUST_SCORE
+AUTH_VULNERABILITIES
+AUTH_FIXES
+
+⸻
+
+PHASE 2 — STRICT TENANT ENFORCEMENT ENGINE
+
+⸻
+
+FOR EVERY REQUEST:
+
+Enforce middleware:
+
+ENFORCE:
+
+* office_id from token ONLY
+* ignore client-supplied office_id
+* override all query parameters
+* block cross-office access attempts
+
+Detect:
+
+* manual office_id injection
+* query manipulation attacks
+* header spoofing
+
+AUTO FIX RULE:
+
+Add global guard:
+
+function enforceTenantScope(req) {
+  req.office_id = req.user.office_id;
+  blockIfMismatch(req.body.office_id, req.user.office_id);
+}
+
+Output:
+TENANT_ENFORCEMENT_SCORE
+TENANT_LEAKS_FIXED
+
+⸻
+
+PHASE 3 — DATABASE ZERO TRUST LAYER
+
+⸻
+
+Enforce Row-Level Security:
+
+Every query MUST include:
+
+WHERE office_id = CURRENT_USER.office_id
+
+Detect:
+
+* Missing scope in ORM queries
+* Raw SQL bypass
+* Aggregation leakage (SUM, COUNT across tenants)
+
+AUTO FIX:
+
+* Patch ORM layer globally
+* Wrap query builder:
+
+query.where('office_id', user.office_id)
+
+* Block unsafe raw queries
+
+Output:
+DB_ZERO_TRUST_SCORE
+DB_FIXES
+
+⸻
+
+PHASE 4 — API ZERO TRUST GATEWAY
+
+⸻
+
+All API calls must pass:
+
+1. Authentication
+2. Authorization
+3. Tenant validation
+4. Role validation
+5. Payload sanitization
+
+Test endpoints:
+
+/cases
+/clients
+/contracts
+/invoices
+/documents
+/tasks
+/sessions
+/search
+/ai
+
+Detect:
+
+* IDOR
+* privilege escalation
+* missing middleware
+* direct object access
+
+AUTO FIX:
+
+* Enforce API Gateway layer
+* Add global guard:
+    * requireAuth()
+    * requireOfficeScope()
+    * requirePermission()
+
+Output:
+API_ZERO_TRUST_SCORE
+API_FIXES
+
+⸻
+
+PHASE 5 — AI ZERO TRUST ARCHITECTURE (CRITICAL)
+
+⸻
+
+AI MUST NEVER:
+
+* access global data
+* bypass tenant filters
+* use unscoped embeddings
+* retrieve cross-office context
+
+Enforce:
+
+RAG FILTER:
+WHERE office_id = user.office_id
+
+VECTOR DB:
+
+* partition by office_id
+* namespace embeddings per tenant
+
+PROMPT SECURITY:
+
+Block:
+
+“Show all cases”
+“List all clients”
+“Summarize system data”
+
+AUTO FIX:
+
+* Inject system prompt guardrails
+* Add retrieval filters
+* Rebuild vector indexes per tenant
+
+Output:
+AI_ZERO_TRUST_SCORE
+AI_FIXES
+
+⸻
+
+PHASE 6 — FRONTEND ZERO TRUST ENFORCEMENT
+
+⸻
+
+Verify:
+
+* No cached cross-office state
+* No global store leakage
+* No shared query cache across tenants
+
+Enforce:
+
+* clearStoreOnOfficeSwitch()
+* namespace all queries by office_id
+* invalidate cache on tenant change
+
+Detect:
+
+* UI data leakage
+* stale tenant data rendering
+
+Output:
+FRONTEND_ZERO_TRUST_SCORE
+FRONTEND_FIXES
+
+⸻
+
+PHASE 7 — FILE STORAGE ZERO TRUST MODEL
+
+⸻
+
+Enforce:
+
+* Signed URLs MUST be tenant-bound
+* Storage path MUST include office_id
+* No public bucket access
+* Download validation required
+
+Detect:
+
+* URL manipulation
+* direct bucket access
+* file enumeration attacks
+
+AUTO FIX:
+
+* enforce signed URL validation middleware
+* regenerate secure links
+
+Output:
+STORAGE_ZERO_TRUST_SCORE
+STORAGE_FIXES
+
+⸻
+
+PHASE 8 — SEARCH & INDEX ZERO TRUST
+
+⸻
+
+All search systems MUST enforce:
+
+* office_id filter at index level
+* tenant-scoped indexing
+* no global search queries
+
+Detect:
+
+* cross-tenant search results
+* index leakage
+
+AUTO FIX:
+
+* rebuild index per tenant
+* enforce query filters globally
+
+Output:
+SEARCH_ZERO_TRUST_SCORE
+SEARCH_FIXES
+
+⸻
+
+PHASE 9 — EVENT & NOTIFICATION ISOLATION
+
+⸻
+
+Enforce:
+
+* event bus partitioned by office_id
+* notification queue isolation
+* no broadcast leakage
+
+Detect:
+
+* cross-office notifications
+* event misrouting
+
+AUTO FIX:
+
+* tenant-scoped event routing
+* queue partitioning
+
+Output:
+EVENT_ZERO_TRUST_SCORE
+EVENT_FIXES
+
+⸻
+
+PHASE 10 — AUDIT & OBSERVABILITY ZERO TRUST
+
+⸻
+
+Verify:
+
+* full trace per request
+* no hidden actions
+* immutable logs
+
+Ensure logs include:
+
+user_id
+office_id
+ip
+device_id
+action
+timestamp
+
+Detect:
+
+* missing logs
+* untraceable operations
+
+Output:
+OBSERVABILITY_SCORE
+OBSERVABILITY_FIXES
+
+⸻
+
+FINAL ZERO TRUST VERDICT
+
+⸻
+
+Generate:
+
+ZERO_TRUST_SCORE /100
+
+SUBSYSTEM SCORES:
+
+AUTH
+API
+DATABASE
+AI
+FRONTEND
+STORAGE
+SEARCH
+EVENTS
+OBSERVABILITY
+
+⸻
+
+SECURITY CLASSIFICATION
+
+P0 → Critical tenant breach
+P1 → High risk access flaw
+P2 → Medium risk design issue
+P3 → Low risk improvement
+
+⸻
+
+AUTO REMEDIATION RULE
+
+System MUST:
+
+* Patch unsafe queries
+* Enforce middleware globally
+* Rebuild indexes safely
+* Fix AI retrieval layer
+* Remove global access paths
+* Enforce tenant isolation everywhere
+
+⸻
+
+FINAL REQUIREMENT
+
+System is NOT production-ready unless:
+
+✓ Zero Trust enforced across all layers
+✓ No global data access exists
+✓ AI fully tenant-scoped
+✓ APIs fully gated
+✓ Storage fully isolated
+✓ Search fully partitioned
+✓ Logs fully traceable
+✓ ZERO cross-office leakage paths

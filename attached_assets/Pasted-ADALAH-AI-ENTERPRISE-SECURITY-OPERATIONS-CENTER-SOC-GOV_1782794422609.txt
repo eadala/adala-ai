@@ -1,0 +1,359 @@
+ADALAH AI — ENTERPRISE SECURITY OPERATIONS CENTER (SOC) & GOVERNANCE CENTER
+
+Mission
+
+You are the Lead Enterprise Security Architect for Adalah AI.
+
+The platform is already production-ready with:
+
+* Multi-tenant architecture
+* Object Storage
+* AI Document Intelligence
+* Enterprise Document Center
+* Super Admin unified authorization
+* Rate Limiting
+* Audit Logs
+* Monitoring
+* Sentry
+* Prometheus
+* Pino
+
+Your task is NOT to rebuild anything.
+
+Your task is to build the final Enterprise Security & Governance Layer on top of the existing system without breaking any current functionality.
+
+Everything must remain backward compatible.
+
+⸻
+
+PHASE 1 — Security Operations Center (SOC)
+
+Create a new module:
+
+🛡️ Security Operations Center
+
+Dashboard must display:
+
+* Active Sessions
+* Failed Login Attempts
+* Super Admin Access Attempts
+* Blocked IP Addresses
+* Rate Limit Events
+* MFA Status
+* High Risk Activities
+* Recent Security Alerts
+* Suspicious Login Locations
+* User Devices
+* Active API Tokens
+* Active Integrations
+
+Support:
+
+* Search
+* Filters
+* Export
+* Real-time updates
+
+⸻
+
+PHASE 2 — Enterprise Audit Center
+
+Expand Audit Coverage.
+
+Current audit coverage is insufficient.
+
+Audit every critical operation including:
+
+Cases
+
+Clients
+
+Contracts
+
+Documents
+
+Experts
+
+Bankruptcy
+
+Finance
+
+Invoices
+
+Subscriptions
+
+Payments
+
+Users
+
+Permissions
+
+Roles
+
+AI Operations
+
+Settings
+
+API Keys
+
+Integrations
+
+Every audit entry must include:
+
+Office ID
+
+User ID
+
+IP Address
+
+User Agent
+
+Device
+
+Geo Information (if available)
+
+Old Value
+
+New Value
+
+Timestamp
+
+Risk Level
+
+Correlation ID
+
+Request ID
+
+⸻
+
+PHASE 3 — Session Security
+
+Implement:
+
+Active Session Management
+
+Session Revocation
+
+Force Logout
+
+Device History
+
+Concurrent Session Limits
+
+Suspicious Session Detection
+
+Inactive Session Cleanup
+
+⸻
+
+PHASE 4 — MFA Enforcement
+
+Super Admin users must always have MFA enabled.
+
+If MFA is disabled:
+
+* deny access
+* generate security alert
+* write audit log
+
+Support:
+
+Authenticator Apps
+
+Recovery Codes
+
+Future hardware key compatibility
+
+⸻
+
+PHASE 5 — High Risk Operations
+
+Protect operations including:
+
+Delete Office
+
+Delete Documents
+
+Restore Backup
+
+Rotate Secrets
+
+Change Billing
+
+Grant Super Admin
+
+Remove Super Admin
+
+Production Configuration
+
+Require:
+
+Password Re-authentication
+
+MFA Confirmation
+
+Risk Logging
+
+⸻
+
+PHASE 6 — Compliance Center
+
+Create:
+
+⚖️ Compliance Center
+
+Include:
+
+PDPL Controls
+
+Terms Acceptance
+
+Privacy Management
+
+Consent History
+
+Retention Policies
+
+Data Export Requests
+
+Data Deletion Requests
+
+Compliance Reports
+
+Audit Export
+
+Legal Hold Management
+
+⸻
+
+PHASE 7 — Disaster Recovery
+
+Create:
+
+🚨 Disaster Recovery Center
+
+Display:
+
+Latest Backup
+
+Backup Size
+
+Restore Points
+
+Restore Test Status
+
+Recovery Time
+
+Recovery Success Rate
+
+Storage Health
+
+Object Storage Health
+
+Database Health
+
+Redis Health
+
+Queue Health
+
+⸻
+
+PHASE 8 — Executive Dashboard
+
+Create Enterprise Dashboard displaying:
+
+Overall Platform Health
+
+Security Score
+
+Compliance Score
+
+Performance Score
+
+Storage Usage
+
+AI Usage
+
+Financial Health
+
+Backup Health
+
+Risk Score
+
+Critical Alerts
+
+System Availability
+
+Monthly Growth
+
+⸻
+
+PHASE 9 — Automated Security Monitoring
+
+Automatically detect:
+
+Brute Force
+
+Permission Escalation
+
+Cross Tenant Access Attempts
+
+Abnormal AI Usage
+
+Mass File Downloads
+
+Mass Deletes
+
+API Abuse
+
+Webhook Abuse
+
+Unexpected Login Locations
+
+Generate alerts automatically.
+
+⸻
+
+PHASE 10 — Production Validation
+
+Run a complete platform validation after implementation.
+
+Verify:
+
+No TypeScript Errors
+
+No Build Errors
+
+No Security Regression
+
+No Performance Regression
+
+No Database Migration Failures
+
+No Broken Routes
+
+No Broken Permissions
+
+No Multi-Tenant Leaks
+
+No AI Failures
+
+Generate final report including:
+
+Enterprise Security Score
+
+Compliance Score
+
+Audit Coverage Percentage
+
+Production Readiness
+
+Remaining Risks
+
+Recommended Improvements
+
+Do not replace existing modules.
+
+Integrate cleanly with the current architecture.
+
+Maintain enterprise-grade code quality, scalability, and backward compatibility.

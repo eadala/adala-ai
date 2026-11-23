@@ -1,0 +1,136 @@
+يمكنك إعطاؤه الأمر التالي مباشرة:
+
+CRITICAL PRODUCTION FIX
+
+The internal Adala platform is fully operational:
+
+* Authentication works
+* Dashboard works
+* Case Management works
+* Database works
+* Backend APIs work
+
+Only the public website route is broken.
+
+The failure started immediately after implementing the feature:
+
+“Client website URL is mandatory and auto-generated.”
+
+Therefore, assume the root cause is in routing, slug resolution, redirect logic, tenant URL handling, or public website rendering.
+
+MISSION:
+
+Identify and fix the exact issue causing the public website to fail.
+
+REQUIRED ACTIONS
+
+1. Trace the route flow from:
+
+/
+→ Landing
+→ Public Website
+→ Store
+→ Service Pages
+
+2. Search the entire codebase for:
+
+websiteUrl
+website_url
+customUrl
+custom_url
+slug
+officeSlug
+tenantSlug
+tenantKey
+domain
+subdomain
+
+3. Locate every:
+
+navigate()
+redirect()
+router.push()
+window.location
+useNavigate()
+
+4. Detect:
+
+* Redirect loops
+* Missing slug values
+* Undefined URL values
+* Null URL values
+* Route guards blocking rendering
+* Infinite redirects
+* Public route crashes
+
+5. Search for code patterns:
+
+if (!slug)
+if (!websiteUrl)
+throw new Error(…)
+return null
+return <></>
+
+Any public route must never render a blank page.
+
+6. Replace strict URL dependencies with safe fallback logic:
+
+slug =
+websiteUrl ||
+tenantKey ||
+officeId
+
+7. If slug lookup fails:
+
+Render the Landing Page.
+
+Never crash.
+Never show a blank screen.
+
+8. Verify all existing office records.
+
+If website_url is null:
+
+Generate a valid slug automatically.
+
+9. Validate these routes:
+
+/
+/about
+/services
+/store
+/contact
+/{officeSlug}
+
+10. Verify:
+
+* Public website loads
+* Landing page loads
+* Store loads
+* Existing offices load
+* No white screen remains
+
+11. Produce a final report:
+
+ROOT CAUSE FOUND:
+FILES MODIFIED:
+ROUTES FIXED:
+REDIRECT ISSUES FIXED:
+DATABASE ISSUES FIXED:
+FINAL STATUS:
+
+IMPORTANT:
+
+Do not modify:
+
+* Authentication
+* Clerk configuration
+* Dashboard
+* Case Management
+* Internal Admin System
+
+Focus exclusively on fixing Public Website Routing and URL Enforcement changes introduced by the mandatory website URL feature.
+
+The objective is to restore the public website immediately while keeping auto-generated office URLs functional.
+
+هذا الأمر يوجهه مباشرة إلى المنطقة التي يُرجح أنها تسببت بالمشكلة بدلاً من إعادة فحص النظام بالكامل.

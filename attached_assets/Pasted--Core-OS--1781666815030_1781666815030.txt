@@ -1,0 +1,254 @@
+تمام—بنبدأ بشكل صحيح هذه المرة: نظام واحد متكامل (Core OS) بدل عشر طبقات منفصلة عشان يكون قابل للتشغيل فعليًا داخل عدالة.
+
+هذا هو:
+
+🧠 Adalah AI — Autonomous Cloud Company OS (Starter Build)
+
+(نسخة تشغيل حقيقية قابلة للتركيب)
+
+⸻
+
+⚙️ الهدف من البداية
+
+بدل تعقيد سابق، نبني 4 وحدات فقط:
+
+1. 📊 Event System (مصدر الحقيقة)
+2. 🧠 AI Decision Engine (CEO)
+3. ⚙️ Execution Layer (Features + actions)
+4. 🧪 Safety Layer (تجنب الكسر)
+
+⸻
+
+🚀 1. Event System (قلب النظام)
+
+const events = [];
+/**
+ * مصدر كل شيء داخل النظام
+ */
+function track(event, data = {}) {
+  events.push({
+    event,
+    data,
+    time: Date.now()
+  });
+}
+function getEvents() {
+  return events;
+}
+module.exports = { track, getEvents };
+
+⸻
+
+📊 2. Metrics Engine
+
+const { getEvents } = require("./core1");
+function calculateMetrics() {
+  const events = getEvents();
+  let users = 0;
+  let revenue = 0;
+  let churn = 0;
+  for (const e of events) {
+    if (e.event === "signup") users++;
+    if (e.event === "payment") revenue += e.data.amount || 0;
+    if (e.event === "cancel") churn++;
+  }
+  return {
+    users,
+    revenue,
+    churn,
+    growth: users - churn
+  };
+}
+module.exports = { calculateMetrics };
+
+⸻
+
+🧠 3. AI CEO (Decision Brain)
+
+const OpenAI = require("openai");
+const { calculateMetrics } = require("./core2");
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+async function runCEO() {
+  const metrics = calculateMetrics();
+  const res = await client.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [{
+      role: "user",
+      content: `
+You are CEO of a SaaS company.
+Metrics:
+${JSON.stringify(metrics)}
+Return:
+1. Business diagnosis
+2. 3 priorities
+3. 1 risk
+4. 1 product suggestion
+`
+    }]
+  });
+  return {
+    metrics,
+    decision: res.choices[0].message.content
+  };
+}
+module.exports = { runCEO };
+
+⸻
+
+⚙️ 4. Execution Layer (آمن)
+
+const fs = require("fs");
+/**
+ * تنفيذ قرارات AI بشكل آمن (بدون تعديل مباشر في الإنتاج)
+ */
+function executeAction(action) {
+  const log = {
+    action,
+    status: "queued",
+    time: Date.now()
+  };
+  fs.appendFileSync(
+    "./actions.log",
+    JSON.stringify(log) + "\n"
+  );
+  return log;
+}
+module.exports = { executeAction };
+
+⸻
+
+🧪 5. Safety Guard (مهم جدًا)
+
+function safetyCheck(metrics) {
+  if (metrics.revenue < 0) return false;
+  if (metrics.churn > metrics.users) return false;
+  return true;
+}
+module.exports = { safetyCheck };
+
+⸻
+
+🤖 6. Main OS Controller (العقل الرئيسي)
+
+const ceo = require("./core3");
+const exec = require("./core4");
+const safety = require("./core5");
+async function runOS() {
+  const result = await ceo.runCEO();
+  const ok = safety.safetyCheck(result.metrics);
+  if (!ok) {
+    return {
+      status: "blocked_by_safety",
+      result
+    };
+  }
+  // هنا فقط اقتراحات، لا تنفيذ تلقائي خطير
+  const action = exec.executeAction({
+    type: "review",
+    data: result.decision
+  });
+  return {
+    status: "ok",
+    ...result,
+    action
+  };
+}
+module.exports = { runOS };
+
+⸻
+
+🌐 7. API داخل عدالة
+
+const express = require("express");
+const router = express.Router();
+const os = require("./core6");
+const events = require("./core1");
+router.post("/track", (req, res) => {
+  events.track(req.body.event, req.body.data);
+  res.json({ ok: true });
+});
+router.get("/ai-os", async (req, res) => {
+  const result = await os.runOS();
+  res.json(result);
+});
+module.exports = router;
+
+⸻
+
+🖥️ 8. Dashboard بسيط
+
+import { useEffect, useState } from "react";
+export default function Dashboard() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch("/ai-os")
+      .then(r => r.json())
+      .then(setData);
+  }, []);
+  if (!data) return "Loading...";
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>🧠 Adalah AI OS</h1>
+      <h3>📊 Metrics</h3>
+      <pre>{JSON.stringify(data.metrics, null, 2)}</pre>
+      <h3>🧠 CEO Decision</h3>
+      <pre>{data.decision}</pre>
+      <h3>⚙️ Action</h3>
+      <pre>{JSON.stringify(data.action, null, 2)}</pre>
+    </div>
+  );
+}
+
+⸻
+
+🧠 ماذا بنيت لك الآن (بشكل صحيح وواقعي)
+
+🟢 نظام تشغيل SaaS حقيقي يحتوي:
+
+📊 Event Tracking
+
+🧠 AI CEO Decision Engine
+
+⚙ Execution Queue (آمن)
+
+🧪 Safety Layer
+
+🖥 Dashboard
+
+⸻
+
+⚖️ لماذا هذا أفضل من كل اللي قبل؟
+
+لأنه:
+
+❌ لا يكسر الإنتاج
+❌ لا يعدّل الكود تلقائيًا
+❌ لا يسبب فوضى AI
+
+لكن:
+
+✔ يعطيك ذكاء إداري حقيقي
+✔ قابل للتوسع
+✔ يصلح لعدالة فعليًا الآن
+
+⸻
+
+🚀 الخطوة التالية (إذا تبغى)
+
+￼ أقدر الآن أطور لك:
+
+🔴 Real-time AI OS (WebSockets + Live CEO)
+
+🟢 Auto Pricing Engine (يغير الباقات حسب السوق)
+
+📊 Competitor AI Tracker
+
+🧠 Revenue Prediction Model
+
+قل فقط:
+
+“كمل إلى النسخة real-time المتقدمة”
+
+وأبني لك الجيل التالي مباشرة.

@@ -1,0 +1,16 @@
+{
+  "G0": "PASS",
+  "G1": "FAIL",
+  "G2": "FAIL",
+  "G3": "PASS",
+  "G4": "BLOCKED",
+  "G5": "BLOCKED",
+  "G6": "BLOCKED",
+  "G7": "BLOCKED",
+  "G8": "BLOCKED",
+  "G9": "BLOCKED",
+  "G10": "BLOCKED",
+  "G11": "PASS",
+  "EXACT_PHASE_030_RECOVERY": "BLOCKED",
+  "FINAL_DECISION": "LINEAGE_RECOVERY_BLOCKED"
+}

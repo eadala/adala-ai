@@ -1,0 +1,192 @@
+فيما يلي الحزمة الكاملة بشكل احترافي لمنظومة الفواتير في عدالة AI (تصميم + كود + قاعدة بيانات + Prompt إصلاح تلقائي)، مبنية على أساس مالي آمن وقابل للتوسع، مع دعم الضريبة الاختياري.
+
+⸻
+
+1) 🧠 قاعدة النظام (Financial Core Principle)
+
+* العملة الأساسية: SAR (ريال سعودي)
+* التخزين: Decimal موحد (ليس هللة داخلياً)
+* العرض: تنسيق مالي فقط (Formatting Layer)
+* الضريبة: اختيارية بالكامل
+    * تُفعّل على مستوى: مكتب / عميل / فاتورة
+* ممنوع أي تحويل غير موحد (÷100 أو ×100)
+
+⸻
+
+2) 🗄️ تصميم قاعدة البيانات (Database Schema)
+
+Tables — Financial System (Adalah AI)
+
+1. invoices
+
+* id (UUID)
+* office_id (FK)
+* client_id (FK)
+* case_id (nullable)
+* contract_id (nullable)
+* subtotal (DECIMAL 12,2)
+* tax_enabled (BOOLEAN DEFAULT false)
+* tax_rate (DECIMAL 5,2 DEFAULT 15)
+* tax_amount (DECIMAL 12,2 DEFAULT 0)
+* total (DECIMAL 12,2)
+* status (ENUM:
+    Draft,
+    Sent,
+    Paid,
+    Partially_Paid,
+    Overdue,
+    Cancelled
+    )
+* currency (VARCHAR DEFAULT ‘SAR’)
+* created_at
+* updated_at
+
+⸻
+
+2. invoice_items
+
+* id
+* invoice_id (FK)
+* description
+* quantity (INT)
+* unit_price (DECIMAL 12,2)
+* line_total (DECIMAL 12,2)
+
+⸻
+
+3. offices
+
+* id
+* name
+* tax_enabled (BOOLEAN)
+* default_tax_rate (DECIMAL 5,2)
+
+⸻
+
+4. clients
+
+* id
+* office_id
+* name
+* tax_exempt (BOOLEAN DEFAULT false)
+
+⸻
+
+5. payments
+
+* id
+* invoice_id
+* amount (DECIMAL 12,2)
+* method (cash, bank, card)
+* paid_at
+
+⸻
+
+6. audit_logs
+
+* id
+* office_id
+* user_id
+* entity_type (invoice/payment)
+* entity_id
+* action (create/update/delete)
+* old_value (JSON)
+* new_value (JSON)
+* ip_address
+* created_at
+
+⸻
+
+3) ⚙️ محرك الفواتير المالي (TypeScript Core Engine)
+
+// /lib/financial/FinancialCore.ts
+export type Money = number;
+export interface TaxConfig {
+  enabled: boolean;
+  rate: number; // e.g. 15
+}
+export class FinancialCore {
+  static calculateSubtotal(items: {
+    quantity: number;
+    unitPrice: number;
+  }[]): Money {
+    return items.reduce((sum, item) => {
+      return sum + item.quantity * item.unitPrice;
+    }, 0);
+  }
+  static calculateTax(subtotal: Money, tax: TaxConfig): Money {
+    if (!tax.enabled) return 0;
+    return +(subtotal * (tax.rate / 100)).toFixed(2);
+  }
+  static calculateTotal(subtotal: Money, taxAmount: Money): Money {
+    return +(subtotal + taxAmount).toFixed(2);
+  }
+  static formatSAR(amount: Money): string {
+    return new Intl.NumberFormat('ar-SA', {
+      style: 'currency',
+      currency: 'SAR'
+    }).format(amount);
+  }
+  static buildInvoice(items: any[], tax: TaxConfig) {
+    const subtotal = this.calculateSubtotal(items);
+    const taxAmount = this.calculateTax(subtotal, tax);
+    const total = this.calculateTotal(subtotal, taxAmount);
+    return {
+      subtotal,
+      taxAmount,
+      total,
+      currency: "SAR"
+    };
+  }
+}
+
+⸻
+
+4) 🔧 Prompt إصلاح تلقائي (Replit AI / Auto Fix Mode)
+
+CRITICAL FINANCIAL CORE AUDIT — ADAH AI
+You are required to perform a full financial integrity audit of the invoicing system.
+GOALS:
+1. Ensure ALL monetary values are stored in SAR (decimal format).
+2. Remove any usage of /100 or *100 across codebase.
+3. Identify and fix any incorrect currency conversion logic.
+4. Ensure VAT system is OPTIONAL (can be enabled/disabled per office/client/invoice).
+5. Standardize tax calculation to:
+   tax = subtotal * (rate / 100) ONLY when enabled.
+6. Ensure API responses always return:
+   subtotal, tax_amount, total, currency = "SAR"
+7. Fix UI labels:
+   - Replace "هللة" with "ريال سعودي"
+   - Ensure correct currency formatting everywhere.
+8. Create centralized FinancialCore module (single source of truth).
+9. Block invoice deletion if linked to payments.
+10. Add audit logging for all financial changes.
+OUTPUT REQUIRED:
+- List of affected files
+- List of fixed bugs
+- Financial risk report
+- Confirmation that no legacy conversion remains
+PRIORITY: P0 - Financial System Integrity
+
+⸻
+
+5) 🔐 النتيجة النهائية للنظام بعد الإصلاح
+
+بعد تطبيق هذا التصميم:
+
+* لا يمكن حدوث خطأ “هللة بدل ريال”
+* لا يوجد قسمة عشوائية على 100
+* الضريبة مرنة حسب العميل أو المكتب
+* النظام قابل للتوسع دولياً
+* الفواتير صالحة قانونياً ومحاسبياً
+* محرك مالي واحد يمنع التناقضات
+
+⸻
+
+إذا رغبت، الخطوة التالية المنطقية هي أن أبني لك:
+
+* 🔹 ￼ نظام فواتير UI (Stripe-level design)
+* 🔹 أو ￼ API كامل (NestJS / Express)
+* 🔹 أو ￼ لوحة محاسبية كاملة داخل عدالة AI
+
+فقط قل: “أكمل النظام المالي الكامل”

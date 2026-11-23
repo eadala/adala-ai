@@ -1,0 +1,256 @@
+يمكنك إرسال هذا البرومبت للمبرمج كما هو:
+
+⸻
+
+🚨 P0 EXECUTION ORDER — FINAL DEPLOYMENT RECOVERY (NO WORKAROUNDS)
+
+هذه ليست مهمة استكشاف أو تجربة جديدة. المطلوب هو تنفيذ الإصلاح النهائي والتحقق منه بالأدلة.
+
+خلال الأيام الماضية قمنا بتجربة عدد كبير من الحلول، لذلك يُمنع إعادة أي تجربة سابقة أو إضافة حلول مؤقتة.
+
+الحقائق المثبتة
+
+* التطبيق يعمل محلياً.
+* الـ API يعمل.
+* المشكلة في Frontend Production Deployment.
+* أكثر من نشر لم يغيّر الـ bundle الفعلي في الإنتاج.
+* ظهرت أعراض تدل على إعادة استخدام Build قديم في بيئة Replit.
+* الاعتماد على متغيرات Build الخاصة بـ Vite أثبت عدم موثوقيته في هذه البيئة.
+* الحل يجب أن يعتمد على Runtime وليس Build-time كلما أمكن.
+
+⸻
+
+المطلوب
+
+نفّذ الإصلاح كاملاً، وليس جزءاً منه.
+
+أولاً
+
+افحص سلسلة النشر كاملة خطوة بخطوة:
+
+Git Commit
+↓
+Build
+↓
+Artifact Generation
+↓
+Artifact Upload
+↓
+Artifact Activation
+↓
+Traffic Switch
+↓
+Frontend Runtime
+↓
+Clerk Initialization
+
+ولا تنتقل للمرحلة التالية حتى تثبت نجاح السابقة.
+
+⸻
+
+ثانياً
+
+راجع بالكامل:
+
+* artifact.toml
+* build pipeline
+* serve.cjs / serve.mjs
+* Static assets
+* dist
+* dist2
+* dist3
+* dist4
+* أي Directory يستخدم أثناء النشر
+
+وحدد فعلياً أي Directory يتم نشره للإنتاج.
+
+⸻
+
+ثالثاً
+
+تحقق أن الـ Production يستخدم فعلاً آخر Build.
+
+أريد إثباتاً وليس استنتاجاً.
+
+يشمل:
+
+* اسم bundle
+* Hash
+* Last-Modified
+* ETag
+* Build timestamp
+* Commit SHA
+
+ثم قارنها مع النسخة المحلية.
+
+⸻
+
+رابعاً
+
+يُمنع الاعتماد على:
+
+VITE_CLERK_PROXY_URL
+
+إذا كانت قيمته تُحقن أثناء Build.
+
+إذا كانت بيئة Replit لا تمرره للبناء فلا تعتمد عليه إطلاقاً.
+
+يجب أن يتم اشتقاق Proxy Runtime مثل:
+
+window.location.origin
+
+أو أي طريقة Runtime Canonical.
+
+⸻
+
+خامساً
+
+راجع تكامل Clerk بالكامل:
+
+* publishableKey
+* secretKey
+* proxy middleware
+* publishableKeyFromHost
+* proxyUrl
+* clerkMiddleware
+* clerkProxyMiddleware
+* selfHandleResponse
+* buffer handling
+* callback configuration
+
+وقارنها مع Canonical Implementation الرسمية.
+
+⸻
+
+سادساً
+
+تحقق من أن Frontend هو الذي يخدم:
+
+/
+
+وليس API Server.
+
+أثبت ذلك بالأدلة من:
+
+Headers
+
+Cache-Control
+
+Serving process
+
+Port
+
+Logs
+
+⸻
+
+سابعاً
+
+إذا كان هناك Build Cache في Replit يمنع نشر النسخة الجديدة:
+
+لا تستخدم حلولاً مؤقتة.
+
+بل حدّد:
+
+* أين يتم إنشاء الـ cache
+* لماذا لا ينكسر
+* كيف يتم كسره جذرياً
+
+ثم أصلحه.
+
+⸻
+
+ثامناً
+
+بعد الإصلاح:
+
+نفّذ Deployment جديد.
+
+ثم تحقق من:
+
+Frontend
+
+* Bundle جديد
+* Hash جديد
+* Last-Modified جديد
+
+⸻
+
+Clerk
+
+/api/__clerk/v1/environment
+
+يجب أن يرجع
+
+HTTP 200
+
+وليس
+
+host_invalid
+
+⸻
+
+Runtime
+
+تحقق أن:
+
+Clerk.isLoaded === true
+
+⸻
+
+Authentication
+
+اختبر:
+
+* Landing
+* Sign In
+* Dashboard
+* Protected Routes
+
+⸻
+
+تاسعاً
+
+إذا فشل أي اختبار:
+
+لا تنتقل للاختبار التالي.
+
+بل عد مباشرةً إلى السبب الجذري وأصلحه.
+
+⸻
+
+ممنوع
+
+❌ حلول مؤقتة
+
+❌ Workarounds
+
+❌ تجاهل التحذيرات
+
+❌ تعطيل Clerk
+
+❌ إزالة Authentication
+
+❌ تعديل سلوك المستخدم
+
+❌ افتراض أن المشكلة من Cloudflare بدون دليل
+
+❌ افتراض أن المشكلة من Browser Cache بدون دليل
+
+⸻
+
+المطلوب في نهاية التنفيذ
+
+أريد تقريراً نهائياً يحتوي على:
+
+1. السبب الجذري الحقيقي.
+2. لماذا حدث.
+3. لماذا لم تنجح المحاولات السابقة.
+4. الملفات التي تم تعديلها.
+5. سبب كل تعديل.
+6. المخاطر إن وجدت.
+7. نتائج جميع الاختبارات.
+8. إثبات أن الإصلاح يعمل في Production وليس محلياً فقط.
+9. الأدلة (Logs، Headers، Bundle Hash، HTTP Status، Commit SHA).
+
+لا تعتبر المهمة منتهية إلا إذا أصبحت الصفحة الرئيسية، وتسجيل الدخول، ولوحة التحكم تعمل بالكامل على Production دون شاشة تحميل دائمة، مع إثبات ذلك بالأدلة.

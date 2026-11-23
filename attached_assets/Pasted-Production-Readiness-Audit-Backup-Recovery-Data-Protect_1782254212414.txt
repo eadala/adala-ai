@@ -1,0 +1,158 @@
+Production Readiness Audit — Backup, Recovery & Data Protection
+
+Priority: HIGH
+
+The platform has completed:
+
+* Multi-Tenant Isolation Audit
+* AI Isolation Audit
+* RBAC Audit
+
+The next production-critical review is Backup, Disaster Recovery, and Data Protection.
+
+This audit must focus on operational resilience, tenant safety, and recovery capabilities.
+
+⸻
+
+Audit Scope
+
+1. Database Backup Review
+
+Audit PostgreSQL backup architecture.
+
+Verify:
+
+* Backup mechanism currently in use.
+* Backup schedule.
+* Backup automation status.
+* Backup retention policy.
+* Backup storage location.
+* Backup encryption at rest.
+* Backup encryption in transit.
+
+Determine whether backups are:
+
+* Manual
+* Scheduled
+* Fully automated
+
+⸻
+
+2. Tenant Data Protection
+
+Verify that backup procedures preserve tenant boundaries.
+
+Confirm:
+
+* No tenant can access backup artifacts.
+* No API exposes backup files.
+* No backup endpoints are publicly reachable.
+* Tenant data cannot be extracted through backup workflows.
+
+Document risks if a backup contains all tenant data in a single archive.
+
+⸻
+
+3. File Storage Backup Audit
+
+Review:
+
+* Uploaded documents
+* Contracts
+* Evidence files
+* Generated reports
+* AI-generated exports
+
+Verify:
+
+* Files are included in backup strategy.
+* Tenant directory structure is preserved.
+* Backup process covers both database and storage assets.
+
+⸻
+
+4. Restore Capability Audit
+
+Verify existence of documented recovery procedures.
+
+Test and document:
+
+* Full platform restore
+* Database-only restore
+* File-only restore
+
+Measure:
+
+* Recovery Time Objective (RTO)
+* Recovery Point Objective (RPO)
+
+⸻
+
+5. Single-Tenant Recovery
+
+Determine whether the platform can:
+
+* Restore a single law office
+* Restore a single client record
+* Restore deleted documents
+
+If not supported, document limitations and implementation effort.
+
+⸻
+
+6. Infrastructure Failure Scenarios
+
+Review recovery readiness for:
+
+* Server loss
+* Database corruption
+* Accidental deletion
+* Storage failure
+* Failed deployment
+* Ransomware scenario
+
+Document recovery process for each scenario.
+
+⸻
+
+7. Secrets & Backup Security
+
+Verify protection of:
+
+* PostgreSQL credentials
+* Clerk secrets
+* AI provider keys
+* SMTP credentials
+* Payment provider keys
+
+Ensure secrets are never stored inside backup archives unless encrypted.
+
+⸻
+
+8. Production Recommendations
+
+Provide:
+
+* Current backup maturity score
+* Disaster recovery maturity score
+* Critical risks
+* Recommended fixes
+* Estimated implementation effort
+
+⸻
+
+Deliverables
+
+Generate:
+
+1. BACKUP_AUDIT_REPORT.md
+2. RECOVERY_PROCEDURE.md
+3. PRODUCTION_READINESS_BACKUP_SCORE
+
+Final assessment:
+
+* Ready for production
+* Ready with limitations
+* Not production ready
+
+Do not assume backup readiness without evidence of successful restore testing.

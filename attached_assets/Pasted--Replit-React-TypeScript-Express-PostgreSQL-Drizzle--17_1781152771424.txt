@@ -1,0 +1,403 @@
+إذا كنت تعمل على **Replit + React + TypeScript + Express + PostgreSQL + Drizzle**، فأفضل تصميم احترافي هو إنشاء **DevOps Center** داخل لوحة التحكم العليا، ويحتوي على GitHub وReplit والنسخ الاحتياطي وسجل التحديثات.
+
+# 1. جدول GitHub Settings
+
+## `shared/schema.ts`
+
+```ts
+export const githubSettings = pgTable(
+  "github_settings",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    githubUsername: varchar(
+      "github_username",
+      { length: 255 }
+    ).notNull(),
+
+    repository: varchar(
+      "repository",
+      { length: 255 }
+    ).notNull(),
+
+    branch: varchar(
+      "branch",
+      { length: 100 }
+    )
+      .default("main")
+      .notNull(),
+
+    accessToken: text(
+      "access_token"
+    ).notNull(),
+
+    autoPull: boolean(
+      "auto_pull"
+    ).default(false),
+
+    autoBackup: boolean(
+      "auto_backup"
+    ).default(true),
+
+    autoRestart: boolean(
+      "auto_restart"
+    ).default(true),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+  }
+);
+```
+
+---
+
+# 2. Service
+
+## `server/services/githubService.ts`
+
+```ts
+import simpleGit from "simple-git";
+
+const git = simpleGit();
+
+export async function pullLatestChanges() {
+
+  await git.pull(
+    "origin",
+    "main"
+  );
+
+  return {
+    success: true
+  };
+
+}
+
+export async function getCurrentBranch() {
+
+  return await git.branch();
+
+}
+
+export async function getCommits() {
+
+  return await git.log();
+
+}
+
+export async function pushChanges(
+  message: string
+) {
+
+  await git.add(".");
+
+  await git.commit(message);
+
+  await git.push(
+    "origin",
+    "main"
+  );
+
+}
+```
+
+---
+
+# 3. Routes
+
+## `server/routes/github.ts`
+
+```ts
+import express from "express";
+
+import {
+
+pullLatestChanges,
+getCurrentBranch,
+getCommits
+
+} from "../services/githubService";
+
+const router = express.Router();
+
+router.get(
+"/status",
+async (
+req,
+res
+) => {
+
+const branch =
+await getCurrentBranch();
+
+res.json(branch);
+
+}
+);
+
+router.get(
+"/commits",
+async (
+req,
+res
+) => {
+
+const commits =
+await getCommits();
+
+res.json(commits);
+
+}
+);
+
+router.post(
+"/pull",
+async (
+req,
+res
+) => {
+
+await pullLatestChanges();
+
+res.json({
+success: true
+});
+
+}
+);
+
+export default router;
+```
+
+---
+
+# 4. تسجيل الراوتر
+
+داخل:
+
+## `server/index.ts`
+
+```ts
+import githubRoutes
+from "./routes/github";
+
+app.use(
+"/api/github",
+githubRoutes
+);
+```
+
+---
+
+# 5. إنشاء نسخة احتياطية قبل Pull
+
+داخل:
+
+## `githubService.ts`
+
+```ts
+import { createBackup }
+from "./backupService";
+
+export async function updateSystem() {
+
+  await createBackup();
+
+  await git.pull(
+    "origin",
+    "main"
+  );
+
+  return {
+    success: true
+  };
+
+}
+```
+
+---
+
+# 6. إعادة تشغيل التطبيق
+
+```ts
+import { exec }
+from "child_process";
+
+export async function restartServer() {
+
+  exec(
+    "npm run dev"
+  );
+
+}
+```
+
+أو PM2:
+
+```ts
+exec(
+"pm2 restart adala-ai"
+);
+```
+
+---
+
+# 7. واجهة React
+
+## `client/src/pages/admin/GithubPage.tsx`
+
+```tsx
+import {
+
+Button
+
+} from "@/components/ui/button";
+
+export default function GithubPage() {
+
+  async function pullUpdates() {
+
+    await fetch(
+      "/api/github/pull",
+      {
+        method: "POST"
+      }
+    );
+
+  }
+
+  return (
+
+    <div className="space-y-6">
+
+      <h1 className="text-3xl font-bold">
+
+        GitHub Integration
+
+      </h1>
+
+      <Button
+        onClick={pullUpdates}
+      >
+
+        جلب آخر التحديثات
+
+      </Button>
+
+    </div>
+
+  );
+
+}
+```
+
+---
+
+# 8. صفحة الإعدادات
+
+```tsx
+<Card>
+
+<CardHeader>
+
+إعدادات GitHub
+
+</CardHeader>
+
+<CardContent>
+
+<Input
+placeholder="Username"
+/>
+
+<Input
+placeholder="Repository"
+/>
+
+<Input
+placeholder="Branch"
+/>
+
+<Input
+type="password"
+placeholder="Personal Access Token"
+/>
+
+<Button>
+
+اختبار الاتصال
+
+</Button>
+
+</CardContent>
+
+</Card>
+```
+
+---
+
+# 9. القائمة الجانبية
+
+```ts
+{
+title:"DevOps Center",
+
+children:[
+
+{
+title:"GitHub",
+href:"/admin/github"
+},
+
+{
+title:"Backups",
+href:"/admin/backups"
+},
+
+{
+title:"Logs",
+href:"/admin/logs"
+},
+
+{
+title:"Monitoring",
+href:"/admin/monitoring"
+}
+
+]
+
+}
+```
+
+---
+
+# 10. أوصي بإضافة قسم كامل باسم:
+
+```text
+لوحة المطور Developer Center
+```
+
+ويحتوي على:
+
+```text
+GitHub
+Replit
+قاعدة البيانات
+النسخ الاحتياطي
+Logs
+Environment Variables
+Docker
+Storage
+Redis
+API Keys
+Cron Jobs
+Health Monitor
+System Updates
+Release Notes
+```
+
+بهذا الشكل ستكون عدالة AI أقرب إلى منصات SaaS الاحترافية مثل HubSpot وSalesforce وVercel، مع إمكانية إدارة GitHub والتحديثات والنسخ الاحتياطية مباشرة من داخل لوحة التحكم.

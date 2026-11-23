@@ -1,0 +1,333 @@
+تمام — هذه هيكلة مشروع إنتاجية (Production Architecture) لمنصة “عدالة” بشكل احترافي (SaaS قانوني متعدد المكاتب + AI + محاسبة + قضايا + Zero Trust).
+
+⸻
+
+🧱 Adalah AI — Full Production Architecture
+
+📦 1) Root Structure
+
+adalah-ai/
+│
+├── apps/
+│   ├── web/                 # Frontend (React / Next.js)
+│   ├── admin/              # لوحة الإدارة العليا
+│   ├── client-portal/      # بوابة العملاء
+│
+├── backend/
+│   ├── api/                # REST / GraphQL controllers
+│   ├── services/          # Business logic layer
+│   ├── modules/           # Domain modules (cases, billing...)
+│   ├── middlewares/       # Security + tenant guards
+│   ├── jobs/              # background jobs / queues
+│   ├── ai/                # AI engine (RAG + prompts)
+│   ├── security/          # Zero Trust engine
+│   ├── realtime/          # notifications + sockets
+│
+├── database/
+│   ├── prisma/ or migrations/
+│   ├── schema/
+│   ├── seeds/
+│   ├── tenant/            # multi-tenant rules
+│
+├── storage/
+│   ├── uploads/
+│   ├── signed-urls/
+│   ├── policies/
+│
+├── ai-engine/
+│   ├── rag/
+│   ├── embeddings/
+│   ├── prompts/
+│   ├── guardrails/
+│   ├── tenant-filter/
+│
+├── security/
+│   ├── zero-trust/
+│   ├── intrusion-detection/
+│   ├── rate-limits/
+│   ├── audit-logs/
+│   ├── anomaly-engine/
+│
+├── search/
+│   ├── indexers/
+│   ├── filters/
+│   ├── tenant-scopes/
+│
+├── config/
+│   ├── env/
+│   ├── roles/
+│   ├── permissions/
+│   ├── feature-flags/
+│
+├── shared/
+│   ├── utils/
+│   ├── types/
+│   ├── constants/
+│   ├── validators/
+│
+├── infra/
+│   ├── docker/
+│   ├── kubernetes/
+│   ├── cloudflare/
+│   ├── nginx/
+│
+├── logs/
+│   ├── audit/
+│   ├── security/
+│   ├── system/
+│
+└── tests/
+    ├── unit/
+    ├── integration/
+    ├── penetration/
+    ├── tenant-isolation/
+
+⸻
+
+🧠 2) Core Architecture Layers
+
+🟦 Presentation Layer (Frontend)
+
+* React / Next.js
+* Multi-tenant UI switching
+* Cache isolation per office
+* Role-based dashboards
+
+⸻
+
+🟨 API Layer
+
+backend/api/
+
+Responsible for:
+
+* Request handling
+* Auth validation
+* Tenant enforcement
+* Response shaping
+
+⸻
+
+🟧 Service Layer (Business Logic)
+
+backend/services/
+
+Includes:
+
+* CaseService
+* InvoiceService
+* AIService
+* DocumentService
+* HRService
+
+⸻
+
+🟥 Security Layer (Zero Trust Core)
+
+security/zero-trust/
+
+Functions:
+
+* enforceTenantScope()
+* detectIDOR()
+* blockInjection()
+* validateAccess()
+* runtimeThreatDetection()
+
+⸻
+
+🟪 AI Layer (Legal Intelligence Engine)
+
+ai-engine/
+
+Modules:
+
+* RAG system (retrieval)
+* vector DB filtering
+* prompt guardrails
+* legal summarization
+* contract analysis
+
+⸻
+
+🟫 Database Layer (Multi-Tenant Core)
+
+Rule:
+
+كل جدول يجب أن يحتوي على office_id
+
+Enforcement:
+
+* ORM middleware
+* SQL guard
+* migration enforcement
+
+⸻
+
+🟩 Search Layer
+
+search/
+
+* Elastic / Meilisearch
+* tenant scoped indexing
+* query filtering layer
+
+⸻
+
+🟦 Realtime Layer
+
+realtime/
+
+* WebSockets
+* Notifications
+* Live case updates
+* Task alerts
+
+⸻
+
+🟨 Storage Layer
+
+storage/
+
+* signed URLs
+* encrypted files
+* tenant-isolated buckets
+* access validation
+
+⸻
+
+🟥 Audit System
+
+logs/audit/
+
+Logs:
+
+* user actions
+* API calls
+* AI requests
+* financial changes
+* security events
+
+⸻
+
+🧠 3) Critical Middlewares (Core Security)
+
+backend/middlewares/
+
+Required Middlewares:
+
+auth.middleware.ts
+tenant.middleware.ts
+security.middleware.ts
+rateLimit.middleware.ts
+audit.middleware.ts
+
+⸻
+
+🔐 Tenant Middleware (أساسي)
+
+export function tenantMiddleware(req, res, next) {
+  req.office_id = req.user.office_id;
+  next();
+}
+
+⸻
+
+🧠 4) AI Architecture (Important)
+
+ai-engine/
+
+Flow:
+
+User Request
+→ Guardrails
+→ Tenant Filter
+→ Vector DB Search
+→ LLM Response
+→ Output Validator
+
+⸻
+
+🚨 5) Security Flow (Zero Trust Runtime)
+
+كل Request يمر بـ:
+
+1. Authentication
+2. Authorization
+3. Tenant Validation
+4. Threat Detection
+5. Query Safety Check
+6. Execution
+7. Audit Log
+
+⸻
+
+⚙️ 6) Infrastructure Layer
+
+infra/
+
+* Dockerized services
+* Kubernetes scaling
+* Cloudflare protection
+* Rate limiting at edge
+* WAF rules
+
+⸻
+
+📊 7) Key Design Rules (مهم جداً)
+
+🔴 قاعدة 1
+
+لا يوجد أي query بدون office_id
+
+🔴 قاعدة 2
+
+لا يوجد AI بدون tenant filter
+
+🔴 قاعدة 3
+
+لا يوجد file access بدون signed URL
+
+🔴 قاعدة 4
+
+كل API محمي بـ middleware
+
+🔴 قاعدة 5
+
+كل حدث مسجل في audit logs
+
+⸻
+
+🚀 8) Production Readiness Meaning
+
+إذا هذه الهيكلة مطبقة فعلياً، يصبح النظام:
+
+✔ SaaS قانوني متعدد المكاتب
+✔ AI قانوني آمن
+✔ محاسبة معزولة
+✔ ملفات محمية
+✔ بدون تسريب بيانات
+✔ قابل للتوسع
+
+⸻
+
+🔥 الخلاصة
+
+هذه ليست مجرد هيكلة مجلدات.
+
+هذه:
+
+🧠 “معمارية نظام قانوني SaaS كامل بمستوى Enterprise Zero Trust”
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك مباشرة:
+
+🚀 “Backend Boilerplate جاهز”
+
+* Express / NestJS كامل
+* Tenant middleware مطبق
+* AI guardrails جاهزة
+* DB schema multi-tenant جاهز
+
+فقط قل: “￼ ابني الكود الأساسي”

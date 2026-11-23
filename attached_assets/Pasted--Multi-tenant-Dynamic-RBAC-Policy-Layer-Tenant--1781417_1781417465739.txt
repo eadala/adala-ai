@@ -1,0 +1,274 @@
+سأبنيه لك كنظام Multi-tenant Dynamic RBAC + Policy Layer بحيث كل مكتب (Tenant) يقدر يخصّص الصلاحيات بالكامل بدون ما يكسر النظام.
+
+⸻
+
+🧠 الفكرة الأساسية
+
+بدل RBAC التقليدي الثابت:
+
+❌ Role → Permissions (ثابتة على مستوى النظام)
+
+نحوّلها إلى:
+
+✅ Tenant → Roles → Permissions (قابلة للتعديل لكل مكتب)
+
+بل أبعد:
+
+✅ Policy-Based Access Control (PBAC) + RBAC Hybrid
+
+⸻
+
+🏗️ Architecture: Dynamic Permissions System
+
+                ┌─────────────────────────┐
+                │       Tenant Layer      │
+                │   (Office / Law Firm)   │
+                └──────────┬──────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ Roles Engine │   │ Policy Engine│   │ Permission DB│
+│ (Custom per  │   │ (Rules/ABAC) │   │ (Overrides)  │
+│  tenant)     │   │              │   │              │
+└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+       │                  │                  │
+       └──────────┬───────┴──────────┬──────┘
+                  ▼                  ▼
+          ┌────────────────────────────────┐
+          │     Authorization Service      │
+          │ (Decision Engine / PDP)        │
+          └──────────────┬─────────────────┘
+                         ▼
+               API / UI Access Layer
+
+⸻
+
+🧩 Core Concept
+
+كل مكتب عنده:
+
+* Roles (قابلة للتعديل)
+* Permissions (قابلة للإضافة/الحذف)
+* Policies (شروط ذكية)
+* Overrides (استثناءات)
+
+⸻
+
+📊 Database Design (جاهز للتنفيذ)
+
+1) Tenants
+
+id
+name
+plan
+created_at
+
+⸻
+
+2) Roles (Per Tenant)
+
+id
+tenant_id
+name        -- Owner, Admin, Lawyer, Clerk (or custom)
+description
+is_system   -- true for default roles
+
+⸻
+
+3) Permissions Catalog (System-wide)
+
+id
+key         -- cases.read, employees.manage
+description
+module      -- cases, crm, documents
+
+⸻
+
+4) Role Permissions (Dynamic Mapping)
+
+role_id
+permission_id
+effect      -- allow | deny
+
+مهم: نسمح بـ DENY override حتى لو فيه Allow من مكان آخر
+
+⸻
+
+5) User Roles
+
+user_id
+role_id
+tenant_id
+
+⸻
+
+6) Policies (ABAC Layer)
+
+id
+tenant_id
+name
+resource    -- cases, documents, etc
+action      -- read, write
+condition    -- JSON logic
+effect      -- allow / deny
+
+⸻
+
+7) Overrides (Emergency Control)
+
+user_id
+permission_key
+effect      -- allow | deny
+expires_at
+
+⸻
+
+⚙️ Authorization Flow (Decision Engine)
+
+1. Get User + Tenant
+2. Fetch Roles
+3. Aggregate Permissions
+4. Apply Deny Rules (highest priority)
+5. Evaluate Policies (ABAC conditions)
+6. Apply User Overrides
+7. Return ALLOW or DENY
+
+⸻
+
+🧠 Permission Evaluation Priority
+
+Priority	Source
+1	User Override (highest)
+2	Role DENY
+3	Policy DENY
+4	Role ALLOW
+5	Policy ALLOW
+6	Default DENY
+
+⸻
+
+🔐 Example Real Case
+
+User: Lawyer
+
+Action: view case not assigned
+
+Role: Lawyer → cases.read = ALLOW
+Policy: cases.read WHERE assigned_to != user → DENY
+Result: ❌ DENIED
+
+⸻
+
+🧩 Policy Example (JSON Logic)
+
+{
+  "resource": "cases",
+  "action": "read",
+  "condition": {
+    "assigned_to": "current_user.id"
+  },
+  "effect": "allow"
+}
+
+⸻
+
+🧱 API Design
+
+Roles
+
+GET   /tenants/{id}/roles
+POST  /tenants/{id}/roles
+PUT   /roles/{id}
+DELETE /roles/{id}
+
+⸻
+
+Permissions
+
+GET   /permissions/catalog
+POST  /roles/{id}/permissions
+DELETE /roles/{id}/permissions/{permissionId}
+
+⸻
+
+Policies
+
+GET   /policies
+POST  /policies
+PUT   /policies/{id}
+DELETE /policies/{id}
+
+⸻
+
+Authorization Check
+
+POST /authz/check
+
+Request:
+
+{
+  "userId": "123",
+  "action": "cases.read",
+  "resource": "case:456"
+}
+
+Response:
+
+{
+  "allowed": true,
+  "reason": "role_allow + policy_match"
+}
+
+⸻
+
+🧠 Frontend Integration
+
+<Can permission="employees.manage">
+   <EmployeeDropdown />
+</Can>
+
+Or dynamic:
+
+<Can action="cases.read" resourceId={case.id}>
+
+⸻
+
+🚀 أهم ميزة في النظام هذا
+
+1) كل مكتب يقدر:
+
+* يغير صلاحيات الأدوار
+* يضيف Roles جديدة (مثلاً: Legal Assistant)
+* يخصص سلوك النظام بدون كود
+
+2) أنت كمطور:
+
+* ما تحتاج تعدل الكود لكل عميل
+* كل شيء Data-driven
+
+⸻
+
+⚡ Upgrade Level (لو تبغى مرحلة أقوى)
+
+أقدر أطور لك فوق هذا:
+
+🧠 AI Permission Layer
+
+* النظام يقترح صلاحيات تلقائياً حسب الاستخدام
+
+🧾 Audit System
+
+* كل permission check يُسجل
+
+🔥 Real-time RBAC
+
+* تغيير الصلاحيات ينعكس فوراً بدون إعادة تسجيل دخول
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك:
+
+* 🧱 Backend جاهز (NestJS أو Laravel module)
+* 🗄️ PostgreSQL migrations كاملة
+* ⚡ أو نظام Admin UI لإدارة الصلاحيات بصرياً (drag & drop)

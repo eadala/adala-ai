@@ -1,0 +1,327 @@
+تمام—هذا Blueprint إنتاجي كامل (Production-Ready Architecture) لمنصة عدالة AI على مستوى SaaS حقيقي، مصمم خصيصًا لتقليل الثقل + دعم AI + تعدد المكاتب + قابلية التوسع.
+
+سأعطيك الهيكل كما لو أنك تسلمه لفريق هندسة في شركة كبيرة أو تحطه مباشرة في Replit.
+
+⸻
+
+🧱 Adala AI — Full Production Blueprint (v1)
+
+🧠 Architecture Principle
+
+Modular SaaS OS + Event-Driven Backend + AI On-Demand + Lazy Frontend
+
+⸻
+
+🏗️ 1) High-Level System Architecture
+
+[ React App Shell ]
+        │
+        ├── Lazy Modules Loader
+        │       ├── Cases Module
+        │       ├── Finance Module
+        │       ├── HR Module
+        │       ├── Clients Module
+        │       ├── AI Module (on-demand)
+        │       ├── Admin Module (separate bundle)
+        │
+        ▼
+[ API Gateway (Node.js/Express) ]
+        │
+        ├── Auth Service (RBAC + Tenants)
+        ├── Cases Service
+        ├── Finance Service
+        ├── HR Service
+        ├── AI Orchestrator Service
+        ├── Notification Service
+        │
+        ▼
+[ PostgreSQL + Redis ]
+        │
+        ▼
+[ AI Workers (Background Queue) ]
+
+⸻
+
+📁 2) Frontend Folder Structure (React / Vite)
+
+src/
+│
+├── app/
+│   ├── AppShell.tsx
+│   ├── router.tsx
+│   ├── providers/
+│   │     ├── AuthProvider.tsx
+│   │     ├── QueryProvider.tsx
+│   │     ├── ThemeProvider.tsx
+│
+├── modules/
+│   ├── cases/
+│   │     ├── pages/
+│   │     ├── components/
+│   │     ├── api.ts
+│   │     ├── hooks.ts
+│   │     ├── types.ts
+│   │
+│   ├── finance/
+│   ├── hr/
+│   ├── clients/
+│   ├── ai/
+│   ├── admin/
+│
+├── shared/
+│   ├── ui/
+│   ├── components/
+│   ├── hooks/
+│   ├── utils/
+│   ├── constants/
+│
+├── core/
+│   ├── auth/
+│   ├── permissions/
+│   ├── api-client.ts
+│   ├── event-bus.ts
+│
+└── main.tsx
+
+⸻
+
+⚙️ 3) App Shell (خفيف جدًا)
+
+export default function AppShell() {
+  return (
+    <>
+      <Sidebar />   {/* static only */}
+      <Topbar />
+      <Suspense fallback={<Loading />}>
+        <Router />
+      </Suspense>
+    </>
+  );
+}
+
+⸻
+
+🧩 4) Lazy Module Loading
+
+const Cases = lazy(() => import("@/modules/cases"));
+const Finance = lazy(() => import("@/modules/finance"));
+const HR = lazy(() => import("@/modules/hr"));
+const AIHub = lazy(() => import("@/modules/ai"));
+
+⸻
+
+🧠 5) Backend Structure (Node.js / Express)
+
+server/
+│
+├── api/
+│   ├── cases/
+│   ├── finance/
+│   ├── hr/
+│   ├── clients/
+│   ├── ai/
+│   ├── admin/
+│
+├── services/
+│   ├── auth.service.ts
+│   ├── cases.service.ts
+│   ├── finance.service.ts
+│   ├── ai.orchestrator.ts
+│   ├── event.service.ts
+│
+├── workers/
+│   ├── ai.worker.ts
+│   ├── notification.worker.ts
+│   ├── analytics.worker.ts
+│
+├── middleware/
+│   ├── auth.ts
+│   ├── rbac.ts
+│   ├── tenant.ts
+│
+└── server.ts
+
+⸻
+
+⚡ 6) Event-Driven Core (أهم جزء)
+
+EventBus.emit("CASE_UPDATED", {
+  caseId,
+  tenantId,
+  priority: "high"
+});
+
+⸻
+
+Worker:
+
+EventBus.on("CASE_UPDATED", async (event) => {
+  await AIScorer.process(event);
+  await NotificationService.send(event);
+});
+
+⸻
+
+🤖 7) AI Orchestrator Layer
+
+Input Event
+   ↓
+Intent Detection
+   ↓
+Risk Analysis
+   ↓
+Recommendation Engine
+   ↓
+Action Decision
+   ↓
+Cache Result
+
+⸻
+
+Example:
+
+if (case.priority === "high") {
+  return {
+    action: "notify_lawyer",
+    suggestion: "prepare_documents"
+  };
+}
+
+⸻
+
+💾 8) Database Architecture (PostgreSQL)
+
+Core Tables:
+
+users
+tenants
+roles
+permissions
+cases
+clients
+documents
+invoices
+payments
+ai_events
+ai_decisions
+ai_logs
+audit_logs
+notifications
+
+⸻
+
+⚡ 9) Redis Layer (Performance Engine)
+
+Used for:
+
+* caching API responses
+* AI results caching
+* session storage
+* queue jobs
+
+⸻
+
+🧠 10) AI Queue System
+
+API → Redis Queue → AI Worker → DB → Cache
+
+⸻
+
+Example Worker:
+
+queue.process(async (job) => {
+  const result = await runAI(job.data);
+  await cache.set(job.id, result);
+});
+
+⸻
+
+🔐 11) RBAC + Multi-Tenant Security
+
+if (user.tenantId !== resource.tenantId) {
+  throw new Error("Access denied");
+}
+
+⸻
+
+Permissions:
+
+* VIEW_CASES
+* EDIT_CASES
+* VIEW_FINANCE
+* REQUEST_AI
+* ADMIN_ACCESS
+
+⸻
+
+⚡ 12) Performance Rules (Critical)
+
+إلزامي:
+
+* Lazy load all modules
+* AI only on demand
+* Cache all repeated queries
+* No global state explosion
+* API batching instead of multiple calls
+
+⸻
+
+📊 13) Frontend Performance Budget
+
+Metric	Target
+Initial Load	< 1.5s
+Bundle size	< 300KB
+AI response	< 2s cached
+API calls per page	< 5
+
+⸻
+
+🧠 14) AI Cost Control Layer
+
+if (user.aiUsage > limit) {
+  throttleAI();
+}
+
+⸻
+
+🔥 15) Final System Behavior
+
+بعد هذا الـ Blueprint:
+
+النظام يصبح:
+
+* سريع جدًا
+* قابل للتوسع
+* AI ذكي لكنه غير ثقيل
+* Modular (كل شيء مستقل)
+* جاهز لمئات المكاتب
+
+⸻
+
+🚀 النتيجة النهائية
+
+أنت الآن تمتلك:
+
+🧩 “Enterprise Legal SaaS Operating System Architecture”
+
+وليس مجرد موقع.
+
+⸻
+
+إذا تريد الخطوة التالية (مهم جدًا)
+
+￼ أقدر أبني لك:
+
+🔥 “Replit Auto-Build Prompt”
+
+يعني أمر واحد فقط:
+
+Replit يبني المشروع كامل بهذا الهيكل تلقائيًا
+
+أو
+
+🔥 “Performance Refactor Checklist”
+
+لتحويل الكود الحالي مباشرة بدون إعادة بناء كاملة
+
+فقط قل: ￼ ابغى Auto Build Prompt

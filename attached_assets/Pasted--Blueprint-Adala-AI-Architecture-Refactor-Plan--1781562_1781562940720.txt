@@ -1,0 +1,282 @@
+تمام — هذا هو Blueprint إعادة هيكلة عدالة (Adala AI Architecture Refactor Plan) بشكل عملي قابل للتنفيذ مباشرة.
+
+⸻
+
+:::writing{variant=“document” id=“74192”}
+
+🏛️ ADALA AI — RE-ARCHITECTURE BLUEPRINT
+
+1. الهدف الأساسي
+
+تحويل النظام الحالي من:
+
+Monolithic Feature-Rich System (مشتت ومتشعب)
+
+إلى:
+
+Domain-Driven Modular SaaS Architecture (منظم وقابل للتوسع)
+
+بدون تعطيل النظام الحالي.
+
+⸻
+
+2. الشكل الجديد للنظام (Target Architecture)
+
+📦 Backend Structure
+
+/server
+  /core
+    app.ts
+    server.ts
+    config.ts
+  /modules
+    /legal-core
+      cases/
+      clients/
+      documents/
+    /financial
+      billing/
+      invoices/
+      payments/
+    /marketplace
+      store/
+      orders/
+      storefront/
+    /ai
+      copilot/
+      legal-ai/
+      analytics/
+    /platform
+      auth/
+      tenant/
+      rbac/
+      admin/
+    /integrations
+      stripe/
+      whatsapp/
+      email/
+      saudi-apis/
+  /shared
+    utils/
+    errors/
+    validators/
+    middleware/
+    logger/
+
+⸻
+
+🖥️ Frontend Structure
+
+/client
+  /app
+    /legal-core
+    /financial
+    /marketplace
+    /ai
+    /platform
+  /components
+    /ui
+    /shared
+    /layout
+  /hooks
+  /services
+  /lib
+  /i18n
+
+⸻
+
+3. قاعدة ذهبية جديدة (Golden Rule)
+
+❌ ممنوع:
+
+* Routes عشوائية
+* Logic داخل React pages
+* Duplicate utilities
+* Cross-domain imports
+
+✅ مسموح فقط:
+
+* كل Feature داخل Module واحد
+* كل Module مستقل
+* التواصل عبر Services فقط
+
+⸻
+
+4. Data Flow الجديد
+
+Request
+  ↓
+Route Handler
+  ↓
+Zod Validation
+  ↓
+Service Layer
+  ↓
+Repository Layer (Drizzle)
+  ↓
+Database
+
+⸻
+
+5. تقسيم المسؤوليات
+
+Controller (خفيف جداً)
+
+* يستقبل request فقط
+* لا يحتوي business logic
+
+Service
+
+* كل المنطق التجاري هنا
+
+Repository
+
+* كل SQL / Drizzle queries هنا
+
+⸻
+
+6. خطة النقل بدون كسر النظام (Zero Downtime Migration)
+
+المرحلة 1 — التأسيس (3 أيام)
+
+* إنشاء /modules structure
+* إنشاء /shared layer
+* إنشاء service pattern template
+* إضافة Zod base validator
+
+⸻
+
+المرحلة 2 — نقل بدون تغيير سلوك (5–7 أيام)
+
+انقل فقط:
+
+* cases → legal-core
+* clients → legal-core
+* invoices → financial
+* payments → financial
+
+بدون تغيير أي logic
+
+⸻
+
+المرحلة 3 — تنظيف التكرار (3 أيام)
+
+* إزالة duplicate utils
+* توحيد t(), imgSrc(), toWaNum()
+* توحيد error handling
+* توحيد response format
+
+⸻
+
+المرحلة 4 — عزل الأنظمة (3 أيام)
+
+* فصل AI module بالكامل
+* فصل marketplace
+* فصل integrations
+
+⸻
+
+7. إصلاحات إلزامية أثناء إعادة الهيكلة
+
+🔐 Security Layer
+
+* إزالة localStorage sessions
+* تحويلها إلى HttpOnly Cookies
+* منع fallback tenant
+* تفعيل CSP enforcement
+* فرض audit logging
+
+⸻
+
+🗄️ Database Layer
+
+* إضافة indexes للـ FK المفقودة
+* منع SELECT *
+* مراجعة الجداول المكررة لاحقاً (لا تحذف الآن)
+
+⸻
+
+⚡ Performance Layer
+
+* تقسيم backend bundle
+* dynamic imports للـ heavy modules
+* تقليل large route files
+
+⸻
+
+8. قواعد التطوير الجديدة (Coding Standards)
+
+لكل Feature جديد:
+
+/module-name
+  /controller
+  /service
+  /repository
+  /validators
+  /types
+
+⸻
+
+ممنوع:
+
+* كتابة logic داخل React page
+* إنشاء routes خارج module
+* استخدام shared logic بدون shared layer
+
+⸻
+
+9. الهدف النهائي
+
+بعد هذه إعادة الهيكلة:
+
+قبل:
+
+* 96 route file
+* 156 table
+* 100+ page
+* logic متداخل
+
+بعد:
+
+* 6 Domains واضحة
+* Services معزولة
+* Shared utilities مركزية
+* قابلية توسع Enterprise-grade
+
+⸻
+
+10. تعريف النجاح
+
+النظام يعتبر “مُعاد هيكلته” عندما:
+
+* يمكن حذف module بدون كسر النظام
+* كل domain يعمل بشكل مستقل
+* لا يوجد duplicate logic
+* كل API لديه validation
+* audit logs تعمل 100%
+* tenant isolation آمن 100%
+
+⸻
+
+🚀 النتيجة المتوقعة
+
+بعد إعادة الهيكلة:
+
+* تقليل الأخطاء 60–80%
+* تسريع التطوير 2x–3x
+* تحسين الأمان بشكل كبير
+* جاهزية Enterprise SaaS حقيقية
+* قابلية بيع المنصة أو توسيعها دولياً
+
+⸻
+
+⛔ ملاحظة أخيرة مهمة
+
+هذه ليست إعادة كتابة.
+
+هذه إعادة تنظيم + فصل مسؤوليات فقط.
+
+لا يتم حذف أي ميزة.
+
+فقط إعادة توزيعها بشكل هندسي صحيح.
+:::

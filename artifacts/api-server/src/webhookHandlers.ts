@@ -1,0 +1,712 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
+import { getStripeSync, getUncachableStripeClient } from './stripeClient';
+import { provisionTenant } from './services/tenantProvisioning';
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { randomBytes, randomUUID } from "crypto";
+import nodemailer from "nodemailer";
+import { auditLog, buildLogLine } from "./lib/auditLogger";
+import { getProductionBaseUrl } from "./lib/productionUrl";
+
+/* ── Revenue calculation (mirrors the document spec) ──────────────
+   Platform fee : 10%
+   Stripe fee   : 2.9% + 1.00 SAR fixed  (approximate for SAR)
+   Net          : gross - platformFee - stripeFee
+──────────────────────────────────────────────────────────────────── */
+const PLATFORM_FEE_PCT = 0.10;
+const STRIPE_FEE_PCT   = 0.029;
+const STRIPE_FEE_FIXED = 1.00; // 1 SAR fixed fee per transaction
+
+function calcRevenue(grossSAR: number) {
+  const platformFee = parseFloat((grossSAR * PLATFORM_FEE_PCT).toFixed(2));
+  const stripeFee   = parseFloat((grossSAR * STRIPE_FEE_PCT + STRIPE_FEE_FIXED).toFixed(2));
+  const net         = parseFloat((grossSAR - platformFee - stripeFee).toFixed(2));
+  return { gross: grossSAR, platformFee, stripeFee, net };
+}
+
+/* ── Write a credit line to office_ledger with full breakdown ──── */
+async function recordRevenue(opts: {
+  officeId: string;
+  grossSAR: number;
+  ref: string;
+  description: string;
+  stripeId?: string;
+  stripeEventId?: string;
+}) {
+  const { officeId, grossSAR, ref, description, stripeId, stripeEventId } = opts;
+  const { platformFee, stripeFee, net } = calcRevenue(grossSAR);
+  await db.execute(sql`
+    INSERT INTO office_ledger
+      (office_id, type, amount, currency, ref, description,
+       stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+    VALUES
+      (${officeId}, 'credit', ${grossSAR}, 'SAR', ${ref}, ${description},
+       ${stripeId ?? null}, ${stripeEventId ?? null},
+       ${platformFee}, ${stripeFee}, ${net})
+    ON CONFLICT DO NOTHING
+  `);
+  return { platformFee, stripeFee, net };
+}
+
+/* ── Downgrade office to free ────────────────────────────────── */
+async function downgradeToFree(officeId: string, reason: string) {
+  try {
+    await provisionTenant({ officeId, plan: 'free', email: 'system' });
+    await db.execute(sql`
+      INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+      VALUES (${officeId}, 'downgrade', 'paid', 'free',
+        'تم تخفيض الباقة تلقائياً ⚠️',
+        ${reason}, FALSE)
+    `);
+    console.log(`[Webhook] Downgraded office=${officeId} to free — ${reason}`);
+  } catch (err) {
+    console.error('[Webhook] Downgrade error:', err);
+  }
+}
+
+export class WebhookHandlers {
+  /**
+   * Main entry point: buffers event → verifies signature → dispatches with
+   * retry (3× exponential backoff) → DLQ on exhaustion.
+   * Signature verification and idempotency are handled inside bufferAndProcess.
+   */
+  static async processWebhook(payload: Buffer, signature: string): Promise<void> {
+    if (!Buffer.isBuffer(payload)) {
+      throw new Error(
+        'STRIPE WEBHOOK ERROR: Payload must be a Buffer. ' +
+        'Ensure webhook route is registered BEFORE app.use(express.json()).'
+      );
+    }
+    const { bufferAndProcess } = await import('./services/stripeEventBuffer');
+    await bufferAndProcess(payload, signature, async (event) => {
+      await WebhookHandlers.dispatchEvent(event);
+      /* StripeSync runs here so it has the original raw Buffer + signature.
+         dispatchEvent does NOT call it — keeping it clean for DLQ retries. */
+      await runStripeSync(payload, signature).catch(() => {});
+    });
+  }
+
+  /**
+   * Dispatch a verified, deduplicated Stripe event to the correct handler.
+   * Called by processWebhook (via bufferAndProcess) AND directly by DLQ retry.
+   * StripeSync is intentionally NOT called here.
+   */
+  static async dispatchEvent(event: any): Promise<void> {
+    const eventId   = event.id   as string;
+    const eventType = event.type as string;
+    console.log(`[Webhook] Processing event: ${eventType} (${eventId})`);
+
+    /* ══════════════════════════════════════════════════════════════
+       1. checkout.session.completed → activate subscription
+          GUARD: only runs for subscription payments (metadata.plan present)
+          Office-store payments (metadata.officeSlug, no metadata.plan) are
+          handled exclusively in section 7 below.
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'checkout.session.completed') {
+      const session     = event.data.object as any;
+      const isStorePayment = !!session?.metadata?.officeSlug && !session?.metadata?.plan;
+
+      if (!isStorePayment) {
+        /* Subscription checkout — provision tenant */
+        const plan     = session?.metadata?.plan ?? session?.metadata?.planId ?? 'basic';
+        const email    = session?.customer_email ?? session?.customer_details?.email ?? 'unknown';
+        const officeId = session?.metadata?.officeId ?? 'default';
+        const grossSAR = (session?.amount_total ?? 0) / 100;
+
+        console.log(`[Webhook] checkout.session.completed (subscription) — office=${officeId} plan=${plan} amount=${grossSAR} SAR`);
+
+        try {
+          await provisionTenant({ officeId, plan, email, stripeSessionId: session.id, amountPaid: session?.amount_total ?? 0 });
+
+          if (grossSAR > 0) {
+            const rev = await recordRevenue({
+              officeId,
+              grossSAR,
+              ref:         `CHECKOUT_${plan.toUpperCase()}`,
+              description: `اشتراك باقة ${plan} — ${email}`,
+              stripeId:    session.id,
+              stripeEventId: eventId,
+            });
+            console.log(`[Webhook] Revenue recorded: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+          }
+        } catch (err) {
+          console.error('[Webhook] checkout provisioning error:', err);
+        }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       2. invoice.paid → record subscription renewal revenue
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'invoice.paid') {
+      const inv      = event.data.object as any;
+      const grossSAR = (inv?.amount_paid ?? 0) / 100;
+      if (grossSAR <= 0) { /* free plan / zero invoice */ }
+      else {
+        const officeId    = inv?.metadata?.officeId ?? inv?.subscription_details?.metadata?.officeId ?? 'default';
+        const plan        = inv?.metadata?.plan     ?? inv?.subscription_details?.metadata?.plan     ?? 'unknown';
+        const email       = inv?.customer_email ?? 'unknown';
+        const periodEnd   = inv?.lines?.data?.[0]?.period?.end
+          ? new Date(inv.lines.data[0].period.end * 1000).toLocaleDateString('ar-SA')
+          : '';
+
+        try {
+          const rev = await recordRevenue({
+            officeId,
+            grossSAR,
+            ref:         `RENEWAL_${plan.toUpperCase()}`,
+            description: `تجديد اشتراك ${plan}${periodEnd ? ' — حتى ' + periodEnd : ''} — ${email}`,
+            stripeId:    inv.id,
+            stripeEventId: eventId,
+          });
+          console.log(`[Webhook] invoice.paid: gross=${grossSAR} platform=${rev.platformFee} stripe=${rev.stripeFee} net=${rev.net}`);
+
+          /* Audit log — append-only, Elastic/Loki compatible */
+          auditLog({
+            officeId,
+            action:     "stripe.invoice.paid",
+            resource:   "subscription",
+            resourceId: inv.id,
+            details:    JSON.stringify({ grossSAR, plan, email, eventId, ...buildLogLine({ action: "stripe.invoice.paid", resource: "subscription", officeId }) }),
+          }).catch(() => {});
+
+          /* Also update platform_billing_invoices status */
+          await db.execute(sql`
+            UPDATE platform_billing_invoices
+            SET status = 'paid', paid_at = NOW()
+            WHERE stripe_id = ${inv.id} OR (status = 'unpaid' AND office_id = ${officeId})
+          `).catch(() => {});
+        } catch (err) {
+          console.error('[Webhook] invoice.paid error:', err);
+        }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       3. customer.subscription.updated → sync plan changes
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'customer.subscription.updated') {
+      const sub      = event.data.object as any;
+      const officeId = sub?.metadata?.officeId ?? 'default';
+      const plan     = sub?.metadata?.plan     ?? sub?.metadata?.planId ?? null;
+      const status   = sub?.status as string;
+
+      console.log(`[Webhook] subscription.updated — office=${officeId} status=${status} plan=${plan}`);
+
+      try {
+        /* Sync status */
+        await db.execute(sql`
+          UPDATE subscriptions SET status = ${status} WHERE office_id = ${officeId}
+        `).catch(() => {});
+
+        /* If plan changed, re-provision */
+        if (plan && status === 'active') {
+          const email = sub?.customer_email ?? 'system';
+          await provisionTenant({ officeId, plan, email });
+        }
+
+        /* Cancellation scheduled */
+        if (sub?.cancel_at_period_end) {
+          const cancelDate = new Date((sub.current_period_end ?? 0) * 1000).toLocaleDateString('ar-SA');
+          await db.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'downgrade', ${plan ?? 'paid'}, 'free',
+              'إلغاء الاشتراك مجدول 📅',
+              ${`سيتوقف اشتراكك تلقائياً في ${cancelDate}. يمكنك إلغاء قرار الإلغاء من لوحة التحكم.`}, FALSE)
+          `).catch(() => {});
+        }
+      } catch (err) {
+        console.error('[Webhook] subscription.updated error:', err);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       4. customer.subscription.deleted → downgrade to free
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'customer.subscription.deleted') {
+      const sub      = event.data.object as any;
+      const officeId = sub?.metadata?.officeId ?? 'default';
+      try {
+        await db.execute(sql`
+          UPDATE subscriptions SET status = 'cancelled' WHERE office_id = ${officeId}
+        `).catch(() => {});
+        await downgradeToFree(officeId, 'انتهى الاشتراك وتم تخفيض الباقة إلى المجاني تلقائياً.');
+      } catch (err) {
+        console.error('[Webhook] subscription.deleted error:', err);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       5. invoice.payment_failed → mark past_due + notify
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'invoice.payment_failed') {
+      const inv       = event.data.object as any;
+      const officeId  = inv?.metadata?.officeId ?? 'default';
+      const attempt   = inv?.attempt_count ?? 1;
+
+      try {
+        /* TRANSACTION: subscription status + notification are atomic */
+         
+        await db.transaction(async (tx: any) => {
+          await tx.execute(sql`
+            UPDATE subscriptions SET status = 'past_due' WHERE office_id = ${officeId}
+          `);
+          await tx.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'downgrade', 'paid', 'paid',
+              ${'فشل تجديد الاشتراك ❌ (محاولة ' + attempt + ')'},
+              'فشلت عملية الدفع. يُرجى تحديث بيانات بطاقتك لتجنب تعليق الخدمة.', FALSE)
+          `);
+        });
+
+        /* Auto-downgrade after 3 failed attempts (separate — provisionTenant has its own logic) */
+        if (attempt >= 3) {
+          await downgradeToFree(officeId, `تم تخفيض الباقة إلى المجاني بعد ${attempt} محاولات دفع فاشلة.`);
+        }
+
+        console.log(`[Webhook] invoice.payment_failed — office=${officeId} attempt=${attempt}`);
+      } catch (err) {
+        console.error('[Webhook] payment_failed error:', err);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       6. customer.subscription.trial_will_end → remind user
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'customer.subscription.trial_will_end') {
+      const sub      = event.data.object as any;
+      const officeId = sub?.metadata?.officeId ?? 'default';
+      const trialEnd = new Date((sub?.trial_end ?? 0) * 1000).toLocaleDateString('ar-SA');
+      try {
+        await db.execute(sql`
+          INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+          VALUES (${officeId}, 'info', 'trial', 'trial',
+            'تنتهي فترة التجربة قريباً ⏰',
+            ${`تنتهي فترة تجربتك المجانية في ${trialEnd}. أضف بيانات الدفع للاستمرار.`}, FALSE)
+        `).catch(() => {});
+      } catch { /* non-critical */ }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       7. Office service payment → auto-create case + client + portal
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'checkout.session.completed') {
+      const session = event.data.object as any;
+      const officeSlug  = session?.metadata?.officeSlug;
+      const serviceName = session?.metadata?.serviceName ?? "";
+      const clientName  = session?.metadata?.clientName  ?? "";
+      const clientPhone = session?.metadata?.clientPhone ?? "";
+      const clientEmail = session?.metadata?.clientEmail
+        ?? session?.customer_email
+        ?? session?.customer_details?.email
+        ?? "";
+
+      if (officeSlug && !session?.metadata?.plan) {
+        console.log(`[Webhook] Office service checkout — slug=${officeSlug} client=${clientName}`);
+        try {
+          await handleOfficeServicePayment({
+            stripeSessionId: session.id as string,
+            officeSlug, clientName, clientPhone, clientEmail, serviceName,
+          });
+        } catch (err) {
+          console.error('[Webhook] handleOfficeServicePayment error:', err);
+        }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       8. charge.refunded → debit ledger + update payment_transactions
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'charge.refunded') {
+      const charge      = event.data.object as any;
+      const refundedSAR = (charge?.amount_refunded ?? 0) / 100;
+      const chargeId    = charge?.id as string;
+      const piId        = charge?.payment_intent as string;
+
+      if (refundedSAR > 0) {
+        try {
+          /* 1. Look up which office owns this charge via payment_transactions */
+          const txRow: any = piId
+            ? (await db.execute(sql`
+                SELECT office_id FROM payment_transactions
+                WHERE stripe_payment_intent_id = ${piId}
+                LIMIT 1
+              `))?.rows?.[0] ?? null
+            : null;
+
+          const officeId = txRow?.office_id ?? 'unknown';
+
+          /* 2. Write debit entry to office_ledger (idempotent via stripe_event_id) */
+          await db.execute(sql`
+            INSERT INTO office_ledger
+              (office_id, type, amount, currency, ref, description,
+               stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+            VALUES
+              (${officeId}, 'refund', ${refundedSAR}, 'SAR',
+               ${'REFUND_' + chargeId},
+               ${'استرداد دفعة — ' + chargeId},
+               ${chargeId}, ${eventId},
+               0, 0, ${-refundedSAR})
+            ON CONFLICT (stripe_event_id) WHERE stripe_event_id IS NOT NULL
+            DO NOTHING
+          `).catch(() => {
+            /* Fallback: if partial index not yet applied, use generic ON CONFLICT DO NOTHING */
+            return db.execute(sql`
+              INSERT INTO office_ledger
+                (office_id, type, amount, currency, ref, description,
+                 stripe_id, stripe_event_id, platform_fee, stripe_fee, net_amount)
+              VALUES
+                (${officeId}, 'refund', ${refundedSAR}, 'SAR',
+                 ${'REFUND_' + chargeId},
+                 ${'استرداد دفعة — ' + chargeId},
+                 ${chargeId}, ${eventId},
+                 0, 0, ${-refundedSAR})
+              ON CONFLICT DO NOTHING
+            `).catch(() => {});
+          });
+
+          /* 3. Update payment_transactions status */
+          if (piId) {
+            await db.execute(sql`
+              UPDATE payment_transactions
+              SET status = 'refunded', updated_at = NOW()
+              WHERE stripe_payment_intent_id = ${piId}
+            `).catch(() => {});
+          }
+
+          /* 4. Notify the office */
+          await db.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'info', '', '',
+              'تم استرداد دفعة 🔄',
+              ${`تم استرداد مبلغ ${refundedSAR} ر.س — معرف الشحنة: ${chargeId}`}, FALSE)
+          `).catch(() => {});
+
+          console.log(`[Webhook] charge.refunded — office=${officeId} amount=${refundedSAR} SAR chargeId=${chargeId}`);
+        } catch (err) {
+          console.error('[Webhook] charge.refunded error:', err);
+        }
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       9. charge.failed → audit log + notify office
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'charge.failed') {
+      const charge     = event.data.object as any;
+      const chargeId   = charge?.id as string;
+      const piId       = charge?.payment_intent as string;
+      const amountSAR  = (charge?.amount ?? 0) / 100;
+      const failReason = charge?.failure_message ?? charge?.failure_code ?? 'unknown';
+
+      try {
+        /* Resolve officeId via payment_transactions */
+        const txRow: any = piId
+          ? ((await db.execute(sql`
+              SELECT office_id FROM payment_transactions
+              WHERE stripe_payment_intent_id = ${piId} LIMIT 1
+            `)?.then?.((r: any) => r?.rows?.[0] ?? null)))
+          : null;
+        const officeId = txRow?.office_id ?? null;
+
+        /* Audit log — append-only */
+        auditLog({
+          officeId: officeId ?? undefined,
+          action:   "stripe.charge.failed",
+          resource: "payment",
+          resourceId: chargeId,
+          details:  JSON.stringify({ amountSAR, failReason, chargeId, eventId }),
+        }).catch(() => {});
+
+        /* Notify office if known */
+        if (officeId) {
+          await db.execute(sql`
+            INSERT INTO plan_notifications (office_id, type, old_plan, new_plan, title, message, is_read)
+            VALUES (${officeId}, 'info', '', '',
+              'فشلت عملية الدفع ❌',
+              ${`فشلت عملية دفع بمبلغ ${amountSAR} ر.س — السبب: ${failReason}`}, FALSE)
+          `).catch(() => {});
+        }
+
+        console.log(`[Webhook] charge.failed — chargeId=${chargeId} amount=${amountSAR} reason=${failReason}`);
+      } catch (err) {
+        console.error('[Webhook] charge.failed error:', err);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       10. payment_intent.succeeded → audit log
+    ══════════════════════════════════════════════════════════════ */
+    if (eventType === 'payment_intent.succeeded') {
+      const pi       = event.data.object as any;
+      const piId     = pi?.id as string;
+      const amountSAR = (pi?.amount ?? 0) / 100;
+      const currency  = pi?.currency?.toUpperCase() ?? 'SAR';
+
+      try {
+        const piResult: any = await db.execute(sql`
+          SELECT office_id FROM payment_transactions
+          WHERE stripe_payment_intent_id = ${piId} LIMIT 1
+        `);
+        const officeId: string | null = (Array.isArray(piResult) ? piResult[0] : piResult?.rows?.[0])?.office_id ?? null;
+
+        auditLog({
+          officeId: officeId ?? undefined,
+          action:   "stripe.payment_intent.succeeded",
+          resource: "payment",
+          resourceId: piId,
+          details:  JSON.stringify({ amountSAR, currency, piId, eventId }),
+        }).catch(() => {});
+
+        console.log(`[Webhook] payment_intent.succeeded — piId=${piId} amount=${amountSAR} ${currency}`);
+      } catch (err) {
+        console.error('[Webhook] payment_intent.succeeded error:', err);
+      }
+    }
+
+    /* StripeSync is called by processWebhook (not here) so DLQ retries stay clean */
+  }
+}
+
+/* ── Office service payment: auto-provision client + case + portal ── */
+async function handleOfficeServicePayment(opts: {
+  stripeSessionId: string;
+  officeSlug: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string;
+  serviceName: string;
+}) {
+  const { stripeSessionId, officeSlug, clientName, clientPhone, clientEmail, serviceName } = opts;
+
+  function sqlOne(r: any) { return (r?.rows ?? r)?.[0] ?? null; }
+
+  /* cases.source / store_order_id / created_by and office_orders.status /
+     auto_case_id / portal_token are owned by migrations 003/004 — no Runtime ALTER. */
+
+  /* ── Step 2: Get the order + office (CRITICAL — abort if missing) ── */
+  const orderRow = sqlOne(await db.execute(sql`
+    SELECT oo.*, op.id AS office_page_id, op.name AS office_name, op.email AS office_email
+    FROM office_orders oo
+    JOIN office_page   op ON op.id = oo.office_id
+    WHERE oo.stripe_session_id = ${stripeSessionId}
+    LIMIT 1
+  `));
+  if (!orderRow) {
+    console.warn('[Webhook] No order found for session', stripeSessionId);
+    return;
+  }
+
+  /* ── Idempotency guard: if auto_case_id already set, this event was already processed ── */
+  if (orderRow.auto_case_id) {
+    console.log('[Webhook] Idempotent skip — order already processed, caseId:', orderRow.auto_case_id);
+    return;
+  }
+
+  const officeId = orderRow.office_page_id as string;
+
+  /* ── Step 3: Mark order as paid (CRITICAL) ── */
+  await db.execute(sql`
+    UPDATE office_orders SET status = 'paid', updated_at = NOW()
+    WHERE stripe_session_id = ${stripeSessionId}
+  `);
+
+  /* ── Step 4: client_accounts schema owned by Migration 038 (no Runtime DDL) ── */
+
+  /* ── Step 5: Get or create client account (CRITICAL) ── */
+  let clientId: string;
+  if (clientEmail) {
+    const existing = sqlOne(await db.execute(sql`
+      SELECT id FROM client_accounts WHERE email = ${clientEmail.toLowerCase()} LIMIT 1
+    `));
+    if (existing) {
+      clientId = existing.id as string;
+      await db.execute(sql`
+        UPDATE client_accounts
+        SET name  = COALESCE(name,  ${clientName  || null}),
+            phone = COALESCE(phone, ${clientPhone || null}),
+            updated_at = NOW()
+        WHERE id = ${clientId}
+      `).catch(() => {});
+    } else {
+      clientId = randomBytes(16).toString("hex");
+      await db.execute(sql`
+        INSERT INTO client_accounts (id, email, name, phone, email_verified)
+        VALUES (${clientId}, ${clientEmail.toLowerCase()}, ${clientName || null}, ${clientPhone || null}, true)
+      `);
+    }
+  } else {
+    clientId = randomBytes(16).toString("hex");
+    const fakeEmail = `${clientId}@noemail.adala.sa`;
+    await db.execute(sql`
+      INSERT INTO client_accounts (id, email, name, phone)
+      VALUES (${clientId}, ${fakeEmail}, ${clientName || null}, ${clientPhone || null})
+    `);
+  }
+
+  /* ── Step 5b: Sync to clients CRM table (non-critical) ── */
+  /* clients.client_account_id owned by Migration 038 — no Runtime ALTER. */
+  if (clientEmail) {
+    try {
+      const existingCrm = await db.execute(sql`
+        SELECT id FROM clients WHERE LOWER(email) = ${clientEmail.toLowerCase()} AND office_id = ${officeId} LIMIT 1
+      `).then((r: unknown) => ((r as { rows?: { id: unknown }[] }).rows ?? [])[0]).catch(() => null);
+      if (existingCrm) {
+        await db.execute(sql`
+          UPDATE clients SET client_account_id = ${clientId}, updated_at = NOW()
+          WHERE id = ${String(existingCrm.id)}::uuid
+        `).catch(() => {});
+      } else {
+        await db.execute(sql`
+          INSERT INTO clients (id, full_name, email, phone, office_id, client_account_id, source, status, created_at, updated_at)
+          VALUES (${randomUUID()}, ${clientName || "عميل متجر"}, ${clientEmail}, ${clientPhone || null},
+                  ${officeId}, ${clientId}, 'store', 'active', NOW(), NOW())
+          ON CONFLICT DO NOTHING
+        `).catch(() => {});
+      }
+    } catch { /* non-critical */ }
+  }
+
+  /* ── Step 6: Auto-create a case with store source (CRITICAL) ── */
+  const svcLabel  = serviceName || (orderRow.service_name as string | undefined) || "خدمة قانونية";
+  const caseTitle = `${svcLabel} — ${clientName || clientPhone || "عميل جديد"}`;
+  const caseId    = randomUUID();
+
+  await db.execute(sql`
+    INSERT INTO cases (id, title, description, case_type, status, client_name, created_by, source, store_order_id)
+    VALUES (
+      ${caseId},
+      ${caseTitle},
+      ${'تم إنشاء هذه القضية تلقائياً عند اكتمال الدفع الإلكتروني عبر بوابة المكتب.'},
+      'civil',
+      'open',
+      ${clientName || null},
+      ${officeId},
+      'store',
+      ${orderRow.id as string}
+    )
+  `);
+
+  /* ── Step 7: Create portal token (CRITICAL) — table owned by Migration 038 ── */
+  const portalToken = randomBytes(32).toString("hex");
+  const portalId    = randomUUID();
+  const expiresAt   = new Date(Date.now() + 365 * 86400000);
+
+  await db.execute(sql`
+    INSERT INTO client_portal_tokens
+      (id, case_id, token, client_email, client_name, expires_at,
+       show_invoices, show_timeline, allowed_to_upload, shared_documents, created_at)
+    VALUES
+      (${portalId}, ${caseId}, ${portalToken},
+       ${clientEmail || null}, ${clientName || null},
+       ${expiresAt.toISOString()},
+       true, true, true, '[]', NOW())
+  `);
+
+  /* ── Step 8: Link case → client account (CRITICAL) — table owned by Migration 038 ── */
+  await db.execute(sql`
+    INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
+    VALUES (${clientId}, ${caseId}, ${portalId}, ${portalToken}, ${officeId})
+    ON CONFLICT (client_id, case_id) DO NOTHING
+  `);
+
+  /* ── Step 9: Record portal token on the order (CRITICAL — enables polling) ── */
+  await db.execute(sql`
+    UPDATE office_orders
+    SET auto_case_id = ${caseId}, portal_token = ${portalToken}
+    WHERE stripe_session_id = ${stripeSessionId}
+  `);
+
+  /* ── Step 10: Initial timeline entry (non-critical) — table owned by Migration 038 ── */
+  await db.execute(sql`
+    INSERT INTO case_timeline (id, case_id, entry_type, title, description, is_shared, created_by)
+    VALUES (
+      ${randomUUID()}, ${caseId}, 'note',
+      'تم استلام الطلب والدفع بنجاح ✅',
+      ${'تم استلام طلبك وسيتم التواصل معك في أقرب وقت ممكن. يمكنك متابعة تفاصيل قضيتك من خلال بوابتك الإلكترونية.'},
+      true, 'system'
+    )
+  `).catch(() => {});
+
+  /* ── Step 11: Welcome email (non-critical — failure must not roll back) ── */
+  if (clientEmail) {
+    try {
+      const baseUrl = getProductionBaseUrl({ required: false });
+      if (!baseUrl) {
+        console.log("[Webhook] PRODUCTION_URL/APP_URL missing — skipping welcome email");
+      } else {
+      const portalUrl = `${baseUrl}/portal/${portalToken}`;
+      const officeName = (orderRow.office_name as string | undefined) ?? "مكتب المحاماة";
+      await sendAcquisitionEmail({ clientEmail, clientName, officeName, svcLabel, portalUrl });
+      }
+    } catch (e) {
+      console.error('[Webhook] Welcome email error (non-critical):', e);
+    }
+  }
+
+  console.log(`[Webhook] Client acquisition done — case=${caseId} source=store portal=${portalToken.slice(0, 8)}...`);
+}
+
+async function sendAcquisitionEmail(opts: {
+  clientEmail: string; clientName: string; officeName: string; svcLabel: string; portalUrl: string;
+}) {
+  const { clientEmail, clientName, officeName, svcLabel, portalUrl } = opts;
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.log('[Webhook] SMTP not configured — skipping welcome email');
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: parseInt(process.env.SMTP_PORT ?? "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+
+  const greeting = clientName ? `مرحباً ${clientName}،` : "مرحباً،";
+  const html = `
+  <div dir="rtl" style="font-family:'Cairo',Arial,sans-serif;line-height:1.8;color:#111;max-width:600px;margin:0 auto;padding:32px 24px;border:1px solid #e5e7eb;border-radius:12px">
+    <div style="background:linear-gradient(135deg,#0f1c35,#1A2744);padding:24px 28px;border-radius:10px;margin-bottom:24px">
+      <div style="color:#C9A84C;font-size:22px;font-weight:900">⚖️ ${officeName}</div>
+      <div style="color:rgba(255,255,255,.6);font-size:13px;margin-top:4px">تأكيد الطلب والدفع</div>
+    </div>
+    <p style="font-size:15px">${greeting}</p>
+    <p>شكراً على ثقتك بـ <strong>${officeName}</strong>. تم استلام طلبك بنجاح وسيتواصل معك فريق المكتب في أقرب وقت.</p>
+    <div style="background:#f8f9fa;border-right:4px solid #C9A84C;padding:16px;border-radius:8px;margin:20px 0">
+      <strong>📋 الخدمة المطلوبة:</strong> ${svcLabel}
+    </div>
+    <p>يمكنك متابعة حالة قضيتك وجميع التحديثات من خلال <strong>بوابتك الإلكترونية الخاصة</strong>:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${portalUrl}"
+         style="display:inline-block;background:#C9A84C;color:#0d1b2a;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px">
+        🔗 فتح بوابتك الإلكترونية
+      </a>
+    </div>
+    <p style="font-size:12px;color:#9ca3af;text-align:center">
+      إذا لم تطلب هذه الخدمة، يمكنك تجاهل هذا البريد.
+    </p>
+    <hr style="margin-top:28px;border-color:#e5e7eb"/>
+    <p style="color:#9ca3af;font-size:11px;text-align:center">منصة عدالة AI — نظام التشغيل القانوني الذكي</p>
+  </div>`;
+
+  await transporter.sendMail({
+    from: `"${officeName}" <${process.env.SMTP_FROM ?? smtpUser}>`,
+    to: clientEmail,
+    subject: `✅ تأكيد طلبك — ${svcLabel}`,
+    text: `${greeting}\nتم استلام طلبك (${svcLabel}) بنجاح.\n\nبوابتك الإلكترونية: ${portalUrl}`,
+    html,
+  });
+}
+
+async function runStripeSync(payload: Buffer, signature: string) {
+  try {
+    const sync = await getStripeSync();
+    await sync.processWebhook(payload, signature);
+  } catch (err) {
+    console.warn('[Webhook] StripeSync warning:', (err as Error).message);
+  }
+}

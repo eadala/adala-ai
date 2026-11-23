@@ -1,0 +1,286 @@
+المشروع الذي تصفه (مواقع فرعية لكل مكتب + دومينات خاصة + خطط اشتراك تتحكم بالميزات) هو نظام SaaS متعدد المستأجرين (Multi-Tenant SaaS) كامل، ولا يمكن وضع آلاف الأسطر الخاصة به في رسالة واحدة. لكن هذا هو الكود الأساسي الذي تبدأ به، وهو متوافق مع Replit + React + TypeScript + PostgreSQL + Drizzle.
+
+## 1. جدول النطاقات
+
+### `shared/schema/officeDomains.ts`
+
+```ts
+import {
+  pgTable,
+  uuid,
+  varchar,
+  boolean,
+  timestamp
+} from "drizzle-orm/pg-core";
+
+export const officeDomains = pgTable(
+  "office_domains",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    officeId: uuid("office_id")
+      .notNull(),
+
+    subdomain: varchar(
+      "subdomain",
+      { length: 100 }
+    ).notNull(),
+
+    customDomain: varchar(
+      "custom_domain",
+      { length: 255 }
+    ),
+
+    isVerified: boolean(
+      "is_verified"
+    ).default(false),
+
+    sslEnabled: boolean(
+      "ssl_enabled"
+    ).default(false),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow()
+  }
+);
+```
+
+---
+
+# 2. خصائص الخطط
+
+### `shared/planFeatures.ts`
+
+```ts
+export const planFeatures = {
+
+  starter: {
+    customDomain: false
+  },
+
+  basic: {
+    customDomain: false
+  },
+
+  professional: {
+    customDomain: false
+  },
+
+  business: {
+    customDomain: true
+  },
+
+  premium: {
+    customDomain: true
+  },
+
+  ultimate: {
+    customDomain: true
+  },
+
+  enterprise: {
+    customDomain: true
+  }
+
+};
+```
+
+---
+
+# 3. التحقق من إمكانية ربط دومين
+
+```ts
+export function canUseCustomDomain(
+  planSlug: string
+) {
+
+  return (
+    planFeatures[
+      planSlug as keyof typeof planFeatures
+    ]?.customDomain === true
+  );
+
+}
+```
+
+---
+
+# 4. إنشاء الدومين الفرعي تلقائياً
+
+```ts
+export function generateSubdomain(
+  officeName: string
+) {
+
+  return officeName
+    .toLowerCase()
+    .replaceAll(" ", "-")
+    + ".adala-ai.com";
+
+}
+```
+
+---
+
+# مثال
+
+```ts
+generateSubdomain(
+"مكتب الشمري للمحاماة"
+);
+```
+
+الناتج:
+
+```text
+alshammari-law.adala-ai.com
+```
+
+---
+
+# API
+
+### `server/routes/domains.ts`
+
+```ts
+router.post(
+"/connect-domain",
+async (req, res) => {
+
+const {
+officeId,
+customDomain
+} = req.body;
+
+await db.insert(
+officeDomains
+).values({
+
+officeId,
+
+customDomain
+
+});
+
+res.json({
+
+success: true
+
+});
+
+});
+```
+
+---
+
+# صفحة النطاقات
+
+### `client/src/pages/DomainsPage.tsx`
+
+```tsx
+<Card>
+
+<CardHeader>
+
+<CardTitle>
+
+النطاقات
+
+</CardTitle>
+
+</CardHeader>
+
+<CardContent>
+
+<div>
+
+الدومين الفرعي
+
+</div>
+
+<Input
+value="alshammari.adala-ai.com"
+/>
+
+<div className="mt-6">
+
+الدومين الخاص
+
+</div>
+
+<Input
+placeholder="www.alshammari-law.com"
+/>
+
+<Button className="mt-4">
+
+ربط الدومين
+
+</Button>
+
+</CardContent>
+
+</Card>
+```
+
+---
+
+# بنية النظام
+
+```text
+عدالة AI
+│
+├── المكتب الأول
+│
+│   ├── الشعار
+│   ├── الموقع الخارجي
+│   ├── متجر الخدمات
+│   ├── بوابة العملاء
+│   ├── المقالات
+│   └── النطاق
+│
+│       alshammari.adala-ai.com
+│
+│       أو
+│
+│       www.alshammari-law.com
+│
+├── المكتب الثاني
+│
+└── المكتب الثالث
+```
+
+---
+
+## المعمارية التي أوصي بها
+
+```text
+client/
+public-site/
+portal/
+admin/
+
+server/
+routes/
+services/
+
+shared/
+schema/
+plans/
+```
+
+وبهذه الطريقة يصبح لكل مكتب داخل عدالة AI:
+
+* موقع إلكتروني مستقل.
+* متجر خدمات قانونية.
+* بوابة عملاء.
+* هوية بصرية خاصة.
+* دومين فرعي مجاني.
+* دومين خاص حسب الباقة.
+* إدارة المقالات وSEO.
+* دفع إلكتروني.
+* نظام متعدد المستأجرين بمستوى Shopify وClio Grow.

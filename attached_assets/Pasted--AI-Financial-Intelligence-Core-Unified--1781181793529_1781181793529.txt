@@ -1,0 +1,248 @@
+تمام—سأدمج لك كل ما بنيناه في طبقة واحدة اسمها:
+
+🧠 عدالة AI — Financial Intelligence Core (Unified System)
+
+هذا الدمج سيحوّل النظام من أجزاء منفصلة إلى محرك مالي + ذكاء اصطناعي + تقارير + تنبيهات في API واحد متكامل.
+
+⸻
+
+🧱 1) الفكرة بعد الدمج
+
+بدل:
+
+* API تقارير
+* API ذكاء مالي
+* Dashboard منفصل
+
+أصبح عندك:
+
+🔥 نظام واحد يخرج:
+
+{
+  "kpis": {...},
+  "financials": {...},
+  "aiInsights": [...],
+  "anomalies": {...},
+  "forecast": {...}
+}
+
+⸻
+
+⚙️ 2) المحرك الموحد (Core Engine)
+
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+/**
+ * 🔢 KPIs أساسية
+ */
+async function getKPIs() {
+  const payments = await prisma.payment.findMany();
+  const usage = await prisma.usageCost.findMany();
+  const subs = await prisma.subscription.findMany();
+  const revenue = payments.reduce((s, p) => s + p.amount, 0);
+  const cost = usage.reduce((s, u) => s + u.cost, 0);
+  return {
+    revenue,
+    cost,
+    profit: revenue - cost,
+    activeSubscriptions: subs.filter(s => s.status === "active").length
+  };
+}
+/**
+ * 📉 كشف الشذوذ
+ */
+async function detectAnomalies(usage) {
+  const spikes = usage.filter(u => u.cost > 100);
+  return {
+    anomaliesCount: spikes.length,
+    riskLevel: spikes.length > 0 ? "HIGH" : "LOW",
+    flagged: spikes
+  };
+}
+/**
+ * 🔮 توقع بسيط (Forecasting)
+ */
+function forecastRevenue(revenue) {
+  const growthFactor = 1.12; // تقديري
+  return {
+    nextMonth: revenue * growthFactor,
+    confidence: "medium"
+  };
+}
+/**
+ * 🤖 توليد Insights ذكية
+ */
+function generateInsights(kpis, anomalies) {
+  let insights = [];
+  if (kpis.profit < 0) {
+    insights.push("⚠️ النظام يعمل بخسارة حالياً");
+  } else {
+    insights.push("✅ النظام مربح ومستقر");
+  }
+  if (kpis.revenue > 10000) {
+    insights.push("📈 نمو قوي في الإيرادات");
+  }
+  if (anomalies.anomaliesCount > 0) {
+    insights.push("🚨 يوجد استهلاك غير طبيعي لبعض الخدمات");
+  }
+  if (kpis.activeSubscriptions < 10) {
+    insights.push("📉 عدد الاشتراكات منخفض");
+  }
+  return insights;
+}
+/**
+ * 🧠 المحرك الموحد النهائي
+ */
+export async function getUnifiedFinancialAI() {
+  const kpis = await getKPIs();
+  const usage = await prisma.usageCost.findMany();
+  const anomalies = await detectAnomalies(usage);
+  const forecast = forecastRevenue(kpis.revenue);
+  const insights = generateInsights(kpis, anomalies);
+  return {
+    kpis,
+    anomalies,
+    forecast,
+    aiInsights: insights
+  };
+}
+
+⸻
+
+🚀 3) API موحد واحد فقط (بدل 3 APIs)
+
+import express from "express";
+import { getUnifiedFinancialAI } from "../services/unified_finance_ai.js";
+const router = express.Router();
+/**
+ * 🧠 Financial Intelligence API (Single Source of Truth)
+ */
+router.get("/financial-intelligence", async (req, res) => {
+  const data = await getUnifiedFinancialAI();
+  res.json({
+    system: "AHDALA_AI_FINANCE_CORE",
+    timestamp: new Date(),
+    ...data
+  });
+});
+export default router;
+
+⸻
+
+💻 4) Dashboard موحد (كل شيء في شاشة واحدة)
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>عدالة AI - Financial Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-white p-8">
+  <h1 class="text-3xl font-bold mb-6">🧠 Financial Intelligence Center</h1>
+  <!-- KPIs -->
+  <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-900 p-4 rounded-xl">
+      <p>الإيرادات</p>
+      <p id="revenue" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-gray-900 p-4 rounded-xl">
+      <p>التكاليف</p>
+      <p id="cost" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-gray-900 p-4 rounded-xl">
+      <p>الربح</p>
+      <p id="profit" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-gray-900 p-4 rounded-xl">
+      <p>اشتراكات نشطة</p>
+      <p id="subs" class="text-2xl font-bold">0</p>
+    </div>
+  </div>
+  <!-- AI INSIGHTS -->
+  <h2 class="text-xl mb-3">🤖 الذكاء التحليلي</h2>
+  <div id="insights" class="space-y-3 mb-6"></div>
+  <!-- Forecast -->
+  <div class="bg-gray-900 p-4 rounded-xl">
+    <h2 class="font-bold mb-2">🔮 التوقع المالي</h2>
+    <p id="forecast"></p>
+  </div>
+<script>
+async function load() {
+  const res = await fetch("/finance/financial-intelligence");
+  const data = await res.json();
+  // KPIs
+  document.getElementById("revenue").innerText = data.kpis.revenue;
+  document.getElementById("cost").innerText = data.kpis.cost;
+  document.getElementById("profit").innerText = data.kpis.profit;
+  document.getElementById("subs").innerText = data.kpis.activeSubscriptions;
+  // Insights
+  const box = document.getElementById("insights");
+  data.aiInsights.forEach(i => {
+    const div = document.createElement("div");
+    div.className = "bg-gray-900 p-3 rounded-lg border border-gray-800";
+    div.innerText = i;
+    box.appendChild(div);
+  });
+  // Forecast
+  document.getElementById("forecast").innerText =
+    "الإيرادات المتوقعة الشهر القادم: " + data.forecast.nextMonth;
+}
+load();
+</script>
+</body>
+</html>
+
+⸻
+
+🧠 ماذا أصبح لديك الآن بعد الدمج؟
+
+🔥 نظام واحد موحد:
+
+📊 KPIs مالية
+
+📉 تحليل التكاليف
+
+🚨 كشف الشذوذ
+
+🤖 Insights ذكية
+
+🔮 توقع مالي
+
+💻 Dashboard واحد شامل
+
+⸻
+
+🚀 هذا المستوى يعني:
+
+أنت الآن تمتلك:
+
+🟢 Financial AI System مثل:
+
+* Stripe + Analytics + AI layer
+* ●	نظام SaaS مالي حقيقي
+* ●	قابل للتوسع لمئات المكاتب
+
+⸻
+
+🔥 الخطوة التالية (لو تريد نقلة عالمية)
+
+أقدر الآن أحوّله إلى:
+
+🧠 AI CFO (يتكلم مثل مدير مالي)
+
+* “لماذا انخفض الربح؟”
+* “ما أفضل باقة للمكاتب الجديدة؟”
+
+📱 تنبيهات واتساب تلقائية
+
+🏢 تقارير لكل مكتب قانوني منفصل
+
+📊 رسوم بيانية احترافية (Charts + Realtime)
+
+🔐 نظام Fraud Detection مالي
+
+⸻
+
+إذا تريد الخطوة التالية قل:
+“حوّله إلى AI CFO يتكلم بالعربي”

@@ -1,0 +1,257 @@
+تمام. الآن ننتقل للمرحلة الأهم في عدالة:
+
+🔥 نظام العدالة الذكي الكامل (RAG + Legal AI + Document Intelligence)
+
+هذا هو الجزء الذي يحوّل منصتك من “SaaS عادي” إلى نظام تشغيل قانوني فعلي.
+
+⸻
+
+1. ما هو النظام الجديد؟
+
+بدلاً من أن الذكاء الاصطناعي يرد فقط على سؤال:
+
+“حلل هذا العقد”
+
+أنت ستبني نظام يفهم:
+
+* عقود المكتب
+* القضايا السابقة
+* المستندات
+* المذكرات
+* الأنظمة القانونية الداخلية
+
+ثم يجيب بناءً على بيانات المكتب نفسه
+
+⸻
+
+2. المعمارية (Adalah Legal Brain)
+
+           ┌──────────────┐
+           │   المستخدم   │
+           └──────┬───────┘
+                  ↓
+        ┌───────────────────┐
+        │ AI Router         │
+        └──────┬────────────┘
+               ↓
+     ┌───────────────────────┐
+     │ RAG Retrieval Engine  │
+     └──────┬───────────────┘
+            ↓
+   ┌──────────────────────────┐
+   │ Vector Database          │
+   │ (Supabase / pgvector)    │
+   └──────┬───────────────────┘
+          ↓
+ ┌───────────────────────────┐
+ │ Documents / Contracts DB  │
+ └───────────────────────────┘
+          ↓
+   ┌─────────────────────┐
+   │ OpenAI / DeepSeek   │
+   └─────────────────────┘
+
+⸻
+
+3. الفكرة الأساسية (RAG)
+
+بدل ما ترسل العقد كامل للنموذج
+
+أنت تعمل:
+
+1. تخزين المستند
+
+2. تقسيمه (Chunks)
+
+3. تحويله إلى Embeddings
+
+4. تخزينه في Vector DB
+
+5. البحث عند السؤال فقط
+
+⸻
+
+4. تثبيت الأدوات
+
+npm install openai pg pgvector dotenv
+
+⸻
+
+5. قاعدة البيانات (PostgreSQL + pgvector)
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT,
+  content TEXT,
+  embedding vector(1536)
+);
+
+⸻
+
+6. تحويل النص إلى Embedding
+
+import axios from "axios";
+export async function createEmbedding(text) {
+  const res = await axios.post(
+    "https://api.openai.com/v1/embeddings",
+    {
+      model: "text-embedding-3-small",
+      input: text,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+    }
+  );
+  return res.data.data[0].embedding;
+}
+
+⸻
+
+7. حفظ المستند (Chunking + Storage)
+
+import { createEmbedding } from "./embed.js";
+import pg from "pg";
+const db = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+function splitText(text, size = 500) {
+  const chunks = [];
+  for (let i = 0; i < text.length; i += size) {
+    chunks.push(text.slice(i, i + size));
+  }
+  return chunks;
+}
+export async function storeDocument(tenantId, text) {
+  const chunks = splitText(text);
+  for (const chunk of chunks) {
+    const embedding = await createEmbedding(chunk);
+    await db.query(
+      `INSERT INTO documents (tenant_id, content, embedding)
+       VALUES ($1, $2, $3)`,
+      [tenantId, chunk, embedding]
+    );
+  }
+}
+
+⸻
+
+8. البحث الذكي (RAG Retrieval)
+
+import { createEmbedding } from "./embed.js";
+import pg from "pg";
+const db = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+export async function searchDocuments(tenantId, query) {
+  const embedding = await createEmbedding(query);
+  const result = await db.query(
+    `
+    SELECT content
+    FROM documents
+    WHERE tenant_id = $1
+    ORDER BY embedding <-> $2
+    LIMIT 5
+    `,
+    [tenantId, embedding]
+  );
+  return result.rows.map(r => r.content).join("\n");
+}
+
+⸻
+
+9. دمج RAG مع AI Router
+
+import { searchDocuments } from "./rag_search.js";
+import { callOpenAI } from "./ai.js";
+export async function legalAI({ tenantId, prompt }) {
+  // 1. جلب المعرفة الداخلية
+  const context = await searchDocuments(tenantId, prompt);
+  // 2. بناء prompt ذكي
+  const finalPrompt = `
+أنت مساعد قانوني داخل مكتب.
+اعتمد فقط على المعلومات التالية:
+--- المستندات ---
+${context}
+--- السؤال ---
+${prompt}
+أعط إجابة قانونية دقيقة.
+`;
+  // 3. إرسال للنموذج
+  return await callOpenAI(finalPrompt);
+}
+
+⸻
+
+10. ماذا أصبح لديك الآن؟
+
+✔ نظام يفهم بيانات كل مكتب
+
+* عقودهم
+* قضاياهم
+* ملفاتهم
+
+⸻
+
+✔ ذكاء اصطناعي خاص لكل عميل
+
+كل مكتب في عدالة له:
+
+“Brain خاص به”
+
+⸻
+
+✔ تقليل تكلفة AI
+
+لأن:
+
+* لا تعيد إرسال كل العقد
+* ترسل فقط أجزاء مهمة
+
+⸻
+
+✔ نتائج أدق بكثير
+
+بدل إجابات عامة:
+
+* إجابات مبنية على ملفات العميل نفسه
+
+⸻
+
+11. أهم ميزة استراتيجية
+
+هذا النظام يعطيك:
+
+🧠 “Legal OS”
+
+ليس مجرد SaaS
+
+بل:
+
+نظام تشغيل قانوني لكل مكتب
+
+⸻
+
+12. التطوير القادم (إذا أردت المرحلة الأعلى)
+
+أقدر أبني لك:
+
+🔥 Legal Agents System
+
+* Agent العقود
+* Agent القضايا
+* Agent التحليل المالي
+* Agent البحث في الأنظمة السعودية
+* Agent كتابة المذكرات
+
+🔥 Dashboard استهلاك الذكاء الاصطناعي لكل مكتب
+
+🔥 نظام اقتراحات قانونية تلقائي
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أحول هذا إلى:
+
+“نظام وكلاء قانونيين كامل Multi-Agent داخل عدالة (يشبه محامي AI حقيقي)”

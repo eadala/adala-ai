@@ -1,0 +1,268 @@
+تمام — الآن سأعطيك UI System كامل جاهز للتنفيذ (Production Design System + shadcn/ui) لمنصة عدالة AI بحيث تتحول من “هيكل صفحات” إلى منتج SaaS فعلي متكامل بصرياً ووظيفياً.
+
+⸻
+
+🎨 عدالة AI — UI Design System (Production Ready)
+
+⸻
+
+1️⃣ الفكرة الأساسية
+
+بدل بناء صفحات عشوائية، عندك الآن:
+
+🧱 Design System واحد + 3 Dashboards + Components موحدة
+
+⸻
+
+🧭 2️⃣ هيكل التصميم العام
+
+src/
+ ├── ui/
+ │    ├── components/
+ │    ├── layout/
+ │    ├── forms/
+ │    ├── tables/
+ │    ├── charts/
+ │
+ ├── design-system/
+ │    ├── tokens.ts
+ │    ├── theme.ts
+ │    ├── permissions-ui.ts
+ │
+ ├── shared/
+ │    ├── cards/
+ │    ├── modals/
+ │    ├── buttons/
+ │    ├── badges/
+
+⸻
+
+🎯 3️⃣ Design Tokens (أساس الهوية)
+
+export const tokens = {
+  colors: {
+    primary: "#1E3A8A",
+    success: "#16A34A",
+    warning: "#F59E0B",
+    danger: "#DC2626",
+    bg: "#F9FAFB"
+  },
+  radius: {
+    sm: "6px",
+    md: "10px",
+    lg: "16px"
+  },
+  shadow: {
+    sm: "0 1px 2px rgba(0,0,0,0.05)",
+    md: "0 4px 10px rgba(0,0,0,0.08)"
+  }
+};
+
+⸻
+
+🧱 4️⃣ Core UI Components
+
+⸻
+
+🟦 Card System (أساسي جداً)
+
+export function Card({ title, value, subtitle }) {
+  return (
+    <div className="bg-white p-4 rounded-xl shadow-sm border">
+      <h3 className="text-sm text-gray-500">{title}</h3>
+      <p className="text-2xl font-bold">{value}</p>
+      <span className="text-xs text-gray-400">{subtitle}</span>
+    </div>
+  );
+}
+
+⸻
+
+🟩 Data Table (قلب النظام)
+
+export function DataTable({ columns, data }) {
+  return (
+    <table className="w-full border">
+      <thead>
+        <tr>
+          {columns.map((c) => (
+            <th className="text-left p-2 border-b">{c.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((row) => (
+          <tr className="hover:bg-gray-50">
+            {columns.map((c) => (
+              <td className="p-2">{row[c.key]}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+⸻
+
+🟥 Action Button (مع صلاحيات)
+
+export function ActionButton({ permission, children }) {
+  const { permissions } = usePermissions();
+  if (!permissions.includes(permission)) return null;
+  return (
+    <button className="bg-blue-600 text-white px-3 py-2 rounded-lg">
+      {children}
+    </button>
+  );
+}
+
+⸻
+
+🟨 Modal System
+
+export function Modal({ open, title, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-xl w-[500px]">
+        <h2 className="text-lg font-bold mb-4">{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🧭 5️⃣ Office Dashboard UI (جاهز فعلياً)
+
+export default function OfficeDashboard() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card title="القضايا" value="128" subtitle="نشطة" />
+      <Card title="العملاء" value="54" subtitle="هذا الشهر" />
+      <Card title="الإيرادات" value="120,000 SAR" subtitle="+12%" />
+      <div className="col-span-3 mt-6">
+        <DataTable
+          columns={[
+            { key: "name", label: "اسم القضية" },
+            { key: "status", label: "الحالة" },
+            { key: "lawyer", label: "المحامي" }
+          ]}
+          data={[
+            { name: "قضية 1", status: "نشطة", lawyer: "أحمد" }
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🧑‍💼 6️⃣ Owner Dashboard UI
+
+export default function OwnerDashboard() {
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <Card title="نمو المكتب" value="+32%" subtitle="هذا الشهر" />
+      <Card title="صافي الأرباح" value="450,000" subtitle="SAR" />
+      <Card title="أكثر محامي إنتاجية" value="أحمد" subtitle="87 قضية" />
+      <Card title="القضايا المغلقة" value="210" subtitle="آخر 30 يوم" />
+    </div>
+  );
+}
+
+⸻
+
+🧑‍💻 7️⃣ Developer Dashboard UI
+
+export default function DevDashboard() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card title="المكاتب" value="120" subtitle="نشط" />
+      <Card title="طلبات AI" value="45,000" subtitle="هذا الشهر" />
+      <Card title="الأخطاء" value="12" subtitle="اليوم" />
+    </div>
+  );
+}
+
+⸻
+
+🔐 8️⃣ Permission-Based UI Layer
+
+مبدأ مهم جداً:
+
+UI hides elements
+Backend enforces security
+
+⸻
+
+مثال عملي:
+
+<PermissionGate permission="finance:view">
+  <FinanceDashboard />
+</PermissionGate>
+
+⸻
+
+🧠 9️⃣ Sidebar ديناميكي (حسب الدور)
+
+const menus = {
+  lawyer: ["cases", "clients", "ai"],
+  accountant: ["finance", "reports"],
+  owner: ["team", "analytics", "settings"],
+  dev: ["logs", "tenants", "backup"]
+};
+
+⸻
+
+🎯 10️⃣ UI Rules (مهم جداً للإنتاج)
+
+❌ ممنوع:
+
+* UI يعطي صلاحية حقيقية
+* اعتماد على إخفاء العناصر فقط
+* صفحات بدون RBAC
+
+⸻
+
+✅ لازم:
+
+* Backend RBAC + Frontend Guard
+* Tenant isolation دائم
+* Role-based rendering
+
+⸻
+
+🚀 النتيجة النهائية
+
+بعد هذا النظام:
+
+🟢 تحصل على:
+
+1. UI موحد (Design System)
+
+2. 3 Dashboards منفصلة
+
+3. نظام صلاحيات بصري
+
+4. تجربة SaaS احترافية
+
+5. قابلية توسع كبيرة
+
+⸻
+
+🔥 الخطوة التالية (الأهم الآن)
+
+إذا تبغى نكمل بشكل “إطلاق فعلي”، أقدر أبني لك:
+
+🟢 1. Landing Page احترافية (تسويق + تحويل عملاء)
+
+🟢 2. Billing + Stripe UI جاهز
+
+🟢 3. Admin Control Panel كامل (نسخ إنتاج)
+
+فقط قل:
+“أبغى صفحة الإطلاق التجاري”
