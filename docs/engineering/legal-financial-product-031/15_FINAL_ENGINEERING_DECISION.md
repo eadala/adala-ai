@@ -2,8 +2,8 @@
 
 **LEGAL_FINANCIAL_PRODUCT_PARTIALLY_CLOSED**
 
-FULL_HEAD_SHA: `b514a8881accbd1aab4d84d85d4d1818a8899ad2`  
-TREE_SHA: `5b67cdca2b798ac65e66266b50b136e142a90a7b`  
+FULL_HEAD_SHA: `751ac08bc617e08db95f84800b0ce53ec3f4e640`  
+TREE_SHA: `03a13f8e611d9ccf890bea02be1fd8f07bb1c76b`  
 BRANCH: `cursor/legal-financial-product-completion-031-da81`
 
 Gates: G0 rebase-noted; G1–G4, G6–G10 PASS; G5 design-only PASS. Harness 16/16.
