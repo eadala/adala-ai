@@ -2,8 +2,8 @@
   "project_identifier": "ADALA-AI",
   "directive_id": "ADALA-049-PHOENIX-III-ENGINEERING-CONTINUITY",
   "current_branch": "cursor/phase-049-engineering-continuity-da81",
-  "current_commit": "0efe60762daa11fcb082721c8c3604d74368446a",
-  "current_tree": "e4c239eb67461a738342633c247a996690e21309",
+  "current_commit": "ad46cd5e87d8e0d9e2a0e8a723fb78db8da1666e",
+  "current_tree": "ff779d4e2892df5662135475cd9260abcb89441f",
   "last_verified_milestone": "phase-049-engineering-continuity",
   "last_local_backup": {
     "status": "LOCAL_BUNDLE_INTEGRITY_VERIFIED",
@@ -47,6 +47,6 @@
     "Tip ancestry may still contain historical contaminated objects (tree cleaned; orphan bundle clean)"
   ],
   "next_executable_task": "Owner-authorize remote backup of phase-049 clean-tree commit to backup/milestones/phase-049-<sha>; then RAG authz design or approved Phase 033 product scope; re-run tenant/RLS harness",
-  "updated_at_utc": "2026-11-23T21:00:00Z",
+  "updated_at_utc": "2026-11-23T21:05:00Z",
   "notes": "No secrets stored in this manifest."
 }
