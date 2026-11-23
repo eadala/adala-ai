@@ -1,0 +1,26 @@
+{
+  "phase030_commit": {
+    "sha": "4d76a954944e17ae920346dd80ae484a3400d310",
+    "found": false,
+    "type": null,
+    "stderr": "fatal: git cat-file: could not get object info"
+  },
+  "phase030_tree": {
+    "sha": "d568bf7f7ccd778643528d8eba2a41be2e6a5152",
+    "found": false,
+    "type": null,
+    "stderr": "fatal: git cat-file: could not get object info"
+  },
+  "phase029_short": {
+    "sha": "8857b406",
+    "found": false,
+    "type": null,
+    "stderr": "fatal: Not a valid object name 8857b406"
+  },
+  "phase028_short": {
+    "sha": "1815b5de",
+    "found": false,
+    "type": null,
+    "stderr": "fatal: Not a valid object name 1815b5de"
+  }
+}
