@@ -130,7 +130,23 @@ export async function requireSuperAdmin(req: Request, res: Response, next: NextF
   next();
 }
 
+/** LOCAL-ONLY security-test auth — never active without ADALA_HTTP_SECURITY_TEST=1 */
+function testAuthUserId(req: Request): string | null {
+  if (process.env.ADALA_HTTP_SECURITY_TEST !== "1") return null;
+  const secret = process.env.ADALA_TEST_AUTH_SECRET;
+  if (!secret) return null;
+  if (req.headers["x-adala-test-auth"] !== secret) return null;
+  const uid = req.headers["x-adala-test-user"];
+  return typeof uid === "string" && uid.length > 0 ? uid : null;
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const testUid = testAuthUserId(req);
+  if (testUid) {
+    (req as any).userId = testUid;
+    (req as any).auth = { userId: testUid };
+    return next();
+  }
   let auth: ReturnType<typeof getAuth> | null = null;
   try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
@@ -147,14 +163,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  * (kernel pattern). All async work triggered by next() sees the same context.
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
-  let auth: ReturnType<typeof getAuth> | null = null;
-  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
-  const userId = auth?.userId;
+  const testUid = testAuthUserId(req);
+  let userId: string | null | undefined = testUid;
+  if (!userId) {
+    let auth: ReturnType<typeof getAuth> | null = null;
+    try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
+    userId = auth?.userId;
+  }
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }
 
   (req as any).userId = userId;
+  if (testUid) (req as any).auth = { userId: testUid };
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   let tenantId: string | null = null;
   try {

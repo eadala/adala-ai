@@ -363,6 +363,13 @@ router.post("/fincore/pay", requireAuthWithTenant, async (req, res) => {
 
 router.post("/fincore/refund", requireAuthWithTenant, async (req, res) => {
   try {
+    /* ADALA-031: refuse live provider refunds unless explicitly authorized */
+    if (process.env.ADALA_FAKE_PAYMENTS === "1" || process.env.ADALA_ALLOW_LIVE_REFUNDS !== "1") {
+      return res.status(403).json({
+        error: "LIVE_REFUND_FORBIDDEN",
+        note: "Use /api/refunds/* fake-transport workflow; live refunds not authorized",
+      });
+    }
     const { provider = "stripe", paymentId, amount } = req.body;
     if (!paymentId) return res.status(400).json({ error: "معرف الدفعة مطلوب" });
     const result = await PaymentService.refund(provider, paymentId, amount);

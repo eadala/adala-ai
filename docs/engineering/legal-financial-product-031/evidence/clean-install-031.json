@@ -1,0 +1,22 @@
+{
+  "ok": 55,
+  "total": 59,
+  "errors": [
+    {
+      "name": "010_office_ledger_performance_indexes.sql",
+      "detail": "psql:/agent/repos/adala-ai/artifacts/api-server/migrations/010_office_ledger_performance_indexes.sql:148: ERROR:  column \"office_id\" does not exist"
+    },
+    {
+      "name": "037_financial_remaining_schema_authority.sql",
+      "detail": "psql:/agent/repos/adala-ai/artifacts/api-server/migrations/037_financial_remaining_schema_authority.sql:986: ERROR:  column \"office_id\" does not exist"
+    },
+    {
+      "name": "049_hr_performance_schema_authority.sql",
+      "detail": "psql:/agent/repos/adala-ai/artifacts/api-server/migrations/049_hr_performance_schema_authority.sql:113: ERROR:  column e.office_id does not exist"
+    },
+    {
+      "name": "053_security_centers_schema_authority.sql",
+      "detail": "psql:/agent/repos/adala-ai/artifacts/api-server/migrations/053_security_centers_schema_authority.sql:1024: ERROR:  column \"office_id\" does not exist"
+    }
+  ]
+}

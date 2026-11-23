@@ -1,0 +1,8 @@
+{
+  "expectedSourceBranch": "cursor/rag-semantic-provider-readiness-030-da81",
+  "expectedHead": "4d76a954944e17ae920346dd80ae484a3400d310",
+  "expectedTree": "d568bf7f7ccd778643528d8eba2a41be2e6a5152",
+  "sourceAvailable": false,
+  "rebaseBase": "b3d9a0afd1b45486296910827824363bd9ed6810",
+  "note": "LOCAL-ONLY 030 tip not on origin; Phase 031 rebased onto recovery lineage"
+}

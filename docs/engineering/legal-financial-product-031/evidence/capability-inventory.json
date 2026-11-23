@@ -1,0 +1,10 @@
+{
+  "feeAgreements": "IMPLEMENTED_LOCAL",
+  "clientAppointments": "IMPLEMENTED_LOCAL",
+  "lawyerCorrespondence": "IMPLEMENTED_LOCAL",
+  "refunds": "IMPLEMENTED_FAKE_TRANSPORT",
+  "creditNotes": "EXISTING_PLUS_REFUND_LINK",
+  "periodClose": "DESIGN_ONLY",
+  "reconciliation": "EXISTING_VERIFIED",
+  "baselineRebase": "SOURCE_030_UNAVAILABLE"
+}
