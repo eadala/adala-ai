@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -46,41 +47,49 @@ router.put("/onboarding/state", requireAuth, async (req, res) => {
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const { completed, step, data } = req.body;
 
-    /* ── When completing onboarding, provision a real office if none exists ── */
-    let resolvedOfficeId = "default";
-    if (completed) {
-      /* Check if user already has an active office membership */
-      const existingMember = await sqlOne(sql`
-        SELECT office_id FROM office_members
-        WHERE user_id = ${userId} AND status = 'active'
-        LIMIT 1
+    /* Always prefer an existing membership; never persist synthetic "default". */
+    let resolvedOfficeId: string | null = null;
+    const existingMember = await sqlOne(sql`
+      SELECT office_id FROM office_members
+      WHERE user_id = ${userId} AND status = 'active'
+        AND office_id IS NOT NULL AND office_id NOT IN ('default', 'platform')
+      LIMIT 1
+    `);
+    if (existingMember?.office_id) {
+      resolvedOfficeId = String(existingMember.office_id);
+    } else if (completed) {
+      /* Provision a new trial office for this user */
+      const safeId = userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8);
+      const newOfficeId = `trial_${safeId}`;
+      const officeName: string =
+        (data as any)?.officeName ?? (data as any)?.name ?? "مكتب المحاماة";
+
+      await db.execute(sql`
+        INSERT INTO trial_offices (user_id, office_id, office_name)
+        VALUES (${userId}, ${newOfficeId}, ${officeName})
+        ON CONFLICT (user_id) DO UPDATE SET office_name = EXCLUDED.office_name
       `);
 
-      if (existingMember?.office_id) {
-        resolvedOfficeId = existingMember.office_id;
+      await db.execute(sql`
+        INSERT INTO office_members (office_id, user_id, role, status)
+        VALUES (${newOfficeId}, ${userId}, 'owner', 'active')
+        ON CONFLICT (office_id, user_id) DO NOTHING
+      `);
+
+      resolvedOfficeId = newOfficeId;
+      console.log(`[ONBOARDING] Provisioned office ${newOfficeId} for user ${userId}`);
+    }
+
+    if (!resolvedOfficeId) {
+      /* Incomplete onboarding without membership — keep prior office_id if any, else refuse inventing default. */
+      const prior = await sqlOne(sql`SELECT office_id FROM onboarding_state WHERE user_id = ${userId}`);
+      if (prior?.office_id && prior.office_id !== "default" && prior.office_id !== "platform") {
+        resolvedOfficeId = String(prior.office_id);
+      } else if (completed) {
+        return res.status(403).json({ error: "تعذر تحديد مكتب عند إكمال الإعداد" });
       } else {
-        /* Provision a new trial office for this user */
-        const safeId = userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8);
-        const newOfficeId = `trial_${safeId}`;
-        const officeName: string =
-          (data as any)?.officeName ?? (data as any)?.name ?? "مكتب المحاماة";
-
-        /* Insert into trial_offices (source of truth for trial tenants) */
-        await db.execute(sql`
-          INSERT INTO trial_offices (user_id, office_id, office_name)
-          VALUES (${userId}, ${newOfficeId}, ${officeName})
-          ON CONFLICT (user_id) DO UPDATE SET office_name = EXCLUDED.office_name
-        `);
-
-        /* Insert into office_members so tenant resolution hits step 3 immediately */
-        await db.execute(sql`
-          INSERT INTO office_members (office_id, user_id, role, status)
-          VALUES (${newOfficeId}, ${userId}, 'owner', 'active')
-          ON CONFLICT (office_id, user_id) DO NOTHING
-        `);
-
-        resolvedOfficeId = newOfficeId;
-        console.log(`[ONBOARDING] Provisioned office ${newOfficeId} for user ${userId}`);
+        /* Persist progress without a fake office — use empty sentinel blocked from tenant routing. */
+        resolvedOfficeId = `pending_${userId.replace(/[^a-zA-Z0-9]/g, "").slice(-12)}`;
       }
     }
 
@@ -99,7 +108,8 @@ router.put("/onboarding/state", requireAuth, async (req, res) => {
         step       = EXCLUDED.step,
         data       = EXCLUDED.data,
         office_id  = CASE
-                       WHEN EXCLUDED.office_id != 'default'
+                       WHEN EXCLUDED.office_id NOT LIKE 'pending_%'
+                        AND EXCLUDED.office_id NOT IN ('default', 'platform')
                        THEN EXCLUDED.office_id
                        ELSE onboarding_state.office_id
                      END,

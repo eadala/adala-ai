@@ -17,10 +17,12 @@ function exOne(q: any) {
 /** Prefer req.tenantId; fall back to canonical resolver — never invent office from stale tables. */
 async function getOfficeId(req: any): Promise<string | null> {
   const t = req.tenantId as string | undefined;
-  if (t && t !== "platform") return t;
+  if (t && t !== "platform" && t !== "default") return t;
   const userId = req.userId as string | undefined;
   if (!userId) return null;
-  return resolveTenantId(userId, req.headers?.["x-tenant-id"] as string | undefined);
+  const resolved = await resolveTenantId(userId, req.headers?.["x-tenant-id"] as string | undefined);
+  if (!resolved || resolved === "platform" || resolved === "default") return null;
+  return resolved;
 }
 
 /* ── List open tasks (public — any authenticated user) ── */
