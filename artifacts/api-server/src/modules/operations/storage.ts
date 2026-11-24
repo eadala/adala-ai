@@ -134,7 +134,6 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
    SMART STORAGE MANAGEMENT
 ══════════════════════════════════════════════════ */
 import { createClerkClient, getAuth } from "@clerk/express";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -152,11 +151,8 @@ async function getMgmtUser(req: any) {
     const user = await getClerkMgmt().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    // Prefer middleware tenant; never fall back to Clerk userId as office id.
-    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
-    let officeId =
-      (typeof req.tenantId === "string" && req.tenantId) ||
-      (await resolveTenantId(auth.userId, headerTenant));
+    // Prefer middleware tenant; never invent office id or fall back to Clerk userId.
+    let officeId = typeof req.tenantId === "string" && req.tenantId ? String(req.tenantId) : null;
     if (!officeId) return null;
 
     // Developer impersonation: SA viewing as a specific office

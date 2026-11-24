@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Financial Engine Routes — 9 endpoints
  * يُعرَّض تحت /api/financial-engine/*
  */
-import { Router, type Request, type Response } from "express";
+import { Router } from "express";
 import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import {
   processTransaction,
@@ -164,7 +165,8 @@ router.post("/financial-engine/ingest", requireAuthWithTenant, guard, async (req
 /* ── POST /financial-engine/test ── معاملة اختبارية ── */
 router.post("/financial-engine/test", requireAuthWithTenant, guard, async (req, res) => {
   try {
-    const officeId = req.body?.officeId ?? "test-office";
+    const officeId = (req as any).tenantId as string | undefined;
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const amount   = Number(req.body?.amount ?? 500);
     const result   = await processTransaction({
       officeId,

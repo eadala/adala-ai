@@ -1,13 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 import { requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { Router } from "express";
-import { db, messagesTable, casesTable } from "@workspace/db";
+import { db, casesTable } from "@workspace/db";
 import { ListMessagesQueryParams, SendMessageBody } from "@workspace/api-zod";
 import { getAuth, createClerkClient } from "@clerk/express";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 const router = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId;
+  if (!tid || !UUID_RE.test(String(tid))) return null;
+  return String(tid);
+}
+
+function sqlAll(r: any): any[] {
+  if (Array.isArray(r)) return r;
+  if (r && Array.isArray(r.rows)) return r.rows;
+  return [];
+}
+
+function sqlOne(r: any): any {
+  return sqlAll(r)[0] ?? null;
+}
+
+let messagesOfficeReady = false;
+async function ensureMessagesOfficeId() {
+  if (messagesOfficeReady) return;
+  await db.execute(sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS office_id TEXT`);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_messages_office_id ON messages(office_id)`);
+  messagesOfficeReady = true;
+}
 
 // ── Auth + comm-perm helper (mirrors client-portal.ts) ───────────────────────
 let _clerkMsg: ReturnType<typeof createClerkClient> | null = null;
@@ -16,7 +41,7 @@ const getClerkMsg = () => {
   return _clerkMsg;
 };
 /**
- * officeId is ALWAYS via resolveTenantId (membership-validated).
+ * officeId is ALWAYS req.tenantId from requireAuthWithTenant.
  * Never fall back to Clerk user id as a tenant key.
  */
 async function getMsgUser(req: any) {
@@ -26,8 +51,7 @@ async function getMsgUser(req: any) {
     const user = await getClerkMsg().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
-    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    const officeId = tenantIdOf(req);
     if (!officeId) return null;
     const rows = await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`);
     const rowArr = Array.isArray(rows) ? rows : ((rows as any)?.rows ?? []);
@@ -50,31 +74,36 @@ async function canReplyToClient(u: NonNullable<Awaited<ReturnType<typeof getMsgU
 // ── GET /messages/conversations  — grouped view ───────────────────────────────
 router.get("/messages/conversations", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
-    const u = await getMsgUser(req);
-    const effectiveOffice = u?.officeId ?? tenantId;
-    const msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? []));
-    const allCases = await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable);
+    await ensureMessagesOfficeId();
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const msgs = sqlAll(await db.execute(sql`
+      SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC
+    `));
+    const allCases = await db.select({ id: casesTable.id, title: casesTable.title })
+      .from(casesTable)
+      .where(eq(casesTable.officeId, tenantId));
     const caseMap = Object.fromEntries(allCases.map((c) => [c.id, c.title]));
 
     const groups: Record<string, typeof msgs> = {};
     for (const m of msgs) {
-      const key = m.caseId ?? "__direct__";
+      const key = m.case_id ?? m.caseId ?? "__direct__";
       if (!groups[key]) groups[key] = [];
       groups[key].push(m);
     }
 
     const conversations = Object.entries(groups).map(([key, messages]) => {
       const lastMsg = messages[messages.length - 1];
-      const unread = messages.filter((m: any) => m.direction === "inbound" && m.status !== "read").length;
+      const unread = messages.filter((m: any) => (m.direction === "inbound") && (m.status !== "read")).length;
       const name = key === "__direct__" ? "مراسلات مباشرة" : (caseMap[key] ?? `قضية ${key.slice(0, 8)}`);
+      const createdAt = lastMsg.created_at ?? lastMsg.createdAt;
       return {
         id: key,
         caseId: key === "__direct__" ? null : key,
         name,
         channel: lastMsg.channel ?? "internal",
         lastMsg: lastMsg.content,
-        time: lastMsg.createdAt.toISOString(),
+        time: createdAt ? new Date(createdAt).toISOString() : new Date().toISOString(),
         unread,
         starred: false,
         online: false,
@@ -83,7 +112,7 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
           id: m.id,
           from: m.direction === "inbound" ? "client" : "me",
           content: m.content,
-          time: m.createdAt.toISOString(),
+          time: new Date(m.created_at ?? m.createdAt).toISOString(),
           status: m.status ?? undefined,
           channel: m.channel ?? "internal",
         })),
@@ -99,31 +128,37 @@ router.get("/messages/conversations", requireAuthWithTenant, async (req, res) =>
 // ── GET /messages  — flat list ────────────────────────────────────────────────
 router.get("/messages", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
-    const u = await getMsgUser(req);
-    const effectiveOffice = u?.officeId ?? tenantId;
+    await ensureMessagesOfficeId();
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const query = ListMessagesQueryParams.parse(req.query);
-    let msgs = await db.execute(sql`SELECT * FROM messages WHERE office_id=${effectiveOffice} ORDER BY created_at ASC`).then((r: any) => Array.isArray(r) ? r : (r?.rows ?? [])) as any[];
-    if (query.caseId) msgs = msgs.filter((m) => m.caseId === query.caseId);
+    let msgs = sqlAll(await db.execute(sql`
+      SELECT * FROM messages WHERE office_id=${tenantId} ORDER BY created_at ASC
+    `));
+    if (query.caseId) msgs = msgs.filter((m) => (m.case_id ?? m.caseId) === query.caseId);
     if (query.channel) msgs = msgs.filter((m) => m.channel === query.channel);
 
-    const caseIds = [...new Set(msgs.map((m) => m.caseId).filter(Boolean))] as string[];
+    const caseIds = [...new Set(msgs.map((m) => m.case_id ?? m.caseId).filter(Boolean))] as string[];
     const cases = caseIds.length > 0
-      ? await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable)
+      ? await db.select({ id: casesTable.id, title: casesTable.title }).from(casesTable).where(eq(casesTable.officeId, tenantId))
       : [];
     const caseMap = Object.fromEntries(cases.map((c) => [c.id, c.title]));
 
-    res.json(msgs.map((m) => ({
-      id: m.id, caseId: m.caseId, caseName: m.caseId ? (caseMap[m.caseId] ?? null) : null,
-      channel: m.channel, direction: m.direction, content: m.content, status: m.status,
-      createdAt: m.createdAt.toISOString(),
-    })));
+    res.json(msgs.map((m) => {
+      const caseId = m.case_id ?? m.caseId;
+      return {
+        id: m.id, caseId, caseName: caseId ? (caseMap[caseId] ?? null) : null,
+        channel: m.channel, direction: m.direction, content: m.content, status: m.status,
+        createdAt: new Date(m.created_at ?? m.createdAt).toISOString(),
+      };
+    }));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
 router.post("/messages", requireAuthWithTenant, async (req, res) => {
+  await ensureMessagesOfficeId();
   // Outbound messages (to clients) require reply permission
   const u = await getMsgUser(req);
   if (!u) { res.status(401).json({ error: "يجب تسجيل الدخول لإرسال رسائل" }); return; }
@@ -135,14 +170,22 @@ router.post("/messages", requireAuthWithTenant, async (req, res) => {
   }
   try {
     const body = SendMessageBody.parse(req.body);
-    const [created] = await db.insert(messagesTable).values({
-      caseId: body.caseId ?? null,
-      channel: body.channel,
-      direction: "outbound",
-      content: body.content,
-      status: "sent",
-    }).returning();
-    res.status(201).json({ ...created, caseName: null, createdAt: created.createdAt.toISOString() });
+    const created = sqlOne(await db.execute(sql`
+      INSERT INTO messages (office_id, case_id, channel, direction, content, status)
+      VALUES (${u.officeId}, ${body.caseId ?? null}, ${body.channel}, 'outbound', ${body.content}, 'sent')
+      RETURNING *
+    `));
+    if (!created) return res.status(500).json({ error: "فشل إرسال الرسالة" });
+    res.status(201).json({
+      id: created.id,
+      caseId: created.case_id,
+      caseName: null,
+      channel: created.channel,
+      direction: created.direction,
+      content: created.content,
+      status: created.status,
+      createdAt: new Date(created.created_at).toISOString(),
+    });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }

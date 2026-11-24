@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -6,6 +7,14 @@ import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 
 const router = Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId;
+  if (!tid || !UUID_RE.test(String(tid))) return null;
+  return String(tid);
+}
 
 async function dbRows(q: any): Promise<any[]> {
   try {
@@ -19,7 +28,7 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS events (
       id           TEXT PRIMARY KEY,
       user_id      TEXT NOT NULL,
-      office_id    TEXT NOT NULL DEFAULT 'default',
+      office_id    TEXT NOT NULL,
       title        TEXT NOT NULL,
       event_type   TEXT NOT NULL DEFAULT 'other',
       start_at     TIMESTAMPTZ NOT NULL,
@@ -34,6 +43,9 @@ async function ensureTables() {
       updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  /* Drop inventing default if an older CREATE left it in place */
+  await db.execute(sql`ALTER TABLE events ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_events_office_id ON events(office_id)`).catch(() => {});
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS event_reminders (
       id                     TEXT PRIMARY KEY,
@@ -68,6 +80,8 @@ router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: 
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const { year, month } = req.query as Record<string, string>;
@@ -78,7 +92,8 @@ router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: 
     if (y && m) {
       rows = await dbRows(sql`
         SELECT * FROM events
-        WHERE user_id = ${authUserId}
+        WHERE office_id = ${officeId}
+          AND user_id = ${authUserId}
           AND EXTRACT(YEAR  FROM start_at) = ${y}
           AND EXTRACT(MONTH FROM start_at) = ${m}
         ORDER BY start_at ASC
@@ -86,7 +101,8 @@ router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: 
     } else {
       rows = await dbRows(sql`
         SELECT * FROM events
-        WHERE user_id = ${authUserId}
+        WHERE office_id = ${officeId}
+          AND user_id = ${authUserId}
         ORDER BY start_at ASC
         LIMIT 200
       `);
@@ -102,11 +118,14 @@ router.get("/calendar/events/export.ics", requireAuthWithTenant, async (req: Req
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const rows = await dbRows(sql`
       SELECT * FROM events
-      WHERE user_id = ${authUserId}
+      WHERE office_id = ${officeId}
+        AND user_id = ${authUserId}
       ORDER BY start_at ASC
       LIMIT 500
     `);
@@ -161,6 +180,8 @@ router.get("/calendar/events/upcoming", requireAuthWithTenant, async (req: Reque
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const rawDays = parseInt(String(req.query.days ?? "7"), 10);
@@ -168,7 +189,8 @@ router.get("/calendar/events/upcoming", requireAuthWithTenant, async (req: Reque
 
     const rows = await dbRows(sql`
       SELECT * FROM events
-      WHERE user_id = ${authUserId}
+      WHERE office_id = ${officeId}
+        AND user_id = ${authUserId}
         AND start_at >= NOW()
         AND start_at <= NOW() + (${days} || ' days')::INTERVAL
       ORDER BY start_at ASC
@@ -185,6 +207,8 @@ router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res:
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const {
@@ -199,10 +223,10 @@ router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res:
     const id = randomUUID();
     await db.execute(sql`
       INSERT INTO events
-        (id, user_id, title, event_type, start_at, end_at, all_day,
+        (id, user_id, office_id, title, event_type, start_at, end_at, all_day,
          case_id, client_id, location, description, status, created_at, updated_at)
       VALUES
-        (${id}, ${authUserId}, ${title}, ${eventType},
+        (${id}, ${authUserId}, ${officeId}, ${title}, ${eventType},
          ${startAt}::timestamptz,
          ${endAt ? endAt : null}::timestamptz,
          ${allDay}, ${caseId ?? null}, ${clientId ?? null},
@@ -221,7 +245,7 @@ router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res:
       `);
     }
 
-    const rows = await dbRows(sql`SELECT * FROM events WHERE id = ${id}`);
+    const rows = await dbRows(sql`SELECT * FROM events WHERE id = ${id} AND office_id = ${officeId}`);
     res.json(rows[0]);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -233,10 +257,14 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const { id } = req.params as Record<string, string>;
-    const existing = await dbRows(sql`SELECT user_id FROM events WHERE id = ${id}`);
+    const existing = await dbRows(sql`
+      SELECT user_id FROM events WHERE id = ${id} AND office_id = ${officeId}
+    `);
     if (!existing.length) return res.status(404).json({ error: "الحدث غير موجود" });
     if (existing[0].user_id !== authUserId) return res.status(403).json({ error: "غير مصرح" });
 
@@ -258,10 +286,10 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
         description = COALESCE(${description ?? null}, description),
         status      = COALESCE(${status  ?? null}, status),
         updated_at  = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND office_id = ${officeId}
     `);
 
-    const updated = await dbRows(sql`SELECT * FROM events WHERE id = ${id}`);
+    const updated = await dbRows(sql`SELECT * FROM events WHERE id = ${id} AND office_id = ${officeId}`);
     res.json(updated[0] ?? { error: "not found" });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -273,15 +301,19 @@ router.delete("/calendar/events/:id", requireAuthWithTenant, async (req: Request
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const { id } = req.params as Record<string, string>;
-    const existing = await dbRows(sql`SELECT user_id FROM events WHERE id = ${id}`);
+    const existing = await dbRows(sql`
+      SELECT user_id FROM events WHERE id = ${id} AND office_id = ${officeId}
+    `);
     if (!existing.length) return res.status(404).json({ error: "الحدث غير موجود" });
     if (existing[0].user_id !== authUserId) return res.status(403).json({ error: "غير مصرح" });
 
     await db.execute(sql`DELETE FROM event_reminders WHERE event_id = ${id}`);
-    await db.execute(sql`DELETE FROM events WHERE id = ${id}`);
+    await db.execute(sql`DELETE FROM events WHERE id = ${id} AND office_id = ${officeId}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -293,12 +325,16 @@ router.get("/calendar/reminders", requireAuthWithTenant, async (req: Request, re
   try {
     const { userId: authUserId } = getAuth(req as any);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
+    const officeId = tenantIdOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await ensureTables();
 
     const { eventId } = req.query as Record<string, string>;
     if (!eventId) return res.json([]);
 
-    const evt = await dbRows(sql`SELECT user_id FROM events WHERE id = ${eventId}`);
+    const evt = await dbRows(sql`
+      SELECT user_id FROM events WHERE id = ${eventId} AND office_id = ${officeId}
+    `);
     if (!evt.length || evt[0].user_id !== authUserId) return res.status(403).json({ error: "غير مصرح" });
 
     const rows = await dbRows(sql`
