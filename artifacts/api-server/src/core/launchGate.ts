@@ -7,6 +7,7 @@
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { isObjectStorageConfigured } from "./storage";
 
 export type GateStatus = "PASS" | "FAIL" | "WARN";
 
@@ -539,11 +540,11 @@ async function gate6_documents(): Promise<GateResult> {
     passed: Number(sigRow?.cnt) > 0,
   });
 
-  // 6d. Object storage bucket config
+  // 6d. Cloudflare R2 object storage
   checks.push({
-    label: "تخزين الملفات معزول (Object Storage)",
-    passed: !!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID,
-    value: process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ? "مكوّن" : "غير مكوّن",
+    label: "تخزين الملفات معزول (Cloudflare R2)",
+    passed: isObjectStorageConfigured(),
+    value: isObjectStorageConfigured() ? "R2 مكوّن" : "R2 غير مكوّن",
   });
 
   // 6e. No public exposure events

@@ -35,16 +35,11 @@
 
 ## Checklist
 
-- [ ] PR يستهدف `develop` (وليس `main`) إلا إذا كان hotfix/release مصرّحًا
-- [ ] اسم الفرع يطابق السياسة: `cursor|feature|fix|hotfix|release`/*
+- [ ] PR يستهدف `develop` (وليس `main`)
 - [ ] Commit messages تتبع Conventional Commits
 - [ ] لا Merge Commits غير ضرورية
-- [ ] CODEOWNERS مُبلَّغون — ومراجعة مستقلة (ليس المؤلف وحده عند الإمكان)
+- [ ] CODEOWNERS مُبلَّغون
 - [ ] CHANGELOG.md محدَّث (لـ features/fixes كبيرة)
-- [ ] لا أسرار / مفاتيح / `.env` حقيقي في الـ diff
-- [ ] أي تغيير في Docker / workflows / migrations / auth / RLS مُوضَّح صراحةً
-- [ ] لم يُمس المرشح المجمّد `5441523…` / الشجرة `cd84a7f…`
-- [ ] لا نشر إنتاج ولا تعديل Coolify من هذا الـ PR
 
 ## صور/فيديو (اختياري)
 

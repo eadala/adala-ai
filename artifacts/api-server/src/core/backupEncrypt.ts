@@ -17,7 +17,7 @@ function getKey(): Buffer {
   if (!raw || raw.trim() === "") {
     throw new Error(
       "[backupEncrypt] BACKUP_ENCRYPTION_KEY is not set. " +
-      "Set it in Replit Secrets before using the backup system."
+      "Set it in Coolify (or your host) environment secrets before using the backup system."
     );
   }
   return crypto.createHash("sha256").update(raw, "utf8").digest();

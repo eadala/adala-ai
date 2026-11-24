@@ -1,11 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- event payloads */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; schema authority */
 /**
  * عدالة AI — Event Bus Core
  * Persistent, type-safe event bus with SSE real-time broadcasting
+ *
+ * Stage 17 (SSE) — tenant-owned SSE delivery is scoped to the client's
+ * canonical Office UUID. Never invent default / platform / trial_* ownership.
  */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { Response } from "express";
+import { isUuid } from "../lib/officePageResolverLogic";
+import {
+  SseTenantHub,
+  resolveSseOfficeId,
+} from "../lib/sseTenantIsolation";
+
+export { resolveSseOfficeId } from "../lib/sseTenantIsolation";
 
 /* ── Event Types ──────────────────────────────────────── */
 export type EventType =
@@ -54,36 +64,13 @@ export interface StoredEvent extends EventPayload {
 type EventHandler = (event: StoredEvent) => void | Promise<void>;
 
 /* ── Ensure DB table ──────────────────────────────────── */
-async function ensureEventsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS system_events (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      event_type  TEXT NOT NULL,
-      office_id   TEXT DEFAULT 'default',
-      actor_id    TEXT,
-      payload     JSONB NOT NULL DEFAULT '{}',
-      created_at  TIMESTAMP DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_type      ON system_events(event_type)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_office    ON system_events(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_system_events_created   ON system_events(created_at DESC)
-  `).catch(() => {});
-}
-ensureEventsTable();
+/* system_events schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql */
 
 /* ── Event Bus ────────────────────────────────────────── */
-class EventBus {
+export class EventBus {
   private listeners: Map<string, EventHandler[]> = new Map();
   private wildcardListeners: EventHandler[] = [];
-  private sseClients: Set<Response> = new Set();
-  /* userId → set of their active SSE connections (for targeted delivery) */
-  private userClients: Map<string, Set<Response>> = new Map();
+  private readonly sse = new SseTenantHub();
 
   /* Register listener for specific event */
   on(event: EventType | "*", handler: EventHandler): void {
@@ -103,30 +90,21 @@ class EventBus {
       timestamp: new Date().toISOString(),
     };
 
-    /* 1. Persist to DB (non-blocking) — skip synthetic default office buckets */
-    const persistOffice =
-      stored.officeId && stored.officeId !== "default" && stored.officeId !== "platform"
-        ? stored.officeId
-        : (typeof stored.data?.officeId === "string" && stored.data.officeId !== "default"
-            ? stored.data.officeId
-            : typeof stored.data?.office_id === "string" && stored.data.office_id !== "default"
-              ? stored.data.office_id
-              : null);
-    if (persistOffice) {
-      db.execute(sql`
-        INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
-        VALUES (
-          ${stored.id}::uuid,
-          ${stored.type},
-          ${persistOffice},
-          ${stored.actorId ?? null},
-          ${JSON.stringify(stored.data)}::jsonb,
-          ${stored.timestamp}::timestamp
-        )
-      `).catch(e => console.error("[EventBus] persist error:", e.message));
-    } else {
-      console.warn(`[EventBus] skip persist for ${stored.type} — missing officeId`);
-    }
+    /* 1. Persist to DB (non-blocking).
+       Stage 15.2e — never invent "default"; only persist canonical Office UUID or NULL. */
+    const persistOfficeId =
+      stored.officeId && isUuid(String(stored.officeId)) ? String(stored.officeId) : null;
+    db.execute(sql`
+      INSERT INTO system_events (id, event_type, office_id, actor_id, payload, created_at)
+      VALUES (
+        ${stored.id}::uuid,
+        ${stored.type},
+        ${persistOfficeId},
+        ${stored.actorId ?? null},
+        ${JSON.stringify(stored.data)}::jsonb,
+        ${stored.timestamp}::timestamp
+      )
+    `).catch((e: unknown) => console.error("[EventBus] persist error:", (e as Error).message));
 
     /* 2. Run specific listeners */
     const handlers = this.listeners.get(stored.type) ?? [];
@@ -143,7 +121,7 @@ class EventBus {
       );
     }
 
-    /* 4. Broadcast to SSE clients */
+    /* 4. Broadcast to SSE clients (tenant-scoped) */
     this.broadcastSSE(stored);
 
     return stored;
@@ -151,50 +129,36 @@ class EventBus {
 
   /* ── SSE client management ──────────────────────────── */
 
-  /** Register a client connection. Pass userId to enable targeted delivery. */
-  addSSEClient(res: Response, userId?: string): void {
-    this.sseClients.add(res);
-    if (userId) {
-      let set = this.userClients.get(userId);
-      if (!set) {
-        set = new Set();
-        this.userClients.set(userId, set);
-      }
-      set.add(res);
-    }
-    res.on("close", () => {
-      this.sseClients.delete(res);
-      if (userId) {
-        this.userClients.get(userId)?.delete(res);
-        if (this.userClients.get(userId)?.size === 0) this.userClients.delete(userId);
-      }
-    });
+  /**
+   * Register a client connection.
+   * - userId enables targeted delivery via sendToUsers (private messages).
+   * - officeId enables tenant event broadcast only when it is a canonical Office UUID.
+   */
+  addSSEClient(res: Response, userId?: string, officeId?: string | null): void {
+    this.sse.addSSEClient(res, userId, officeId);
   }
 
   /**
    * Send an SSE event ONLY to the specified user IDs.
    * Does NOT persist to DB and does NOT broadcast to other clients.
    * Use for private events like new messages.
+   * Authorization is caller-owned (explicit recipient list) — not global fan-out.
    */
   sendToUsers(userIds: string[], event: Record<string, any>): void {
-    const data = `data: ${JSON.stringify(event)}\n\n`;
-    for (const uid of userIds) {
-      const conns = this.userClients.get(uid);
-      if (!conns) continue;
-      for (const client of conns) {
-        try { client.write(data); } catch { conns.delete(client); }
-      }
-    }
+    this.sse.sendToUsers(userIds, event);
   }
 
-  private broadcastSSE(event: StoredEvent): void {
-    const data = `data: ${JSON.stringify(event)}\n\n`;
-    for (const client of this.sseClients) {
-      try { client.write(data); } catch { this.sseClients.delete(client); }
-    }
+  /**
+   * Tenant-isolated SSE fan-out (see SseTenantHub.broadcastSSE).
+   * Fail closed for missing / non-canonical event.officeId.
+   */
+  broadcastSSE(event: StoredEvent): void {
+    this.sse.broadcastSSE(event);
   }
 
-  get clientCount(): number { return this.sseClients.size; }
+  get clientCount(): number { return this.sse.clientCount; }
+
+  get tenantSseOfficeCount(): number { return this.sse.tenantSseOfficeCount; }
 }
 
 export const eventBus = new EventBus();

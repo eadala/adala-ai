@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 6B schema ownership only */
 import { requireAuth } from "../../middlewares/requireAuth";
 /**
  * Marketplace routes — Legal Services Marketplace
@@ -35,73 +36,24 @@ async function dbRows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS marketplace_services (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id TEXT NOT NULL,
-      office_name TEXT,
-      title TEXT NOT NULL,
-      description TEXT,
-      category TEXT NOT NULL,
-      price NUMERIC DEFAULT 0,
-      currency TEXT DEFAULT 'SAR',
-      duration_minutes INT,
-      tags TEXT,
-      is_active BOOLEAN DEFAULT true,
-      rating NUMERIC DEFAULT 0,
-      total_reviews INT DEFAULT 0,
-      total_orders INT DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS marketplace_orders (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      service_id TEXT NOT NULL,
-      service_title TEXT,
-      seller_id TEXT NOT NULL,
-      buyer_name TEXT NOT NULL,
-      buyer_email TEXT,
-      buyer_phone TEXT,
-      amount NUMERIC DEFAULT 0,
-      notes TEXT,
-      status TEXT DEFAULT 'pending',
-      case_id TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS marketplace_deals (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      service_id TEXT NOT NULL,
-      service_title TEXT,
-      seller_id TEXT NOT NULL,
-      buyer_name TEXT NOT NULL,
-      buyer_email TEXT,
-      buyer_phone TEXT,
-      initial_price NUMERIC,
-      final_price NUMERIC,
-      status TEXT DEFAULT 'open',
-      notes TEXT,
-      case_id TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS marketplace_deal_offers (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      deal_id TEXT NOT NULL,
-      from_role TEXT NOT NULL,
-      price NUMERIC NOT NULL,
-      message TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+/** SELECT-only readiness — schema owned by Migration 038. */
+async function ensureMarketplaceTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.marketplace_services') IS NOT NULL AS services,
+      to_regclass('public.marketplace_orders') IS NOT NULL AS orders,
+      to_regclass('public.marketplace_deals') IS NOT NULL AS deals,
+      to_regclass('public.marketplace_deal_offers') IS NOT NULL AS offers
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.services || !row.orders || !row.deals || !row.offers) {
+    console.error(
+      "[marketplace] Migration 038 schema not ready — marketplace_* tables missing",
+    );
+  }
 }
 
-ensureTables().catch(console.error);
+ensureMarketplaceTablesReady().catch(console.error);
 
 // ─── GET /marketplace/services ────────────────────────────────────────────────
 router.get("/marketplace/services", async (req: Request, res: Response) => {

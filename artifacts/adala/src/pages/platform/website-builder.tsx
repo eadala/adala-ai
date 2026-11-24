@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -94,7 +96,7 @@ const ARABIC_FONTS = [
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function apiFetch(path: string, opts?: RequestInit) {
-  return fetch(`${BASE}/api${path}`, {
+  return authFetch(`${BASE}/api${path}`, {
     ...opts,
     headers: { "Content-Type": "application/json", ...(opts?.headers ?? {}) },
   }).then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });

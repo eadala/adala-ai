@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { DEV_API } from "../shared/api";
+import { authFetch } from "@/lib/authFetch";
 
 const FULL_PERMISSIONS = [
   { icon: Shield,   label: "إدارة المكاتب والمستخدمين" },
@@ -50,7 +52,7 @@ export function PlatformOwnersTab({ toast }: { toast: any }) {
 
   const addMut = useMutation({
     mutationFn: (email: string) =>
-      fetch(`/api/developer/platform-admins`, {
+      authFetch(`/api/developer/platform-admins`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
@@ -64,7 +66,7 @@ export function PlatformOwnersTab({ toast }: { toast: any }) {
 
   const removeMut = useMutation({
     mutationFn: (userId: string) =>
-      fetch(`/api/developer/platform-admins/${userId}`, { method: "DELETE" })
+      authFetch(`/api/developer/platform-admins/${userId}`, { method: "DELETE" })
         .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
     onSuccess: () => {
       toast({ title: "✅ تم الإزالة", description: "تم سحب صلاحية مالك المنصة" });

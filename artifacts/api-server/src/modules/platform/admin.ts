@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; schema authority */
 import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -10,9 +11,17 @@ import { eq, desc, count, sum } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
+import { listPageEnvelope, resolveDualModePaging } from "../../lib/paginationSafety";
 
 const router = Router();
 const adminOnly = requireSuperAdmin;
+
+/** Coerce Drizzle NUMERIC (string) → JSON number for Batch-1 money fields. */
+function moneyNum(v: unknown): number {
+  if (v == null || v === "") return 0;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
 /* ── Clerk Backend Client (lazy) ──────────────────── */
 let _clerk: ReturnType<typeof createClerkClient> | null = null;
@@ -40,7 +49,7 @@ router.get("/admin/stats", adminOnly, async (_req, res) => {
     totalTickets: totalTickets.count,
     openTickets: openTickets.count,
     totalAiUsage: totalAiUsage.total ?? 0,
-    totalCost: totalCost.total ?? 0,
+    totalCost: moneyNum(totalCost.total),
     activePlans: activePlans.count,
   });
 });
@@ -48,9 +57,15 @@ router.get("/admin/stats", adminOnly, async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    ALL OFFICES
 ══════════════════════════════════════════════════════ */
-router.get("/admin/offices", adminOnly, async (_req, res) => {
-  const offices = await db.select().from(officePageTable).orderBy(desc(officePageTable.createdAt));
-  res.json(offices);
+router.get("/admin/offices", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const offices = await db.select().from(officePageTable)
+    .orderBy(desc(officePageTable.createdAt), desc(officePageTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(offices);
+  const [agg] = await db.select({ total: count() }).from(officePageTable);
+  res.json(listPageEnvelope(offices, Number(agg?.total ?? 0), page, limit));
 });
 
 router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
@@ -88,9 +103,15 @@ router.patch("/admin/offices/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    ALL USERS
 ══════════════════════════════════════════════════════ */
-router.get("/admin/users", adminOnly, async (_req, res) => {
-  const users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
-  res.json(users);
+router.get("/admin/users", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const users = await db.select().from(usersTable)
+    .orderBy(desc(usersTable.createdAt), desc(usersTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(users);
+  const [agg] = await db.select({ total: count() }).from(usersTable);
+  res.json(listPageEnvelope(users, Number(agg?.total ?? 0), page, limit));
 });
 
 router.patch("/admin/users/:id", adminOnly, async (req, res) => {
@@ -107,19 +128,28 @@ router.patch("/admin/users/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    DISCOUNT CODES
 ══════════════════════════════════════════════════════ */
+function serializeDiscount(row: typeof discountCodesTable.$inferSelect) {
+  return { ...row, value: moneyNum(row.value) };
+}
+
 router.get("/admin/discounts", adminOnly, async (_req, res) => {
-  const codes = await db.select().from(discountCodesTable).orderBy(desc(discountCodesTable.createdAt));
-  res.json(codes);
+  const codes = await db.select().from(discountCodesTable)
+    .orderBy(desc(discountCodesTable.createdAt));
+  res.json(codes.map(serializeDiscount));
 });
 
 router.post("/admin/discounts", adminOnly, async (req, res) => {
-  const code = await db.insert(discountCodesTable).values(req.body).returning();
-  res.json(code[0]);
+  const body = { ...req.body };
+  if (body.value != null) body.value = String(body.value);
+  const code = await db.insert(discountCodesTable).values(body).returning();
+  res.json(serializeDiscount(code[0]));
 });
 
 router.patch("/admin/discounts/:id", adminOnly, async (req, res) => {
-  const updated = await db.update(discountCodesTable).set(req.body).where(eq(discountCodesTable.id, String(req.params.id))).returning();
-  res.json(updated[0]);
+  const body = { ...req.body };
+  if (body.value != null) body.value = String(body.value);
+  const updated = await db.update(discountCodesTable).set(body).where(eq(discountCodesTable.id, String(req.params.id))).returning();
+  res.json(updated[0] ? serializeDiscount(updated[0]) : updated[0]);
 });
 
 router.delete("/admin/discounts/:id", adminOnly, async (req, res) => {
@@ -138,7 +168,7 @@ router.get("/admin/ai-keys", adminOnly, async (_req, res) => {
     totalCost: aiApiKeysTable.totalCost, lastUsedAt: aiApiKeysTable.lastUsedAt,
     createdAt: aiApiKeysTable.createdAt,
   }).from(aiApiKeysTable).orderBy(desc(aiApiKeysTable.createdAt));
-  res.json(keys);
+  res.json(keys.map((k) => ({ ...k, totalCost: moneyNum(k.totalCost) })));
 });
 
 router.post("/admin/ai-keys", adminOnly, async (req, res) => {
@@ -146,13 +176,20 @@ router.post("/admin/ai-keys", adminOnly, async (req, res) => {
   const keyMasked = keyValue.slice(0, 8) + "..." + keyValue.slice(-4);
   const keyHash = Buffer.from(keyValue).toString("base64");
   const key = await db.insert(aiApiKeysTable).values({ provider, keyLabel, keyHash, keyMasked }).returning();
-  res.json({ ...key[0], keyHash: undefined });
+  res.json({ ...key[0], keyHash: undefined, totalCost: moneyNum(key[0].totalCost) });
 });
 
 router.patch("/admin/ai-keys/:id", adminOnly, async (req, res) => {
   const { isActive } = req.body;
   const updated = await db.update(aiApiKeysTable).set({ isActive }).where(eq(aiApiKeysTable.id, String(req.params.id))).returning();
-  res.json(updated[0]);
+  res.json(
+    updated[0]
+      ? {
+          ...updated[0],
+          totalCost: moneyNum(updated[0].totalCost),
+        }
+      : updated[0],
+  );
 });
 
 router.delete("/admin/ai-keys/:id", adminOnly, async (req, res) => {
@@ -261,9 +298,15 @@ router.delete("/admin/legal-systems/:id", adminOnly, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    SUPPORT TICKETS
 ══════════════════════════════════════════════════════ */
-router.get("/admin/support", adminOnly, async (_req, res) => {
-  const tickets = await db.select().from(supportTicketsTable).orderBy(desc(supportTicketsTable.createdAt));
-  res.json(tickets);
+router.get("/admin/support", adminOnly, async (req, res) => {
+  const { paginated, page, limit, offset } = resolveDualModePaging(req.query, 50);
+  const tickets = await db.select().from(supportTicketsTable)
+    .orderBy(desc(supportTicketsTable.createdAt), desc(supportTicketsTable.id))
+    .limit(limit)
+    .offset(offset);
+  if (!paginated) return res.json(tickets);
+  const [agg] = await db.select({ total: count() }).from(supportTicketsTable);
+  res.json(listPageEnvelope(tickets, Number(agg?.total ?? 0), page, limit));
 });
 
 router.post("/admin/support", requireAuth, async (req, res) => {
@@ -314,7 +357,14 @@ router.get("/admin/usage", adminOnly, async (_req, res) => {
     totalCost: sum(usageLogsTable.cost),
     count: count(),
   }).from(usageLogsTable).groupBy(usageLogsTable.feature);
-  res.json({ logs, summary });
+  res.json({
+    logs: logs.map((l) => ({ ...l, cost: moneyNum(l.cost) })),
+    summary: summary.map((s) => ({
+      ...s,
+      totalCost: moneyNum(s.totalCost),
+      totalUnits: s.totalUnits == null ? 0 : Number(s.totalUnits),
+    })),
+  });
 });
 
 /* ══════════════════════════════════════════════════════
@@ -607,43 +657,47 @@ router.post("/admin/billing/pay/:id", adminOnly, async (req, res) => {
 /* ── GET /api/admin/tenants — list all offices + plan + revenue ── */
 router.get("/admin/tenants", adminOnly, async (_req, res) => {
   try {
-    const tenants = await db.execute(sql`
-      SELECT
-        op.id::text              AS id,
-        op.name                  AS name,
-        op.email                 AS email,
-        op.plan                  AS plan,
-        op.stripe_customer_id    AS stripe_customer_id,
-        op.created_at            AS created_at,
-        COALESCE(m.member_count, 0)::int AS member_count,
-        COALESCE(l.gross_total, 0)::numeric AS gross_total,
-        COALESCE(l.net_total,   0)::numeric AS net_total,
-        COALESCE(l.stripe_fee_total, 0)::numeric AS stripe_fee_total,
-        COALESCE(l.platform_fee_total, 0)::numeric AS platform_fee_total,
-        COALESCE(l.tx_count, 0)::int AS tx_count
-      FROM office_page op
-      LEFT JOIN (
-        SELECT office_id, COUNT(*) AS member_count
-        FROM office_members WHERE status = 'active'
-        GROUP BY office_id
-      ) m ON m.office_id = op.id::text
-      LEFT JOIN (
+    const [tenants, countResult] = await Promise.all([
+      db.execute(sql`
         SELECT
-          office_id,
-          SUM(amount)       AS gross_total,
-          SUM(net_amount)   AS net_total,
-          SUM(stripe_fee)   AS stripe_fee_total,
-          SUM(platform_fee) AS platform_fee_total,
-          COUNT(*)          AS tx_count
-        FROM office_ledger WHERE type = 'credit'
-        GROUP BY office_id
-      ) l ON l.office_id = op.id::text
-      ORDER BY op.created_at DESC
-    `);
+          op.id::text              AS id,
+          op.name                  AS name,
+          op.email                 AS email,
+          op.plan                  AS plan,
+          op.stripe_customer_id    AS stripe_customer_id,
+          op.created_at            AS created_at,
+          COALESCE(m.member_count, 0)::int AS member_count,
+          COALESCE(l.gross_total, 0)::numeric AS gross_total,
+          COALESCE(l.net_total,   0)::numeric AS net_total,
+          COALESCE(l.stripe_fee_total, 0)::numeric AS stripe_fee_total,
+          COALESCE(l.platform_fee_total, 0)::numeric AS platform_fee_total,
+          COALESCE(l.tx_count, 0)::int AS tx_count
+        FROM office_page op
+        LEFT JOIN (
+          SELECT office_id, COUNT(*) AS member_count
+          FROM office_members WHERE status = 'active'
+          GROUP BY office_id
+        ) m ON m.office_id = op.id::text
+        LEFT JOIN (
+          SELECT
+            office_id,
+            SUM(amount)       AS gross_total,
+            SUM(net_amount)   AS net_total,
+            SUM(stripe_fee)   AS stripe_fee_total,
+            SUM(platform_fee) AS platform_fee_total,
+            COUNT(*)          AS tx_count
+          FROM office_ledger WHERE type = 'credit'
+          GROUP BY office_id
+        ) l ON l.office_id = op.id::text
+        ORDER BY op.created_at DESC
+      `),
+      db.execute(sql`SELECT COUNT(*)::int AS total FROM office_page`),
+    ]);
 
     const rows = (tenants as any)?.rows ?? [];
+    const total = Number(((countResult as any)?.rows ?? [])[0]?.total ?? rows.length);
     return res.json({
-      total: rows.length,
+      total,
       tenants: rows.map((r: any) => ({
         id:               r.id,
         name:             r.name,
@@ -1224,25 +1278,22 @@ router.get("/landing-variant", async (_req, res) => {
    BANKRUPTCY SUPER ADMIN ROUTES  (isSuperAdmin — adminOnly)
 ══════════════════════════════════════════════════════════ */
 
-async function ensureSystemAuditLogs() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS system_audit_logs (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      admin_user_id TEXT NOT NULL,
-      office_id     TEXT,
-      action_type   TEXT NOT NULL,
-      resource_type TEXT,
-      resource_id   TEXT,
-      reason        TEXT,
-      ip_address    TEXT,
-      metadata      JSONB,
-      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_admin  ON system_audit_logs(admin_user_id, created_at DESC)`);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_sys_audit_office ON system_audit_logs(office_id, created_at DESC)`);
+let systemAuditSchemaReady = false;
+async function ensureSystemAuditSchemaReady() {
+  if (systemAuditSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.system_audit_logs') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[admin] Migration 054 schema not ready — system_audit_logs missing");
+      return;
+    }
+    systemAuditSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureSystemAuditLogs().catch(() => {});
+ensureSystemAuditSchemaReady().catch(() => {});
 
 function saAll(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function saOne(r: any): any   { return saAll(r)[0] ?? null; }
@@ -1369,24 +1420,7 @@ router.post("/admin/bankruptcy/audit-logs", adminOnly, async (req: any, res) => 
    BANKRUPTCY EOC — Enterprise Operations Center
 ══════════════════════════════════════════════════════════ */
 
-async function ensureEocTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS bk_emergency_locks (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      lock_type   TEXT NOT NULL,
-      target_id   TEXT,
-      reason      TEXT,
-      locked_by   TEXT NOT NULL,
-      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
-      expires_at  TIMESTAMPTZ,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      released_at TIMESTAMPTZ
-    )
-  `);
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_bk_emg_office ON bk_emergency_locks(office_id, is_active)`);
-}
-ensureEocTables().catch(() => {});
+/* bk_emergency_locks schema is owned by artifacts/api-server/migrations/014_bankruptcy_schema.sql. */
 
 async function eocAudit(adminId: string, ip: string, officeId: string | null, action: string, meta?: object) {
   await db.execute(sql`

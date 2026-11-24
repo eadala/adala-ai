@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * مركز التكاملات — Integration Hub (client view)
  * ─────────────────────────────────────────────
@@ -21,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn }       from "@/lib/utils";
 import { useAuth }  from "@clerk/react";
 import { Link }     from "wouter";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -29,7 +31,7 @@ async function authedFetch(url: string, getToken: any, opts?: RequestInit) {
   const token = await getToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { ...opts, headers: { ...headers, ...(opts?.headers ?? {}) } });
+  const res = await authFetch(url, { ...opts, headers: { ...headers, ...(opts?.headers ?? {}) } });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? `HTTP ${res.status}`); }
   return res.json();
 }

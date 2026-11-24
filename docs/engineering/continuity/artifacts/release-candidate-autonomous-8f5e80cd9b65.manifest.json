@@ -1,0 +1,14 @@
+{
+  "directive_id": "ADALA-CD-FINAL-ACTIVATION-001",
+  "consolidated_release_sha": "8f5e80cd9b65108d93016670062b48f258477e3a",
+  "tree": "8e500f156815a315b2a525430d4ad31d67874143",
+  "source_tip": "700f181cfc9a26c29bac613714b873da121e41b4",
+  "ci_recovery_sha": "cb7722bc904a1ca6f69a38573c7c932c60e5b43b",
+  "ci_recovery_run": "https://github.com/eadala/adala-ai/actions/runs/45284681694",
+  "automation_land_sha": "4eda8055c511d2ba3a865e81931e0d28d0b5093c",
+  "clean_history": true,
+  "contaminated_blob_absent": true,
+  "created_at_utc": "2026-11-24T06:08:41Z",
+  "coolify_production_changed": false,
+  "production_redeploy": false
+}

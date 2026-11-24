@@ -1,7 +1,10 @@
+ 
+ 
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,7 +31,7 @@ export function CheckoutSuccessOverlay({ sessionId, onDone }: Props) {
     let cancelled = false;
     async function verify() {
       try {
-        const r = await fetch(`${BASE}/api/billing/verify-payment`, {
+        const r = await authFetch(`${BASE}/api/billing/verify-payment`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),

@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt in auth middleware */
 import { getAuth, createClerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { resolveTenantId } from "./tenantMiddleware";
 import { runWithTenant } from "../core/tenantContext";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { setBypassRlsSession, setOfficeTenantSession } from "../lib/tenantSession";
 
 /* ── SA Route Rate Limiting ────────────────────────────────────────────
    Tracks failed SA-access attempts per IP. After MAX_SA_FAILS failures
@@ -118,14 +120,33 @@ export async function requireSuperAdmin(req: Request, res: Response, next: NextF
     return res.status(403).json({ error: "للمشرف العام فقط — Super Admin Access Required" });
   }
 
-  /* ── 4. Success — reset failure counter ── */
+  /* ── 4. Success — reset failure counter; privileged DB bypass (ADR-001) ── */
   _saBuckets.delete(ip);
   (req as any).isSuperAdmin = true;
   (req as any).userId = userId;
+  try {
+    await setBypassRlsSession();
+  } catch { /* GUC failure must not block SA HTTP auth — app WHERE remains */ }
   next();
 }
 
+/** LOCAL-ONLY security-test auth — never active without ADALA_HTTP_SECURITY_TEST=1 */
+function testAuthUserId(req: Request): string | null {
+  if (process.env.ADALA_HTTP_SECURITY_TEST !== "1") return null;
+  const secret = process.env.ADALA_TEST_AUTH_SECRET;
+  if (!secret) return null;
+  if (req.headers["x-adala-test-auth"] !== secret) return null;
+  const uid = req.headers["x-adala-test-user"];
+  return typeof uid === "string" && uid.length > 0 ? uid : null;
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const testUid = testAuthUserId(req);
+  if (testUid) {
+    (req as any).userId = testUid;
+    (req as any).auth = { userId: testUid };
+    return next();
+  }
   let auth: ReturnType<typeof getAuth> | null = null;
   try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
   const userId = auth?.userId;
@@ -142,27 +163,52 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  * (kernel pattern). All async work triggered by next() sees the same context.
  */
 export async function requireAuthWithTenant(req: Request, res: Response, next: NextFunction) {
-  let auth: ReturnType<typeof getAuth> | null = null;
-  try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
-  const userId = auth?.userId;
+  const testUid = testAuthUserId(req);
+  let userId: string | null | undefined = testUid;
+  if (!userId) {
+    let auth: ReturnType<typeof getAuth> | null = null;
+    try { auth = getAuth(req); } catch { /* malformed/tampered token */ }
+    userId = auth?.userId;
+  }
   if (!userId) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }
 
   (req as any).userId = userId;
+  if (testUid) (req as any).auth = { userId: testUid };
   const headerTenant = req.headers["x-tenant-id"] as string | undefined;
   let tenantId: string | null = null;
   try {
     tenantId = await resolveTenantId(userId, headerTenant);
-  } catch {
+  } catch (err: unknown) {
+    const { TenantResolutionError, LEGACY_NON_UUID_TENANT } = await import("../lib/tenantResolution");
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
+    if (err instanceof TenantResolutionError) {
+      return res.status(403).json({
+        error: err.message,
+        code: err.code,
+        ...err.details,
+      });
+    }
+    console.error(
+      `[TENANT-ERR] path=${req.path} userId=${userId} resolveTenantId threw:`,
+      err instanceof Error ? err.message : err,
+    );
     return res.status(403).json({ error: "خطأ في تحديد المكتب — حاول مجدداً." });
   }
   if (!tenantId) {
-    /* Super-admin has no office — allow with synthetic "platform" tenant */
+    /* Super-admin has no office — allow with synthetic "platform" tenant (explicit SA only) */
     const isSA = await checkIsSuperAdmin(userId);
     if (isSA) {
       (req as any).isSuperAdmin = true;
       (req as any).tenantId = "platform";
+      try { await setBypassRlsSession(); } catch { /* non-fatal */ }
       return runWithTenant({ userId, officeId: "platform" }, () => next());
     }
     console.warn(
@@ -177,19 +223,51 @@ export async function requireAuthWithTenant(req: Request, res: Response, next: N
       hint: "أكمل عملية الإعداد الأولي، أو تواصل مع الدعم الفني إذا أتممت الإعداد مسبقاً.",
     });
   }
+  /* Normal users must never carry the synthetic platform tenant */
+  if (tenantId === "platform") {
+    const isSA = await checkIsSuperAdmin(userId);
+    if (!isSA) {
+      return res.status(403).json({
+        error: "سياق المنصة غير متاح لهذا الحساب",
+        code: "PLATFORM_FORBIDDEN_FOR_USER",
+      });
+    }
+    (req as any).isSuperAdmin = true;
+    (req as any).tenantId = "platform";
+    try { await setBypassRlsSession(); } catch { /* non-fatal */ }
+    return runWithTenant({ userId, officeId: "platform" }, () => next());
+  }
+
+  /* Business context: only canonical Office UUID may be used as office_id */
+  try {
+    const { assertCanonicalBusinessOfficeId } = await import("../lib/tenantResolution");
+    tenantId = assertCanonicalBusinessOfficeId(tenantId, {
+      userId,
+      source: "requireAuthWithTenant",
+    });
+  } catch (err: unknown) {
+    const { TenantResolutionError, LEGACY_NON_UUID_TENANT } = await import("../lib/tenantResolution");
+    if (err instanceof TenantResolutionError && err.code === LEGACY_NON_UUID_TENANT) {
+      return res.status(409).json({
+        error: "حسابك يستخدم معرّف مكتب قديم ويتطلب ترحيل البيانات",
+        code: err.code,
+        ...err.details,
+      });
+    }
+    if (err instanceof TenantResolutionError) {
+      return res.status(403).json({ error: err.message, code: err.code, ...err.details });
+    }
+    throw err;
+  }
+
   const officeId = tenantId;
   (req as any).tenantId = officeId;
 
   // 🔑 Layer 1: AsyncLocalStorage — getTenant() works anywhere in the stack
   // 🔑 Layer 2: PostgreSQL RLS session variable — DB-level enforcement (AWAITED)
-  // set_config(..., false) = session-level — persists on pooled connection for
-  // the lifetime of this request. Must be awaited before route handler runs.
+  // Fail-closed: bypass OFF; empty tenant never used as privilege (ADR-001 / Migration 059).
   try {
-    await db.execute(sql`
-      SELECT
-        set_config('app.current_tenant', ${officeId}, false),
-        set_config('app.tenant_id',      ${officeId}, false)
-    `);
+    await setOfficeTenantSession(officeId);
   } catch { /* DB config failure is non-fatal — app-level WHERE is primary guard */ }
 
   runWithTenant({ userId, officeId }, () => next());

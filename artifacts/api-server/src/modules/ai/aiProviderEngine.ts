@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7E schema ownership only */
 /**
  * AI Provider Engine — محرك مزودي الذكاء الاصطناعي
  * ─────────────────────────────────────────────────
@@ -7,6 +8,8 @@
  *   • محرك السياسة الذكية (smart routing per task type)
  *   • توزيع الخدمة على العملاء (service distribution)
  *   • إحصائيات التكلفة بالريال السعودي
+ *
+ * Schema owned by Migration 040 — Runtime CREATE removed.
  */
 import { Router, Request, Response } from "express";
 import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
@@ -28,55 +31,25 @@ async function one(q: any): Promise<any | null> {
 
 const adminOnly = requireSuperAdmin;
 
-/* ══════════════════════════════════════════════════════════════════
-   DB SETUP
-══════════════════════════════════════════════════════════════════ */
+/* ── readiness + provider seed DML — schema owned by Migration 040 ── */
 let tablesReady = false;
-async function ensureTables() {
+async function ensureProviderTablesReady() {
   if (tablesReady) return;
   try {
-    /* global provider configuration */
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS ai_provider_config (
-        id               SERIAL PRIMARY KEY,
-        provider         TEXT NOT NULL UNIQUE,
-        label_ar         TEXT NOT NULL DEFAULT '',
-        enabled          BOOLEAN NOT NULL DEFAULT TRUE,
-        priority         INTEGER NOT NULL DEFAULT 5,
-        cost_per_token   NUMERIC(10,6) NOT NULL DEFAULT 0,
-        cost_per_request NUMERIC(8,4)  NOT NULL DEFAULT 0,
-        monthly_limit    INTEGER,
-        current_usage    INTEGER NOT NULL DEFAULT 0,
-        model_name       TEXT NOT NULL DEFAULT '',
-        notes            TEXT,
-        updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.ai_provider_config') IS NOT NULL AS providers,
+        to_regclass('public.office_ai_settings') IS NOT NULL AS settings
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.providers || !row.settings) {
+      console.error(
+        "[aiProviderEngine] Migration 040 schema not ready — ai_provider_config / office_ai_settings missing",
+      );
+      return;
+    }
 
-    /* per-office AI preferences */
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS office_ai_settings (
-        id                  SERIAL PRIMARY KEY,
-        office_id           TEXT NOT NULL UNIQUE,
-        preferred_provider  TEXT NOT NULL DEFAULT 'auto',
-        mode                TEXT NOT NULL DEFAULT 'balanced',
-        allowed_providers   TEXT[] DEFAULT ARRAY['gemini','claude','openai','deepseek'],
-        max_monthly_spend   NUMERIC(8,2),
-        smart_routing       BOOLEAN NOT NULL DEFAULT TRUE,
-        custom_rules        JSONB   DEFAULT '{}',
-        updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    /* enhance usage_logs with SAR cost column */
-    await db.execute(sql`
-      ALTER TABLE ai_usage_logs
-        ADD COLUMN IF NOT EXISTS cost_sar    NUMERIC(8,6) DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS token_count INTEGER      DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS policy_used TEXT
-    `).catch(() => {});
-
-    /* seed default providers */
+    /* seed default providers (DML; not schema mutation) */
     const providers = [
       { provider: "gemini",   label: "Gemini 2.5 Flash",    priority: 1, cost: 0.0001, req_cost: 0.0000, model: "gemini-2.5-flash" },
       { provider: "deepseek", label: "DeepSeek Chat",        priority: 2, cost: 0.0002, req_cost: 0.0000, model: "deepseek-chat" },
@@ -94,7 +67,7 @@ async function ensureTables() {
     tablesReady = true;
   } catch { /* non-blocking */ }
 }
-ensureTables();
+ensureProviderTablesReady();
 
 /* ══════════════════════════════════════════════════════════════════
    SMART ROUTING POLICY ENGINE
@@ -193,7 +166,7 @@ export function invalidateOfficeSettingsCache(officeId: string) {
 
 /* GET /api/ai/gateway/providers — list all provider configs */
 router.get("/ai/gateway/providers", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const data = await rows(sql`SELECT * FROM ai_provider_config ORDER BY priority ASC`);
     res.json({ providers: data });
@@ -202,7 +175,7 @@ router.get("/ai/gateway/providers", adminOnly, async (_req, res) => {
 
 /* PUT /api/ai/gateway/providers/:provider — update provider config */
 router.put("/ai/gateway/providers/:provider", adminOnly, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const { provider } = req.params as Record<string, string>;
     const { enabled, priority, cost_per_token, cost_per_request, monthly_limit, notes, model_name } = req.body;
@@ -225,7 +198,7 @@ router.put("/ai/gateway/providers/:provider", adminOnly, async (req: Request, re
 
 /* GET /api/ai/gateway/service-distribution — per-office AI usage breakdown */
 router.get("/ai/gateway/service-distribution", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const dist = await rows(sql`
       SELECT
@@ -257,7 +230,7 @@ router.get("/ai/gateway/service-distribution", adminOnly, async (_req, res) => {
 
 /* GET /api/ai/gateway/office-settings/all — admin view of all office settings */
 router.get("/ai/gateway/office-settings/all", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const data = await rows(sql`
       SELECT s.*, c.balance AS credit_balance, c.monthly_allowance
@@ -271,7 +244,7 @@ router.get("/ai/gateway/office-settings/all", adminOnly, async (_req, res) => {
 
 /* POST /api/ai/gateway/office-settings/:officeId — admin override office settings */
 router.post("/ai/gateway/office-settings/:officeId", adminOnly, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const officeId = String(req.params.officeId ?? "");
     const { preferred_provider, mode, allowed_providers, max_monthly_spend, smart_routing } = req.body;
@@ -343,7 +316,7 @@ router.get("/ai/gateway/cost-analytics", adminOnly, async (_req, res) => {
 
 /* GET /api/ai/gateway/my-settings */
 router.get("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
     const s = await one(sql`SELECT * FROM office_ai_settings WHERE office_id = ${officeId} LIMIT 1`);
@@ -354,7 +327,7 @@ router.get("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Res
 
 /* PUT /api/ai/gateway/my-settings */
 router.put("/ai/gateway/my-settings", requireAuth, async (req: Request, res: Response) => {
-  await ensureTables();
+  await ensureProviderTablesReady();
   try {
     const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
     const { preferred_provider, mode, smart_routing } = req.body;

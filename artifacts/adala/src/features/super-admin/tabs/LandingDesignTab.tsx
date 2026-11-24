@@ -1,7 +1,10 @@
+ 
+ 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, Loader2, Layout, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -108,7 +111,7 @@ export function LandingDesignTab({ toast }: { toast: ReturnType<typeof useToast>
 
   const { data, isLoading } = useQuery<{ variant: string }>({
     queryKey: ["landing-variant"],
-    queryFn: () => fetch(`${BASE}/api/admin/landing-variant`, {
+    queryFn: () => authFetch(`${BASE}/api/admin/landing-variant`, {
       headers: { "Content-Type": "application/json" },
     }).then(r => r.json()),
     staleTime: 1000 * 30,
@@ -118,7 +121,7 @@ export function LandingDesignTab({ toast }: { toast: ReturnType<typeof useToast>
 
   const { mutate: activate, isPending } = useMutation({
     mutationFn: (variant: string) =>
-      fetch(`${BASE}/api/admin/landing-variant`, {
+      authFetch(`${BASE}/api/admin/landing-variant`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ variant }),

@@ -8,6 +8,7 @@
  *   4. On error   → retry up to MAX_RETRIES with exponential backoff
  *   5. After MAX_RETRIES failures → move to stripe_dead_letters (DLQ)
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -17,50 +18,8 @@ import { logger } from "../lib/logger";
 const MAX_RETRIES = 3;
 const BACKOFF_BASE_MS = 1_000; // 1s, 2s, 4s
 
-/* ── Ensure tables exist at module load ─────────────────────────── */
-export async function ensureStripeBufferTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS stripe_events (
-      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      stripe_event_id  TEXT UNIQUE NOT NULL,
-      type             TEXT NOT NULL,
-      payload          JSONB NOT NULL,
-      status           TEXT NOT NULL DEFAULT 'pending'
-                         CHECK (status IN ('pending','processing','done','failed')),
-      retry_count      INTEGER NOT NULL DEFAULT 0,
-      last_error       TEXT,
-      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      processed_at     TIMESTAMPTZ
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_stripe_events_status
-      ON stripe_events(status) WHERE status IN ('pending','failed')
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_stripe_events_created
-      ON stripe_events(created_at DESC)
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS stripe_dead_letters (
-      id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      stripe_event_id  TEXT NOT NULL,
-      type             TEXT NOT NULL,
-      payload          JSONB NOT NULL,
-      error            TEXT NOT NULL,
-      retry_count      INTEGER NOT NULL DEFAULT 0,
-      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_stripe_dlq_created
-      ON stripe_dead_letters(created_at DESC)
-  `).catch(() => {});
-}
+/* Schema: stripe_events + stripe_dead_letters owned by
+   artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql */
 
 /* ── Internal helpers ───────────────────────────────────────────── */
 
@@ -76,7 +35,7 @@ async function moveToDLQ(stripeEventId: string, type: string, payload: any, erro
   await db.execute(sql`
     INSERT INTO stripe_dead_letters (stripe_event_id, type, payload, error, retry_count)
     VALUES (${stripeEventId}, ${type}, ${JSON.stringify(payload)}, ${error}, ${retryCount})
-  `).catch(e => logger.error({ e }, "[StripeBuffer] DLQ insert failed"));
+  `).catch((e: unknown) => logger.error({ e }, "[StripeBuffer] DLQ insert failed"));
 
   await db.execute(sql`
     UPDATE stripe_events
@@ -100,7 +59,7 @@ export async function bufferAndProcess(
     throw new Error("STRIPE_WEBHOOK_SECRET not configured — rejecting unverified webhook");
   }
 
-  /* 1. Verify signature FIRST — security gate */
+  /* 1. Verify signature FIRST — security gate (before any RLS bypass) */
   const stripe = await getUncachableStripeClient();
   let event: any;
   try {
@@ -108,6 +67,10 @@ export async function bufferAndProcess(
   } catch {
     throw new Error("Webhook signature verification failed");
   }
+
+  /* 1b. Privileged DB context only after verified signature (ADR-001) */
+  const { setBypassRlsSession } = await import("../lib/tenantSession");
+  await setBypassRlsSession();
 
   const eventId   = event.id   as string;
   const eventType = event.type as string;
@@ -133,7 +96,7 @@ export async function bufferAndProcess(
     VALUES (${eventId}, ${eventType}, ${JSON.stringify(event)}, 'processing')
     ON CONFLICT (stripe_event_id) DO UPDATE
       SET status = 'processing', retry_count = stripe_events.retry_count + 1
-  `).catch(e => logger.error({ e }, "[StripeBuffer] Failed to write event buffer"));
+  `).catch((e: unknown) => logger.error({ e }, "[StripeBuffer] Failed to write event buffer"));
 
   /* 4. Process with retry + exponential backoff */
   let lastError = "";

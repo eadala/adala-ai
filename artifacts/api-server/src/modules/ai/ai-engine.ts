@@ -1,21 +1,27 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing; Gemini auth hardening */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
-const GEMINI_API_KEY   = process.env.GEMINI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY   = process.env.OPENAI_API_KEY;
 
 // ── shared LLM caller (Gemini → Anthropic → OpenAI → rule-based) ──────────
 async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
-  if (GEMINI_API_KEY) {
+  const geminiKey = getGeminiApiKey();
+  if (geminiKey) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        geminiGenerateContentUrl("gemini-2.5-flash"),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: geminiApiHeaders(geminiKey),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: [{ role: "user", parts: [{ text: userPrompt }] }],

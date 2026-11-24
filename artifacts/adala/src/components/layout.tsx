@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps -- pre-existing layout lint debt */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps -- pre-existing lint debt; authFetch migration */
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Scale, FileText, Bot, Users, CreditCard, Menu, Search,
@@ -22,13 +22,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useBranding } from "@/hooks/use-branding";
 import { useOfficePlan } from "@/hooks/use-office-plan";
+import { useAuthReady } from "@/hooks/use-auth-ready";
+import { authFetch } from "@/lib/authFetch";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useUser, useClerk, useAuth } from "@clerk/react";
+import { useUser, useClerk } from "@clerk/react";
 import { useLoginTracker } from "@/hooks/useLoginTracker";
 import { useIsSuperAdmin } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -1215,12 +1217,14 @@ function EntityContextNav({ location, onItemClick }: { location: string; onItemC
 ══════════════════════════════════════════════════════════════════════════ */
 function ActivityFeedMini() {
   const [open, setOpen] = useState(false);
+  const authReady = useAuthReady();
   const { data: events } = useQuery({
     queryKey: ["sidebar-activity"],
     queryFn: () =>
-      fetch(`${basePath}/api/events?limit=6`).then(r => r.ok ? r.json() : []).catch(() => []),
+      authFetch(`${basePath}/api/events?limit=6`).then(r => r.ok ? r.json() : []).catch(() => []),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    enabled: authReady,
   });
 
   const items: any[] = Array.isArray(events) ? events.slice(0, 6)
@@ -1330,18 +1334,13 @@ function SidebarFooterCard({
   const [showMenu, setShowMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initials = displayName.slice(0, 2);
-  const { getToken } = useAuth();
 
+  const authReady = useAuthReady();
   const { data: officeData } = useQuery({
-    queryKey: ["office-info-footer"],
-    queryFn: async () => {
-      const token = await getToken();
-      const headers: Record<string, string> = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const r = await fetch(`${basePath}/api/office/my`, { headers, credentials: "include" });
-      return r.ok ? r.json() : null;
-    },
+    queryKey: ["offices", "my"],
+    queryFn: () => authFetch(`${basePath}/api/offices/my`).then(r => r.ok ? r.json() : null),
     staleTime: 10 * 60_000,
+    enabled: authReady,
   });
 
   const [lastSync, setLastSync] = useState("الآن");
@@ -1691,7 +1690,7 @@ export function Layout({ children }: { children: ReactNode }) {
   /* Onboarding gate */
   const { data: onboardingState } = useQuery({
     queryKey: ["onboarding-state"],
-    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => authFetch(`${basePath}/api/onboarding/state`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 5 * 60_000,
   });
@@ -1702,7 +1701,7 @@ export function Layout({ children }: { children: ReactNode }) {
   /* Badges */
   const { data: remindersData } = useQuery({
     queryKey: ["reminders-count"],
-    queryFn: () => fetch(`${basePath}/api/reminders/count`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    queryFn: () => authFetch(`${basePath}/api/reminders/count`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
     enabled: isLoaded && !!user,
     staleTime: 60_000,
     refetchInterval: 60_000,

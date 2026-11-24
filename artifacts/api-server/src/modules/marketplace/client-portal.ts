@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { writeClientCommSettings } from "../../lib/clientCommSettingsWrite";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -8,65 +8,28 @@ import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 import { createClerkClient } from "@clerk/express";
 import nodemailer from "nodemailer";
-import { objectStorageClient, parseObjectPath } from "../../lib/objectStorage";
+import { getStorageProvider, isObjectStorageConfigured, entityIdToObjectKey, getObjectStorageBucket } from "../../core/storage";
 import { validateUpload } from "../../lib/uploadGuard";
+import { logEndpointError } from "../../lib/endpointErrorLog";
 
 const router = Router();
 
-// ─── ensureTables ─────────────────────────────────────────────────────────────
-// nosemgrep: ban-drizzle-sql-raw — all db.execute() calls here use parameterized sql`` template literals (no sql.raw)
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_portal_tokens (
-      id TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      client_email TEXT,
-      client_name TEXT,
-      expires_at TIMESTAMPTZ,
-      last_accessed TIMESTAMPTZ,
-      access_count INTEGER DEFAULT 0,
-      show_invoices BOOLEAN DEFAULT true,
-      show_timeline BOOLEAN DEFAULT true,
-      allowed_to_upload BOOLEAN DEFAULT false,
-      shared_documents JSONB DEFAULT '[]',
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS show_invoices BOOLEAN DEFAULT true`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS show_timeline BOOLEAN DEFAULT true`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS allowed_to_upload BOOLEAN DEFAULT false`);
-  await db.execute(sql`ALTER TABLE client_portal_tokens ADD COLUMN IF NOT EXISTS shared_documents JSONB DEFAULT '[]'`);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_timeline (
-      id TEXT PRIMARY KEY,
-      case_id TEXT NOT NULL,
-      entry_type TEXT NOT NULL DEFAULT 'note',
-      title TEXT NOT NULL,
-      description TEXT,
-      happened_at TIMESTAMPTZ DEFAULT NOW(),
-      is_shared BOOLEAN DEFAULT true,
-      created_by TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS portal_uploads (
-      id TEXT PRIMARY KEY,
-      portal_token TEXT NOT NULL,
-      case_id TEXT,
-      file_name TEXT NOT NULL,
-      file_size INTEGER,
-      file_type TEXT,
-      file_path TEXT,
-      uploaded_at TIMESTAMPTZ DEFAULT NOW(),
-      is_read BOOLEAN DEFAULT false
-    )
-  `);
+/** SELECT-only readiness — schema owned by Migration 038. */
+async function ensureClientPortalTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.client_portal_tokens') IS NOT NULL AS tokens,
+      to_regclass('public.case_timeline') IS NOT NULL AS timeline,
+      to_regclass('public.portal_uploads') IS NOT NULL AS uploads
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.tokens || !row.timeline || !row.uploads) {
+    console.error(
+      "[client-portal] Migration 038 schema not ready — portal/timeline/uploads tables missing",
+    );
+  }
 }
-ensureTables().catch(console.error);
+ensureClientPortalTablesReady().catch(console.error);
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function sqlOne(res: any) { return (res?.rows ?? res)?.[0] ?? null; }
@@ -86,20 +49,45 @@ const DEFAULT_COMM_ROLES: Record<string, string[]> = {
   intake:   ["firm_owner", "office_manager", "lawyer"],
 };
 
+/**
+ * officeId is ALWAYS derived via the canonical resolveTenantId()
+ * (membership-validated) — it must NEVER fall back to the Clerk user id.
+ * Returns null (fail closed) when no tenant can be resolved; the calling
+ * route then denies the request using its existing error response.
+ */
 async function getOfficeUser(req: any) {
-  const auth = getAuth(req);
-  if (!auth?.userId) return null;
+  let userId: string | null = null;
+  if (process.env.ADALA_HTTP_SECURITY_TEST === "1"
+      && req.headers?.["x-adala-test-auth"] === process.env.ADALA_TEST_AUTH_SECRET
+      && typeof req.headers?.["x-adala-test-user"] === "string") {
+    userId = req.headers["x-adala-test-user"];
+  } else {
+    try {
+      const auth = getAuth(req);
+      userId = auth?.userId ?? null;
+    } catch { userId = null; }
+  }
+  if (!userId) return null;
   try {
-    const user = await getClerkPortal().users.getUser(auth.userId);
-    const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
-    const isSA = await checkIsSuperAdmin(auth.userId);
     const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
-    const officeId = await resolveTenantId(auth.userId, headerTenant);
+    const officeId = await resolveTenantId(userId, headerTenant);
     if (!officeId) return null; // fail closed — never substitute auth.userId
-    const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
-    const officeRole: string = mRows[0]?.role ?? (user.publicMetadata?.role as string) ?? "lawyer";
-    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_manager";
-    return { userId: auth.userId, officeId, email, isSA, officeRole, isAdmin };
+    const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
+    let email = "";
+    let metaRole: string | undefined;
+    let isSA = false;
+    if (process.env.ADALA_HTTP_SECURITY_TEST === "1" && req.headers?.["x-adala-test-auth"]) {
+      email = `${userId}@synthetic.adala.test`;
+      isSA = false;
+    } else {
+      const user = await getClerkPortal().users.getUser(userId);
+      email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
+      metaRole = user.publicMetadata?.role as string | undefined;
+      isSA = await checkIsSuperAdmin(userId);
+    }
+    const officeRole: string = mRows[0]?.role ?? metaRole ?? "lawyer";
+    const isAdmin = isSA || officeRole === "firm_owner" || officeRole === "office_owner" || officeRole === "office_manager";
+    return { userId, officeId, email, isSA, officeRole, isAdmin };
   } catch { return null; }
 }
 
@@ -208,6 +196,7 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
     `);
 
     const caseId = portalRow.case_id;
+    const tenantForPortal = portalRow.office_id ? String(portalRow.office_id) : null;
     const showInvoices  = portalRow.show_invoices !== false;
     const showTimeline  = portalRow.show_timeline !== false;
     const allowedUpload = portalRow.allowed_to_upload === true;
@@ -216,29 +205,70 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
       ? portalRow.shared_documents
       : (typeof portalRow.shared_documents === "string" ? JSON.parse(portalRow.shared_documents || "[]") : []);
 
-    const [caseRows, invRows, timelineRows, uploadRows] = await Promise.all([
-      db.execute(sql`SELECT * FROM cases WHERE id = ${caseId} LIMIT 1`),
-      showInvoices
-        ? db.execute(sql`SELECT * FROM client_invoices WHERE case_id = ${caseId} ORDER BY created_at DESC LIMIT 10`)
-        : Promise.resolve({ rows: [] }),
-      showTimeline
-        ? db.execute(sql`SELECT * FROM case_timeline WHERE case_id = ${caseId} AND is_shared = true ORDER BY happened_at ASC`)
-        : Promise.resolve({ rows: [] }),
-      db.execute(sql`SELECT id, file_name, file_type, file_size, uploaded_at FROM portal_uploads WHERE portal_token = ${token} ORDER BY uploaded_at DESC`),
-    ]);
-
-    // Only return explicitly shared documents
+    /* Single connection + transaction so FORCE RLS sees tenant GUC for all portal reads */
+    const { pool } = await import("@workspace/db");
+    const client = await pool.connect();
+    let caseData: any = null;
+    let invRows: any = { rows: [] };
+    let timelineRows: any = { rows: [] };
+    let uploadRows: any = { rows: [] };
+    let apptRows: any = { rows: [] };
+    let msgRows: any = { rows: [] };
     let docRows: any = { rows: [] };
-    if (sharedDocIds.length > 0) {
-      docRows = await db.execute(sql`
-        SELECT id, file_name, file_type, file_size, created_at
-        FROM documents
-        WHERE case_id = ${caseId} AND id::text = ANY(string_to_array(${sharedDocIds.join(",")}, ','))
-        ORDER BY created_at DESC
-      `);
+    try {
+      await client.query("BEGIN");
+      if (tenantForPortal) {
+        await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantForPortal]);
+        await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantForPortal]);
+      }
+      const caseRes = await client.query(`SELECT * FROM cases WHERE id = $1 LIMIT 1`, [caseId]);
+      caseData = caseRes.rows[0] ?? null;
+      if (showInvoices) {
+        invRows = await client.query(
+          `SELECT * FROM client_invoices WHERE case_id = $1 ORDER BY created_at DESC LIMIT 10`,
+          [caseId],
+        );
+      }
+      if (showTimeline) {
+        timelineRows = await client.query(
+          `SELECT * FROM case_timeline WHERE case_id = $1 AND is_shared = true ORDER BY happened_at ASC`,
+          [caseId],
+        ).catch(() => ({ rows: [] }));
+      }
+      uploadRows = await client.query(
+        `SELECT id, file_name, file_type, file_size, uploaded_at FROM portal_uploads WHERE portal_token = $1 ORDER BY uploaded_at DESC`,
+        [token],
+      ).catch(() => ({ rows: [] }));
+      apptRows = await client.query(
+        `SELECT id, title, event_type, start_at, end_at, location, status, description
+         FROM events
+         WHERE case_id = $1 AND client_visible = TRUE AND status IS DISTINCT FROM 'cancelled'
+         ORDER BY start_at ASC LIMIT 50`,
+        [caseId],
+      ).catch(() => ({ rows: [] }));
+      msgRows = await client.query(
+        `SELECT id, direction, sender_name, content, created_at, read_at
+         FROM messages WHERE case_id = $1 AND channel = 'portal'
+         ORDER BY created_at ASC LIMIT 100`,
+        [caseId],
+      ).catch(() => ({ rows: [] }));
+      if (sharedDocIds.length > 0) {
+        docRows = await client.query(
+          `SELECT id, file_name, file_type, file_size, created_at
+           FROM documents
+           WHERE case_id = $1 AND id::text = ANY(string_to_array($2, ','))
+           ORDER BY created_at DESC`,
+          [caseId, sharedDocIds.join(",")],
+        ).catch(() => ({ rows: [] }));
+      }
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      client.release();
     }
 
-    const caseData = sqlOne(caseRows) as any;
     if (!caseData) { res.status(404).json({ error: "القضية غير موجودة" }); return; }
 
     res.json({
@@ -263,9 +293,12 @@ router.get("/portal/:token", async (req: Request, res: Response) => {
       documents: sqlAll(docRows),
       timeline: sqlAll(timelineRows),
       uploads: sqlAll(uploadRows),
+      appointments: sqlAll(apptRows),
+      messages: sqlAll(msgRows),
     });
   } catch (e: any) {
-        res.status(500).json({ error: e.message });
+    logEndpointError("GET /api/portal/:token", req, e, { portalToken: req.params.token });
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -465,8 +498,7 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
     let storedPath: string | null = null;
 
     // Upload to Object Storage if configured
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (privateDir && fileData) {
+    if (isObjectStorageConfigured() && fileData) {
       try {
         const buffer = Buffer.from(
           fileData.includes(",") ? fileData.split(",")[1] : fileData,
@@ -476,17 +508,16 @@ router.post("/portal/:token/upload", async (req: Request, res: Response) => {
         if (buffer.length > MAX_BYTES) {
           res.status(413).json({ error: "حجم الملف يتجاوز 5 ميغابايت" }); return;
         }
-        const objectPath = `${privateDir}/portal-uploads/${id}`;
-        const { bucketName, objectName } = parseObjectPath(objectPath);
-        const bucket = objectStorageClient.bucket(bucketName);
-        const file = bucket.file(objectName);
-        await file.save(buffer, { metadata: { contentType: fileType ?? "application/octet-stream" } });
-        storedPath = objectPath;
+        const key = entityIdToObjectKey(`portal-uploads/${id}`);
+        await getStorageProvider().putObject(key, buffer, {
+          contentType: fileType ?? "application/octet-stream",
+        });
+        storedPath = `/${getObjectStorageBucket()}/${key}`;
       } catch (storageErr) {
                 res.status(500).json({ error: "فشل رفع الملف لمنظومة التخزين" }); return;
       }
-    } else if (!privateDir) {
-      res.status(503).json({ error: "منظومة التخزين غير مضبوطة (PRIVATE_OBJECT_DIR)" }); return;
+    } else if (!isObjectStorageConfigured()) {
+      res.status(503).json({ error: "منظومة التخزين غير مضبوطة (R2)" }); return;
     }
 
     await db.execute(sql`
@@ -546,10 +577,130 @@ router.post("/portal/:token/message", async (req: Request, res: Response) => {
     if (!portalRow) { res.status(404).json({ error: "رابط غير صالح" }); return; }
 
     await db.execute(sql`
-      INSERT INTO messages (id, channel, direction, sender_name, sender_email, content, case_id, created_at)
-      VALUES (${randomUUID()}, 'portal', 'inbound', ${senderName ?? 'عميل'}, ${senderEmail ?? null}, ${message}, ${portalRow.case_id}, NOW())
+      INSERT INTO messages (id, channel, direction, sender_name, sender_email, content, case_id, office_id, created_at)
+      VALUES (
+        ${randomUUID()}, 'portal', 'inbound', ${senderName ?? 'عميل'}, ${senderEmail ?? null},
+        ${message}, ${portalRow.case_id}, ${portalRow.office_id ?? null}, NOW()
+      )
     `);
     res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── GET /portal/case/:caseId/messages — firm inbox for portal channel ───────
+router.get("/portal/case/:caseId/messages", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "reply")) {
+    res.status(403).json({ error: "ليس لديك صلاحية الرد", code: "NO_REPLY_PERM" }); return;
+  }
+  try {
+    const caseId = String(req.params.caseId);
+    const c = sqlOne(await db.execute(sql`
+      SELECT id FROM cases WHERE id::text = ${caseId} AND office_id = ${u.officeId} LIMIT 1
+    `));
+    if (!c) { res.status(404).json({ error: "القضية غير موجودة" }); return; }
+    const rows = sqlAll(await db.execute(sql`
+      SELECT id, direction, sender_name, content, created_at, read_at
+      FROM messages
+      WHERE case_id = ${caseId} AND channel = 'portal'
+      ORDER BY created_at ASC
+      LIMIT 200
+    `));
+    res.json({ success: true, messages: rows });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── POST /portal/case/:caseId/reply — lawyer reply to client ────────────────
+router.post("/portal/case/:caseId/reply", requireAuth, async (req: Request, res: Response) => {
+  const u = await getOfficeUser(req);
+  if (!u) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!await checkCommPerm(u, "reply")) {
+    res.status(403).json({ error: "ليس لديك صلاحية الرد", code: "NO_REPLY_PERM" }); return;
+  }
+  try {
+    const caseId = String(req.params.caseId);
+    const message = String(req.body?.message ?? "").trim();
+    if (!message) { res.status(400).json({ error: "الرسالة مطلوبة" }); return; }
+    const c = sqlOne(await db.execute(sql`
+      SELECT id FROM cases WHERE id::text = ${caseId} AND office_id = ${u.officeId} LIMIT 1
+    `));
+    if (!c) { res.status(404).json({ error: "القضية غير موجودة" }); return; }
+    const id = randomUUID();
+    await db.execute(sql`
+      INSERT INTO messages
+        (id, channel, direction, sender_name, sender_email, content, case_id, office_id, created_at)
+      VALUES (
+        ${id}, 'portal', 'outbound', ${req.body?.senderName ?? "المحامي"},
+        ${u.email ?? null}, ${message}, ${caseId}, ${u.officeId}, NOW()
+      )
+    `);
+    await db.execute(sql`
+      UPDATE messages SET read_at = COALESCE(read_at, NOW())
+      WHERE case_id = ${caseId} AND channel = 'portal' AND direction = 'inbound' AND read_at IS NULL
+    `).catch(() => {});
+    res.status(201).json({ success: true, id });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function loadPortalForPublic(token: string) {
+  const rows = await db.execute(sql`SELECT * FROM client_portal_tokens WHERE token = ${token} LIMIT 1`);
+  const portalRow = sqlOne(rows) as any;
+  if (!portalRow) return null;
+  if (portalRow.expires_at && new Date(portalRow.expires_at) < new Date()) return null;
+  if (portalRow.is_active === false) return null;
+  return portalRow;
+}
+
+// ─── POST /portal/:token/appointments/:id/reschedule (PUBLIC — client) ──────
+router.post("/portal/:token/appointments/:id/reschedule", async (req: Request, res: Response) => {
+  try {
+    const portalRow = await loadPortalForPublic(String(req.params.token));
+    if (!portalRow) { res.status(404).json({ error: "رابط غير صالح" }); return; }
+    const eventId = String(req.params.id);
+    const startAt = String(req.body?.startAt ?? "");
+    if (!startAt) { res.status(400).json({ error: "startAt مطلوب" }); return; }
+    const endAt = req.body?.endAt ? String(req.body.endAt) : null;
+    const upd = sqlOne(await db.execute(sql`
+      UPDATE events SET
+        start_at = ${startAt}::timestamptz,
+        end_at = COALESCE(${endAt}::timestamptz, end_at),
+        updated_at = NOW(),
+        status = 'upcoming'
+      WHERE id = ${eventId}
+        AND case_id = ${portalRow.case_id}
+        AND client_visible = TRUE
+        AND status IS DISTINCT FROM 'cancelled'
+      RETURNING id, start_at, end_at, status
+    `));
+    if (!upd) { res.status(404).json({ error: "الموعد غير موجود أو غير مرئي للعميل" }); return; }
+    res.json({ success: true, appointment: upd });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── POST /portal/:token/appointments/:id/cancel (PUBLIC — client) ──────────
+router.post("/portal/:token/appointments/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const portalRow = await loadPortalForPublic(String(req.params.token));
+    if (!portalRow) { res.status(404).json({ error: "رابط غير صالح" }); return; }
+    const eventId = String(req.params.id);
+    const upd = sqlOne(await db.execute(sql`
+      UPDATE events SET status = 'cancelled', updated_at = NOW()
+      WHERE id = ${eventId}
+        AND case_id = ${portalRow.case_id}
+        AND client_visible = TRUE
+      RETURNING id, status
+    `));
+    if (!upd) { res.status(404).json({ error: "الموعد غير موجود أو غير مرئي للعميل" }); return; }
+    res.json({ success: true, appointment: upd });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -607,20 +758,22 @@ router.patch("/comm-settings", requireAuth, async (req: Request, res: Response) 
     const ir = toArr(clean(intake_roles,   DEFAULT_COMM_ROLES.intake));
     const approval = !!(require_reply_approval ?? false);
 
-    const existing = sqlAll(await db.execute(sql`SELECT id FROM client_comm_settings WHERE office_id=${u.officeId}`));
-    if (existing.length > 0) {
-      await db.execute(sql`
-        UPDATE client_comm_settings SET
-          reply_roles=${rr}::text[], portal_roles=${pr}::text[],
-          timeline_roles=${tr}::text[], intake_roles=${ir}::text[],
-          require_reply_approval=${approval}, updated_at=NOW()
-        WHERE office_id=${u.officeId}`);
-    } else {
-      await db.execute(sql`
-        INSERT INTO client_comm_settings (office_id,reply_roles,portal_roles,timeline_roles,intake_roles,require_reply_approval)
-        VALUES (${u.officeId},${rr}::text[],${pr}::text[],${tr}::text[],${ir}::text[],${approval})`);
-    }
-    const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${u.officeId}`));
+    // Re-resolve (fail-closed, defense in depth) the canonical office
+    // immediately before writing — never trust a previously-computed
+    // officeId for the write itself. writeClientCommSettings performs NO
+    // write when resolveTenantId returns null.
+    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const outcome = await writeClientCommSettings(
+      {
+        userId: u.userId,
+        headerTenant,
+        roles: { replyRoles: rr, portalRoles: pr, timelineRoles: tr, intakeRoles: ir, requireReplyApproval: approval },
+      },
+      { resolveTenantId, db },
+    );
+    if (!outcome) { res.status(401).json({ error: "غير مصادق" }); return; }
+
+    const updated = sqlAll(await db.execute(sql`SELECT * FROM client_comm_settings WHERE office_id=${outcome.officeId}`));
     res.json(updated[0] ?? { ok: true });
   } catch (e: any) {
         res.status(500).json({ error: e.message });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 /**
  * Cases Router — واجهة API للقضايا (Architecture: Clean Controller)
  * ──────────────────────────────────────────────────────────────────
@@ -16,10 +17,14 @@ import { CaseTasks }                               from "../../case/modules/task
 import { CaseDocuments }                           from "../../case/modules/documents";
 import { db }                                      from "@workspace/db";
 import { sql }                                     from "drizzle-orm";
-import { runCaseAutopilot, ensureAutopilotTable }  from "../../agents/caseAutopilot";
+import {
+  runCaseAutopilot,
+  httpStatusForAutopilotTaskCreation,
+} from "../../agents/caseAutopilot";
 import { auditLog, auditMeta }                      from "../../lib/auditLogger";
 import { ListCasesQueryParams, CreateCaseBody, UpdateCaseBody } from "@workspace/api-zod";
 import { runAIAnalysis, getLatestInsight, approveAITask, rejectAITask } from "../../case/case.ai";
+import { parsePageLimit, queryHasPageAndLimit } from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -27,32 +32,24 @@ const router = Router();
    ONE-TIME STARTUP MIGRATIONS
 ════════════════════════════════════════════════════ */
 (async () => {
+  /* cases.case_number / court_* / deleted_at / version / idx_uq_cases_office_case_number
+     are owned by migration 017_cases_schema.sql — no Runtime DDL for those. */
   const migs = [
-    /* Soft delete */
-    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
-    /* Optimistic locking */
-    sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1`,
-    /* Clients soft delete */
+    /* Clients soft delete (not owned by 017) */
     sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
     /* Performance indexes — plain B-tree on title (no pg_trgm dependency) */
     sql`CREATE INDEX IF NOT EXISTS idx_cases_title ON cases (title)`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_client_name ON cases (LOWER(client_name))`,
     sql`CREATE INDEX IF NOT EXISTS idx_cases_office_active ON cases (office_id) WHERE deleted_at IS NULL`,
-    /* Partial unique index — allows multiple NULLs in same office */
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_uq_cases_office_case_number
-        ON cases (office_id, case_number) WHERE case_number IS NOT NULL`,
 
-    /* ── Cross-module integration indexes (prevent N+1 on related tables) ── */
-    sql`CREATE INDEX IF NOT EXISTS idx_tasks_case_id           ON tasks (case_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_tasks_office_case       ON tasks (office_id, case_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_invoices_case_office    ON client_invoices (case_id, office_id)`,
+    /* ── Cross-module integration indexes (task indexes live in migration 015) ── */
+    /* idx_invoices_case_office / idx_revenues_case_office / idx_expenses_case_office
+       owned by Migration 037 — no Runtime CREATE. */
     sql`CREATE INDEX IF NOT EXISTS idx_contracts_case_office   ON contracts (case_id, office_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_revenues_case_office    ON revenues (case_id, office_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_expenses_case_office    ON expenses (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_documents_case_office   ON documents (case_id, office_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_events_case_id          ON events (case_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_messages_case_id        ON office_messages (case_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_convs_case_id           ON message_conversations (case_id)`,
+    /* idx_events_case_id owned by migration 020 — no Runtime CREATE. */
+    /* idx_messages_case_id owned by Migration 020/030 (Stage 22) — no Runtime CREATE. */
+    /* idx_convs_case_id owned by migration 020/031 (Stage 23.3B) — no Runtime CREATE. */
     sql`CREATE INDEX IF NOT EXISTS idx_case_hearings_case      ON case_hearings (case_id, office_id)`,
     sql`CREATE INDEX IF NOT EXISTS idx_case_hearings_upcoming  ON case_hearings (office_id, hearing_date) WHERE status != 'cancelled'`,
   ];
@@ -111,9 +108,9 @@ function serializeCase(c: any) {
 /* GET /cases */
 router.get("/cases", requireAuthWithTenant, async (req, res) => {
   try {
-    const q      = ListCasesQueryParams.parse(req.query);
-    const page   = req.query.page   ? Math.max(1, parseInt(String(req.query.page)))    : null;
-    const limit  = req.query.limit  ? Math.min(200, parseInt(String(req.query.limit))) : null;
+    const q = ListCasesQueryParams.parse(req.query);
+    const paginated = queryHasPageAndLimit(req.query);
+    const paging = paginated ? parsePageLimit(req.query, 50) : null;
     const search = req.query.search ? String(req.query.search) : undefined;
 
     /* ── Row-level visibility by role ── */
@@ -134,15 +131,26 @@ router.get("/cases", requireAuthWithTenant, async (req, res) => {
       caseType: q.caseType as any,
       search,
       assignedUserId,
-      ...(page && limit ? { limit, offset: (page - 1) * limit } : {}),
+      ...(paging ? { limit: paging.limit, offset: paging.offset } : {}),
     };
 
     const svc   = getService(req);
     const cases = await svc.listCases(filters);
 
-    if (page && limit) {
-      const total = await svc.countCases({ status: filters.status, caseType: filters.caseType, search, assignedUserId });
-      res.json({ data: cases.map(serializeCase), total, page, limit, pages: Math.ceil(total / limit) });
+    if (paging) {
+      const total = await svc.countCases({
+        status: filters.status,
+        caseType: filters.caseType,
+        search,
+        assignedUserId,
+      });
+      res.json({
+        data: cases.map(serializeCase),
+        total,
+        page: paging.page,
+        limit: paging.limit,
+        pages: Math.max(1, Math.ceil(total / paging.limit)),
+      });
       return;
     }
     res.json(cases.map(serializeCase));
@@ -271,7 +279,7 @@ router.patch("/cases/:id", requireAuthWithTenant, async (req, res) => {
         `).catch(() => ({ rows: [{ cnt: 0 }] })),
         db.execute(sql`
           SELECT COUNT(*) AS cnt FROM tasks
-          WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL)
+          WHERE case_id = ${caseId} AND office_id::text = ${tenantId}
             AND status NOT IN ('done','completed','cancelled')
         `).catch(() => ({ rows: [{ cnt: 0 }] })),
         db.execute(sql`
@@ -365,7 +373,7 @@ router.get("/cases/:id/hub", requireAuthWithTenant, async (req, res) => {
       db.execute(sql`SELECT id,invoice_number,title,total,status,due_date,created_at FROM client_invoices WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC`),
       db.execute(sql`SELECT id,title,event_type,start_at,location,status FROM events WHERE case_id = ${caseId} ORDER BY start_at DESC LIMIT 20`),
       db.execute(sql`SELECT id,file_name,file_type,file_size,created_at FROM documents WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY created_at DESC LIMIT 20`),
-      db.execute(sql`SELECT id,title,status,priority,assignee_name,due_date,created_at FROM tasks WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL) ORDER BY created_at DESC LIMIT 30`).catch(() => ({ rows: [] })),
+      db.execute(sql`SELECT id,title,status,priority,assignee_name,due_date,created_at FROM tasks WHERE case_id = ${caseId} AND office_id::text = ${tenantId} ORDER BY created_at DESC LIMIT 30`).catch(() => ({ rows: [] })),
       db.execute(sql`SELECT id,title,category,amount,date,created_at FROM revenues WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY date DESC LIMIT 20`).catch(() => ({ rows: [] })),
       db.execute(sql`SELECT id,title,category,amount,date,created_at FROM expenses WHERE case_id = ${caseId} AND office_id = ${tenantId} ORDER BY date DESC LIMIT 20`).catch(() => ({ rows: [] })),
     ]);
@@ -546,7 +554,6 @@ router.get("/cases/:id/health", requireAuthWithTenant, async (req, res) => {
       if (row) return res.json(row);
     }
 
-    await ensureAutopilotTable();
     const report = await runCaseAutopilot(caseId, tenantId, false);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
     res.json(report);
@@ -561,13 +568,38 @@ router.post("/cases/:id/autopilot", requireAuthWithTenant, async (req, res) => {
     const caseId   = String(req.params.id);
     const auth     = getAuth(req);
 
-    await ensureAutopilotTable();
     const report = await runCaseAutopilot(caseId, tenantId, true);
     if (!report) return res.status(404).json({ error: "القضية غير موجودة" });
 
-    auditLog({ userId: auth?.userId, action: "autopilot", resource: "cases", resourceId: caseId,
-      details: `score=${report.healthScore} tasks=${report.tasksCreated}` }).catch(() => {});
-    res.json(report);
+    const taskCreation = report.taskCreation;
+    const httpStatus = httpStatusForAutopilotTaskCreation(taskCreation);
+
+    auditLog({
+      userId: auth?.userId,
+      action: "autopilot",
+      resource: "cases",
+      resourceId: caseId,
+      details:
+        `score=${report.healthScore} status=${taskCreation.status} ` +
+        `planned=${taskCreation.planned} created=${taskCreation.created} ` +
+        `failed=${taskCreation.failed} skipped=${taskCreation.skipped}` +
+        (taskCreation.reason ? ` reason=${taskCreation.reason}` : ""),
+    }).catch(() => {});
+
+    /* Never HTTP 200 with tasksCreated:0 when planned > 0 */
+    if (httpStatus !== 200) {
+      return res.status(httpStatus).json({
+        error:
+          taskCreation.reason === "MISSING_CANONICAL_OFFICE_UUID"
+            ? "تعذر إنشاء المهام: معرف المكتب غير صالح (يلزم Office UUID)"
+            : taskCreation.status === "partial"
+              ? "تم إنشاء بعض المهام فقط"
+              : "فشل إنشاء مهام الطيار الآلي",
+        ...report,
+      });
+    }
+
+    res.status(200).json(report);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -1008,7 +1040,7 @@ router.get("/cases/:id/integration-report", requireAuthWithTenant, async (req, r
     ] = await Promise.all([
       db.execute(sql`SELECT id,title,status,case_type,created_at FROM cases WHERE id = ${caseId} AND office_id = ${tenantId} LIMIT 1`),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM client_invoices     WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
-      db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks               WHERE case_id = ${caseId} AND (office_id::text = ${tenantId} OR office_id IS NULL)`).catch(() => ({ rows: [{ n: 0 }] })),
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM tasks               WHERE case_id = ${caseId} AND office_id::text = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM documents           WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM events              WHERE case_id = ${caseId}`).catch(() => ({ rows: [{ n: 0 }] })),
       db.execute(sql`SELECT COUNT(*)::int AS n FROM case_hearings       WHERE case_id = ${caseId} AND office_id = ${tenantId}`).catch(() => ({ rows: [{ n: 0 }] })),

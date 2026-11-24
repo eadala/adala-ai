@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; overlap-guard wiring only */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import cron from "node-cron";
 import { logger } from "../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../lib/cronOverlapGuard";
 
 async function runLogRotation(): Promise<void> {
   const results: Record<string, number> = {};
@@ -84,8 +89,10 @@ async function runLogRotation(): Promise<void> {
 export function startLogRotationCron(): void {
   // Run daily at 03:00 AM
   cron.schedule("0 3 * * *", async () => {
-    try { await runLogRotation(); }
-    catch (e: any) { logger.error({ err: e.message }, "Log rotation error"); }
+    await withCronOverlapProtection(CRON_JOB_NAMES.logRotation, async () => {
+      try { await runLogRotation(); }
+      catch (e: any) { logger.error({ err: e.message }, "Log rotation error"); }
+    });
   });
   logger.info("Log rotation cron started — runs daily at 03:00");
 }

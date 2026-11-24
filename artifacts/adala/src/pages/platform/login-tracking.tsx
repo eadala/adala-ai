@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Login Tracking Dashboard — مركز تتبع الدخول
  * Professional Security Analytics with real-time DB data.
@@ -17,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -76,7 +78,7 @@ export default function LoginTrackingPage() {
   /* ── Queries ────────────────────────────────────────── */
   const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["login-stats"],
-    queryFn: () => fetch(`${BASE}/api/security/login-stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/security/login-stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 60_000,
   });
 
@@ -88,7 +90,7 @@ export default function LoginTrackingPage() {
         offset: String(page * LIMIT),
         ...(statusFilter !== "all" && { status: statusFilter }),
       });
-      return fetch(`${BASE}/api/security/logins?${params}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      return authFetch(`${BASE}/api/security/logins?${params}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
   });
 
@@ -97,7 +99,7 @@ export default function LoginTrackingPage() {
 
   /* ── Delete log entry ───────────────────────────────── */
   async function deleteLog(id: string) {
-    await fetch(`${BASE}/api/security/logins/${id}`, { method: "DELETE" });
+    await authFetch(`${BASE}/api/security/logins/${id}`, { method: "DELETE" });
     toast({ title: "تم حذف السجل" });
     refetchLogs();
   }

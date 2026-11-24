@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, Users, Building2, DollarSign,
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PLAN_SLUG_COLORS, PLAN_SLUG_LABELS } from "../shared/constants";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 interface Metrics {
@@ -79,7 +81,7 @@ export function InvestorTab() {
   const { data, isLoading, error, refetch } = useQuery<Metrics>({
     queryKey: ["investor-metrics"],
     queryFn:  async () => {
-      const r = await fetch("/api/admin/investor-metrics", { credentials: "include" });
+      const r = await authFetch("/api/admin/investor-metrics", { credentials: "include" });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },

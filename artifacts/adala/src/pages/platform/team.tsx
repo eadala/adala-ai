@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Team Management — إدارة الفريق والصلاحيات
  * RBAC: roles, permissions matrix, invitations, member management
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -105,23 +107,23 @@ export default function TeamPage() {
   /* ── Queries ── */
   const { data: members = [], isLoading: membersLoading } = useQuery<any[]>({
     queryKey: ["rbac-members"],
-    queryFn: () => fetch(`${BASE}/api/rbac/members`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/rbac/members`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery<any[]>({
     queryKey: ["rbac-roles"],
-    queryFn: () => fetch(`${BASE}/api/rbac/roles`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/rbac/roles`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: invitations = [] } = useQuery<any[]>({
     queryKey: ["rbac-invitations"],
-    queryFn: () => fetch(`${BASE}/api/rbac/invitations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/rbac/invitations`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   /* ── Mutations ── */
   const changeRole = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      fetch(`${BASE}/api/rbac/members/${userId}/role`, {
+      authFetch(`${BASE}/api/rbac/members/${userId}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
@@ -132,14 +134,14 @@ export default function TeamPage() {
 
   const removeMember = useMutation({
     mutationFn: (userId: string) =>
-      fetch(`${BASE}/api/rbac/members/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/rbac/members/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-members"] }); toast({ title: "تم إزالة العضو" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const sendInvite = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/rbac/invitations`, {
+      authFetch(`${BASE}/api/rbac/invitations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
@@ -154,13 +156,13 @@ export default function TeamPage() {
 
   const cancelInvite = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/rbac/invitations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/rbac/invitations/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["rbac-invitations"] }); toast({ title: "تم إلغاء الدعوة" }); },
   });
 
   const resendInvite = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/rbac/invitations/${id}/resend`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/rbac/invitations/${id}/resend`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => toast({ title: "تم إعادة إرسال الدعوة" }),
   });
 

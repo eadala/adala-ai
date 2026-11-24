@@ -7,22 +7,31 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
+  getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
-import { requestGuard, preventionErrorHandler } from "./prevention/request.guard";
+import { requestGuard, preventionErrorHandler, isMetricsBeaconRequest, getRequestPathname } from "./prevention/request.guard";
 import { IsolationMiddleware } from "./isolation/tenant.scope";
 import { runtimeShield } from "./core/runtimeShield";
 import { logger } from "./lib/logger";
+import {
+  createCorsOriginRejectedError,
+  evaluateCorsOrigin,
+} from "./lib/corsOriginPolicy";
 import { WebhookHandlers } from "./webhookHandlers";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
 import { registerSwaggerDocs } from "./docs/swagger";
 import { prometheusMiddleware, registry } from "./observability/prometheus";
+import { isSensitiveDotPath } from "./lib/sensitiveStaticPath";
+import {
+  clearTenantSessionFailClosed,
+  setFailClosedTenantSession,
+} from "./lib/tenantSession";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -36,15 +45,15 @@ if (process.env.SENTRY_DSN) {
 
 const app: Express = express();
 
-// ── Replit deployment healthcheck — MUST be first, no middleware ──────────
-// artifact.toml [services.production.health.startup] path = "/api/healthz"
-// Also keep /api and /api/ping for backwards compat.
+// ── Deployment healthcheck — MUST be first, no middleware ─────────────────
+// Coolify/Docker HEALTHCHECK and reverse-proxy probes use /api/healthz (and
+// /api/health → healthz). Keep /api and /api/ping for backwards compat.
 // All three bypass ALL middleware so they always respond immediately.
 app.get("/api/healthz", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api", (_req, res) => res.status(200).json({ ok: true, status: "healthy", ts: Date.now() }));
 app.get("/api/ping", (_req, res) => res.status(200).json({ ok: true }));
 
-// Trust Replit's reverse proxy so rate-limit reads the real client IP
+// Trust the reverse proxy (Coolify/Nginx) so rate-limit reads the real client IP
 app.set("trust proxy", 1);
 
 // ─── Stripe Webhook MUST be before express.json() ───
@@ -55,12 +64,15 @@ app.post(
     const signature = req.headers["stripe-signature"];
     if (!signature) { res.status(400).json({ error: "Missing stripe-signature" }); return; }
     try {
+      /* Bypass is set ONLY inside processWebhook after signature verification. */
       const sig = Array.isArray(signature) ? signature[0] : signature;
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error({ err }, "Stripe webhook error");
       res.status(400).json({ error: "Webhook processing error" });
+    } finally {
+      await clearTenantSessionFailClosed().catch(() => {});
     }
   }
 );
@@ -88,6 +100,13 @@ app.use(
 // ─── Request ID — attach before anything else ───────────────────────────────
 app.use(requestIdMiddleware);
 
+// ─── Fail-closed tenant GUC default (ADR-001) ───────────────────────────────
+// Deny by default on pooled connections; requireAuthWithTenant / SA / webhooks
+// elevate explicitly. Never leave empty tenant as an implicit privilege.
+app.use((_req, _res, next) => {
+  setFailClosedTenantSession().catch(() => {}).finally(() => next());
+});
+
 // ─── Prometheus request tracking ─────────────────────────────────────────────
 app.use(prometheusMiddleware());
 
@@ -97,7 +116,13 @@ app.use(helmet({
     directives: {
       defaultSrc:     ["'self'"],
       scriptSrc:      ["'self'", "'unsafe-inline'",
+                       // Clerk dev instance (dev environment)
                        "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
+                       "https://clerk.adalahai.com",
+                       // Clerk Turnstile bot-protection (both dev and prod)
+                       "https://challenges.cloudflare.com",
+                       // Cloudflare Web Analytics beacon (zone-injected; not app-owned)
+                       "https://static.cloudflareinsights.com",
                        "https://js.stripe.com", "https://cdn.jsdelivr.net"],
       workerSrc:      ["'self'", "blob:"],
       styleSrc:       ["'self'", "'unsafe-inline'",
@@ -107,7 +132,10 @@ app.use(helmet({
       fontSrc:        ["'self'", "https://fonts.gstatic.com", "data:"],
       objectSrc:      ["'none'"],
       frameSrc:       ["https://js.stripe.com",
-                       "https://clerk.accounts.dev", "https://*.clerk.accounts.dev"],
+                       // Clerk dev instance
+                       "https://clerk.accounts.dev", "https://*.clerk.accounts.dev",
+                       // Cloudflare Turnstile — required for Clerk sign-in bot protection
+                       "https://challenges.cloudflare.com"],
       baseUri:        ["'self'"],
       formAction:     ["'self'"],
       upgradeInsecureRequests: [],
@@ -198,65 +226,97 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
   .map((o) => o.trim())
   .filter(Boolean);
 
-// Production domains — always allowed regardless of env var
-const PRODUCTION_DOMAINS = [
-  "https://adalahai.com",
-  "https://www.adalahai.com",
-];
-
-app.use(cors({
-  credentials: true,
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (
-      PRODUCTION_DOMAINS.includes(origin) ||
-      ALLOWED_ORIGINS.includes(origin) ||
-      /^https:\/\/.*\.replit\.app$/.test(origin) ||
-      /^https:\/\/.*\.replit\.dev$/.test(origin) ||
-      /^http:\/\/localhost(:\d+)?$/.test(origin)
-    ) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS: origin not allowed — ${origin}`));
-  },
-}));
+// cors `origin` callback has no `req` — use options delegate so beacon paths can
+// allow opaque Origin "null" without weakening CORS for the rest of the API.
+app.use((req, res, next) => {
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      const decision = evaluateCorsOrigin(origin, req, ALLOWED_ORIGINS);
+      if (decision.allowed) return callback(null, true);
+      callback(createCorsOriginRejectedError(origin ?? ""));
+    },
+  })(req, res, next);
+});
+// sendBeacon posts JSON without application/json — parse as text before global JSON.
+// Use pathname helpers (not Express RegExp mounts) so req.path stays consistent for later middleware.
+const vitalsText = express.text({ type: "*/*", limit: "8kb" });
+const routeAnalyticsText = express.text({ type: "*/*", limit: "64kb" });
+app.use((req, res, next) => {
+  const p = getRequestPathname(req);
+  if (p === "/metrics/vitals" || p.endsWith("/metrics/vitals")) {
+    return vitalsText(req, res, next);
+  }
+  if (p === "/metrics/route-analytics" || p.endsWith("/metrics/route-analytics")) {
+    return routeAnalyticsText(req, res, next);
+  }
+  return next();
+});
 // Global JSON limit: 3MB (large file uploads use multipart or per-route override)
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true, limit: "3mb" }));
 
-app.use(
-  clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey:      process.env.CLERK_SECRET_KEY,
-  }),
-);
+const clerk = clerkMiddleware((req) => ({
+  publishableKey: publishableKeyFromHost(
+    getClerkProxyHost(req) ?? "",
+    process.env.CLERK_PUBLISHABLE_KEY,
+  ),
+}));
+// Public fire-and-forget beacons — skip Clerk (sendBeacon sends same-origin cookies).
+// TEMP diagnostic (no secrets): confirms whether skip matched under Production/Coolify paths.
+app.use((req, res, next) => {
+  const skip = isMetricsBeaconRequest(req);
+  if (req.method === "POST" && (skip || /metrics\/vitals/i.test(req.originalUrl ?? ""))) {
+    logger.info(
+      {
+        middleware: "clerkBeaconGate",
+        skip,
+        method: req.method,
+        path: req.path,
+        url: req.url,
+        originalUrl: req.originalUrl,
+        baseUrl: req.baseUrl,
+        pathname: getRequestPathname(req),
+      },
+      "[clerkBeaconGate]",
+    );
+  }
+  if (skip) return next();
+  clerk(req, res, next);
+});
 
 // ─── Clerk JWT error guard ──────────────────────────────────────────────────
 // Clerk throws synchronously on malformed/tampered tokens before routes run.
 // Catch those errors and return 401 instead of crashing with 500.
-app.use(((err: any, _req, res, next) => {
-  const stack: string = err?.stack ?? "";
+app.use(((err: unknown, _req, res, next) => {
+  const e = err as {
+    clerkError?: boolean;
+    status?: number;
+    statusCode?: number;
+    name?: string;
+    message?: string;
+    stack?: string;
+  };
+  const stack: string = e.stack ?? "";
   const isClerkAuthError =
-    err?.clerkError === true ||
-    err?.status === 401 || err?.statusCode === 401 ||
-    err?.name === "TokenExpiredError" ||
-    err?.name === "JsonWebTokenError" ||
-    (err?.name === "SyntaxError" && (stack.includes("@clerk") || stack.includes("decodeJwt") || stack.includes("verifyJwt"))) ||
-    err?.message?.includes("Invalid token") ||
-    err?.message?.includes("Unauthenticated");
+    e.clerkError === true ||
+    e.status === 401 || e.statusCode === 401 ||
+    e.name === "TokenExpiredError" ||
+    e.name === "JsonWebTokenError" ||
+    (e.name === "SyntaxError" && (stack.includes("@clerk") || stack.includes("decodeJwt") || stack.includes("verifyJwt"))) ||
+    e.message?.includes("Invalid token") ||
+    e.message?.includes("Unauthenticated");
   if (isClerkAuthError) {
     return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
   }
   next(err);
 }) as ErrorRequestHandler);
 
-// ─── RLS Session Reset ─────────────────────────────────────────────────────
-// After each response, clear the tenant session variable.
-// requireAuthWithTenant sets it per-request; this ensures the pool
-// connection never carries stale tenant state into the next request.
+// ─── RLS Session Reset (fail-closed) ───────────────────────────────────────
+// After each response, restore deny sentinel + bypass off (never clear to '').
 app.use((_req, res, next) => {
   res.on("finish", () => {
-    db.execute(sql`SELECT set_config('app.current_tenant', '', false)`).catch(() => {});
+    clearTenantSessionFailClosed().catch(() => {});
   });
   next();
 });
@@ -284,6 +344,14 @@ app.use(preventionErrorHandler);
 /* ── Production: serve Vite frontend static files ─────────────────────── */
 if (process.env.NODE_ENV === "production") {
   const publicDir = process.env.PUBLIC_DIR ?? "./public";
+
+  /* Stage 9: never serve or SPA-fallback sensitive/.git/.env paths (HTTP 404) */
+  app.use((req, res, next) => {
+    if (isSensitiveDotPath(req.path)) {
+      return void res.status(404).end();
+    }
+    next();
+  });
 
   app.use(express.static(publicDir, {
     maxAge: "1d",

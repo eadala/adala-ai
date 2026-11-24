@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
@@ -17,6 +18,8 @@ import {
   RefreshCw, AlertTriangle, CheckCircle2, Copy, FolderOpen,
   Upload, Download, Eye, MoreVertical, Zap, Shield
 } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
+import { openStorageFile } from "@/lib/storageSignedUrl";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -24,7 +27,7 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function api(path: string, opts?: RequestInit) {
-  return fetch(`${BASE}/api${path}`, {
+  return authFetch(`${BASE}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     ...opts,
@@ -274,9 +277,20 @@ function FileManagerTab() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {f.is_archived && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">مؤرشف</Badge>}
-                {f.file_url && (
-                  <Button size="sm" variant="ghost" className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0" asChild>
-                    <a href={f.file_url} target="_blank" rel="noreferrer"><Eye className="w-3.5 h-3.5" /></a>
+                {f.id && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground/50 hover:text-white h-7 w-7 p-0"
+                    onClick={async () => {
+                      try {
+                        await openStorageFile(String(f.id));
+                      } catch (e: any) {
+                        toast.error(e?.message || "تعذر فتح الملف");
+                      }
+                    }}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
                   </Button>
                 )}
                 <DropdownMenu>
@@ -479,13 +493,13 @@ function SettingsTab() {
           <CardTitle className="text-sm text-muted-foreground">مزود التخزين</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {["replit", "cloudflare-r2", "local"].map(p => {
-              const currentVal = val("default_provider", "replit");
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {["cloudflare-r2", "local"].map(p => {
+              const currentVal = val("default_provider", "cloudflare-r2");
               return (
                 <button key={p} onClick={() => setVals(v => ({ ...v, default_provider: p }))}
                   className={`p-3 rounded-xl border text-sm font-medium transition-all ${currentVal === p ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-card border-border text-muted-foreground/60 hover:border-primary/30"}`}>
-                  {p === "replit" ? "🟢 Replit Storage" : p === "cloudflare-r2" ? "☁️ Cloudflare R2" : "💾 تخزين محلي"}
+                  {p === "cloudflare-r2" ? "☁️ Cloudflare R2" : "💾 تخزين محلي"}
                 </button>
               );
             })}

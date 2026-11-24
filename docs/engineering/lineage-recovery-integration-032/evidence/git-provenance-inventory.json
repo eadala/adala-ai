@@ -1,0 +1,27 @@
+{
+  "directive": "ADALA-032-LINEAGE-RECOVERY-INTEGRATION",
+  "recordedAtUtc": "2026-11-23T18:51:00Z",
+  "currentBranch": "cursor/lineage-recovery-integration-032-da81",
+  "head": "8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b",
+  "tree": "ea8b8e85510bf68787b64a5de29f079f443f0a1a",
+  "phase031Branch": "cursor/legal-financial-product-completion-031-da81",
+  "phase031Head": "8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b",
+  "phase031Tree": "ea8b8e85510bf68787b64a5de29f079f443f0a1a",
+  "phase031StillAtTip": true,
+  "recoveryBase": "b3d9a0afd1b45486296910827824363bd9ed6810",
+  "required030": {
+    "commit": "4d76a954944e17ae920346dd80ae484a3400d310",
+    "tree": "d568bf7f7ccd778643528d8eba2a41be2e6a5152",
+    "present": false
+  },
+  "localBranches": [
+    "cursor/legal-financial-product-completion-031-da81",
+    "* cursor/lineage-recovery-integration-032-da81",
+    "cursor/recovery-production-readiness-da81",
+    "main"
+  ],
+  "workingTreeClean": true,
+  "fetchPerformed": false,
+  "pushPerformed": false,
+  "gcPrunePerformed": false
+}

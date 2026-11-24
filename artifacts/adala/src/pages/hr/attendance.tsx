@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +16,8 @@ import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -77,30 +80,37 @@ export default function Attendance() {
 
   const { data: records = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ["attendance", dateFilter],
-    queryFn: () => fetch(`${BASE}/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr/attendance${dateFilter ? `?date=${dateFilter}` : ""}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ["attendance-stats"],
-    queryFn: () => fetch("/api/hr/attendance/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/hr/attendance/stats").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
 
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["employees"],
-    queryFn: () => fetch("/api/hr/employees").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: quickEmployeesPage } = useQuery<{ data: any[] } | any[]>({
+    queryKey: ["employees-gps-quick"],
+    queryFn: async () => {
+      const r = await authFetch("/api/hr/employees?page=1&limit=8&status=active");
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      return r.json();
+    },
   });
+  const quickEmployees = Array.isArray(quickEmployeesPage)
+    ? quickEmployeesPage
+    : (quickEmployeesPage?.data ?? []);
 
   const { data: officeLocation, refetch: refetchOffice } = useQuery<any>({
     queryKey: ["office-location"],
-    queryFn: () => fetch("/api/hr/office-location").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/hr/office-location").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const checkInMutation = useMutation({
-    mutationFn: (body: any) => fetch("/api/hr/attendance/check-in", {
+    mutationFn: (body: any) => authFetch("/api/hr/attendance/check-in", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
     onSuccess: (data) => {
@@ -117,7 +127,7 @@ export default function Attendance() {
   });
 
   const checkOutMutation = useMutation({
-    mutationFn: (body: any) => fetch("/api/hr/attendance/check-out", {
+    mutationFn: (body: any) => authFetch("/api/hr/attendance/check-out", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; }),
     onSuccess: () => {
@@ -128,14 +138,14 @@ export default function Attendance() {
   });
 
   const manualMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/hr/attendance", {
+    mutationFn: (data: any) => authFetch("/api/hr/attendance", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); setShowManual(false); toast({ title: "تم تسجيل الحضور اليدوي" }); },
   });
 
   const officeSetupMutation = useMutation({
-    mutationFn: (data: any) => fetch("/api/hr/office-location", {
+    mutationFn: (data: any) => authFetch("/api/hr/office-location", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
@@ -271,8 +281,8 @@ export default function Attendance() {
         </div>
       )}
 
-      {/* Quick GPS Check-in/out */}
-      {employees.filter(e => e.status === "active").length > 0 && (
+      {/* Quick GPS Check-in/out — bounded recent actives; full roster via searchable manual dialog */}
+      {quickEmployees.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -283,11 +293,13 @@ export default function Attendance() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {employees.filter(e => e.status === "active").slice(0, 8).map((emp: any) => {
+              {quickEmployees.map((emp: any) => {
                 const isPresent = presentIds.has(emp.id);
                 const isOut = checkedOutIds.has(emp.id);
                 const isLoadingIn = gpsLoading === emp.id;
                 const isLoadingOut = gpsLoading === `out-${emp.id}`;
+                const name = emp.fullName ?? emp.full_name;
+                const title = emp.jobTitle ?? emp.job_title;
                 return (
                   <div key={emp.id} className={cn(
                     "p-3 rounded-xl border text-center transition-all",
@@ -295,8 +307,8 @@ export default function Attendance() {
                       : isPresent ? "bg-blue-500/5 border-blue-500/20"
                       : "bg-muted/30 border-muted"
                   )}>
-                    <div className="text-xs font-bold mb-0.5 truncate">{emp.fullName}</div>
-                    <div className="text-[10px] text-muted-foreground mb-2 truncate">{emp.jobTitle}</div>
+                    <div className="text-xs font-bold mb-0.5 truncate">{name}</div>
+                    <div className="text-[10px] text-muted-foreground mb-2 truncate">{title}</div>
                     {isOut ? (
                       <Badge className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">✓ انصرف</Badge>
                     ) : isPresent ? (
@@ -405,10 +417,11 @@ export default function Attendance() {
           <DialogHeader><DialogTitle>تسجيل حضور يدوي</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>الموظف *</Label>
-              <Select value={selectedEmp} onValueChange={setSelectedEmp}>
-                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                <SelectContent>{employees.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.fullName}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={selectedEmp}
+                onValueChange={setSelectedEmp}
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div><Label>التاريخ</Label><Input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-2">

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, Component, ErrorInfo, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,11 @@ import {
   Calendar, Users, DollarSign, FileSearch,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
+import {
+  canDownloadObjectStorageFile,
+  isObjectStorageProviderLabel,
+} from "@/lib/objectStorageLabels";
 
 const BASE = import.meta.env.BASE_URL;
 const api  = (p: string) => `${BASE}api/${p}`.replace(/\/\//g, "/");
@@ -70,8 +76,14 @@ function mimeIcon(mime: string) {
 }
 
 function providerBadge(provider: string) {
-  if (provider === "replit_object_storage")
-    return <Badge className="bg-green-100 text-green-700 text-xs gap-1"><CloudUpload className="h-3 w-3" />Object Storage</Badge>;
+  if (isObjectStorageProviderLabel(provider)) {
+    return (
+      <Badge className="bg-green-100 text-green-700 text-xs gap-1">
+        <CloudUpload className="h-3 w-3" />
+        {provider === "cloudflare_r2" ? "Cloudflare R2" : "Object Storage"}
+      </Badge>
+    );
+  }
   return <Badge variant="outline" className="text-xs gap-1"><CloudOff className="h-3 w-3" />قاعدة البيانات</Badge>;
 }
 
@@ -125,7 +137,7 @@ function UploadDialog({ onSuccess }: { onSuccess: () => void }) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const res = await fetch(api("document-center/upload"), {
+      const res = await authFetch(api("document-center/upload"), {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ fileData: base64, fileName: file.name, fileType: file.type, legalCategory: category }),
@@ -190,12 +202,12 @@ function UploadDialog({ onSuccess }: { onSuccess: () => void }) {
 function StorageDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["doc-center-stats"],
-    queryFn:  () => fetch(api("document-center/stats")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/stats")).then(r => r.json()),
     staleTime: 60_000,
   });
   const { data: audit } = useQuery({
     queryKey: ["doc-center-audit"],
-    queryFn:  () => fetch(api("document-center/audit-report")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/audit-report")).then(r => r.json()),
     staleTime: 120_000,
   });
 
@@ -296,14 +308,14 @@ function FileLibrary({ filterCategory, showArchived }: { filterCategory?: string
       const p = new URLSearchParams({ page: String(page), pageSize: "30", archived: String(archived) });
       if (category !== "all") p.set("category", category);
       if (search) p.set("search", search);
-      return fetch(api(`document-center/files?${p}`)).then(r => r.json());
+      return authFetch(api(`document-center/files?${p}`)).then(r => r.json());
     },
     staleTime: 30_000,
   });
 
   const downloadFile = async (id: string, name: string) => {
     try {
-      const res = await fetch(api(`document-center/files/${id}/download`));
+      const res = await authFetch(api(`document-center/files/${id}/download`));
       if (!res.ok) throw new Error(((await res.json()) as any).error);
       const { url } = await res.json();
       const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.download = name; a.click();
@@ -311,7 +323,7 @@ function FileLibrary({ filterCategory, showArchived }: { filterCategory?: string
   };
 
   const archiveFile = async (id: string, archive: boolean) => {
-    await fetch(api(`document-center/files/${id}/archive`), {
+    await authFetch(api(`document-center/files/${id}/archive`), {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archive }),
     });
     qc.invalidateQueries({ queryKey: ["doc-center-files"] });
@@ -320,7 +332,7 @@ function FileLibrary({ filterCategory, showArchived }: { filterCategory?: string
 
   const deleteFile = async (id: string) => {
     if (!confirm("هل أنت متأكد من الحذف النهائي؟")) return;
-    await fetch(api(`document-center/files/${id}`), { method: "DELETE" });
+    await authFetch(api(`document-center/files/${id}`), { method: "DELETE" });
     qc.invalidateQueries({ queryKey: ["doc-center-files"] });
     toast({ title: "حُذف الملف" });
   };
@@ -373,7 +385,7 @@ function FileLibrary({ filterCategory, showArchived }: { filterCategory?: string
                       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
-                      {f.storage_provider === "replit_object_storage" && (
+                      {canDownloadObjectStorageFile(f) && (
                         <DropdownMenuItem onClick={() => downloadFile(f.id, f.file_name)} className="gap-2"><Download className="h-3.5 w-3.5" />تنزيل</DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => archiveFile(f.id, !f.is_archived)} className="gap-2">
@@ -414,13 +426,13 @@ function VersionHistory() {
 
   const { data: files } = useQuery({
     queryKey: ["doc-center-files", "all", "", 1, false],
-    queryFn:  () => fetch(api("document-center/files?pageSize=100")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/files?pageSize=100")).then(r => r.json()),
     staleTime: 60_000,
   });
 
   const { data: versions, isLoading: versionsLoading } = useQuery({
     queryKey: ["doc-versions", selectedDoc?.id],
-    queryFn:  () => selectedDoc ? fetch(api(`document-center/files/${selectedDoc.id}/versions`)).then(r => r.json()) : [],
+    queryFn:  () => selectedDoc ? authFetch(api(`document-center/files/${selectedDoc.id}/versions`)).then(r => r.json()) : [],
     enabled:  !!selectedDoc,
     staleTime: 30_000,
   });
@@ -435,7 +447,7 @@ function VersionHistory() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const res = await fetch(api(`document-center/files/${selectedDoc.id}/versions`), {
+      const res = await authFetch(api(`document-center/files/${selectedDoc.id}/versions`), {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ fileData: base64, fileName: file.name, fileType: file.type, changeSummary }),
@@ -452,13 +464,13 @@ function VersionHistory() {
 
   const restoreVersion = async (verId: string, vNum: number) => {
     if (!selectedDoc) return;
-    const res = await fetch(api(`document-center/files/${selectedDoc.id}/versions/${verId}/restore`), { method: "POST" });
+    const res = await authFetch(api(`document-center/files/${selectedDoc.id}/versions/${verId}/restore`), { method: "POST" });
     if (res.ok) { toast({ title: `✅ تم استعادة الإصدار ${vNum}` }); qc.invalidateQueries({ queryKey: ["doc-versions", selectedDoc.id] }); }
   };
 
   const downloadVersion = async (verId: string, vNum: number) => {
     if (!selectedDoc) return;
-    const res = await fetch(api(`document-center/files/${selectedDoc.id}/versions/${verId}/download`));
+    const res = await authFetch(api(`document-center/files/${selectedDoc.id}/versions/${verId}/download`));
     if (!res.ok) { toast({ title: "خطأ في التنزيل", variant: "destructive" }); return; }
     const { url } = await res.json();
     const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.click();
@@ -595,13 +607,13 @@ function PermissionsPanel() {
 
   const { data: files } = useQuery({
     queryKey: ["doc-center-files", "all", "", 1, false],
-    queryFn:  () => fetch(api("document-center/files?pageSize=100")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/files?pageSize=100")).then(r => r.json()),
     staleTime: 60_000,
   });
 
   const { data: perms, isLoading: permsLoading } = useQuery({
     queryKey: ["doc-permissions", selectedDoc?.id],
-    queryFn:  () => selectedDoc ? fetch(api(`document-center/files/${selectedDoc.id}/permissions`)).then(r => r.json()) : [],
+    queryFn:  () => selectedDoc ? authFetch(api(`document-center/files/${selectedDoc.id}/permissions`)).then(r => r.json()) : [],
     enabled:  !!selectedDoc,
     staleTime: 30_000,
   });
@@ -610,7 +622,7 @@ function PermissionsPanel() {
     if (!selectedDoc) return;
     setSaving(true);
     try {
-      const res = await fetch(api(`document-center/files/${selectedDoc.id}/permissions`), {
+      const res = await authFetch(api(`document-center/files/${selectedDoc.id}/permissions`), {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ permissionType: permType }),
@@ -625,7 +637,7 @@ function PermissionsPanel() {
 
   const deletePermission = async (permId: string) => {
     if (!selectedDoc) return;
-    await fetch(api(`document-center/files/${selectedDoc.id}/permissions/${permId}`), { method: "DELETE" });
+    await authFetch(api(`document-center/files/${selectedDoc.id}/permissions/${permId}`), { method: "DELETE" });
     qc.invalidateQueries({ queryKey: ["doc-permissions", selectedDoc.id] });
     toast({ title: "حُذفت الصلاحية" });
   };
@@ -712,12 +724,12 @@ function RetentionPolicies() {
 
   const { data: policies, isLoading } = useQuery({
     queryKey: ["retention-policies"],
-    queryFn:  () => fetch(api("document-center/retention-policies")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/retention-policies")).then(r => r.json()),
     staleTime: 60_000,
   });
 
   const savePolicy = async (category: string) => {
-    const res = await fetch(api("document-center/retention-policies"), {
+    const res = await authFetch(api("document-center/retention-policies"), {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ category, retentionYears: years, archiveAfterDays: years * 365, autoDelete }),
@@ -732,7 +744,7 @@ function RetentionPolicies() {
   const runScan = async () => {
     setScanning(true);
     try {
-      const res  = await fetch(api("document-center/retention-policies/scan"), { method: "POST" });
+      const res  = await authFetch(api("document-center/retention-policies/scan"), { method: "POST" });
       const data = await res.json();
       toast({ title: `✅ ${data.message}`, description: `فُحص ${data.scanned} مستند` });
       qc.invalidateQueries({ queryKey: ["doc-center-files"] });
@@ -818,13 +830,13 @@ function AIDocumentIntelligence() {
 
   const { data: files } = useQuery({
     queryKey: ["doc-center-files", "all", "", 1, false],
-    queryFn:  () => fetch(api("document-center/files?pageSize=100")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/files?pageSize=100")).then(r => r.json()),
     staleTime: 60_000,
   });
 
   const { data: savedMeta } = useQuery({
     queryKey: ["doc-ai-meta", selectedDoc?.id],
-    queryFn:  () => selectedDoc ? fetch(api(`document-center/files/${selectedDoc.id}/ai-metadata`)).then(r => r.ok ? r.json() : null).catch(() => null) : null,
+    queryFn:  () => selectedDoc ? authFetch(api(`document-center/files/${selectedDoc.id}/ai-metadata`)).then(r => r.ok ? r.json() : null).catch(() => null) : null,
     enabled:  !!selectedDoc,
     staleTime: 60_000,
   });
@@ -842,7 +854,7 @@ function AIDocumentIntelligence() {
           reader.readAsDataURL(file);
         });
       }
-      const res = await fetch(api(`document-center/files/${selectedDoc.id}/analyze`), {
+      const res = await authFetch(api(`document-center/files/${selectedDoc.id}/analyze`), {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ fileData }),
@@ -861,7 +873,7 @@ function AIDocumentIntelligence() {
     if (!searchQ.trim()) return;
     setSearching(true);
     try {
-      const res = await fetch(api(`document-center/search?q=${encodeURIComponent(searchQ)}`));
+      const res = await authFetch(api(`document-center/search?q=${encodeURIComponent(searchQ)}`));
       const data = await res.json();
       setSearchResults(data.results ?? []);
     } catch { toast({ title: "خطأ في البحث", variant: "destructive" }); }
@@ -1055,14 +1067,14 @@ function MigrationPanel() {
 
   const { data: status } = useQuery({
     queryKey: ["doc-migrate-status"],
-    queryFn:  () => fetch(api("document-center/migrate/status")).then(r => r.json()),
+    queryFn:  () => authFetch(api("document-center/migrate/status")).then(r => r.json()),
     staleTime: 30_000,
   });
 
   const runMigration = async (batch: number) => {
     setRunning(true);
     try {
-      const res  = await fetch(api("document-center/migrate"), {
+      const res  = await authFetch(api("document-center/migrate"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ batchSize: batch }),
       });
@@ -1117,7 +1129,7 @@ function MigrationPanel() {
             <p className="font-medium">كيف يعمل الترحيل؟</p>
             <ul className="text-xs space-y-1 list-disc list-inside text-blue-700">
               <li>يقرأ الملفات القديمة المُخزَّنة كـ Base64 في قاعدة البيانات</li>
-              <li>يرفعها إلى Replit Object Storage</li>
+              <li>يرفعها إلى Object Storage (Cloudflare R2)</li>
               <li>يتحقق من سلامة الملف عبر SHA-256 checksum</li>
               <li>يُحدّث السجل بمفتاح التخزين الجديد</li>
               <li>الملفات القديمة تبقى محفوظة حتى تتحقق بنفسك</li>

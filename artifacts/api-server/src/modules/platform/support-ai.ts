@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 schema ownership only */
 /**
  * AI Support Agent Layer — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -9,6 +10,9 @@
  *   5. SOC Integration            — eventBus for security tickets
  *   6. Knowledge Base             — support_knowledge_base table
  *   7. AI Metrics                 — stats & performance
+ *
+ * Schema owned by Migration 045 — Runtime CREATE removed.
+ * KB seed INSERT uses WHERE NOT EXISTS (category, issue); no invented UNIQUE.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -24,56 +28,52 @@ const router = Router();
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 function one(r: any): any    { return rows(r)[0] ?? null; }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   TABLES
-══════════════════════════════════════════════════════════════════════════ */
+/* ── readiness — schema owned by Migration 045 ── */
+let supportAiSchemaReady = false;
 export async function ensureSupportAITables(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_ai_analysis (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      ticket_id       TEXT NOT NULL UNIQUE,
-      ai_type         TEXT,   -- security | bug | billing | performance | feature | general
-      ai_priority     TEXT,   -- critical | high | medium | low
-      ai_root_cause   TEXT,
-      ai_confidence   NUMERIC(4,2) DEFAULT 0,
-      ai_suggestions  JSONB  DEFAULT '[]',
-      ai_summary      TEXT,
-      ai_auto_replied BOOLEAN DEFAULT FALSE,
-      ai_escalated    BOOLEAN DEFAULT FALSE,
-      soc_alerted     BOOLEAN DEFAULT FALSE,
-      knowledge_hits  JSONB  DEFAULT '[]',
-      model_used      TEXT,
-      created_at      TIMESTAMPTZ DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+  if (!supportAiSchemaReady) {
+    try {
+      const r = await db.execute(sql`
+        SELECT
+          to_regclass('public.support_ai_analysis') IS NOT NULL AS analysis_present,
+          to_regclass('public.support_knowledge_base') IS NOT NULL AS kb_present
+      `).catch(() => ({ rows: [{}] }));
+      const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+      if (!row.analysis_present || !row.kb_present) {
+        console.error("[support-ai] Migration 045 schema not ready — support_ai_analysis / support_knowledge_base missing");
+        return;
+      }
+      supportAiSchemaReady = true;
+    } catch { /* non-blocking */ }
+  }
 
+  /* Canonical KB seed — PK-only table (no invented UNIQUE). Logical identity
+   * is the full canonical tuple (category, issue, fix, tags). INSERT … SELECT
+   * … WHERE NOT EXISTS so re-runs and process restarts never duplicate the
+   * canonical rows, while operator/admin rows with different fix/tags are
+   * preserved and do not suppress the canonical entry. */
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS support_knowledge_base (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      category    TEXT NOT NULL,
-      issue       TEXT NOT NULL,
-      fix         TEXT NOT NULL,
-      tags        TEXT[] DEFAULT '{}',
-      hits        INT  DEFAULT 0,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
+    INSERT INTO support_knowledge_base (category, issue, fix, tags)
+    SELECT v.category, v.issue, v.fix, v.tags
+    FROM (VALUES
+      ('security'::text, 'cross-tenant data leak'::text, 'Add office_id filter + enable RLS on all tables'::text, ARRAY['security','rls','office_id']::text[]),
+      ('security'::text, 'auth bypass'::text, 'Check middleware order + JWT validation + requireAuthWithTenant'::text, ARRAY['auth','jwt','middleware']::text[]),
+      ('security'::text, 'unauthorized access'::text, 'Verify Clerk session + check role permissions in hr_memberships'::text, ARRAY['clerk','auth','rbac']::text[]),
+      ('bug'::text, 'missing data in dashboard'::text, 'Check SQL WHERE office_id filter + verify tenantId resolution'::text, ARRAY['sql','tenant','filter']::text[]),
+      ('bug'::text, 'invoice not appearing'::text, 'Verify office_id on client_invoices + check status filter'::text, ARRAY['invoice','billing']::text[]),
+      ('bug'::text, 'ai not responding'::text, 'Check GEMINI_API_KEY env var + callAI() error fallback'::text, ARRAY['ai','gemini','api']::text[]),
+      ('billing'::text, 'payment failed'::text, 'Check Stripe webhook handler + office_stripe_accounts entry'::text, ARRAY['stripe','payment','webhook']::text[]),
+      ('billing'::text, 'subscription not active'::text, 'Check office_subscriptions table + plan expiry date'::text, ARRAY['subscription','plan']::text[]),
+      ('performance'::text, 'slow loading'::text, 'Check query staleTime + QueryClient config + add SQL indexes'::text, ARRAY['performance','react-query','sql']::text[]),
+      ('feature'::text, 'request new feature'::text, 'Log in product backlog + estimate priority based on plan tier'::text, ARRAY['feature','product']::text[])
+    ) AS v(category, issue, fix, tags)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM support_knowledge_base k
+      WHERE k.category = v.category
+        AND k.issue = v.issue
+        AND k.fix = v.fix
+        AND coalesce(k.tags, ARRAY[]::text[]) = v.tags
     )
-  `).catch(() => {});
-
-  /* Seed knowledge base */
-  await db.execute(sql`
-    INSERT INTO support_knowledge_base (category, issue, fix, tags) VALUES
-      ('security', 'cross-tenant data leak', 'Add office_id filter + enable RLS on all tables', ARRAY['security','rls','office_id']),
-      ('security', 'auth bypass', 'Check middleware order + JWT validation + requireAuthWithTenant', ARRAY['auth','jwt','middleware']),
-      ('security', 'unauthorized access', 'Verify Clerk session + check role permissions in hr_memberships', ARRAY['clerk','auth','rbac']),
-      ('bug', 'missing data in dashboard', 'Check SQL WHERE office_id filter + verify tenantId resolution', ARRAY['sql','tenant','filter']),
-      ('bug', 'invoice not appearing', 'Verify office_id on client_invoices + check status filter', ARRAY['invoice','billing']),
-      ('bug', 'ai not responding', 'Check GEMINI_API_KEY env var + callAI() error fallback', ARRAY['ai','gemini','api']),
-      ('billing', 'payment failed', 'Check Stripe webhook handler + office_stripe_accounts entry', ARRAY['stripe','payment','webhook']),
-      ('billing', 'subscription not active', 'Check office_subscriptions table + plan expiry date', ARRAY['subscription','plan']),
-      ('performance', 'slow loading', 'Check query staleTime + QueryClient config + add SQL indexes', ARRAY['performance','react-query','sql']),
-      ('feature', 'request new feature', 'Log in product backlog + estimate priority based on plan tier', ARRAY['feature','product'])
-    ON CONFLICT DO NOTHING
   `).catch(() => {});
 }
 

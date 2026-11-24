@@ -9,6 +9,7 @@
  *   5. SOC Integration        — أحداث HR الحرجة تصل للمنظومة الأمنية
  *   6. Office Membership      — ربط المستخدمين بالمكاتب مع دور محدد
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema-authority touch-up only */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -22,86 +23,26 @@ function one(r: any): any    { return rows(r)[0] ?? null; }
 function num(v: any)         { return parseFloat(String(v ?? "0")) || 0; }
 
 /* ══════════════════════════════════════════════════════════
-   ENSURE TABLES
+   ENSURE TABLES — Migration 050 owns DDL; readiness only
 ══════════════════════════════════════════════════════════ */
+let hrEnterpriseSchemaReady = false;
 export async function ensureHREnterpriseTables(): Promise<void> {
-  /* 1. RBAC — أدوار الموظفين داخل المكتب */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_roles (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id    TEXT NOT NULL,
-      name         TEXT NOT NULL,
-      display_name TEXT NOT NULL,
-      description  TEXT,
-      scope        TEXT NOT NULL DEFAULT 'tenant',  -- tenant | system
-      hierarchy    INT  NOT NULL DEFAULT 5,          -- 1=Partner 5=Intern
-      is_system    BOOLEAN DEFAULT FALSE,
-      permissions  JSONB NOT NULL DEFAULT '[]',
-      created_at   TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(office_id, name)
-    )
-  `).catch(() => {});
-
-  /* 2. Office Membership — انتماء الموظف للمكتب بدور */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_memberships (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      user_id     TEXT NOT NULL,
-      employee_id UUID,
-      role_name   TEXT NOT NULL DEFAULT 'lawyer',
-      status      TEXT NOT NULL DEFAULT 'active',  -- active | suspended | terminated
-      joined_at   TIMESTAMPTZ DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(office_id, user_id)
-    )
-  `).catch(() => {});
-
-  /* 3. HR Workflows — طلبات الموافقة */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_workflows (
-      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id       TEXT NOT NULL,
-      type            TEXT NOT NULL,   -- leave_request | role_change | new_hire | permission_upgrade | termination
-      requester_id    TEXT NOT NULL,
-      requester_name  TEXT,
-      approver_id     TEXT,
-      approver_name   TEXT,
-      subject_user_id TEXT,
-      subject_name    TEXT,
-      payload         JSONB NOT NULL DEFAULT '{}',
-      status          TEXT NOT NULL DEFAULT 'pending',  -- pending | approved | rejected | cancelled
-      priority        TEXT NOT NULL DEFAULT 'normal',  -- low | normal | high | critical
-      notes           TEXT,
-      reviewed_at     TIMESTAMPTZ,
-      expires_at      TIMESTAMPTZ,
-      created_at      TIMESTAMPTZ DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_hrwf_office ON hr_workflows(office_id, status)`).catch(() => {});
-
-  /* 4. HR Audit Logs — سجل التدقيق */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS hr_audit_logs (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id    TEXT NOT NULL,
-      user_id      TEXT,
-      user_name    TEXT,
-      action       TEXT NOT NULL,   -- role_changed | suspended | hired | promoted | terminated | permission_granted
-      target_type  TEXT,            -- employee | member | role | workflow
-      target_id    TEXT,
-      target_name  TEXT,
-      old_value    JSONB,
-      new_value    JSONB,
-      severity     TEXT DEFAULT 'low',  -- low | medium | high | critical
-      ip_address   TEXT,
-      created_at   TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_hral_office ON hr_audit_logs(office_id, created_at DESC)`).catch(() => {});
-
-  /* Seed default roles per office is done on first-request basis (lazy) */
+  if (hrEnterpriseSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.hr_roles') IS NOT NULL AS hr_roles_present,
+        to_regclass('public.hr_memberships') IS NOT NULL AS hr_memberships_present,
+        to_regclass('public.hr_workflows') IS NOT NULL AS hr_workflows_present,
+        to_regclass('public.hr_audit_logs') IS NOT NULL AS hr_audit_logs_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.hr_roles_present || !row.hr_memberships_present || !row.hr_workflows_present || !row.hr_audit_logs_present) {
+      console.error("[hr-enterprise] Migration 050 schema not ready — hr_roles / hr_memberships / hr_workflows / hr_audit_logs missing");
+      return;
+    }
+    hrEnterpriseSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── HR Audit Logger ─────────────────────────────────────────────────────── */

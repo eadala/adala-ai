@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Zero Trust API — super_admin only
  * Routes:
@@ -57,19 +58,24 @@ router.get("/zero-trust/status", requireAuthWithTenant, superAdminOnly, async (_
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /zero-trust/apply-rls ─────────────────────────────────────────── */
+/* ── POST /zero-trust/apply-rls — readiness verify (Migration 056 owns DDL) ── */
 router.post("/zero-trust/apply-rls", requireAuthWithTenant, superAdminOnly, async (_req, res) => {
   try {
     const result = await applyRLS();
-    res.json({ success: true, ...result });
+    const ok = (result.errors?.length ?? 0) === 0;
+    res.json({ success: ok, schemaAuthority: "Migration 056", ...result });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-/* ── POST /zero-trust/disable-rls (emergency rollback) ─────────────────── */
+/* ── POST /zero-trust/disable-rls — no Runtime DDL (schema authority) ───── */
 router.post("/zero-trust/disable-rls", requireAuthWithTenant, superAdminOnly, async (_req, res) => {
   try {
     const result = await disableRLS();
-    res.json({ success: true, warning: "RLS disabled — app-level filters now primary guard", ...result });
+    res.status(409).json({
+      success: false,
+      warning: "RLS disable DDL removed — Migration 056 owns ENABLE/FORCE/POLICY; app-level filters remain primary guard",
+      ...result,
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -80,7 +86,6 @@ router.get("/zero-trust/scan", requireAuthWithTenant, superAdminOnly, async (_re
       nullOfficeId,
       nullAiTasks,
       nullAuditLogs,
-      crossTenantSessions,
     ] = await Promise.allSettled([
       db.execute(sql`
         SELECT 'cases' AS tbl, COUNT(*)::int AS count
@@ -100,17 +105,11 @@ router.get("/zero-trust/scan", requireAuthWithTenant, superAdminOnly, async (_re
         SELECT COUNT(*)::int AS orphan_audit_logs
         FROM audit_logs WHERE office_id IS NULL
       `),
-      db.execute(sql`
-        SELECT COUNT(DISTINCT s.id)::int AS suspicious_sessions
-        FROM ai_command_sessions s
-        WHERE s.office_id IS NULL OR s.office_id = ''
-      `),
     ]);
 
     const nullRows     = nullOfficeId.status === "fulfilled" ? rows(nullOfficeId.value) : [];
     const orphanAI     = nullAiTasks.status === "fulfilled" ? rows(nullAiTasks.value)[0]?.orphan_ai_tasks ?? 0 : "error";
     const orphanAudit  = nullAuditLogs.status === "fulfilled" ? rows(nullAuditLogs.value)[0]?.orphan_audit_logs ?? 0 : "error";
-    const suspSessions = crossTenantSessions.status === "fulfilled" ? rows(crossTenantSessions.value)[0]?.suspicious_sessions ?? 0 : "error";
 
     const leaks = nullRows.filter((r: any) => Number(r.count) > 0);
     const riskLevel =
@@ -122,7 +121,6 @@ router.get("/zero-trust/scan", requireAuthWithTenant, superAdminOnly, async (_re
       leaks,
       orphanAiTasks:     orphanAI,
       orphanAuditLogs:   orphanAudit,
-      suspiciousSessions: suspSessions,
       scannedAt: new Date(),
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

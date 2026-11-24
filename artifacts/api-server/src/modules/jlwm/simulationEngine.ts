@@ -2,6 +2,9 @@
  * JLWM Phase 2 — Simulation Engine
  * 5 legal scenario types: appeal, settlement, expert_witness, aggressive_litigation, conservative_litigation
  * Each simulation produces multiple possible outcomes with probability scores.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureSimulationsTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -16,23 +19,17 @@ const router = Router();
 const SIM_SYSTEM = `أنت محاكي قانوني متخصص. مهمتك: تحليل السيناريو وتوليد نتائج محتملة متعددة مع احتماليات دقيقة.
 قواعد: مجموع الاحتماليات يجب أن يساوي 1.0 تقريباً. كن واقعياً ومستنداً للبيانات. أعد JSON فقط.`;
 
-/* ── DB bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureSimulationsTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_simulations (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id       TEXT NOT NULL,
-      case_id         TEXT NOT NULL,
-      scenario_type   TEXT NOT NULL,
-      scenario_params JSONB NOT NULL DEFAULT '{}',
-      outcomes        JSONB NOT NULL DEFAULT '[]',
-      recommended_outcome TEXT,
-      model_used      TEXT,
-      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jsim_office ON jlwm_simulations(office_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jsim_case   ON jlwm_simulations(case_id)`).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_simulations') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_simulations",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Scenario definitions ────────────────────────────────────── */

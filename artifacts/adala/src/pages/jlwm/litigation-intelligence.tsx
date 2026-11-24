@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState }                              from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,6 +11,7 @@ import { Badge }    from "@/components/ui/badge";
 import { Button }   from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ──────────────────────────────────────────────────── */
 interface IntelItem  { text: string; impact: "high"|"medium"|"low"; detail?: string }
@@ -149,7 +151,7 @@ function ReportPanel({ caseId }: { caseId: string }) {
   const { data, isLoading } = useQuery<IntelReport>({
     queryKey: ["jlwm","litigation", caseId],
     queryFn: async () => {
-      const r = await fetch(`/api/jlwm/litigation/${caseId}`);
+      const r = await authFetch(`/api/jlwm/litigation/${caseId}`);
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -158,7 +160,7 @@ function ReportPanel({ caseId }: { caseId: string }) {
 
   const analyzeMut = useMutation({
     mutationFn: async (force: boolean) => {
-      const r = await fetch(`/api/jlwm/litigation/${caseId}/analyze`, {
+      const r = await authFetch(`/api/jlwm/litigation/${caseId}/analyze`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force }),
       });
       if (!r.ok) throw new Error("فشل التحليل");
@@ -225,7 +227,7 @@ export default function LitigationIntelligencePage() {
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-list-li"],
     queryFn: async () => {
-      const r = await fetch("/api/cases?limit=50");
+      const r = await authFetch("/api/cases?limit=50");
       if (!r.ok) return [];
       const d = await r.json();
       return Array.isArray(d) ? d : (d.cases ?? d.data ?? []);

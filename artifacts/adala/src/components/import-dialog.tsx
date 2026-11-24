@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, CheckCircle2, AlertTriangle, Loader2, FileText, X } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -55,7 +57,7 @@ export function ImportDialog({ open, onOpenChange, type, queryKey }: ImportDialo
 
   const importMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/import/${type}`, {
+      authFetch(`${BASE}/api/import/${type}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows }),

@@ -1,73 +1,40 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../../stripeClient";
+import { requireProductionBaseUrl } from "../../lib/productionUrl";
+import { logEndpointError } from "../../lib/endpointErrorLog";
+import { logger } from "../../lib/logger";
+import { logPaymentSideEffectFailure, paymentDbRows } from "../../lib/paymentDb";
 import crypto from "crypto";
 import { eventBus } from "../../core/eventBus";
+
+/* Legacy payment router — Batch 1 only removes error-swallowing; full retype is out of scope. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const router = Router();
 
 /* ── helpers ─────────────────────────────────────── */
 async function rows(q: any): Promise<any[]> {
-  try {
-    const r = await db.execute(q) as any;
-    return Array.isArray(r) ? r : (r?.rows ?? []);
-  } catch { return []; }
+  return paymentDbRows((qq) => db.execute(qq as any), q);
 }
 async function one(q: any): Promise<any | null> {
   const r = await rows(q);
   return r[0] ?? null;
 }
 
-const BASE_DOMAIN = process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : "https://adala-ai.app";
-
-/* ── auto-migrate ─────────────────────────────────── */
-async function ensurePaymentCols() {
-  await db.execute(sql`
-    ALTER TABLE payment_transactions
-      ADD COLUMN IF NOT EXISTS settlement_status TEXT DEFAULT 'unsettled',
-      ADD COLUMN IF NOT EXISTS settled_at        TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS settlement_ref    TEXT,
-      ADD COLUMN IF NOT EXISTS gateway           TEXT DEFAULT 'manual',
-      ADD COLUMN IF NOT EXISTS gateway_payment_id TEXT,
-      ADD COLUMN IF NOT EXISTS payment_link      TEXT
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS moyasar_settings (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
-      publishable_key   TEXT,
-      secret_key        TEXT,
-      webhook_secret    TEXT,
-      test_mode         BOOLEAN DEFAULT true,
-      enabled           BOOLEAN DEFAULT false,
-      callback_url      TEXT,
-      created_at        TIMESTAMP DEFAULT NOW(),
-      updated_at        TIMESTAMP DEFAULT NOW(),
-      UNIQUE(office_id)
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS checkout_settings (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id         TEXT NOT NULL DEFAULT 'default',
-      secret_key        TEXT,
-      public_key        TEXT,
-      webhook_secret    TEXT,
-      test_mode         BOOLEAN DEFAULT true,
-      enabled           BOOLEAN DEFAULT false,
-      created_at        TIMESTAMP DEFAULT NOW(),
-      updated_at        TIMESTAMP DEFAULT NOW(),
-      UNIQUE(office_id)
-    )
-  `).catch(() => {});
+function getBaseDomain(): string {
+  return process.env.BASE_URL?.trim()
+    ? process.env.BASE_URL.trim().replace(/\/+$/, "")
+    : requireProductionBaseUrl();
 }
-ensurePaymentCols();
+
+/* Gateway settings schema authority (Stage 23.4):
+   artifacts/api-server/migrations/032_gateway_settings_schema_authority.sql
+   No Runtime CREATE for moyasar_settings / checkout_settings.
+   payment_transactions schema is owned by:
+   artifacts/api-server/migrations/012_payment_transactions.sql */
 
 /* ══════════════════════════════════════════════════
    STRIPE CONNECT — account management
@@ -100,7 +67,12 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
           payoutsEnabled: sa.payouts_enabled,
           commissionPercent: account.commission_percent,
         });
-      } catch { /* fall through */ }
+      } catch (err) {
+        logger.warn(
+          { err, officeId, stripeAccountId: account.stripe_account_id },
+          "[payments] Stripe account retrieve failed; returning cached connect status",
+        );
+      }
     }
 
     return res.json({
@@ -110,7 +82,10 @@ router.get("/payments/connect/status", requireAuthWithTenant, async (req, res) =
       payoutsEnabled: account.payouts_enabled,
       commissionPercent: account.commission_percent,
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/connect/status", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* POST /api/payments/connect/create */
@@ -156,7 +131,7 @@ router.post("/payments/connect/onboarding", requireAuthWithTenant, async (req, r
     if (!stripeAccountId) return res.status(400).json({ error: "معرّف الحساب مطلوب" });
 
     const stripe = await getUncachableStripeClient();
-    const basePath = process.env.BASE_URL ?? BASE_DOMAIN;
+    const basePath = getBaseDomain();
     const link = await stripe.accountLinks.create({
       account: stripeAccountId,
       refresh_url: `${basePath}/payment-center?onboarding=refresh`,
@@ -284,11 +259,21 @@ router.post("/payments/transactions", requireAuthWithTenant, async (req, res) =>
         type: "PAYMENT_SUCCESS",
         officeId,
         data: { amount, clientName, description, invoiceId, caseId, gateway: paymentMethod, platformFee, netAmount },
-      }).catch(() => {});
+      }).catch((err) => {
+        logPaymentSideEffectFailure("PAYMENT_SUCCESS event emit failed", err, { officeId });
+      });
+    }
+
+    if (!result[0]) {
+      logEndpointError("POST /api/payments/transactions", req, new Error("INSERT RETURNING empty"));
+      return res.status(500).json({ error: "فشل تسجيل الدفعة" });
     }
 
     res.json(result[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/payments/transactions", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* PATCH /api/payments/transactions/:id/status */
@@ -358,8 +343,6 @@ router.delete("/payments/transactions/:id", requireAuthWithTenant, async (req, r
 ══════════════════════════════════════════════════ */
 router.get("/payments/wallet", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId;
-
     const totals = await one(sql`
       SELECT
         COUNT(*)::int                                                                        AS total_transactions,
@@ -484,8 +467,8 @@ router.get("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
       publishableKey: s.publishable_key,
       secretKey:      s.secret_key ? "••••••••" + s.secret_key.slice(-4) : "",
       webhookSecret:  s.webhook_secret ? "••••" : "",
-      callbackUrl:    s.callback_url ?? `${BASE_DOMAIN}/api/webhook/moyasar`,
-      webhookUrl:     `${BASE_DOMAIN}/api/webhook/moyasar`,
+      callbackUrl:    s.callback_url ?? `${getBaseDomain()}/api/webhook/moyasar`,
+      webhookUrl:     `${getBaseDomain()}/api/webhook/moyasar`,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -505,7 +488,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
             webhook_secret   = COALESCE(NULLIF(${webhookSecret ?? ""},''), webhook_secret),
             test_mode        = ${testMode},
             enabled          = ${enabled},
-            callback_url     = ${`${BASE_DOMAIN}/api/webhook/moyasar`},
+            callback_url     = ${`${getBaseDomain()}/api/webhook/moyasar`},
             updated_at       = NOW()
         WHERE office_id = ${officeId}
       `);
@@ -513,7 +496,7 @@ router.put("/payments/moyasar/settings", requireAuthWithTenant, async (req, res)
       await db.execute(sql`
         INSERT INTO moyasar_settings (office_id, publishable_key, secret_key, webhook_secret, test_mode, enabled, callback_url)
         VALUES (${officeId}, ${publishableKey ?? null}, ${secretKey ?? null}, ${webhookSecret ?? null},
-                ${testMode}, ${enabled}, ${`${BASE_DOMAIN}/api/webhook/moyasar`})
+                ${testMode}, ${enabled}, ${`${getBaseDomain()}/api/webhook/moyasar`})
       `);
     }
     res.json({ ok: true });
@@ -529,8 +512,8 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
   try {
     const officeId = (req as any).tenantId;
     const {
-      amountSAR, description = "خدمة قانونية", clientName, clientEmail,
-      clientPhone, invoiceId, caseId, commissionPercent = 10,
+      amountSAR, description = "خدمة قانونية", clientName, clientEmail: _clientEmail,
+      clientPhone: _clientPhone, invoiceId, caseId, commissionPercent = 10,
     } = req.body;
 
     if (!amountSAR || amountSAR <= 0) return res.status(400).json({ error: "المبلغ مطلوب" });
@@ -554,8 +537,8 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
 
     /* Build Moyasar hosted checkout URL */
     const pubKey = settings?.publishable_key ?? "";
-    const callbackUrl = `${BASE_DOMAIN}/api/webhook/moyasar/callback?tx=${tx?.id ?? ""}`;
-    const successUrl  = `${BASE_DOMAIN}/api/payments/moyasar/success?tx=${tx?.id ?? ""}`;
+    const callbackUrl = `${getBaseDomain()}/api/webhook/moyasar/callback?tx=${tx?.id ?? ""}`;
+    const successUrl  = `${getBaseDomain()}/api/payments/moyasar/success?tx=${tx?.id ?? ""}`;
 
     const moyasarUrl = pubKey
       ? `https://checkout.moyasar.com/v1?publishable_api_key=${pubKey}&amount=${Math.round(amountSAR * 100)}&currency=SAR&description=${encodeURIComponent(description)}&callback_url=${encodeURIComponent(callbackUrl)}&success_url=${encodeURIComponent(successUrl)}&metadata[ref]=${txRef}`
@@ -568,7 +551,7 @@ router.post("/payments/payment-link", requireAuthWithTenant, async (req, res) =>
       platformFee,
       netAmount,
       paymentUrl: moyasarUrl,
-      manualLink: `${BASE_DOMAIN}/pay/${tx?.id ?? ""}`,
+      manualLink: `${getBaseDomain()}/pay/${tx?.id ?? ""}`,
       configured: !!pubKey,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -584,10 +567,13 @@ router.get("/payments/moyasar/success", requireAuthWithTenant, async (req, res) 
         UPDATE payment_transactions
         SET status=${finalStatus}, gateway_payment_id=COALESCE(gateway_payment_id, ${moyasarId ?? null}), updated_at=NOW()
         WHERE id=${tx}::uuid
-      `).catch(() => {});
+      `);
     }
-    res.redirect(`${BASE_DOMAIN}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    res.redirect(`${getBaseDomain()}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/moyasar/success", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ══════════════════════════════════════════════════
@@ -606,7 +592,7 @@ router.get("/payments/checkout/settings", requireAuthWithTenant, async (req, res
       publicKey:     s.public_key ?? "",
       secretKey:     s.secret_key ? "••••••••" + s.secret_key.slice(-4) : "",
       webhookSecret: s.webhook_secret ? "••••" : "",
-      webhookUrl:    `${BASE_DOMAIN}/api/webhook/checkout`,
+      webhookUrl:    `${getBaseDomain()}/api/webhook/checkout`,
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -662,8 +648,8 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
       RETURNING *
     `);
 
-    const successUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=captured`;
-    const failureUrl = `${BASE_DOMAIN}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=failed`;
+    const successUrl = `${getBaseDomain()}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=captured`;
+    const failureUrl = `${getBaseDomain()}/api/payments/checkout/success?tx=${tx?.id ?? ""}&status=failed`;
 
     let checkoutUrl: string | null = null;
     if (secretKey) {
@@ -677,12 +663,20 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
         failure_url: failureUrl,
         metadata: { tx_id: tx?.id ?? "", office_id: officeId },
       };
-      const r = await fetch("https://api.checkout.com/payment-links", {
+      const response = await fetch("https://api.checkout.com/payment-links", {
         method: "POST",
         headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).then(x => x.json()).catch(() => ({}));
-      checkoutUrl = (r as any)._links?.redirect?.href ?? null;
+      });
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => "");
+        throw new Error(`Checkout.com payment-links failed (${response.status}): ${bodyText.slice(0, 200)}`);
+      }
+      const r = (await response.json()) as { _links?: { redirect?: { href?: string } } };
+      checkoutUrl = r._links?.redirect?.href ?? null;
+      if (!checkoutUrl) {
+        throw new Error("Checkout.com payment-links response missing redirect URL");
+      }
     }
 
     res.json({
@@ -694,7 +688,10 @@ router.post("/payments/checkout/create-payment", requireAuthWithTenant, async (r
       paymentUrl: checkoutUrl,
       configured: !!secretKey,
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/payments/checkout/create-payment", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* GET /api/payments/checkout/success — Checkout.com redirect back */
@@ -707,10 +704,13 @@ router.get("/payments/checkout/success", requireAuthWithTenant, async (req, res)
         UPDATE payment_transactions
         SET status=${finalStatus}, updated_at=NOW()
         WHERE id=${tx}::uuid
-      `).catch(() => {});
+      `);
     }
-    res.redirect(`${BASE_DOMAIN}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    res.redirect(`${getBaseDomain()}/payment-center?gateway=checkout&result=${cStatus ?? "unknown"}`);
+  } catch (e: any) {
+    logEndpointError("GET /api/payments/checkout/success", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* POST /api/webhook/checkout — Checkout.com webhook */
@@ -724,15 +724,18 @@ router.post("/webhook/checkout", requireAuthWithTenant, async (req, res) => {
         UPDATE payment_transactions
         SET status='completed', gateway_payment_id=${event?.data?.id ?? null}, updated_at=NOW()
         WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
-      `).catch(() => {});
+      `);
     } else if (type === "payment_declined" || type === "payment_expired") {
       await db.execute(sql`
         UPDATE payment_transactions SET status='failed', updated_at=NOW()
         WHERE gateway_payment_id=${ref} OR id=${ref}::uuid
-      `).catch(() => {});
+      `);
     }
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    logEndpointError("POST /api/webhook/checkout", req, e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default router;

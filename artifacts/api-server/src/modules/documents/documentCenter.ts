@@ -3,182 +3,58 @@
  * Upload → Object Storage | Metadata → DB | Migration Worker | Dashboard
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- legacy route handlers; out of Stage 11.2 scope */
 import { Router } from "express";
 import { requireAuth, requireAuthWithTenant, requireSuperAdmin} from "../../middlewares/requireAuth";
-import { getAuth } from "@clerk/express";
 
 import { documentStorage } from "../../services/documentStorage";
+import {
+  getStorageProviderLabel,
+  OBJECT_STORAGE_PROVIDER_SQL_PREDICATE,
+} from "../../core/storage";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import { uploadGuardMiddleware } from "../../lib/uploadGuard";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
 /* ═══════════════════════════════════════════════════════
-   DB BOOTSTRAP — idempotent columns + tables
+   Document Center schema readiness (no Runtime DDL).
+   Migration 021 owns document_center_files / document_ai_metadata / rag_chunks.
+   Migration 033 owns Document V2 objects:
+     documents extension columns, document_versions, document_permissions,
+     storage_migration_log, document_retention_policies.
+   See: 033_document_v2_schema_authority.sql
 ═══════════════════════════════════════════════════════ */
 export async function ensureDocumentCenterSchema() {
-  const cols: string[] = [
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS storage_key      TEXT`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS storage_provider TEXT DEFAULT 'db_base64'`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS checksum         TEXT`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS version          INT  DEFAULT 1`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_archived      BOOLEAN DEFAULT FALSE`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS legal_category   TEXT`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS tags             TEXT[]`,
-    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS migrated_at      TIMESTAMPTZ`,
-  ];
-  for (const c of cols) {
-    await db.execute(sql.raw(c)).catch(() => {});
-  }
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS storage_migration_log (
-      id           SERIAL PRIMARY KEY,
-      office_id    TEXT NOT NULL,
-      table_name   TEXT NOT NULL,
-      record_id    TEXT NOT NULL,
-      old_provider TEXT DEFAULT 'db_base64',
-      new_key      TEXT,
-      file_size    BIGINT,
-      checksum     TEXT,
-      status       TEXT DEFAULT 'pending',
-      error_msg    TEXT,
-      migrated_at  TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_center_files (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id       TEXT NOT NULL,
-      source_table    TEXT NOT NULL,
-      source_id       TEXT NOT NULL,
-      storage_key     TEXT,
-      storage_provider TEXT DEFAULT 'db_base64',
-      file_name       TEXT,
-      file_size       BIGINT DEFAULT 0,
-      mime_type       TEXT,
-      checksum        TEXT,
-      legal_category  TEXT,
-      tags            TEXT[],
-      case_id         TEXT,
-      client_id       TEXT,
-      contract_id     TEXT,
-      uploaded_by     TEXT,
-      uploaded_by_name TEXT,
-      is_archived     BOOLEAN DEFAULT FALSE,
-      version         INT DEFAULT 1,
-      created_at      TIMESTAMPTZ DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_office_id    ON document_center_files(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_case_id      ON document_center_files(case_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_dcf_category     ON document_center_files(office_id, legal_category)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_sml_office_status ON storage_migration_log(office_id, status)
-  `).catch(() => {});
-
-  /* ── V2 Tables ─────────────────────────────────────────────────────── */
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_versions (
-      id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      document_id    TEXT NOT NULL,
-      office_id      TEXT NOT NULL,
-      version_number INT  NOT NULL DEFAULT 1,
-      storage_key    TEXT,
-      storage_provider TEXT DEFAULT 'replit_object_storage',
-      checksum       TEXT,
-      file_size      BIGINT DEFAULT 0,
-      mime_type      TEXT,
-      uploaded_by    TEXT,
-      uploaded_by_name TEXT,
-      change_summary TEXT,
-      is_current     BOOLEAN DEFAULT FALSE,
-      created_at     TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_id   ON document_versions(document_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_doc_ver  ON document_versions(document_id, version_number)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dv_office   ON document_versions(office_id)`).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_permissions (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      document_id     TEXT NOT NULL,
-      office_id       TEXT NOT NULL,
-      permission_type TEXT NOT NULL DEFAULT 'TEAM',
-      role_id         TEXT,
-      user_id         TEXT,
-      created_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dp_doc_id  ON document_permissions(document_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dp_office  ON document_permissions(office_id)`).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS retention_policies (
-      id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id         TEXT NOT NULL,
-      category          TEXT NOT NULL,
-      retention_years   INT  NOT NULL DEFAULT 7,
-      archive_after_days INT DEFAULT 365,
-      auto_delete       BOOLEAN DEFAULT FALSE,
-      created_at        TIMESTAMPTZ DEFAULT NOW(),
-      updated_at        TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(office_id, category)
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_rp_office ON retention_policies(office_id)`).catch(() => {});
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS document_ai_metadata (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      document_id     TEXT NOT NULL,
-      office_id       TEXT NOT NULL,
-      extracted_text  TEXT,
-      summary         TEXT,
-      document_type   TEXT,
-      parties         TEXT[],
-      dates           TEXT[],
-      obligations     TEXT[],
-      amounts         TEXT[],
-      keywords        TEXT[],
-      confidence_score FLOAT DEFAULT 0,
-      processed_at    TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(document_id)
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_doc_id ON document_ai_metadata(document_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_dam_office ON document_ai_metadata(office_id)`).catch(() => {});
-
-  /* Seed default retention policies (office-agnostic template = office_id '__default__') */
-  const defaults = [
-    { cat: "وكالة",           yrs: 10 }, { cat: "عقد",           yrs: 10 },
-    { cat: "حكم",             yrs: 10 }, { cat: "مذكرة",         yrs:  7 },
-    { cat: "لائحة_دعوى",      yrs: 10 }, { cat: "محضر_جلسة",     yrs:  7 },
-    { cat: "تقرير_خبير",      yrs: 10 }, { cat: "مستند_إفلاس",   yrs: 10 },
-    { cat: "فاتورة",           yrs:  7 }, { cat: "مستند_مالي",    yrs:  7 },
-    { cat: "هوية",             yrs:  5 }, { cat: "سجل_تجاري",    yrs: 10 },
-    { cat: "أخرى",             yrs:  5 },
-  ];
-  for (const d of defaults) {
-    await db.execute(sql`
-      INSERT INTO retention_policies (office_id, category, retention_years, archive_after_days)
-      VALUES ('__default__', ${d.cat}, ${d.yrs}, ${d.yrs * 365})
-      ON CONFLICT (office_id, category) DO NOTHING
-    `).catch(() => {});
+  /* document_center_files + document_ai_metadata:
+     Schema Authority = artifacts/api-server/migrations/021_rag_schema_foundation.sql
+     No Runtime CREATE TABLE / ALTER TABLE / CREATE INDEX for these tables. */
+  try {
+    const { rows } = await db.execute(sql`
+      SELECT
+        to_regclass('public.document_center_files') IS NOT NULL AS has_dcf,
+        to_regclass('public.document_ai_metadata') IS NOT NULL AS has_dam
+    `);
+    const row = rows[0] as { has_dcf?: boolean; has_dam?: boolean } | undefined;
+    if (!row?.has_dcf || !row?.has_dam) {
+      logger.error(
+        { has_dcf: row?.has_dcf ?? false, has_dam: row?.has_dam ?? false },
+        "document_center_files / document_ai_metadata missing — apply migration 021_rag_schema_foundation.sql",
+      );
+    }
+  } catch (e) {
+    logger.error(
+      { e },
+      "document center schema readiness check failed — apply migration 021_rag_schema_foundation.sql",
+    );
   }
 }
 
@@ -292,7 +168,7 @@ router.post("/document-center/confirm-upload", requireAuthWithTenant, async (req
          case_id, client_id, uploaded_by, uploaded_by_name)
       VALUES
         (${officeId}, 'document_center_files', ${storageKey},
-         ${storageKey}, 'replit_object_storage',
+         ${storageKey}, ${getStorageProviderLabel()},
          ${fileName}, ${fileSize ?? 0}, ${fileType ?? "application/octet-stream"},
          ${checksum ?? null}, ${legalCategory ?? "أخرى"},
          ${caseId ?? null}, ${clientId ?? null},
@@ -471,11 +347,11 @@ router.get("/document-center/stats", requireAuthWithTenant, async (req, res) => 
     const { rows: counts } = await db.execute(sql`
       SELECT
         COUNT(*)                                                         AS total_files,
-        COUNT(*) FILTER (WHERE storage_provider = 'replit_object_storage') AS object_files,
+        COUNT(*) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}) AS object_files,
         COUNT(*) FILTER (WHERE storage_provider = 'db_base64')          AS base64_files,
         COUNT(*) FILTER (WHERE is_archived = TRUE)                       AS archived_files,
         COALESCE(SUM(file_size), 0)                                      AS total_bytes,
-        COALESCE(SUM(file_size) FILTER (WHERE storage_provider = 'replit_object_storage'), 0) AS object_bytes,
+        COALESCE(SUM(file_size) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}), 0) AS object_bytes,
         legal_category
       FROM document_center_files
       WHERE office_id = ${officeId}
@@ -535,7 +411,7 @@ router.get("/document-center/admin/stats", requireAuth, requireSuperAdmin, async
         SELECT office_id,
                COUNT(*)            AS total_files,
                SUM(file_size)      AS total_bytes,
-               COUNT(*) FILTER (WHERE storage_provider = 'replit_object_storage') AS migrated
+               COUNT(*) FILTER (WHERE ${sql.raw(OBJECT_STORAGE_PROVIDER_SQL_PREDICATE)}) AS migrated
         FROM   document_center_files
         GROUP  BY office_id
         ORDER  BY total_bytes DESC
@@ -736,11 +612,14 @@ router.post("/document-center/files/:id/versions", requireAuthWithTenant, async 
       RETURNING id, version_number, file_size, created_at, is_current
     `);
 
-    /* حدّث رقم الإصدار في الجدول الرئيسي */
+    /* حدّث رقم الإصدار في الجدول الرئيسي — key + provider together */
     await db.execute(sql`
       UPDATE document_center_files
-      SET version = ${nextVer}, storage_key = ${result.storageKey},
-          file_size = ${result.size}, updated_at = NOW()
+      SET version = ${nextVer},
+          storage_key = ${result.storageKey},
+          storage_provider = ${result.provider},
+          file_size = ${result.size},
+          updated_at = NOW()
       WHERE id = ${id}
     `);
 
@@ -894,8 +773,8 @@ router.get("/document-center/retention-policies", requireAuthWithTenant, async (
              COALESCE(o.auto_delete, d.auto_delete) AS auto_delete,
              COALESCE(o.updated_at, d.created_at) AS updated_at,
              (o.id IS NOT NULL) AS is_customized
-      FROM   retention_policies d
-      LEFT JOIN retention_policies o ON o.category = d.category AND o.office_id = ${officeId}
+      FROM   document_retention_policies d
+      LEFT JOIN document_retention_policies o ON o.category = d.category AND o.office_id = ${officeId}
       WHERE  d.office_id = '__default__'
       ORDER  BY d.category
     `);
@@ -904,7 +783,7 @@ router.get("/document-center/retention-policies", requireAuthWithTenant, async (
     const { rows: docCounts } = await db.execute(sql`
       SELECT legal_category, COUNT(*) AS count,
              COUNT(*) FILTER (WHERE created_at < NOW() - INTERVAL '1 year' * (
-               SELECT retention_years FROM retention_policies
+               SELECT retention_years FROM document_retention_policies
                WHERE (office_id = ${officeId} OR office_id = '__default__')
                  AND category = legal_category
                ORDER BY (office_id = ${officeId}) DESC LIMIT 1
@@ -935,7 +814,7 @@ router.put("/document-center/retention-policies", requireAuthWithTenant, async (
       return res.status(400).json({ error: "retentionYears يجب أن يكون عدداً صحيحاً موجباً" });
 
     await db.execute(sql`
-      INSERT INTO retention_policies (office_id, category, retention_years, archive_after_days, auto_delete)
+      INSERT INTO document_retention_policies (office_id, category, retention_years, archive_after_days, auto_delete)
       VALUES (${officeId}, ${category}, ${retentionYears}, ${archiveAfterDays ?? retentionYears * 365}, ${!!autoDelete})
       ON CONFLICT (office_id, category)
       DO UPDATE SET retention_years    = EXCLUDED.retention_years,
@@ -962,7 +841,7 @@ router.post("/document-center/retention-policies/scan", requireAuthWithTenant, a
       SELECT dcf.id, dcf.file_name, dcf.legal_category, dcf.created_at,
              rp.retention_years, rp.archive_after_days
       FROM   document_center_files dcf
-      JOIN   retention_policies rp
+      JOIN   document_retention_policies rp
              ON rp.category = dcf.legal_category
             AND (rp.office_id = ${officeId} OR rp.office_id = '__default__')
       WHERE  dcf.office_id = ${officeId}
@@ -988,7 +867,7 @@ router.post("/document-center/retention-policies/scan", requireAuthWithTenant, a
    V2 — OCR & AI DOCUMENT INTELLIGENCE
 ════════════════════════════════════════════════════════════ */
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_KEY = getGeminiApiKey();
 
 async function callGeminiDocIntel(base64: string, mime: string, fileName: string): Promise<any> {
   if (!GEMINI_KEY) return null;
@@ -1025,10 +904,10 @@ async function callGeminiDocIntel(base64: string, mime: string, fileName: string
     : [{ text: prompt }];
 
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    geminiGenerateContentUrl("gemini-2.0-flash"),
     {
       method:  "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(GEMINI_KEY),
       body:    JSON.stringify({ contents: [{ parts }] }),
       signal:  AbortSignal.timeout(45_000),
     },

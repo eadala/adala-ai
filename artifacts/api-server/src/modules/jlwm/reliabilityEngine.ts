@@ -12,116 +12,43 @@
  *  9. Continuous Learning Loop        — update weights on real outcomes
  *
  * All data is tenant-isolated via office_id.
+ *
+ * Schema authority: Migration 036 (Stage 4D).
+ * ensureReliabilitySchema is SELECT-only readiness (no CREATE/INDEX).
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 4D schema ownership only */
 import { Router }                from "express";
 import { db }                    from "@workspace/db";
 import { sql }                   from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { callAI }                from "../ai/aiChat";
-import { extractJSON }           from "./jlwmAI";
 
 const router = Router();
 
-/* ── DB Bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 036) ───────────────────── */
 export async function ensureReliabilitySchema(): Promise<void> {
-  /* AI Audit Trail — immutable log of every significant AI call */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_ai_audit (
-      id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id      TEXT NOT NULL,
-      user_id        TEXT,
-      query_type     TEXT NOT NULL,
-      model_used     TEXT NOT NULL,
-      prompt_hash    TEXT,
-      input_summary  TEXT,
-      output_summary TEXT,
-      confidence     FLOAT,
-      evidence_count INT  DEFAULT 0,
-      data_quality   FLOAT,
-      duration_ms    INT,
-      tier           TEXT,
-      tokens_est     INT,
-      viewed_by      TEXT,
-      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jaa_office ON jlwm_ai_audit(office_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jaa_type  ON jlwm_ai_audit(office_id, query_type, created_at DESC)`).catch(() => {});
-
-  /* Trust Score Snapshots — computed periodically */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_trust_scores (
-      id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id            TEXT NOT NULL,
-      trust_score          FLOAT NOT NULL DEFAULT 0,
-      prediction_accuracy  FLOAT NOT NULL DEFAULT 0,
-      data_quality         FLOAT NOT NULL DEFAULT 0,
-      recommendation_success FLOAT NOT NULL DEFAULT 0,
-      stability_score      FLOAT NOT NULL DEFAULT 0,
-      audit_completeness   FLOAT NOT NULL DEFAULT 0,
-      label                TEXT NOT NULL DEFAULT 'غير محدد',
-      breakdown            JSONB NOT NULL DEFAULT '{}',
-      computed_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jts_office ON jlwm_trust_scores(office_id, computed_at DESC)`).catch(() => {});
-
-  /* Recommendation Tracking — follow up on JLWM recommendations */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_recommendation_tracking (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id       TEXT NOT NULL,
-      recommendation_id TEXT,
-      title           TEXT NOT NULL,
-      category        TEXT,
-      was_applied     BOOLEAN,
-      outcome_improved BOOLEAN,
-      risk_reduced    BOOLEAN,
-      success_score   FLOAT,
-      notes           TEXT,
-      applied_at      TIMESTAMPTZ,
-      measured_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jrt_office ON jlwm_recommendation_tracking(office_id)`).catch(() => {});
-
-  /* Data Quality Snapshots — periodic scans */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_data_quality (
-      id                   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id            TEXT NOT NULL,
-      overall_score        FLOAT NOT NULL DEFAULT 0,
-      cases_score          FLOAT NOT NULL DEFAULT 0,
-      clients_score        FLOAT NOT NULL DEFAULT 0,
-      documents_score      FLOAT NOT NULL DEFAULT 0,
-      tasks_score          FLOAT NOT NULL DEFAULT 0,
-      sessions_score       FLOAT NOT NULL DEFAULT 0,
-      breakdown            JSONB NOT NULL DEFAULT '{}',
-      issues               JSONB NOT NULL DEFAULT '[]',
-      computed_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jdq_office ON jlwm_data_quality(office_id, computed_at DESC)`).catch(() => {});
-
-  /* Learning Events — record what was learned from closed cases */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_learning_events (
-      id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id    TEXT NOT NULL,
-      event_type   TEXT NOT NULL,
-      source_id    TEXT,
-      source_type  TEXT,
-      pattern_key  TEXT,
-      old_weight   FLOAT,
-      new_weight   FLOAT,
-      delta        FLOAT,
-      evidence     JSONB NOT NULL DEFAULT '{}',
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jle_office ON jlwm_learning_events(office_id, created_at DESC)`).catch(() => {});
+  const checks = await Promise.all([
+    db.execute(sql`SELECT to_regclass('public.jlwm_ai_audit') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.jlwm_trust_scores') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.jlwm_recommendation_tracking') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.jlwm_data_quality') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+    db.execute(sql`SELECT to_regclass('public.jlwm_learning_events') IS NOT NULL AS ok`).catch(() => ({ rows: [{}] })),
+  ]);
+  const names = [
+    "jlwm_ai_audit",
+    "jlwm_trust_scores",
+    "jlwm_recommendation_tracking",
+    "jlwm_data_quality",
+    "jlwm_learning_events",
+  ] as const;
+  for (let i = 0; i < names.length; i++) {
+    if (!(checks[i].rows[0] as { ok?: boolean } | undefined)?.ok) {
+      console.error(
+        `[JLWM] Migration 036 reliability schema not ready — missing ${names[i]}`,
+        "(apply artifacts/api-server/migrations/036_jlwm_reliability_schema_authority.sql)",
+      );
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -330,15 +257,31 @@ async function computeTrustScore(officeId: string): Promise<{
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
+/* Formal 034 prediction read — case_bundle only                  */
+/* predictionEngine writes one case_bundle then newer slice rows; */
+/* Reliability must not treat the newest slice as the full bundle */
+/* ═══════════════════════════════════════════════════════════════ */
+export async function selectCaseBundlePrediction(
+  officeId: string,
+  subjectId: string,
+): Promise<{ rows: any[] }> {
+  return db.execute(sql`
+    SELECT supporting_data, predicted_value, created_at
+    FROM jlwm_predictions
+    WHERE office_id = ${officeId}
+      AND subject_type = 'case'
+      AND subject_id = ${subjectId}
+      AND prediction_type = 'case_bundle'
+    ORDER BY created_at DESC LIMIT 1
+  `).catch(() => ({ rows: [] }));
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
 /* COMPONENT 3 — Explainable AI                                   */
 /* ═══════════════════════════════════════════════════════════════ */
 async function buildExplanation(officeId: string, type: string, entityId: string) {
-  const pred = await db.execute(sql`
-    SELECT predictions, supporting_data, computed_at
-    FROM jlwm_predictions
-    WHERE office_id = ${officeId} AND case_id = ${entityId}
-    ORDER BY computed_at DESC LIMIT 1
-  `).catch(() => ({ rows: [] }));
+  /* Formal Migration 034: case_bundle supporting_data / created_at */
+  const pred = await selectCaseBundlePrediction(officeId, entityId);
 
   const caseCtx = await db.execute(sql`
     SELECT c.title, c.status, c.case_type, c.description,
@@ -353,7 +296,10 @@ async function buildExplanation(officeId: string, type: string, entityId: string
 
   const ctx = (caseCtx.rows[0] as any) ?? {};
   const p   = (pred.rows[0] as any) ?? {};
-  const predictions = typeof p.predictions === "object" ? p.predictions : {};
+  const supporting = typeof p.supporting_data === "object" && p.supporting_data !== null
+    ? p.supporting_data
+    : {};
+  const predictions = supporting;
 
   const positiveFactors: string[] = [];
   const negativeFactors: string[] = [];
@@ -402,6 +348,7 @@ async function buildExplanation(officeId: string, type: string, entityId: string
 /* ═══════════════════════════════════════════════════════════════ */
 async function runLearningLoop(officeId: string): Promise<{ updated: number; events: any[] }> {
   /* Find closed cases with accuracy records */
+  /* Formal Migration 035: recorded_at (not created_at) */
   const { rows: closedWithAcc } = await db.execute(sql`
     SELECT
       c.id AS case_id, c.status, c.case_type,
@@ -410,8 +357,8 @@ async function runLearningLoop(officeId: string): Promise<{ updated: number; eve
     JOIN jlwm_accuracy_records ar ON ar.case_id = c.id::text AND ar.office_id = ${officeId}
     WHERE c.office_id = ${officeId}
       AND c.status IN ('closed','منتهية','won','فاز','lost','خاسرة')
-      AND ar.created_at >= NOW()-INTERVAL '90 days'
-    ORDER BY ar.created_at DESC
+      AND ar.recorded_at >= NOW()-INTERVAL '90 days'
+    ORDER BY ar.recorded_at DESC
     LIMIT 30
   `).catch(() => ({ rows: [] }));
 
@@ -604,11 +551,8 @@ router.get("/jlwm/reliability/confidence/:caseId", requireAuthWithTenant, async 
   const caseId   = String(req.params.caseId);
 
   const [predRow, docCount, taskStats, hearingCount] = await Promise.all([
-    db.execute(sql`
-      SELECT predictions, computed_at FROM jlwm_predictions
-      WHERE office_id = ${officeId} AND case_id = ${caseId}
-      ORDER BY computed_at DESC LIMIT 1
-    `).catch(() => ({ rows: [] })),
+    /* Formal Migration 034: case_bundle supporting_data */
+    selectCaseBundlePrediction(officeId, caseId),
 
     db.execute(sql`
       SELECT COUNT(*)::int AS cnt FROM documents
@@ -638,11 +582,14 @@ router.get("/jlwm/reliability/confidence/:caseId", requireAuthWithTenant, async 
   const dataQuality = Math.min(100, docs * 8 + Number(tasks.done ?? 0) * 5 + hearings * 10 + 20);
   const confidence_level = dataQuality >= 80 ? "مرتفعة" : dataQuality >= 50 ? "متوسطة" : "منخفضة";
 
-  const predictions = typeof pred.predictions === "object" ? pred.predictions : {};
+  const predictions = typeof pred.supporting_data === "object" && pred.supporting_data !== null
+    ? pred.supporting_data
+    : {};
 
   res.json({
     case_id: caseId,
     predictions,
+    predicted_value: pred.predicted_value ?? null,
     confidence_level,
     confidence_pct: dataQuality,
     data_quality_pct: dataQuality,
@@ -653,7 +600,7 @@ router.get("/jlwm/reliability/confidence/:caseId", requireAuthWithTenant, async 
       tasks_done: Number(tasks.done ?? 0),
       hearings,
     },
-    last_computed: pred.computed_at ?? null,
+    last_computed: pred.created_at ?? null,
   });
 });
 
@@ -678,7 +625,7 @@ router.post("/jlwm/reliability/track-recommendation", requireAuthWithTenant, asy
        ${category ?? null}, ${wasApplied ?? false},
        ${outcomeImproved ?? false}, ${riskReduced ?? false},
        ${successScore}, ${notes ?? null},
-       ${wasApplied ? new Date().toISOString() + "::timestamptz" : null})
+       ${wasApplied ? new Date().toISOString() : null}::timestamptz)
     RETURNING id, success_score
   `).catch((e: any) => { throw e; });
 

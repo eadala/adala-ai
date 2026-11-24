@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { initTracer } from "./observability/tracer";
 await initTracer();
 
@@ -5,34 +6,28 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
+import { getProductionBaseUrl } from "./lib/productionUrl";
 import { startEmailCron } from "./cron/emailCron";
 import { startMonitoringCron } from "./cron/monitoringCron";
 import { startAgentCron } from "./cron/agentCron";
 import { startLogRotationCron } from "./cron/logRotationCron";
 import { registerAllListeners } from "./core/listeners/index";
-import { ensureStripeBufferTables } from "./services/stripeEventBuffer";
-import { ensureReconciliationTable, startReconciliationCron } from "./jobs/stripeReconcile";
+import { startReconciliationCron } from "./jobs/stripeReconcile";
 import { initVapid } from "./lib/webPush";
 import { loadHardeningState } from "./hardening/production.lock";
-import { ensureERPTables } from "./modules/financial/erp-ledger";
-import { ensureBankruptcyTables } from "./modules/bankruptcy/bankruptcy";
-import { ensureBankruptcyV2Tables } from "./modules/bankruptcy/bankruptcyV2";
-import { ensureBankruptcyV3Tables } from "./modules/bankruptcy/bankruptcyV3";
+import { logLaunchReadinessWarnings } from "./lib/launchReadiness";
 import { ensureDocumentCenterSchema } from "./modules/documents/documentCenter";
 import { ensureJLWMSchema, ensureFuturePathsTable, ensureSimulationsTable, ensureLitigationIntelTable, ensureAccuracyTable, ensureExecutiveTable, ensureCOOTable, ensureReliabilitySchema } from "./modules/jlwm/index";
 import { seedNorthSouthDemoData } from "./modules/jlwm/jlwmDemoSeed";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
-/** Ensure ad-hoc columns added outside the Drizzle schema always exist at boot */
-async function ensureAdHocColumns() {
+/**
+ * Data backfill only — schema DDL authority is artifacts/api-server/migrations/
+ * (cases/office_orders columns live in 004_legal_core_extensions.sql).
+ */
+async function ensureOfficePageSlugs() {
   try {
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS source       TEXT DEFAULT 'manual'`);
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS store_order_id TEXT`);
-    await db.execute(sql`ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_by    TEXT`);
-    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS auto_case_id TEXT`);
-    await db.execute(sql`ALTER TABLE office_orders ADD COLUMN IF NOT EXISTS portal_token TEXT`);
-
     /* Auto-generate slugs for any office_page rows that have none.
        Pattern: lower-cased name with spaces→dashes + short id suffix */
     await db.execute(sql`
@@ -43,7 +38,7 @@ async function ensureAdHocColumns() {
         AND name IS NOT NULL AND name <> ''
     `);
   } catch (e: any) {
-    logger.warn({ err: e.message }, "ensureAdHocColumns: non-fatal migration warning");
+    logger.warn({ err: e.message }, "ensureOfficePageSlugs: non-fatal backfill warning");
   }
 }
 
@@ -68,9 +63,11 @@ async function initStripe() {
   try {
     await runMigrations({ databaseUrl, schema: "stripe" } as any);
     const stripeSync = await getStripeSync();
-    const webhookBase = process.env.PRODUCTION_URL
-      ?? process.env.APP_URL
-      ?? `https://${(process.env.REPLIT_DOMAINS ?? "").split(",")[0]}`;
+    const webhookBase = getProductionBaseUrl({ required: false });
+    if (!webhookBase) {
+      logger.warn("PRODUCTION_URL/APP_URL missing — skipping Stripe webhook registration");
+      return;
+    }
     await stripeSync.findOrCreateManagedWebhook(`${webhookBase}/api/stripe/webhook`);
     stripeSync.syncBackfill().catch(e => logger.error({ e }, "Stripe backfill error"));
     logger.info("Stripe initialized");
@@ -79,19 +76,19 @@ async function initStripe() {
   }
 }
 
-ensureAdHocColumns().catch(e => logger.error({ e }, "ensureAdHocColumns failed"));
-ensureStripeBufferTables().catch(e => logger.error({ e }, "ensureStripeBufferTables failed"));
-ensureReconciliationTable().catch(e => logger.error({ e }, "ensureReconciliationTable failed"));
-ensureERPTables().catch(e => logger.error({ e }, "ensureERPTables failed"));
-ensureBankruptcyTables().catch(e => logger.error({ e }, "ensureBankruptcyTables failed"));
+ensureOfficePageSlugs().catch(e => logger.error({ e }, "ensureOfficePageSlugs failed"));
+/* stripe_* → migration 011; payment_transactions → 012; ERP tables → 013; bankruptcy_* → migration 014 */
 ensureDocumentCenterSchema().catch(e => logger.error({ e }, "ensureDocumentCenterSchema failed"));
+/* jlwm_* core → migration 034 (ensureJLWMSchema is SELECT-only readiness) */
 ensureJLWMSchema().catch(e => logger.error({ e }, "ensureJLWMSchema failed"));
+/* jlwm satellites → migration 035 (ensure* helpers are SELECT-only readiness) */
 ensureFuturePathsTable().catch(e => logger.error({ e }, "ensureFuturePathsTable failed"));
 ensureSimulationsTable().catch(e => logger.error({ e }, "ensureSimulationsTable failed"));
 ensureLitigationIntelTable().catch(e => logger.error({ e }, "ensureLitigationIntelTable failed"));
 ensureAccuracyTable().catch(e => logger.error({ e }, "ensureAccuracyTable failed"));
 ensureExecutiveTable().catch(e => logger.error({ e }, "ensureExecutiveTable failed"));
 ensureCOOTable().catch(e => logger.error({ e }, "ensureCOOTable failed"));
+/* Reliability: Migration 036 SELECT-only readiness (Runtime CREATE/INDEX removed) */
 ensureReliabilitySchema().catch(e => logger.error({ e }, "ensureReliabilitySchema failed"));
 
 /* Auto-seed JLWM demo data for North & South offices (idempotent — skips if already seeded) */
@@ -108,8 +105,6 @@ setTimeout(() => {
     .catch(e => logger.error({ err: e.message }, "[JLWM Seed] Auto-seed failed (non-fatal)"));
 }, 8000); // 8s delay so all tables are ready first
 
-ensureBankruptcyV2Tables().catch(e => logger.error({ e }, "ensureBankruptcyV2Tables failed"));
-ensureBankruptcyV3Tables().catch(e => logger.error({ e }, "ensureBankruptcyV3Tables failed"));
 initStripe();
 startEmailCron();
 startMonitoringCron();
@@ -119,6 +114,7 @@ startLogRotationCron();
 registerAllListeners();
 initVapid().catch(e => console.error("[WebPush] init error:", e));
 loadHardeningState().catch(() => {});
+logLaunchReadinessWarnings((msg, meta) => logger.warn(meta ?? {}, msg));
 
 /* ── Global process-level error guards ─────────────────────────────────────
    Without these, any uncaught exception silently crashes the server.
@@ -183,31 +179,3 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
-
-/** Performance indexes — run once at startup, idempotent */
-async function ensurePerformanceIndexes() {
-  const indexes = [
-    `CREATE INDEX IF NOT EXISTS idx_cases_office_id       ON cases(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_cases_status          ON cases(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_cases_office_status   ON cases(office_id, status)`,
-    `CREATE INDEX IF NOT EXISTS idx_clients_office_id     ON clients(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_documents_office_id   ON documents(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_office_due      ON tasks(office_id, due_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_status          ON tasks(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_reminders_office_due  ON reminders(office_id, due_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_audit_logs_office_ts  ON audit_logs(office_id, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_revenues_office_date  ON revenues(date DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_expenses_office_date  ON expenses(date DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_office_id    ON client_invoices(office_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_status       ON client_invoices(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_contracts_office_id   ON contracts(office_id)`,
-    /* Idempotency index — prevents duplicate ledger entries for same Stripe event */
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_office_ledger_stripe_event_id
-       ON office_ledger(stripe_event_id)
-       WHERE stripe_event_id IS NOT NULL`,
-  ];
-  for (const idx of indexes) {
-    await db.execute(sql.raw(idx)).catch(() => {});
-  }
-}
-ensurePerformanceIndexes().catch(() => {});

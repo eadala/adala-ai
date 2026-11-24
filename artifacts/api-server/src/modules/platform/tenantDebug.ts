@@ -37,35 +37,29 @@ async function dbOne(q: any): Promise<any> {
   return rows[0] ?? null;
 }
 
-/* ── Ensure audit table exists ─────────────────────────────────────── */
+/* ── readiness — schema owned by Migration 055 ─────────────────────── */
 
-async function ensureAuditTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS tenant_audit_logs (
-      id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id     TEXT NOT NULL,
-      tenant_id   TEXT,
-      source      TEXT NOT NULL,
-      steps       JSONB NOT NULL DEFAULT '[]',
-      resolved    BOOLEAN NOT NULL DEFAULT false,
-      error_msg   TEXT,
-      ip_address  TEXT,
-      user_agent  TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_tenant_audit_user   ON tenant_audit_logs(user_id);
-    CREATE INDEX IF NOT EXISTS idx_tenant_audit_time   ON tenant_audit_logs(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_tenant_audit_source ON tenant_audit_logs(source);
-  `).catch(() => {});
+let tenantAuditSchemaReady = false;
+async function ensureAuditSchemaReady() {
+  if (tenantAuditSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.tenant_audit_logs') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[tenantDebug] Migration 055 schema not ready — tenant_audit_logs missing");
+      return;
+    }
+    tenantAuditSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ──────────────────────────────────────────────────────────────────── */
 
 /* GET /tenant/debug/:userId — trace resolution for a user */
 router.get("/developer/tenant/debug/:userId", requireSA, async (req, res) => {
-  await ensureAuditTable();
+  await ensureAuditSchemaReady();
   const userId = String(req.params.userId);
   try {
     const trace = await resolveTenantWithTrace(userId);
@@ -82,7 +76,7 @@ router.get("/developer/tenant/debug/:userId", requireSA, async (req, res) => {
 
 /* GET /tenant/audit — last N audit log entries */
 router.get("/developer/tenant/audit", requireSA, async (req, res) => {
-  await ensureAuditTable();
+  await ensureAuditSchemaReady();
   const limit = Math.min(Number(req.query.limit) || 100, 500);
   const userId = req.query.userId ? String(req.query.userId) : null;
   const failedOnly = req.query.failed === "1";
@@ -101,7 +95,7 @@ router.get("/developer/tenant/audit", requireSA, async (req, res) => {
 
 /* GET /tenant/stats — aggregate stats */
 router.get("/developer/tenant/stats", requireSA, async (req, res) => {
-  await ensureAuditTable();
+  await ensureAuditSchemaReady();
 
   const [total, failed, sources, last24h] = await Promise.all([
     dbOne(sql`SELECT COUNT(*)::int AS n FROM tenant_audit_logs`),

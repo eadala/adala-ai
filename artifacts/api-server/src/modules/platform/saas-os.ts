@@ -297,30 +297,24 @@ ${topActions}
    جدول: os_events (auto-created)
 ═══════════════════════════════════════════════════════════════════ */
 
-async function ensureOsEventTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS os_events (
-      id         BIGSERIAL PRIMARY KEY,
-      event      TEXT        NOT NULL,
-      data       JSONB       NOT NULL DEFAULT '{}',
-      source     TEXT        NOT NULL DEFAULT 'manual',
-      office_id  TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS os_action_queue (
-      id          BIGSERIAL PRIMARY KEY,
-      type        TEXT        NOT NULL,
-      payload     JSONB       NOT NULL DEFAULT '{}',
-      status      TEXT        NOT NULL DEFAULT 'queued',
-      safety_ok   BOOLEAN     NOT NULL DEFAULT TRUE,
-      triggered_by TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
+let osEventSchemaReady = false;
+async function ensureOsEventSchemaReady() {
+  if (osEventSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.os_events') IS NOT NULL AS events_present,
+        to_regclass('public.os_action_queue') IS NOT NULL AS queue_present
+    `) as { rows?: { events_present?: boolean; queue_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.events_present || !row.queue_present) {
+      console.error("[saas-os] Migration 054 schema not ready — os_events / os_action_queue missing");
+      return;
+    }
+    osEventSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureOsEventTables().catch(() => {});
+ensureOsEventSchemaReady().catch(() => {});
 
 /** تسجيل حدث في الـ DB */
 async function trackEvent(event: string, data: Record<string, any> = {}, source = "api", officeId?: string) {

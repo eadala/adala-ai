@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useCallback } from "react";
 import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/layout";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 let _getToken: (() => Promise<string | null>) | null = null;
@@ -25,7 +27,7 @@ async function ENG(path: string, opts: RequestInit = {}) {
   const token = _getToken ? await _getToken() : null;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/api/engineering${path}`, { ...opts, headers });
+  const res = await authFetch(`${BASE}/api/engineering${path}`, { ...opts, headers });
   if (!res.ok) {
     const e = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(e.error ?? `HTTP ${res.status}`);
@@ -1275,7 +1277,7 @@ export default function EngineeringCenter() {
                         const token = _getToken ? await _getToken() : null;
                         const headers: Record<string,string> = {};
                         if (token) headers["Authorization"] = `Bearer ${token}`;
-                        const res = await fetch(`${BASE}/api/engineering/k6-script`, { headers });
+                        const res = await authFetch(`${BASE}/api/engineering/k6-script`, { headers });
                         const text = await res.text();
                         const blob = new Blob([text], { type: "text/plain" });
                         const url  = URL.createObjectURL(blob);

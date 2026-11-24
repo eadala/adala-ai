@@ -1,51 +1,34 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  formatLeaveBalancesResponse,
+  type LeaveBalanceEmployeeRow,
+  type LeaveBalanceLedgerRow,
+} from "../../lib/hrLeaveBalances";
 
 const router = Router();
 
+/** HR Internal schema owned by Migration 048; ensureTables() is readiness-only. */
+let hrInternalSchemaReady = false;
 async function ensureTables() {
-  const tables = [
-    sql`CREATE TABLE IF NOT EXISTS hr_announcements (
-      id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      title       TEXT NOT NULL,
-      content     TEXT NOT NULL,
-      priority    TEXT NOT NULL DEFAULT 'normal',
-      target_dept TEXT,
-      author_name TEXT,
-      author_id   TEXT,
-      expires_at  DATE,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS employee_requests (
-      id           SERIAL PRIMARY KEY,
-      office_id    TEXT NOT NULL DEFAULT 'default',
-      employee_id  TEXT NOT NULL,
-      type         TEXT NOT NULL DEFAULT 'document',
-      subject      TEXT NOT NULL,
-      body         TEXT,
-      status       TEXT NOT NULL DEFAULT 'pending',
-      response     TEXT,
-      resolved_by  TEXT,
-      resolved_at  TIMESTAMPTZ,
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS leave_balances (
-      id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      employee_id TEXT NOT NULL,
-      leave_type  TEXT NOT NULL DEFAULT 'annual',
-      year        INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::int,
-      quota       INTEGER NOT NULL DEFAULT 21,
-      used        INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(employee_id, leave_type, year)
-    )`,
-  ];
-  for (const q of tables) {
-    try { await db.execute(q); } catch { /* table already exists — ignore */ }
-  }
+  if (hrInternalSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.hr_announcements') IS NOT NULL AS hr_announcements_present,
+        to_regclass('public.employee_requests') IS NOT NULL AS employee_requests_present,
+        to_regclass('public.leave_balances') IS NOT NULL AS leave_balances_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.hr_announcements_present || !row.employee_requests_present || !row.leave_balances_present) {
+      console.error("[hrInternal] Migration 048 schema not ready — hr_announcements / employee_requests / leave_balances missing");
+      return;
+    }
+    hrInternalSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 async function sqlAll(q: any): Promise<any[]> {
@@ -170,59 +153,118 @@ router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, re
 });
 
 /* ══════════════════════════════════════════════
-   LEAVE BALANCES
+   LEAVE BALANCES — set-based (no per-employee N+1)
 ══════════════════════════════════════════════ */
 router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const year = parseInt(String(req.query.year ?? new Date().getFullYear()));
-    /* get all active employees with their balances (auto-init to 21 days annual) */
+    const year = parseInt(String(req.query.year ?? new Date().getFullYear()), 10);
     const tid = (req as any).tenantId as string;
-    const employees = await sqlAll(sql`SELECT * FROM employees WHERE status = 'active' AND office_id = ${tid} ORDER BY full_name`);
-    const results = [];
 
-    for (const emp of employees) {
-      /* ensure balance rows exist */
-      for (const type of ['annual', 'sick', 'emergency']) {
-        const quota = type === 'annual' ? 21 : type === 'sick' ? 14 : 3;
-        await db.execute(sql`
-          INSERT INTO leave_balances (employee_id, leave_type, year, quota, used)
-          VALUES (${emp.id}::text, ${type}, ${year}, ${quota}, 0)
-          ON CONFLICT (employee_id, leave_type, year) DO NOTHING
-        `);
-        /* sync used from approved leaves */
-        const used = await sqlOne(sql`
-          SELECT COALESCE(SUM(days), 0)::int as total
-          FROM leaves
-          WHERE employee_id = ${emp.id}::text
-            AND type = ${type}
-            AND status = 'approved'
-            AND EXTRACT(YEAR FROM start_date::date) = ${year}
-        `);
-        await db.execute(sql`
-          UPDATE leave_balances SET used = ${used?.total ?? 0}
-          WHERE employee_id = ${emp.id}::text AND leave_type = ${type} AND year = ${year}
-        `);
+    /* 1) Batch INSERT … SELECT missing balances for active tenant employees */
+    await db.execute(sql`
+      INSERT INTO leave_balances (office_id, employee_id, leave_type, year, quota, used)
+      SELECT
+        e.office_id,
+        e.id::text,
+        v.leave_type,
+        ${year},
+        v.quota,
+        0
+      FROM employees e
+      CROSS JOIN (
+        VALUES
+          ('annual'::text, 21),
+          ('sick'::text, 14),
+          ('emergency'::text, 3)
+      ) AS v(leave_type, quota)
+      WHERE e.status = 'active'
+        AND e.office_id = ${tid}
+      ON CONFLICT (employee_id, leave_type, year) DO NOTHING
+    `);
+
+    /* 2) Set-based UPDATE … FROM grouped approved-leave usage (missing → 0) */
+    await db.execute(sql`
+      UPDATE leave_balances AS lb
+      SET used = COALESCE(agg.total, 0)
+      FROM employees AS e
+      LEFT JOIN (
+        SELECT
+          l.employee_id::text AS employee_id,
+          l.type AS leave_type,
+          COALESCE(SUM(l.days), 0)::int AS total
+        FROM leaves l
+        INNER JOIN employees e2 ON e2.id = l.employee_id AND e2.office_id = ${tid}
+        WHERE l.status = 'approved'
+          AND EXTRACT(YEAR FROM l.start_date::date) = ${year}
+          AND l.type IN ('annual', 'sick', 'emergency')
+        GROUP BY l.employee_id, l.type
+      ) AS agg
+        ON agg.employee_id = lb.employee_id
+       AND agg.leave_type = lb.leave_type
+      WHERE lb.employee_id = e.id::text
+        AND e.office_id = ${tid}
+        AND e.status = 'active'
+        AND lb.year = ${year}
+    `);
+
+    /* 3) One SELECT for response payload (employees ⨝ balances) */
+    const rows = await sqlAll(sql`
+      SELECT
+        e.id,
+        e.full_name,
+        e.job_title,
+        e.department,
+        e.office_id,
+        e.status,
+        lb.employee_id,
+        lb.leave_type,
+        lb.year,
+        lb.quota,
+        lb.used
+      FROM employees e
+      LEFT JOIN leave_balances lb
+        ON lb.employee_id = e.id::text
+       AND lb.year = ${year}
+      WHERE e.status = 'active'
+        AND e.office_id = ${tid}
+      ORDER BY e.full_name,
+        CASE lb.leave_type
+          WHEN 'annual' THEN 1
+          WHEN 'sick' THEN 2
+          WHEN 'emergency' THEN 3
+          ELSE 4
+        END
+    `);
+
+    const employees: LeaveBalanceEmployeeRow[] = [];
+    const seen = new Set<string>();
+    const balances: LeaveBalanceLedgerRow[] = [];
+    for (const r of rows) {
+      const id = String(r.id);
+      if (!seen.has(id)) {
+        seen.add(id);
+        employees.push({
+          id,
+          full_name: r.full_name,
+          job_title: r.job_title,
+          department: r.department,
+          office_id: r.office_id,
+          status: r.status,
+        });
       }
-
-      const balances = await sqlAll(sql`
-        SELECT * FROM leave_balances
-        WHERE employee_id = ${emp.id}::text AND year = ${year}
-      `);
-
-      results.push({
-        employeeId: String(emp.id),
-        employeeName: emp.full_name,
-        jobTitle: emp.job_title,
-        department: emp.department,
-        balances: balances.map((b: any) => ({
-          type: b.leave_type, quota: b.quota, used: b.used,
-          remaining: Math.max(0, b.quota - b.used),
-        })),
-      });
+      if (r.leave_type != null) {
+        balances.push({
+          employee_id: String(r.employee_id ?? id),
+          leave_type: r.leave_type,
+          year: Number(r.year ?? year),
+          quota: Number(r.quota ?? 0),
+          used: Number(r.used ?? 0),
+        });
+      }
     }
 
-    res.json(results);
+    res.json(formatLeaveBalancesResponse(employees, balances, year, tid));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

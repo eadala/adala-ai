@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
+/**
+ * Legal calendar — schema owned by Migration 047.
+ * Runtime CREATE removed; ensureTables() is read-only readiness.
+ */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
@@ -14,38 +19,23 @@ async function dbRows(q: any): Promise<any[]> {
   } catch { return []; }
 }
 
+/* ── readiness — schema owned by Migration 047 ── */
+let calendarSchemaReady = false;
 async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS events (
-      id           TEXT PRIMARY KEY,
-      user_id      TEXT NOT NULL,
-      office_id    TEXT NOT NULL DEFAULT 'default',
-      title        TEXT NOT NULL,
-      event_type   TEXT NOT NULL DEFAULT 'other',
-      start_at     TIMESTAMPTZ NOT NULL,
-      end_at       TIMESTAMPTZ,
-      all_day      BOOLEAN NOT NULL DEFAULT FALSE,
-      case_id      TEXT,
-      client_id    TEXT,
-      location     TEXT,
-      description  TEXT,
-      status       TEXT NOT NULL DEFAULT 'upcoming',
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS event_reminders (
-      id                     TEXT PRIMARY KEY,
-      event_id               TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-      notify_before_minutes  INTEGER NOT NULL DEFAULT 60,
-      notification_type      TEXT NOT NULL DEFAULT 'email',
-      email                  TEXT,
-      sent                   BOOLEAN NOT NULL DEFAULT FALSE,
-      sent_at                TIMESTAMPTZ,
-      created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
+  if (calendarSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.events') IS NOT NULL AS events_present,
+        to_regclass('public.event_reminders') IS NOT NULL AS reminders_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.events_present || !row.reminders_present) {
+      console.error("[calendar] Migration 047 schema not ready — events / event_reminders missing");
+      return;
+    }
+    calendarSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 function escapeIcal(s: string): string {
@@ -63,10 +53,18 @@ function toIcalDate(dateStr: string, allDay = false): string {
   return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
+function resolveUserId(req: Request): string | null {
+  try {
+    const fromClerk = getAuth(req as any)?.userId;
+    if (fromClerk) return fromClerk;
+  } catch { /* */ }
+  return (req as any).userId ? String((req as any).userId) : null;
+}
+
 // ─── GET /calendar/events ───────────────────────────────────────────────────
 router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
@@ -100,7 +98,7 @@ router.get("/calendar/events", requireAuthWithTenant, async (req: Request, res: 
 // ─── GET /calendar/events/export.ics ────────────────────────────────────────
 router.get("/calendar/events/export.ics", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
@@ -159,7 +157,7 @@ router.get("/calendar/events/export.ics", requireAuthWithTenant, async (req: Req
 // ─── GET /calendar/events/upcoming ─────────────────────────────────────────
 router.get("/calendar/events/upcoming", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
@@ -183,14 +181,16 @@ router.get("/calendar/events/upcoming", requireAuthWithTenant, async (req: Reque
 // ─── POST /calendar/events ──────────────────────────────────────────────────
 router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
     const {
       title, eventType = "other", startAt, endAt,
-      allDay = false, caseId, clientId, location, description, reminders = []
+      allDay = false, caseId, clientId, location, description, reminders = [],
+      clientVisible = false,
     } = req.body;
+    const officeId = String((req as any).tenantId ?? "default");
 
     if (!title || !startAt) {
       return res.status(400).json({ error: "title وstartAt مطلوبان" });
@@ -199,15 +199,15 @@ router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res:
     const id = randomUUID();
     await db.execute(sql`
       INSERT INTO events
-        (id, user_id, title, event_type, start_at, end_at, all_day,
-         case_id, client_id, location, description, status, created_at, updated_at)
+        (id, user_id, office_id, title, event_type, start_at, end_at, all_day,
+         case_id, client_id, location, description, status, client_visible, created_at, updated_at)
       VALUES
-        (${id}, ${authUserId}, ${title}, ${eventType},
+        (${id}, ${authUserId}, ${officeId}, ${title}, ${eventType},
          ${startAt}::timestamptz,
          ${endAt ? endAt : null}::timestamptz,
          ${allDay}, ${caseId ?? null}, ${clientId ?? null},
          ${location ?? null}, ${description ?? null},
-         'upcoming', NOW(), NOW())
+         'upcoming', ${!!clientVisible}, NOW(), NOW())
     `);
 
     for (const rem of reminders as { minutesBefore: number; email?: string }[]) {
@@ -231,7 +231,7 @@ router.post("/calendar/events", requireAuthWithTenant, async (req: Request, res:
 // ─── PUT /calendar/events/:id ───────────────────────────────────────────────
 router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
@@ -242,7 +242,7 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
 
     const {
       title, eventType, startAt, endAt, allDay,
-      caseId, clientId, location, description, status
+      caseId, clientId, location, description, status, clientVisible,
     } = req.body;
 
     await db.execute(sql`
@@ -257,6 +257,7 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
         location    = COALESCE(${location ?? null}, location),
         description = COALESCE(${description ?? null}, description),
         status      = COALESCE(${status  ?? null}, status),
+        client_visible = COALESCE(${clientVisible ?? null}, client_visible),
         updated_at  = NOW()
       WHERE id = ${id}
     `);
@@ -271,7 +272,7 @@ router.put("/calendar/events/:id", requireAuthWithTenant, async (req: Request, r
 // ─── DELETE /calendar/events/:id ────────────────────────────────────────────
 router.delete("/calendar/events/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 
@@ -291,7 +292,7 @@ router.delete("/calendar/events/:id", requireAuthWithTenant, async (req: Request
 // ─── GET /calendar/reminders ─────────────────────────────────────────────────
 router.get("/calendar/reminders", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const { userId: authUserId } = getAuth(req as any);
+    const authUserId = resolveUserId(req);
     if (!authUserId) return res.status(401).json({ error: "غير مصرح" });
     await ensureTables();
 

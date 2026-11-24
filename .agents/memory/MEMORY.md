@@ -1,3 +1,5 @@
+- [GitHub push credential hang](github-push-credential-hang.md) — plain `git push` hangs on askpash password prompt; workaround via mirror clone outside `.git` + explicit token header
+- [Adala Clerk proxy hardcoded domain](adala-clerk-proxy-domain-hang.md) — login hang on custom domain caused by hand-pinned `VITE_CLERK_PROXY_URL` in `.replit` shared env + divergent client code; check `.replit` before re-patching App.tsx
 - [Adala TS Project References](adala-ts-project-refs.md) — NEVER add "references" to adala tsconfig; libs export ./src/index.ts directly; moduleResolution:bundler resolves them; CI bundle measured in gzip (~1649KB)
 - [Adala Upload Governance](adala-upload-governance.md) — uploadGuard.ts 8-layer security; 3 endpoints protected; 9-point fileUploadRegistry; 81/81 regression tests pass; node:test self-contained (no ESM import issues)
 - [Adala Governance Framework](adala-governance.md) — quality-gate.sh 8 gates; set -euo pipefail + grep no-match exit-1 → use (grep ... || true) | wc -l pattern; ESLint Architecture Lock; web-vitals monitoring; /design-system page
@@ -61,7 +63,7 @@
 - [Adala promo codes](adala-promo.md) — promo_codes + gift_subscriptions tables; /api/admin/promo-codes + /api/admin/gift-subscriptions (admin) + /api/promo/redeem + /api/promo/my-gift (office); gift check in subscription.ts step 2a; PromoCodesTab in super-admin; Gift tab in billing
 - [Adala Landing Redesign](adala-landing-redesign.md) — bento grid (8 features), side-nav dots, tabbed How+Security, stats merged into Hero; privacyItems still in state but section removed
 - [Adala Landing Eager Import](adala-landing-eager.md) — Landing MUST be eagerly imported in App.tsx (never lazy); lazy+Suspense caused blue-screen in production
-- [Adala Clerk proxyUrl](adala-clerk-proxy-url.md) — Replit sets VITE_CLERK_PROXY_URL="/api/__clerk" (relative); Clerk v6 needs absolute URL; fix: expand at runtime via window.location.origin + rawProxy
+- [Adala Clerk proxyUrl](adala-clerk-proxy-url.md) — clerkProxyMiddleware only mounts in prod; dev must gate proxyUrl on import.meta.env.DEV=undefined or shared env var + CSP breaks Clerk JS load
 - [Adala Role Isolation](adala-role-isolation.md) — AdminRoute/WorkspaceRoute/ProtectedRoute in App.tsx; useRole() hook; AdminLayout for platform_admin; always wait isLoaded before redirect
 - [Adala Telegram integration](adala-telegram.md) — telegram_settings+telegram_logs tables; /api/telegram/* routes in telegram.ts; notifyTelegramCaseStatus() exported; /telegram-settings page (4 tabs); nav item under التواصل
 - [Adala Financial Core](adala-financial-core.md) — Payment Abstraction Layer (Stripe+Moyasar+Checkout.com) + Ledger + Wallets + Payouts; axios required in api-server; /financial-core page (6 tabs)

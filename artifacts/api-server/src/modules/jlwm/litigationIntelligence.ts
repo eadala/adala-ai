@@ -2,6 +2,9 @@
  * JLWM Phase 2 — Litigation Intelligence Engine
  * Generates: Strengths, Weaknesses, Missing Evidence, Procedural Risks, Recommended Actions
  * One comprehensive AI-powered report per case — cached in jlwm_litigation_intel table.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureLitigationIntelTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -16,27 +19,17 @@ const router = Router();
 const LI_SYSTEM = `أنت خبير استراتيجية قانونية JLWM. مهمتك تحليل ملف القضية بعمق واستخراج ذكاء قانوني شامل.
 التزم بـ: الدقة، العملية، الواقعية. لا تختلق حقائق. استند للبيانات الفعلية. أعد JSON فقط.`;
 
-/* ── DB bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureLitigationIntelTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_litigation_intel (
-      id                 TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id          TEXT NOT NULL,
-      case_id            TEXT NOT NULL,
-      strengths          JSONB NOT NULL DEFAULT '[]',
-      weaknesses         JSONB NOT NULL DEFAULT '[]',
-      missing_evidence   JSONB NOT NULL DEFAULT '[]',
-      procedural_risks   JSONB NOT NULL DEFAULT '[]',
-      recommended_actions JSONB NOT NULL DEFAULT '[]',
-      overall_score      FLOAT NOT NULL DEFAULT 0.5,
-      confidence         FLOAT NOT NULL DEFAULT 0.5,
-      model_used         TEXT,
-      expires_at         TIMESTAMPTZ,
-      created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jli_office ON jlwm_litigation_intel(office_id)`).catch(() => {});
-  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_jli_case   ON jlwm_litigation_intel(case_id)`).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_litigation_intel') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_litigation_intel",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Intelligence item types ────────────────────────────────── */

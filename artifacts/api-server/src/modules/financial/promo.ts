@@ -1,16 +1,28 @@
-import { requireAuth, requireSuperAdmin as adminOnly } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin as adminOnly } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import {
+  giftOwnerHttpStatus,
+  resolveGiftOwner,
+  TenantResolutionError,
+} from "../../lib/giftOwnership";
+import { assertCanonicalBusinessOfficeId } from "../../lib/tenantResolution";
 
 const router = Router();
 
+type SqlRow = Record<string, unknown>;
 
-async function sqlAll(q: any) {
-  const result = await db.execute(q);
-  return (result.rows ?? result) as any[];
+function errMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
-async function sqlOne(q: any) {
+
+async function sqlAll(q: ReturnType<typeof sql>): Promise<SqlRow[]> {
+  const result = await db.execute(q);
+  const withRows = result as { rows?: SqlRow[] };
+  return (withRows.rows ?? (result as unknown as SqlRow[])) as SqlRow[];
+}
+async function sqlOne(q: ReturnType<typeof sql>): Promise<SqlRow | null> {
   const rows = await sqlAll(q);
   return rows[0] ?? null;
 }
@@ -20,7 +32,7 @@ async function sqlOne(q: any) {
 ────────────────────────────────────────────── */
 
 /* GET /admin/promo-codes */
-router.get("/admin/promo", adminOnly, async (req, res) => {
+router.get("/admin/promo", adminOnly, async (_req, res) => {
 
   try {
     const rows = await sqlAll(sql`
@@ -28,7 +40,7 @@ router.get("/admin/promo", adminOnly, async (req, res) => {
       FROM promo_codes ORDER BY created_at DESC
     `);
     res.json(rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* POST /admin/promo-codes */
@@ -45,9 +57,9 @@ router.post("/admin/promo", adminOnly, async (req, res) => {
       RETURNING *
     `);
     res.json(row);
-  } catch (e: any) {
-    if (e.message?.includes("unique")) return res.status(400).json({ error: "هذا الكود موجود مسبقاً" });
-    res.status(500).json({ error: e.message });
+  } catch (e: unknown) {
+    if (errMessage(e).includes("unique")) return res.status(400).json({ error: "هذا الكود موجود مسبقاً" });
+    res.status(500).json({ error: errMessage(e) });
   }
 });
 
@@ -66,7 +78,7 @@ router.patch("/admin/promo/:id", adminOnly, async (req, res) => {
       WHERE id = ${id}
     `);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* DELETE /admin/promo-codes/:id */
@@ -75,7 +87,7 @@ router.delete("/admin/promo/:id", adminOnly, async (req, res) => {
   try {
     await db.execute(sql`DELETE FROM promo_codes WHERE id = ${String(req.params.id)}`);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* ──────────────────────────────────────────────
@@ -83,7 +95,7 @@ router.delete("/admin/promo/:id", adminOnly, async (req, res) => {
 ────────────────────────────────────────────── */
 
 /* GET /admin/gift-subscriptions */
-router.get("/admin/gift", adminOnly, async (req, res) => {
+router.get("/admin/gift", adminOnly, async (_req, res) => {
 
   try {
     const rows = await sqlAll(sql`
@@ -93,24 +105,40 @@ router.get("/admin/gift", adminOnly, async (req, res) => {
       ORDER BY gs.created_at DESC
     `);
     res.json(rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
-/* POST /admin/gift-subscriptions — create directly without a code */
+/* POST /admin/gift-subscriptions — create directly without a code (must set ownership) */
 router.post("/admin/gift", adminOnly, async (req, res) => {
 
   try {
-    const { plan_slug, duration_days, notes } = req.body;
-    if (!plan_slug || !duration_days) return res.status(400).json({ error: "بيانات ناقصة" });
+    const { plan_slug, duration_days, notes, office_id, user_id } = req.body;
+    if (!plan_slug || !duration_days || !office_id || !user_id) {
+      return res.status(400).json({ error: "بيانات ناقصة — plan_slug و duration_days و office_id و user_id مطلوبة" });
+    }
+    const ownerUserId = String(user_id).trim();
+    if (!ownerUserId) return res.status(400).json({ error: "user_id مطلوب" });
+    let officeId: string;
+    try {
+      officeId = assertCanonicalBusinessOfficeId(office_id, {
+        userId: ownerUserId,
+        source: "POST /admin/gift",
+      });
+    } catch (err: unknown) {
+      if (err instanceof TenantResolutionError) {
+        return res.status(giftOwnerHttpStatus(err)).json({ error: err.message, code: err.code });
+      }
+      throw err;
+    }
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + Number(duration_days));
     const row = await sqlOne(sql`
-      INSERT INTO gift_subscriptions (plan_slug, end_date, notes)
-      VALUES (${plan_slug}, ${endDate.toISOString()}, ${notes ?? null})
+      INSERT INTO gift_subscriptions (office_id, user_id, plan_slug, end_date, notes)
+      VALUES (${officeId}::uuid, ${ownerUserId}, ${plan_slug}, ${endDate.toISOString()}, ${notes ?? null})
       RETURNING *
     `);
     res.json(row);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* POST /admin/gift-subscriptions/:id/renew */
@@ -129,7 +157,7 @@ router.post("/admin/gift/:id/renew", adminOnly, async (req, res) => {
     `);
     if (!row) return res.status(404).json({ error: "غير موجود" });
     res.json(row);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* PATCH /admin/gift-subscriptions/:id/cancel */
@@ -138,7 +166,7 @@ router.patch("/admin/gift/:id/cancel", adminOnly, async (req, res) => {
   try {
     await db.execute(sql`UPDATE gift_subscriptions SET status = 'cancelled' WHERE id = ${String(req.params.id)}`);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* ──────────────────────────────────────────────
@@ -146,8 +174,24 @@ router.patch("/admin/gift/:id/cancel", adminOnly, async (req, res) => {
 ────────────────────────────────────────────── */
 
 /* POST /promo/redeem */
-router.post("/promo/redeem", requireAuth, async (req, res) => {
+router.post("/promo/redeem", requireAuthWithTenant, async (req, res) => {
   try {
+    let officeId: string;
+    let userId: string;
+    try {
+      ({ officeId, userId } = resolveGiftOwner(
+        {
+          userId: (req as { userId?: string }).userId,
+          tenantId: (req as { tenantId?: string }).tenantId,
+        },
+        "POST /promo/redeem",
+      ));
+    } catch (err: unknown) {
+      const status = giftOwnerHttpStatus(err);
+      const e = err as { message?: string; code?: string };
+      return res.status(status).json({ error: e.message ?? "لا يمكن تحديد ملكية الهدية", code: e.code });
+    }
+
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: "أدخل الكود" });
     const upper = String(code).toUpperCase().trim();
@@ -164,6 +208,8 @@ router.post("/promo/redeem", requireAuth, async (req, res) => {
     const existing = await sqlOne(sql`
       SELECT id FROM gift_subscriptions
       WHERE status = 'active' AND end_date > NOW()
+        AND office_id = ${officeId}::uuid
+        AND user_id = ${userId}
     `);
     if (existing) return res.status(400).json({ error: "لديك اشتراك مجاني نشط بالفعل" });
 
@@ -171,8 +217,15 @@ router.post("/promo/redeem", requireAuth, async (req, res) => {
     endDate.setDate(endDate.getDate() + Number(promo.duration_days));
 
     const gift = await sqlOne(sql`
-      INSERT INTO gift_subscriptions (promo_code_id, plan_slug, end_date, notes)
-      VALUES (${promo.id}, ${promo.plan_slug}, ${endDate.toISOString()}, ${'تم الاسترداد بكود: ' + upper})
+      INSERT INTO gift_subscriptions (office_id, user_id, promo_code_id, plan_slug, end_date, notes)
+      VALUES (
+        ${officeId}::uuid,
+        ${userId},
+        ${promo.id},
+        ${promo.plan_slug},
+        ${endDate.toISOString()},
+        ${'تم الاسترداد بكود: ' + upper}
+      )
       RETURNING *
     `);
 
@@ -181,21 +234,39 @@ router.post("/promo/redeem", requireAuth, async (req, res) => {
     `);
 
     res.json({ ok: true, gift, planSlug: promo.plan_slug, endsAt: endDate.toISOString() });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 /* GET /promo/my-gift */
-router.get("/promo/my-gift", requireAuth, async (_req, res) => {
+router.get("/promo/my-gift", requireAuthWithTenant, async (req, res) => {
   try {
+    let officeId: string;
+    let userId: string;
+    try {
+      ({ officeId, userId } = resolveGiftOwner(
+        {
+          userId: (req as { userId?: string }).userId,
+          tenantId: (req as { tenantId?: string }).tenantId,
+        },
+        "GET /promo/my-gift",
+      ));
+    } catch (err: unknown) {
+      const status = giftOwnerHttpStatus(err);
+      const e = err as { message?: string; code?: string };
+      return res.status(status).json({ error: e.message ?? "لا يمكن تحديد ملكية الهدية", code: e.code });
+    }
+
     const row = await sqlOne(sql`
       SELECT gs.*, pc.code AS promo_code_text
       FROM gift_subscriptions gs
       LEFT JOIN promo_codes pc ON pc.id = gs.promo_code_id
       WHERE gs.status = 'active' AND gs.end_date > NOW()
+        AND gs.office_id = ${officeId}::uuid
+        AND gs.user_id = ${userId}
       ORDER BY gs.end_date DESC LIMIT 1
     `);
     res.json(row ?? null);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: unknown) { res.status(500).json({ error: errMessage(e) }); }
 });
 
 export default router;

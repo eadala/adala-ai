@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -20,8 +21,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type ArbitrationPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "قيد التسجيل", color: "text-yellow-400", icon: Clock },
@@ -120,7 +131,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
     if (!newSession.date) return;
     setAddingSession(true);
     try {
-      await fetch(`${BASE}/api/arbitration/cases/${c.id}/session`, {
+      await authFetch(`${BASE}/api/arbitration/cases/${c.id}/session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newSession),
@@ -136,7 +147,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
   const generateDecision = async () => {
     setGeneratingDecision(true);
     try {
-      const r = await fetch(`${BASE}/api/arbitration/cases/${c.id}/generate-decision`, { method: "POST" });
+      const r = await authFetch(`${BASE}/api/arbitration/cases/${c.id}/generate-decision`, { method: "POST" });
       const d = await r.json();
       qc.invalidateQueries({ queryKey: ["arbitration"] });
       onRefresh();
@@ -146,7 +157,7 @@ function CaseDetail({ c, onClose, onRefresh }: { c: any; onClose: () => void; on
   };
 
   const updateStatus = async (status: string) => {
-    await fetch(`${BASE}/api/arbitration/cases/${c.id}`, {
+    await authFetch(`${BASE}/api/arbitration/cases/${c.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -268,22 +279,38 @@ export default function Arbitration() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: cases = [], isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["arbitration"],
-    queryFn: () => fetch(`${BASE}/api/arbitration/cases`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+  const { data: pageRes, isLoading, refetch } = useQuery<ArbitrationPageResponse>({
+    queryKey: ["arbitration", page, typeFilter],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (typeFilter !== "all") p.set("type", typeFilter);
+      const r = await authFetch(`${BASE}/api/arbitration/cases?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as ArbitrationPageResponse;
+    },
   });
+  const cases = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["arbitration-stats"],
-    queryFn: () => fetch(`${BASE}/api/arbitration/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/arbitration/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => fetch(`${BASE}/api/arbitration/cases`, {
+    mutationFn: (data: any) => authFetch(`${BASE}/api/arbitration/cases`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
@@ -296,12 +323,15 @@ export default function Arbitration() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/arbitration/cases/${id}`, { method: "DELETE" }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["arbitration"] }); if (selectedCase) setSelectedCase(null); toast({ title: "تم الحذف" }); },
+    mutationFn: (id: string) => authFetch(`${BASE}/api/arbitration/cases/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      if (page > 1 && cases.length <= 1) setPage(p => Math.max(1, p - 1));
+      qc.invalidateQueries({ queryKey: ["arbitration"] });
+      if (selectedCase) setSelectedCase(null);
+      toast({ title: "تم الحذف" });
+    },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
-
-  const filtered = cases.filter(c => typeFilter === "all" || c.type === typeFilter);
 
   // If a case is selected, update it from latest data
   const currentCase = selectedCase ? cases.find(c => c.id === selectedCase.id) ?? selectedCase : null;
@@ -341,7 +371,7 @@ export default function Arbitration() {
       {/* Filter */}
       <div className="flex gap-2">
         {[{ value: "all", label: "الكل" }, { value: "arbitration", label: "تحكيم" }, { value: "mediation", label: "وساطة" }].map(f => (
-          <button key={f.value} onClick={() => setTypeFilter(f.value)}
+          <button key={f.value} onClick={() => { setTypeFilter(f.value); setPage(1); }}
             className={cn("px-4 py-1.5 rounded-xl text-sm font-medium border transition-all",
               typeFilter === f.value ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-primary/30")}>
             {f.label}
@@ -355,18 +385,24 @@ export default function Arbitration() {
         <div className={cn(currentCase ? "lg:col-span-2" : "col-span-1")}>
           {isLoading ? (
             <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : filtered.length === 0 ? (
+          ) : cases.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Handshake className="h-12 w-12 mx-auto mb-4 opacity-30" />
               <p>لا توجد قضايا — أضف أولى القضايا</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {filtered.map(c => (
+              {cases.map(c => (
                 <CaseCard key={c.id} c={c}
                   onClick={() => setSelectedCase(c.id === selectedCase?.id ? null : c)}
                   onDelete={(id: string) => { if (window.confirm("هل تريد حذف هذه القضية نهائياً؟")) deleteMutation.mutate(id); }} />
               ))}
+              <ListPagination
+                page={page}
+                pageSize={LEGAL_LIST_PAGE_SIZE}
+                total={listTotal}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>

@@ -27,25 +27,26 @@ import { getSystemState } from "../../hardening/production.lock";
 
 const router = Router();
 
-/* ── DB bootstrap ─────────────────────────────────────────────── */
-async function ensureCertTable() {
+/* ── readiness — schema owned by Migration 054 ─────────────────── */
+let certSchemaReady = false;
+async function ensureCertSchemaReady() {
+  if (certSchemaReady) return;
   await ensureGovernanceTables();
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS go_live_certificates (
-      id              BIGSERIAL    PRIMARY KEY,
-      certificate_id  TEXT         NOT NULL UNIQUE,
-      score           INT          NOT NULL,
-      status          TEXT         NOT NULL,
-      risk_level      TEXT         NOT NULL,
-      axes            JSONB        NOT NULL DEFAULT '{}',
-      blockers        JSONB        NOT NULL DEFAULT '[]',
-      generated_by    TEXT,
-      valid_until     TIMESTAMPTZ,
-      created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-    )
-  `);
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.governance_action_log') IS NOT NULL AS gov_present,
+        to_regclass('public.go_live_certificates') IS NOT NULL AS cert_present
+    `) as { rows?: { gov_present?: boolean; cert_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.gov_present || !row.cert_present) {
+      console.error("[certification] Migration 054 schema not ready — governance_action_log / go_live_certificates missing");
+      return;
+    }
+    certSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureCertTable().catch(() => {});
+ensureCertSchemaReady().catch(() => {});
 
 /* ── Auth guard ───────────────────────────────────────────────── */
 /* ── Helpers ──────────────────────────────────────────────────── */

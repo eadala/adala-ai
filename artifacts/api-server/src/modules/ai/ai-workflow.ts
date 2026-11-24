@@ -1,8 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing; Gemini auth hardening */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, type Request, type Response } from "express";
 import { db, casesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -30,10 +36,11 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   }
 
   // Try Gemini
-  if (process.env.GEMINI_API_KEY) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+  const geminiKey = getGeminiApiKey();
+  if (geminiKey) {
+    const r = await fetch(geminiGenerateContentUrl("gemini-2.0-flash"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: geminiApiHeaders(geminiKey),
       body: JSON.stringify({
         contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
         generationConfig: { maxOutputTokens: 1024 },

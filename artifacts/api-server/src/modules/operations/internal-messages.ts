@@ -1,126 +1,70 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eventBus } from "../../core/eventBus";
+import {
+  buildMessageAttachmentRows,
+  buildMessageRecipientRows,
+} from "../../lib/internalMessageCreate";
+import {
+  assertCanonicalBusinessOfficeId,
+  TenantResolutionError,
+} from "../../lib/tenantResolution";
+import { getMessageFtsConfig } from "./messageFtsConfig";
 
 const router = Router();
 
-// Ensure case_id column exists on office_messages
-async function ensureCaseIdColumn() {
+/**
+ * Stage 20.1 — business message paths require a canonical Office UUID.
+ * requireAuthWithTenant may inject synthetic "platform" for SA; that must
+ * never own or read office_messages rows.
+ */
+function resolveCanonicalMessageOfficeId(
+  req: Request,
+  res: Response,
+): string | null {
+  const userId = String((req as any).auth?.userId ?? (req as any).userId ?? "");
   try {
-    await db.execute(sql`
-      ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL
-    `);
-  } catch (_) {}
-}
-ensureCaseIdColumn();
-
-/* ── Full-Text Search Migration ─────────────────────────────────────────────
-   Adds a GENERATED ALWAYS AS STORED tsvector column that PostgreSQL keeps
-   in sync automatically — existing rows are backfilled instantly on ALTER,
-   new rows are indexed on INSERT.
-   Uses 'arabic' FTS config (confirmed available on this PG 16 instance).
-   Falls back silently if the column already exists.
-──────────────────────────────────────────────────────────────────────────── */
-async function ensureFullTextSearch() {
-  try {
-    /* 1. Add generated tsvector column (backfills all existing rows automatically) */
-    await db.execute(sql`
-      ALTER TABLE office_messages
-        ADD COLUMN IF NOT EXISTS search_vector tsvector
-        GENERATED ALWAYS AS (
-          to_tsvector('arabic', coalesce(subject, '') || ' ' || coalesce(body, ''))
-        ) STORED
-    `);
-  } catch (e: any) {
-    /* Column already exists or other transient error — not fatal */
-    if (!e.message?.includes("already exists")) {
-      console.warn("[FTS] search_vector column skipped:", e.message);
+    return assertCanonicalBusinessOfficeId((req as any).tenantId, {
+      userId,
+      source: "internal-messages",
+    });
+  } catch (err: unknown) {
+    if (err instanceof TenantResolutionError) {
+      const status = err.code === "PLATFORM_FORBIDDEN_FOR_USER" ? 403 : 403;
+      res.status(status).json({
+        error: err.message,
+        code: err.code,
+        ...err.details,
+      });
+      return null;
     }
-  }
-  try {
-    /* 2. GIN index for fast @@ queries */
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS idx_messages_search
-        ON office_messages USING gin(search_vector)
-    `);
-  } catch (e: any) {
-    console.warn("[FTS] GIN index skipped:", e.message);
+    res.status(403).json({
+      error: "لا يمكن تحديد المكتب. تأكد من اكتمال إعداد الحساب.",
+      code: "MISSING_CANONICAL_OFFICE_UUID",
+    });
+    return null;
   }
 }
-ensureFullTextSearch();
 
-/* ── Group Conversations Schema ────────────────────────────────────────────
-   Adds the foundation for group/thread-based messaging:
-     message_conversations — the "room" (direct or group)
-     conversation_members  — who is in the room + their role
-     office_messages.conversation_id — links a message to a conversation
+/* office_messages.case_id TEXT alignment is owned by migration 030 (Stage 22).
+   No Runtime INTEGER ADD COLUMN for case_id at boot. */
 
-   Rules:
-   • conversation_id is NULLABLE — existing messages are unaffected
-   • type = 'direct' for 1-to-1, 'group' for multi-member rooms
-   • office_id on both tables ensures full multi-tenant isolation
-   • No routes or UI built in this step — schema only
-──────────────────────────────────────────────────────────────────────────── */
-async function ensureConversationTables() {
-  /* 1. Conversations table */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS message_conversations (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id   TEXT NOT NULL,
-      title       TEXT,
-      type        TEXT NOT NULL DEFAULT 'direct' CHECK (type IN ('direct','group')),
-      created_by  TEXT NOT NULL,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
+/* Full-text search schema is owned by migration 016_office_messages_fts.sql.
+   Query config is read from the live search_vector generated expression. */
 
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_office
-      ON message_conversations(office_id)
-  `).catch(() => {});
-
-  /* 2. Conversation members table */
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS conversation_members (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      conversation_id   UUID NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-      office_id         TEXT NOT NULL,
-      user_id           TEXT NOT NULL,
-      user_name         TEXT,
-      role              TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin','member')),
-      joined_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (conversation_id, user_id)
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_members_conv
-      ON conversation_members(conversation_id)
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_conv_members_user
-      ON conversation_members(user_id, office_id)
-  `).catch(() => {});
-
-  /* 3. Add conversation_id FK to office_messages (nullable — no breaking change) */
-  await db.execute(sql`
-    ALTER TABLE office_messages
-      ADD COLUMN IF NOT EXISTS conversation_id UUID
-      REFERENCES message_conversations(id) ON DELETE SET NULL
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_messages_conv
-      ON office_messages(conversation_id)
-      WHERE conversation_id IS NOT NULL
-  `).catch(() => {});
+function messageSearchPredicate(searchTerm: string | null, ftsConfig: string | null) {
+  return searchTerm && ftsConfig
+    ? sql`AND m.search_vector @@ plainto_tsquery(${ftsConfig}::regconfig, ${searchTerm})`
+    : sql``;
 }
-ensureConversationTables();
+
+/* message_conversations + conversation_members schema authority:
+   artifacts/api-server/migrations/031_message_conversations_schema_authority.sql
+   (Stage 23.3B). No Runtime CREATE TABLE / CREATE INDEX for these tables.
+   office_messages.conversation_id / deleted_at remain owned by migration 016. */
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -136,15 +80,19 @@ function getDeviceInfo(req: Request): string {
 }
 
 // GET /api/internal-messages?folder=inbox|sent|drafts|archive
+// Stage 20.1 — every folder/FTS path is scoped by canonical office_id.
 router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
     const { folder = "inbox", search = "" } = req.query as any;
-    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
     const searchTerm: string | null = search ? String(search).trim() : null;
-    const officeFilter = tenantId && tenantId !== "platform"
-      ? sql`AND m.office_id = ${tenantId}`
-      : sql``;
+    const ftsConfig = searchTerm ? await getMessageFtsConfig() : null;
 
     let rows: any[] = [];
 
@@ -163,9 +111,9 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder != 'draft'
-          ${officeFilter}
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder != 'draft'
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -181,9 +129,9 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
           '[]'::json AS attachments
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
-        WHERE m.sender_id = ${userId} AND m.folder = 'draft'
-          ${officeFilter}
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+        WHERE m.office_id = ${tenantId}
+          AND m.sender_id = ${userId} AND m.folder = 'draft'
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -203,9 +151,9 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
         FROM office_messages m
         LEFT JOIN office_message_recipients r ON r.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'archive'
-          ${officeFilter}
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'archive'
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -228,9 +176,9 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
         JOIN office_message_recipients r_me ON r_me.message_id = m.id AND r_me.user_id = ${userId}
         LEFT JOIN office_message_recipients r2 ON r2.message_id = m.id
         LEFT JOIN office_message_attachments a ON a.message_id = m.id
-        WHERE m.folder = 'sent'
-          ${officeFilter}
-          ${searchTerm ? sql`AND m.search_vector @@ plainto_tsquery('arabic', ${searchTerm})` : sql``}
+        WHERE m.office_id = ${tenantId}
+          AND m.folder = 'sent'
+          ${messageSearchPredicate(searchTerm, ftsConfig)}
         GROUP BY m.id, r_me.is_read, r_me.read_at, r_me.reader_ip
         ORDER BY m.created_at DESC
         LIMIT 100
@@ -245,31 +193,37 @@ router.get("/", requireAuthWithTenant, async (req: Request, res: Response) => {
 });
 
 // GET /api/internal-messages/stats/counts
+// Stage 21 — counts scoped to canonical office (same userId across offices ≠ merge).
 router.get("/stats/counts", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
-    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
-    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
 
     const inboxQ = await db.execute(sql`
       SELECT COUNT(*) AS total,
         SUM(CASE WHEN r.is_read = FALSE THEN 1 ELSE 0 END) AS unread
       FROM office_messages m
       JOIN office_message_recipients r ON r.message_id = m.id AND r.user_id = ${userId}
-      WHERE m.folder = 'sent'
-        ${officeFilter}
+      WHERE m.office_id = ${tenantId}
+        AND m.folder = 'sent'
     `);
 
     const sentQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages m
-      WHERE m.sender_id = ${userId} AND m.folder != 'draft'
-        ${officeFilter}
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId}
+        AND folder != 'draft'
     `);
 
     const draftQ = await db.execute(sql`
-      SELECT COUNT(*) AS total FROM office_messages m
-      WHERE m.sender_id = ${userId} AND m.folder = 'draft'
-        ${officeFilter}
+      SELECT COUNT(*) AS total FROM office_messages
+      WHERE office_id = ${tenantId}
+        AND sender_id = ${userId}
+        AND folder = 'draft'
     `);
 
     res.json({
@@ -282,186 +236,15 @@ router.get("/stats/counts", requireAuthWithTenant, async (req: Request, res: Res
   }
 });
 
-// GET /api/internal-messages/:id
-router.get("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params as Record<string, string>;
-    const tenantId = (req as any).tenantId as string;
-    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
-    const ip = getClientIp(req);
-    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
-
-    const q = await db.execute(sql`
-      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name, m.sender_ip, m.device_info,
-             m.folder, m.tags, m.created_at,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'id', r.id::text, 'userId', r.user_id, 'userName', r.user_name,
-            'isRead', r.is_read, 'readAt', r.read_at, 'readerIp', r.reader_ip
-          )) FILTER (WHERE r.id IS NOT NULL), '[]'
-        ) AS recipients,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'id', a.id::text, 'fileName', a.file_name, 'fileUrl', a.file_url, 'fileSize', a.file_size
-          )) FILTER (WHERE a.id IS NOT NULL), '[]'
-        ) AS attachments
-      FROM office_messages m
-      LEFT JOIN office_message_recipients r ON r.message_id = m.id
-      LEFT JOIN office_message_attachments a ON a.message_id = m.id
-      WHERE m.id = ${id}::uuid
-        ${officeFilter}
-      GROUP BY m.id
-    `);
-
-    if (!q.rows[0]) return res.status(404).json({ error: "not found" });
-
-    await db.execute(sql`
-      UPDATE office_message_recipients
-      SET is_read = TRUE, read_at = NOW(), reader_ip = ${ip}
-      WHERE message_id = ${id}::uuid AND user_id = ${userId} AND is_read = FALSE
-    `);
-
-    res.json(q.rows[0]);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/internal-messages/case/:caseId — messages for a specific case
-router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const { caseId } = req.params as Record<string, string>;
-    const tenantId = (req as any).tenantId as string;
-    const numericId = parseInt(caseId, 10);
-
-    /* Guard: caseId must be a valid integer (INTEGER FK to cases) */
-    if (!caseId || isNaN(numericId)) {
-      return res.json([]);
-    }
-    const officeFilter = tenantId && tenantId !== "platform" ? sql`AND m.office_id = ${tenantId}` : sql``;
-
-    const q = await db.execute(sql`
-      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
-             m.sender_ip, m.device_info, m.folder, m.tags, m.created_at, m.case_id,
-        COALESCE(
-          json_agg(DISTINCT jsonb_build_object(
-            'userId', r.user_id, 'userName', r.user_name,
-            'isRead', r.is_read, 'readAt', r.read_at
-          )) FILTER (WHERE r.id IS NOT NULL), '[]'
-        ) AS recipients
-      FROM office_messages m
-      LEFT JOIN office_message_recipients r ON r.message_id = m.id
-      WHERE m.case_id = ${numericId}
-        ${officeFilter}
-      GROUP BY m.id
-      ORDER BY m.created_at DESC
-      LIMIT 100
-    `);
-
-    res.json(q.rows ?? []);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST /api/internal-messages — tenant-scoped write
-router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as any).tenantId as string;
-    if (!tenantId || tenantId === "platform") {
-      res.status(403).json({ error: "لا يمكن إرسال رسائل بدون مكتب محدد" });
-      return;
-    }
-    const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
-    const userId = (req as any).userId ?? (req as any).auth?.userId ?? "anonymous";
-    const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
-    const ip = getClientIp(req);
-    const device = getDeviceInfo(req);
-    const tagsArr = `{${(tags as string[]).join(",")}}`;
-
-    const ins = await db.execute(sql`
-      INSERT INTO office_messages (subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id, office_id)
-      VALUES (${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
-              ${caseId ? Number(caseId) : null}, ${tenantId})
-      RETURNING id, subject, body, sender_id, sender_name, folder, created_at, case_id, office_id
-    `);
-
-    const msg = ins.rows[0] as any;
-
-    for (const r of recipients as any[]) {
-      await db.execute(sql`
-        INSERT INTO office_message_recipients (message_id, user_id, user_name)
-        VALUES (${msg.id}::uuid, ${r.userId}, ${r.userName ?? r.userId})
-      `);
-    }
-
-    for (const a of attachments as any[]) {
-      await db.execute(sql`
-        INSERT INTO office_message_attachments (message_id, file_name, file_url, file_size)
-        VALUES (${msg.id}::uuid, ${a.fileName}, ${a.fileUrl}, ${a.fileSize ?? 0})
-      `);
-    }
-
-    /* ── Targeted SSE notification — only to the intended recipients ──
-       sendToUsers() does NOT broadcast to the whole office, only to the
-       specific users whose SSE connections are registered with their userId. */
-    const recipientIds = (recipients as any[])
-      .map((r: any) => r.userId)
-      .filter((id: any) => typeof id === "string" && id.length > 0);
-
-    if (recipientIds.length > 0) {
-      eventBus.sendToUsers(recipientIds, {
-        id:        crypto.randomUUID(),
-        type:      "NEW_MESSAGE",
-        label:     "رسالة جديدة",
-        data: {
-          messageId:  msg.id,
-          subject:    subject,
-          senderName: senderName,
-          preview:    String(body ?? "").slice(0, 100),
-        },
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    res.json(msg);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// PUT /api/internal-messages/:id/archive
-router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as any).tenantId as string;
-    await db.execute(sql`UPDATE office_messages SET folder = 'archive' WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}`);
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// DELETE /api/internal-messages/:id  (soft delete)
-router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
-  try {
-    const tenantId = (req as any).tenantId as string;
-    await db.execute(sql`
-      UPDATE office_messages SET deleted_at = NOW()
-      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
-    `);
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 /* ══════════════════════════════════════════════════════
    ANALYTICS — GET /api/internal-messages/analytics
    لوحة تحكم شاملة لنظام المراسلات
+   Stage 21 — registered BEFORE /:id so Express cannot shadow it.
 ══════════════════════════════════════════════════════ */
 router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
     const userId   = (req as any).auth?.userId ?? "";
     const days     = Math.min(90, Math.max(1, Number(req.query.days ?? 30)));
 
@@ -490,7 +273,9 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
         SELECT COUNT(*)::int AS n
         FROM office_message_recipients r
         JOIN office_messages m ON m.id = r.message_id
-        WHERE r.user_id = ${userId} AND r.is_read = FALSE
+        WHERE r.user_id = ${userId}
+          AND r.is_read = FALSE
+          AND m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
       `).catch(() => ({ rows: [{ n: 0 }] })),
 
@@ -507,7 +292,7 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
       db.execute(sql`
         SELECT c.id, c.title, COUNT(m.id)::int AS msg_count
         FROM office_messages m
-        JOIN cases c ON c.id::text = m.case_id::text AND c.office_id = ${tenantId}
+        JOIN cases c ON c.id = m.case_id AND c.office_id = ${tenantId}
         WHERE m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
           AND m.created_at >= NOW() - (${days} || ' days')::interval
@@ -526,7 +311,11 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
         SELECT COUNT(*)::int AS n
         FROM office_messages
         WHERE office_id = ${tenantId}
-          AND body ILIKE '%AI%' OR body ILIKE '%ذكاء%' OR body ILIKE '%تلقائي%'
+          AND (
+            body ILIKE '%AI%'
+            OR body ILIKE '%ذكاء%'
+            OR body ILIKE '%تلقائي%'
+          )
           AND created_at >= NOW() - (${days} || ' days')::interval
       `).catch(() => ({ rows: [{ n: 0 }] })),
     ]);
@@ -565,13 +354,263 @@ router.get("/analytics", requireAuthWithTenant, async (req: Request, res: Respon
   }
 });
 
+// GET /api/internal-messages/case/:caseId — messages for a specific case
+// Stage 21 — canonical office + case ownership; no parseInt on cases.id (TEXT UUID).
+router.get("/case/:caseId", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
+    const { caseId } = req.params as Record<string, string>;
+    /* cases.id is TEXT (UUID). Reject empty; do not parseInt / invent identifiers. */
+    if (!caseId || !String(caseId).trim()) {
+      return res.json([]);
+    }
+    const caseKey = String(caseId).trim();
+
+    const owned = await db.execute(sql`
+      SELECT c.id
+      FROM cases c
+      WHERE c.id = ${caseKey}
+        AND c.office_id = ${tenantId}
+      LIMIT 1
+    `);
+    if (!owned.rows[0]) {
+      /* Foreign / missing case — empty list (no existence leak via error codes). */
+      return res.json([]);
+    }
+
+    const q = await db.execute(sql`
+      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name,
+             m.sender_ip, m.device_info, m.folder, m.tags, m.created_at, m.case_id,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object(
+            'userId', r.user_id, 'userName', r.user_name,
+            'isRead', r.is_read, 'readAt', r.read_at
+          )) FILTER (WHERE r.id IS NOT NULL), '[]'
+        ) AS recipients
+      FROM office_messages m
+      LEFT JOIN office_message_recipients r ON r.message_id = m.id
+      WHERE m.office_id = ${tenantId}
+        AND m.case_id = ${caseKey}
+      GROUP BY m.id
+      ORDER BY m.created_at DESC
+      LIMIT 100
+    `);
+
+    res.json(q.rows ?? []);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/internal-messages/:id
+// Stage 21 — office-scoped + sender/recipient participant gate; uniform 404.
+router.get("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
+    const { id } = req.params as Record<string, string>;
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
+    const ip = getClientIp(req);
+
+    /* Uniform not-found for malformed / foreign / non-participant ids. */
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(404).json({ error: "not found" });
+    }
+
+    const q = await db.execute(sql`
+      SELECT m.id, m.subject, m.body, m.sender_id, m.sender_name, m.sender_ip, m.device_info,
+             m.folder, m.tags, m.created_at,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object(
+            'id', r.id::text, 'userId', r.user_id, 'userName', r.user_name,
+            'isRead', r.is_read, 'readAt', r.read_at, 'readerIp', r.reader_ip
+          )) FILTER (WHERE r.id IS NOT NULL), '[]'
+        ) AS recipients,
+        COALESCE(
+          json_agg(DISTINCT jsonb_build_object(
+            'id', a.id::text, 'fileName', a.file_name, 'fileUrl', a.file_url, 'fileSize', a.file_size
+          )) FILTER (WHERE a.id IS NOT NULL), '[]'
+        ) AS attachments
+      FROM office_messages m
+      LEFT JOIN office_message_recipients r ON r.message_id = m.id
+      LEFT JOIN office_message_attachments a ON a.message_id = m.id
+      WHERE m.id = ${id}::uuid
+        AND m.office_id = ${tenantId}
+        AND (
+          m.sender_id = ${userId}
+          OR EXISTS (
+            SELECT 1 FROM office_message_recipients rx
+            WHERE rx.message_id = m.id AND rx.user_id = ${userId}
+          )
+        )
+      GROUP BY m.id
+    `);
+
+    if (!q.rows[0]) return res.status(404).json({ error: "not found" });
+
+    await db.execute(sql`
+      UPDATE office_message_recipients r
+      SET is_read = TRUE, read_at = NOW(), reader_ip = ${ip}
+      FROM office_messages m
+      WHERE r.message_id = m.id
+        AND m.id = ${id}::uuid
+        AND m.office_id = ${tenantId}
+        AND r.user_id = ${userId}
+        AND r.is_read = FALSE
+    `);
+
+    res.json(q.rows[0]);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/internal-messages
+// Stage 20.1 — create requires canonical Office UUID and persists office_id.
+router.post("/", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+
+    const { subject, body, recipients = [], attachments = [], folder = "sent", tags = [], caseId } = req.body;
+    const userId = (req as any).auth?.userId ?? (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "غير مصرح. يرجى تسجيل الدخول." });
+    }
+    const senderName = (req as any).auth?.sessionClaims?.fullName ?? "المرسِل";
+    const ip = getClientIp(req);
+    const device = getDeviceInfo(req);
+    const tagsArr = `{${(tags as string[]).join(",")}}`;
+
+    /* Stage 22 — caseId is TEXT (cases.id). Prove same-office ownership before link.
+       Never Number()/parseInt; never invent UUID mappings; never infer tenant from caseId. */
+    let provenCaseId: string | null = null;
+    if (caseId != null && String(caseId).trim() !== "") {
+      const caseKey = String(caseId).trim();
+      const caseCheck = await db.execute(sql`
+        SELECT id FROM cases
+        WHERE id = ${caseKey}
+          AND office_id = ${tenantId}
+        LIMIT 1
+      `);
+      if ((caseCheck.rows || []).length === 0) {
+        return res.status(403).json({ error: "القضية غير تابعة لمكتبك" });
+      }
+      provenCaseId = caseKey;
+    }
+
+    const ins = await db.execute(sql`
+      INSERT INTO office_messages (office_id, subject, body, sender_id, sender_name, sender_ip, device_info, folder, tags, case_id)
+      VALUES (${tenantId}, ${subject}, ${body}, ${userId}, ${senderName}, ${ip}, ${device}, ${folder}, ${tagsArr},
+              ${provenCaseId})
+      RETURNING id, office_id, subject, body, sender_id, sender_name, folder, created_at, case_id
+    `);
+
+    const msg = ins.rows[0] as any;
+
+    /* Set-based side-effects: fixed ≤2 write statements (no per-row loops). */
+    const recipientRows = buildMessageRecipientRows(String(msg.id), recipients as any[]);
+    const attachmentRows = buildMessageAttachmentRows(String(msg.id), attachments as any[]);
+
+    if (recipientRows.length > 0) {
+      const userIds = recipientRows.map((r) => r.user_id);
+      const userNames = recipientRows.map((r) => r.user_name);
+      await db.execute(sql`
+        INSERT INTO office_message_recipients (message_id, user_id, user_name)
+        SELECT ${String(msg.id)}::uuid, t.user_id, t.user_name
+        FROM unnest(
+          ${userIds}::text[],
+          ${userNames}::text[]
+        ) AS t(user_id, user_name)
+      `);
+    }
+
+    if (attachmentRows.length > 0) {
+      const fileNames = attachmentRows.map((a) => a.file_name);
+      const fileUrls = attachmentRows.map((a) => a.file_url);
+      const fileSizes = attachmentRows.map((a) => a.file_size);
+      await db.execute(sql`
+        INSERT INTO office_message_attachments (message_id, file_name, file_url, file_size)
+        SELECT ${String(msg.id)}::uuid, t.file_name, t.file_url, t.file_size
+        FROM unnest(
+          ${fileNames}::text[],
+          ${fileUrls}::text[],
+          ${fileSizes}::int[]
+        ) AS t(file_name, file_url, file_size)
+      `);
+    }
+
+    /* ── Targeted SSE notification — only to the intended recipients ──
+       sendToUsers() does NOT broadcast to the whole office, only to the
+       specific users whose SSE connections are registered with their userId. */
+    const recipientIds = recipientRows.map((r) => r.user_id);
+
+    if (recipientIds.length > 0) {
+      eventBus.sendToUsers(recipientIds, {
+        id:        crypto.randomUUID(),
+        type:      "NEW_MESSAGE",
+        label:     "رسالة جديدة",
+        data: {
+          messageId:  msg.id,
+          subject:    subject,
+          senderName: senderName,
+          preview:    String(body ?? "").slice(0, 100),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    res.json(msg);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/internal-messages/:id/archive
+router.put("/:id/archive", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    await db.execute(sql`
+      UPDATE office_messages SET folder = 'archive'
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/internal-messages/:id  (soft delete)
+router.delete("/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
+  try {
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
+    await db.execute(sql`
+      UPDATE office_messages SET deleted_at = NOW()
+      WHERE id = ${String(req.params.id)}::uuid AND office_id = ${tenantId}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ══════════════════════════════════════════════════════
    AI TOOLS — POST /api/internal-messages/ai-tools
    أدوات ذكاء اصطناعي مدمجة في المراسلات
+   Stage 21 — conversationId DB load is office-scoped.
 ══════════════════════════════════════════════════════ */
 router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = resolveCanonicalMessageOfficeId(req, res);
+    if (!tenantId) return;
     const { tool, conversationId, messages: inputMessages, targetLanguage } = req.body as {
       tool: "summarize" | "extract_tasks" | "extract_decisions" | "extract_appointments" | "suggest_reply" | "translate" | "meeting_minutes";
       conversationId?: string;
@@ -585,6 +624,7 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
         SELECT m.sender_name, m.body, m.created_at
         FROM office_messages m
         WHERE m.conversation_id = ${conversationId}::uuid
+          AND m.office_id = ${tenantId}
           AND (m.deleted_at IS NULL OR m.deleted_at > NOW())
         ORDER BY m.created_at ASC LIMIT 60
       `).catch(() => ({ rows: [] }));
@@ -622,19 +662,44 @@ router.post("/ai-tools", requireAuthWithTenant, async (req: Request, res: Respon
   }
 });
 
-/* ── Additional indexes (non-blocking startup) ─────────────────────────── */
-(async () => {
-  const extras = [
-    sql`ALTER TABLE office_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL`,
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_sender_date ON office_messages (sender_id, created_at DESC)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_date ON office_messages (office_id, created_at DESC)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_msgs_office_folder ON office_messages (office_id, folder)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_user_unread  ON office_message_recipients (user_id, is_read) WHERE is_read = FALSE`,
-    sql`CREATE INDEX IF NOT EXISTS idx_rcpt_msg         ON office_message_recipients (message_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_attach_msg       ON office_message_attachments (message_id)`,
-    sql`CREATE INDEX IF NOT EXISTS idx_conv_updated      ON message_conversations (office_id, updated_at DESC)`,
-  ];
-  for (const m of extras) await db.execute(m).catch(() => {});
-})();
+/* ── Messaging Runtime indexes — Migration 052 owns DDL; readiness only ──
+   office_messages.deleted_at / conversation_id owned by migration 016 — no ALTER.
+   idx_conv_updated / conversation table indexes owned by migration 031 — no Runtime CREATE.
+   idx_msgs_* / idx_rcpt_* / idx_attach_msg owned by migration 052 (re-asserts 020 shapes
+   + idx_msgs_office_folder). */
+let messagingRuntimeIndexesReady = false;
+export async function ensureMessagingRuntimeIndexes(): Promise<void> {
+  if (messagingRuntimeIndexesReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.idx_msgs_sender_date') IS NOT NULL AS idx_msgs_sender_date,
+        to_regclass('public.idx_msgs_office_date') IS NOT NULL AS idx_msgs_office_date,
+        to_regclass('public.idx_msgs_office_folder') IS NOT NULL AS idx_msgs_office_folder,
+        to_regclass('public.office_message_recipients') IS NOT NULL AS recipients_present,
+        to_regclass('public.idx_rcpt_user_unread') IS NOT NULL AS idx_rcpt_user_unread,
+        to_regclass('public.idx_rcpt_msg') IS NOT NULL AS idx_rcpt_msg,
+        to_regclass('public.office_message_attachments') IS NOT NULL AS attachments_present,
+        to_regclass('public.idx_attach_msg') IS NOT NULL AS idx_attach_msg
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.idx_msgs_sender_date || !row.idx_msgs_office_date || !row.idx_msgs_office_folder) {
+      console.error("[internal-messages] Migration 052 schema not ready — office_messages Runtime indexes missing");
+      return;
+    }
+    if (row.recipients_present && (!row.idx_rcpt_user_unread || !row.idx_rcpt_msg)) {
+      console.error("[internal-messages] Migration 052 schema not ready — recipient indexes missing");
+      return;
+    }
+    if (row.attachments_present && !row.idx_attach_msg) {
+      console.error("[internal-messages] Migration 052 schema not ready — attachment index missing");
+      return;
+    }
+    messagingRuntimeIndexesReady = true;
+  } catch { /* non-blocking */ }
+}
+
+/* Boot readiness probe (no CREATE INDEX) — Migration 052 owns DDL. */
+void ensureMessagingRuntimeIndexes();
 
 export default router;

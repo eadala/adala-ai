@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
-import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7B schema ownership only */
+import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -21,40 +21,31 @@ async function one(q: any): Promise<any | null> {
 
 const adminOnly = requireSuperAdmin;
 
-/* ── table setup ─────────────────────────── */
-async function ensureTables() {
+/* ── readiness + seed DML — schema owned by Migration 039 ── */
+async function ensureCreditTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.office_ai_credits') IS NOT NULL AS credits,
+      to_regclass('public.ai_credit_transactions') IS NOT NULL AS txns
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.credits || !row.txns) {
+    console.error(
+      "[aiCredits] Migration 039 schema not ready — office_ai_credits / ai_credit_transactions missing",
+    );
+    return;
+  }
+  /* Platform default-office seed (DML; not schema mutation) */
   await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_ai_credits (
-      id                SERIAL PRIMARY KEY,
-      office_id         TEXT NOT NULL UNIQUE,
-      office_name       TEXT NOT NULL DEFAULT 'مكتب',
-      balance           INTEGER NOT NULL DEFAULT 0,
-      monthly_allowance INTEGER NOT NULL DEFAULT 100,
-      auto_renew        BOOLEAN NOT NULL DEFAULT TRUE,
-      renew_day         INTEGER NOT NULL DEFAULT 1,
-      last_renewed_at   TIMESTAMPTZ,
-      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ai_credit_transactions (
-      id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
-      amount      INTEGER NOT NULL,
-      type        TEXT NOT NULL DEFAULT 'usage',
-      description TEXT,
-      model       TEXT,
-      created_by  TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  /* No synthetic "default" office seed — credits attach to real tenants only. */
+    INSERT INTO office_ai_credits (office_id, office_name, balance, monthly_allowance)
+    VALUES ('default', 'المكتب الافتراضي', 100, 100)
+    ON CONFLICT (office_id) DO NOTHING
+  `).catch(() => {});
 }
 
 /* ── GET /admin/ai-credits  ── list all offices ── */
 router.get("/admin/ai-credits", adminOnly, async (_req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
     const data = await rows(sql`
       SELECT c.*,
@@ -73,7 +64,7 @@ router.get("/admin/ai-credits", adminOnly, async (_req, res) => {
 
 /* ── GET /admin/ai-credits/:officeId/transactions ── */
 router.get("/admin/ai-credits/:officeId/transactions", adminOnly, async (req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
     const data = await rows(sql`
       SELECT * FROM ai_credit_transactions
@@ -86,12 +77,10 @@ router.get("/admin/ai-credits/:officeId/transactions", adminOnly, async (req, re
 
 /* ── POST /admin/ai-credits/topup ── manually add credits ── */
 router.post("/admin/ai-credits/topup", adminOnly, async (req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
     const { userId } = getAuth(req as any);
-    const { officeId, amount, description = "شحن يدوي" } = req.body;
-    if (!officeId || officeId === "default" || officeId === "platform")
-      return res.status(400).json({ error: "officeId مطلوب (مكتب حقيقي)" });
+    const { officeId = "default", amount, description = "شحن يدوي" } = req.body;
     if (!amount || isNaN(parseInt(amount)) || parseInt(amount) <= 0)
       return res.status(400).json({ error: "الرصيد يجب أن يكون رقماً موجباً" });
 
@@ -114,17 +103,17 @@ router.post("/admin/ai-credits/topup", adminOnly, async (req, res) => {
 
 /* ── POST /admin/ai-credits/settings ── update monthly_allowance / auto_renew ── */
 router.post("/admin/ai-credits/settings", adminOnly, async (req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
-    const { officeId, officeName, monthlyAllowance, autoRenew, renewDay } = req.body;
-    if (!officeId || officeId === "default" || officeId === "platform")
-      return res.status(400).json({ error: "officeId مطلوب (مكتب حقيقي)" });
+    const { officeId = "default", officeName, monthlyAllowance, autoRenew, renewDay } = req.body;
+    const allowance = monthlyAllowance ?? 100;
     await db.execute(sql`
-      INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, auto_renew, renew_day)
+      INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, balance, auto_renew, renew_day)
       VALUES (
         ${officeId},
         ${officeName ?? 'مكتب'},
-        ${monthlyAllowance ?? 100},
+        ${allowance},
+        ${allowance},
         ${autoRenew ?? true},
         ${renewDay ?? 1}
       )
@@ -141,7 +130,7 @@ router.post("/admin/ai-credits/settings", adminOnly, async (req, res) => {
 
 /* ── POST /admin/ai-credits/renew ── force monthly renewal ── */
 router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
     const { userId } = getAuth(req as any);
     const { officeId } = req.body;
@@ -167,13 +156,10 @@ router.post("/admin/ai-credits/renew", adminOnly, async (req, res) => {
 });
 
 /* ── POST /api/ai-credits/deduct  (internal — called by callAI) ── */
-router.post("/ai-credits/deduct", requireAuthWithTenant, async (req: any, res) => {
-  await ensureTables();
+router.post("/ai-credits/deduct", requireAuth, async (req, res) => {
+  await ensureCreditTablesReady();
   try {
-    const officeId = req.tenantId as string;
-    if (!officeId || officeId === "default" || officeId === "platform")
-      return res.status(403).json({ error: "لا يمكن خصم رصيد بدون مكتب محدد" });
-    const { model = "gemini", cost = 1 } = req.body;
+    const { officeId = "default", model = "gemini", cost = 1 } = req.body;
     const credit = await one(sql`SELECT balance FROM office_ai_credits WHERE office_id = ${officeId}`);
     const balance = credit?.balance ?? 0;
     if (balance < cost) return res.status(402).json({ error: "رصيد غير كافٍ", balance });
@@ -190,19 +176,15 @@ router.post("/ai-credits/deduct", requireAuthWithTenant, async (req: any, res) =
 });
 
 /* ── GET /api/office/ai-credits  (for office users to check their balance) ── */
-router.get("/office/ai-credits", requireAuthWithTenant, async (req: any, res) => {
-  await ensureTables();
+router.get("/office/ai-credits", requireAuth, async (_req, res) => {
+  await ensureCreditTablesReady();
   try {
-    const officeId = req.tenantId as string;
-    if (!officeId || officeId === "default" || officeId === "platform") {
-      return res.status(403).json({ error: "لا يوجد مكتب مرتبط بالحساب" });
-    }
-    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = ${officeId}`);
-    if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true, office_id: officeId });
+    const credit = await one(sql`SELECT * FROM office_ai_credits WHERE office_id = 'default'`);
+    if (!credit) return res.json({ balance: 0, monthly_allowance: 100, auto_renew: true });
     const usedThisMonth = await one(sql`
       SELECT COALESCE(SUM(ABS(amount)), 0)::int AS used
       FROM ai_credit_transactions
-      WHERE office_id = ${officeId} AND type = 'usage'
+      WHERE office_id = 'default' AND type = 'usage'
         AND created_at >= date_trunc('month', NOW())
     `);
     res.json({ ...credit, used_this_month: usedThisMonth?.used ?? 0 });
@@ -211,12 +193,10 @@ router.get("/office/ai-credits", requireAuthWithTenant, async (req: any, res) =>
 
 /* ── POST /admin/ai-credits/add-office ── register new office ── */
 router.post("/admin/ai-credits/add-office", adminOnly, async (req, res) => {
-  await ensureTables();
+  await ensureCreditTablesReady();
   try {
     const { officeId, officeName, monthlyAllowance = 100 } = req.body;
     if (!officeId || !officeName) return res.status(400).json({ error: "المعرف والاسم مطلوبان" });
-    if (officeId === "default" || officeId === "platform")
-      return res.status(400).json({ error: "officeId يجب أن يكون مكتباً حقيقياً" });
     await db.execute(sql`
       INSERT INTO office_ai_credits (office_id, office_name, monthly_allowance, balance)
       VALUES (${officeId}, ${officeName}, ${monthlyAllowance}, ${monthlyAllowance})

@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; overlap-guard wiring only */
 /**
  * Agent Cron — وكلاء الذكاء الاصطناعي التلقائيون
+ *
+ * Schema owned by Migration 042 — Runtime CREATE/INDEX removed.
  *
  * يعمل كل ساعة على الخادم السحابي ويُنفّذ 4 وكلاء:
  *  1. case_review      — مراجعة القضايا والجلسات القادمة
@@ -12,9 +15,19 @@ import cron from "node-cron";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../lib/cronOverlapGuard";
 import { callAI } from "../modules/ai/aiChat";
 import { encryptBuffer, isEncryptionEnabled } from "../core/backupEncrypt";
 import { uploadBackup, tenantSnapshotKey, fullBackupKey } from "../core/backupStorage";
+import { isObjectStorageConfigured } from "../core/storage";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../lib/geminiAuth";
 
 /* ── DB helpers ─────────────────────────────────────── */
 async function sqlAll(q: any): Promise<Record<string, any>[]> {
@@ -30,27 +43,21 @@ async function sqlExec(q: any): Promise<void> {
   try { await db.execute(q); } catch { /* best-effort */ }
 }
 
-/* ── Ensure tables exist ─────────────────────────────── */
-async function ensureTables() {
-  await sqlExec(sql`
-    CREATE TABLE IF NOT EXISTS agent_job_logs (
-      id          BIGSERIAL PRIMARY KEY,
-      agent_type  TEXT NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'running',
-      office_id   TEXT,
-      summary     TEXT,
-      details     JSONB,
-      duration_ms INTEGER,
-      created_at  TIMESTAMPTZ DEFAULT NOW(),
-      completed_at TIMESTAMPTZ
-    )
-  `);
-  await sqlExec(sql`
-    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_created ON agent_job_logs(created_at DESC)
-  `);
-  await sqlExec(sql`
-    CREATE INDEX IF NOT EXISTS idx_agent_job_logs_type ON agent_job_logs(agent_type)
-  `);
+/* ── readiness — schema owned by Migration 042 ── */
+let jobLogsSchemaReady = false;
+async function ensureAgentJobLogsReady() {
+  if (jobLogsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.agent_job_logs') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      logger.error("[AgentCron] Migration 042 schema not ready — agent_job_logs missing");
+      return;
+    }
+    jobLogsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── Log helpers ────────────────────────────────────── */
@@ -219,8 +226,10 @@ async function runDailySnapshotAgent() {
       `).catch(() => ({ total: 0 })),
       sqlOne(sql`SELECT COUNT(*)::int AS cnt FROM cases WHERE created_at::date = CURRENT_DATE`).catch(() => ({ cnt: 0 })),
       sqlOne(sql`
-        SELECT COALESCE(SUM(credits_used)::numeric,0) AS total FROM ai_credit_log
-        WHERE created_at::date = CURRENT_DATE
+        SELECT COALESCE(SUM(ABS(amount))::numeric,0) AS total
+        FROM ai_credit_transactions
+        WHERE type = 'usage'
+          AND created_at::date = CURRENT_DATE
       `).catch(() => ({ total: 0 })),
     ]);
 
@@ -257,14 +266,14 @@ async function runAiHealthCheckAgent() {
     const results: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
 
     /* فحص Gemini */
-    if (process.env.GEMINI_API_KEY) {
+    if (getGeminiApiKey()) {
       const t = Date.now();
       try {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          geminiGenerateContentUrl("gemini-2.5-flash"),
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: geminiApiHeaders(getGeminiApiKey()),
             body: JSON.stringify({
               contents: [{ role: "user", parts: [{ text: "ping" }] }],
               generationConfig: { maxOutputTokens: 5 },
@@ -354,23 +363,27 @@ async function runAiHealthCheckAgent() {
    ENTRY POINT — تسجيل جميع الوكلاء مع Cron
 ════════════════════════════════════════════════════════ */
 export function startAgentCron() {
-  ensureTables().then(() => {
+  ensureAgentJobLogsReady().then(() => {
     /* ── كل 4 ساعات في production / كل ساعة في dev ── */
     const agentSchedule = process.env.NODE_ENV === "production" ? "0 */4 * * *" : "0 * * * *";
     cron.schedule(agentSchedule, async () => {
-      logger.info("[AgentCron] 🤖 Starting agent run…");
-      await Promise.allSettled([
-        runCaseReviewAgent(),
-        runInvoiceReminderAgent(),
-        runAiHealthCheckAgent(),
-      ]);
-      logger.info("[AgentCron] ✅ Agent run complete");
+      await withCronOverlapProtection(CRON_JOB_NAMES.agentRun, async () => {
+        logger.info("[AgentCron] 🤖 Starting agent run…");
+        await Promise.allSettled([
+          runCaseReviewAgent(),
+          runInvoiceReminderAgent(),
+          runAiHealthCheckAgent(),
+        ]);
+        logger.info("[AgentCron] ✅ Agent run complete");
+      });
     });
 
     /* ── يومياً الساعة 2 صباحاً: اللقطة اليومية ── */
     cron.schedule("0 2 * * *", async () => {
-      logger.info("[AgentCron] 📊 Starting daily snapshot…");
-      await runDailySnapshotAgent();
+      await withCronOverlapProtection(CRON_JOB_NAMES.agentDailySnapshot, async () => {
+        logger.info("[AgentCron] 📊 Starting daily snapshot…");
+        await runDailySnapshotAgent();
+      });
     });
 
     /* ── تشغيل فوري عند البدء (بعد 10 ثوانٍ) ── */
@@ -427,7 +440,7 @@ async function runTenantBackupCron(): Promise<void> {
   let failed    = 0;
 
   try {
-    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    if (!isObjectStorageConfigured()) {
       logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخ");
       return;
     }
@@ -486,7 +499,7 @@ async function runTenantBackupCron(): Promise<void> {
 async function runFullBackupCron(): Promise<void> {
   const t0 = Date.now();
   try {
-    if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    if (!isObjectStorageConfigured()) {
       logger.info("[BackupCron] ⚠️ Object Storage غير مكوَّن — تخطّي النسخة الكاملة");
       return;
     }
@@ -520,15 +533,19 @@ async function runFullBackupCron(): Promise<void> {
 /* Register backup crons after main crons are already set up */
 setTimeout(() => {
   /* لقطات المكاتب كل 6 ساعات */
-  cron.schedule("0 */6 * * *", () => {
-    logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
-    runTenantBackupCron();
+  cron.schedule("0 */6 * * *", async () => {
+    await withCronOverlapProtection(CRON_JOB_NAMES.backupTenant, async () => {
+      logger.info("[BackupCron] 🔐 Starting tenant snapshots (6h cycle)…");
+      await runTenantBackupCron();
+    });
   });
 
   /* نسخة كاملة يومياً الساعة 02:30 (30 دقيقة بعد daily_snapshot) */
-  cron.schedule("30 2 * * *", () => {
-    logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
-    runFullBackupCron();
+  cron.schedule("30 2 * * *", async () => {
+    await withCronOverlapProtection(CRON_JOB_NAMES.backupFull, async () => {
+      logger.info("[BackupCron] 💾 Starting full system backup (daily 02:30)…");
+      await runFullBackupCron();
+    });
   });
 
   logger.info("[BackupCron] ✅ Backup crons registered — tenant every 6h + full daily at 02:30");

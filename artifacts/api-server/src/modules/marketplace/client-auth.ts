@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 import { requireAuth, checkIsSuperAdmin} from "../../middlewares/requireAuth";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
+import { linkClientCase } from "../../lib/clientCaseLinkWrite";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -31,44 +31,22 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 
 function makeToken(): string { return randomBytes(32).toString("hex"); }
 
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_accounts (
-      id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      email        TEXT UNIQUE NOT NULL,
-      password_hash TEXT,
-      name         TEXT,
-      phone        TEXT,
-      email_verified BOOLEAN DEFAULT false,
-      otp          TEXT,
-      otp_expires  TIMESTAMPTZ,
-      created_at   TIMESTAMPTZ DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_sessions (
-      id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      client_id  TEXT NOT NULL REFERENCES client_accounts(id) ON DELETE CASCADE,
-      token      TEXT UNIQUE NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS client_case_links (
-      id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      client_id       TEXT NOT NULL REFERENCES client_accounts(id) ON DELETE CASCADE,
-      case_id         TEXT NOT NULL,
-      portal_token_id TEXT,
-      portal_token    TEXT,
-      office_id       TEXT,
-      linked_at       TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(client_id, case_id)
-    )
-  `);
+/** SELECT-only readiness — schema owned by Migration 038 (auth FK contract). */
+async function ensureClientAuthTablesReady() {
+  const r = await db.execute(sql`
+    SELECT
+      to_regclass('public.client_accounts') IS NOT NULL AS accounts,
+      to_regclass('public.client_sessions') IS NOT NULL AS sessions,
+      to_regclass('public.client_case_links') IS NOT NULL AS links
+  `).catch(() => ({ rows: [{}] }));
+  const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+  if (!row.accounts || !row.sessions || !row.links) {
+    console.error(
+      "[client-auth] Migration 038 schema not ready — client_accounts/sessions/links missing",
+    );
+  }
 }
-ensureTables().catch(console.error);
+ensureClientAuthTablesReady().catch(console.error);
 
 // ─── auth middleware for client sessions ─────────────────────────────────────
 async function getClientSession(req: Request): Promise<{ clientId: string; email: string; name: string } | null> {
@@ -309,6 +287,13 @@ const getClerkCA = () => {
   return _clerkCA;
 };
 
+/**
+ * officeId is ALWAYS derived via the canonical resolveTenantId()
+ * (membership-validated) — it must NEVER fall back to the Clerk user id.
+ * Returns null (fail closed) when no tenant can be resolved; callers (e.g.
+ * POST /client-auth/admin-create) already deny on a null result before any
+ * write, so client_case_links.office_id can never receive a Clerk user id.
+ */
 async function getAdminUser(req: Request) {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
@@ -316,7 +301,7 @@ async function getAdminUser(req: Request) {
     const user = await getClerkCA().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+    const headerTenant = (req.headers?.["x-tenant-id"] as string | undefined);
     const officeId = await resolveTenantId(auth.userId, headerTenant);
     if (!officeId) return null; // fail closed — never substitute auth.userId
     const mRows = sqlAll(await db.execute(sql`SELECT role FROM office_members WHERE user_id=${auth.userId} AND office_id=${officeId} AND status='active' LIMIT 1`));
@@ -356,11 +341,17 @@ router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: 
         const pt = sqlOne(await db.execute(sql`SELECT id FROM client_portal_tokens WHERE token=${ptToken} LIMIT 1`));
         ptId = pt?.id ?? null;
       }
-      await db.execute(sql`
-        INSERT INTO client_case_links (client_id, case_id, portal_token_id, portal_token, office_id)
-        VALUES (${id}, ${caseId}, ${ptId}, ${ptToken}, ${admin.officeId})
-        ON CONFLICT (client_id, case_id) DO NOTHING
-      `);
+      // Re-resolve (fail-closed, defense in depth) the canonical office
+      // immediately before writing — never trust a previously-computed
+      // officeId for the write itself. linkClientCase performs NO insert
+      // when resolveTenantId returns null, so office_id can never receive
+      // a Clerk user id.
+      const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
+      const linked = await linkClientCase(
+        { userId: admin.userId, headerTenant, clientId: id, caseId, portalTokenId: ptId, portalToken: ptToken },
+        { resolveTenantId, db },
+      );
+      if (!linked) { res.status(401).json({ error: "غير مصادق" }); return; }
     }
 
     res.status(201).json({
