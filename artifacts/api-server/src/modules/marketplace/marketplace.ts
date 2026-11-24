@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 /**
  * Marketplace routes — Legal Services Marketplace
  * Full flow: Browse → Order / Negotiate → Deal Room → Auto Case
@@ -8,9 +9,14 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 
 const router = Router();
+
+function tenantIdOf(req: Request): string | null {
+  const tid = (req as any).tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 const ALLOWED_CATEGORIES = new Set([
   "consultation", "contract", "memo", "litigation",
@@ -40,6 +46,7 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS marketplace_services (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id TEXT NOT NULL,
+      office_id TEXT,
       office_name TEXT,
       title TEXT NOT NULL,
       description TEXT,
@@ -56,6 +63,8 @@ async function ensureTables() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE marketplace_services ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_marketplace_services_office ON marketplace_services(office_id)`).catch(() => {});
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS marketplace_orders (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,7 +118,7 @@ router.get("/marketplace/services", async (req: Request, res: Response) => {
     const { category, userId, search } = req.query as Record<string, string>;
 
     const safeCategory = category && category !== "all" && ALLOWED_CATEGORIES.has(category) ? category : null;
-    const safeUserId   = typeof userId === "string" && userId.trim() ? userId.trim() : null;
+    const _safeUserId  = typeof userId === "string" && userId.trim() ? userId.trim() : null;
     const safeSearch   = typeof search === "string" && search.trim() ? `%${search.trim()}%` : null;
 
     let rows: any[];
@@ -148,12 +157,16 @@ router.get("/marketplace/services", async (req: Request, res: Response) => {
 });
 
 // ─── GET /marketplace/services/my ─────────────────────────────────────────────
-router.get("/marketplace/services/my", requireAuth, async (req: Request, res: Response) => {
+router.get("/marketplace/services/my", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
     const rows = await dbRows(sql`
-      SELECT * FROM marketplace_services WHERE user_id = ${userId} ORDER BY created_at DESC
+      SELECT * FROM marketplace_services
+      WHERE office_id = ${tid} AND user_id = ${userId}
+      ORDER BY created_at DESC
     `);
     res.json(rows);
   } catch (e: any) {
@@ -179,8 +192,10 @@ router.get("/marketplace/stats", async (_req, res) => {
 });
 
 // ─── POST /marketplace/services ───────────────────────────────────────────────
-router.post("/marketplace/services", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/services", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -191,14 +206,14 @@ router.post("/marketplace/services", requireAuth, async (req: Request, res: Resp
     const id = randomUUID();
     await db.execute(sql`
       INSERT INTO marketplace_services
-        (id, user_id, office_name, title, description, category, price, currency,
+        (id, user_id, office_id, office_name, title, description, category, price, currency,
          duration_minutes, tags, is_active, created_at, updated_at)
       VALUES
-        (${id}, ${userId}, ${officeName ?? null}, ${title},
+        (${id}, ${userId}, ${tid}, ${officeName ?? null}, ${title},
          ${description ?? null}, ${category}, ${price ?? 0}, ${currency},
          ${durationMinutes ?? null}, ${tags ?? null}, true, NOW(), NOW())
     `);
-    const rows = await dbRows(sql`SELECT * FROM marketplace_services WHERE id = ${id}`);
+    const rows = await dbRows(sql`SELECT * FROM marketplace_services WHERE id = ${id} AND office_id = ${tid}`);
     res.json(rows[0]);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -206,8 +221,10 @@ router.post("/marketplace/services", requireAuth, async (req: Request, res: Resp
 });
 
 // ─── PUT /marketplace/services/:id ────────────────────────────────────────────
-router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: Response) => {
+router.put("/marketplace/services/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
@@ -216,7 +233,9 @@ router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: R
 
     if (category && !ALLOWED_CATEGORIES.has(category)) return res.status(400).json({ error: "فئة غير مسموح بها" });
 
-    const existing = await dbRows(sql`SELECT user_id FROM marketplace_services WHERE id = ${id}`);
+    const existing = await dbRows(sql`
+      SELECT user_id FROM marketplace_services WHERE id = ${id} AND office_id = ${tid}
+    `);
     if (!existing.length) return res.status(404).json({ error: "الخدمة غير موجودة" });
     if (existing[0].user_id !== userId) return res.status(403).json({ error: "غير مصرح" });
 
@@ -230,7 +249,7 @@ router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: R
         tags             = COALESCE(${tags ?? null}, tags),
         is_active        = COALESCE(${isActive ?? null}, is_active),
         updated_at       = NOW()
-      WHERE id = ${id}
+      WHERE id = ${id} AND office_id = ${tid}
     `);
     res.json({ success: true });
   } catch (e: any) {
@@ -239,16 +258,20 @@ router.put("/marketplace/services/:id", requireAuth, async (req: Request, res: R
 });
 
 // ─── DELETE /marketplace/services/:id ─────────────────────────────────────────
-router.delete("/marketplace/services/:id", requireAuth, async (req: Request, res: Response) => {
+router.delete("/marketplace/services/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
-    const existing = await dbRows(sql`SELECT user_id FROM marketplace_services WHERE id = ${String(req.params.id)}`);
+    const existing = await dbRows(sql`
+      SELECT user_id FROM marketplace_services WHERE id = ${String(req.params.id)} AND office_id = ${tid}
+    `);
     if (!existing.length) return res.status(404).json({ error: "الخدمة غير موجودة" });
     if (existing[0].user_id !== userId) return res.status(403).json({ error: "غير مصرح" });
 
-    await db.execute(sql`DELETE FROM marketplace_services WHERE id = ${String(req.params.id)}`);
+    await db.execute(sql`DELETE FROM marketplace_services WHERE id = ${String(req.params.id)} AND office_id = ${tid}`);
     res.json({ success: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -265,7 +288,7 @@ router.get("/marketplace/categories", (_req, res) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // POST /marketplace/orders — place a direct order
-router.post("/marketplace/orders", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/orders", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { serviceId, buyerName, buyerEmail, buyerPhone, notes } = req.body;
     if (!serviceId || !buyerName) return res.status(400).json({ error: "serviceId وbuyerName مطلوبان" });
@@ -292,7 +315,7 @@ router.post("/marketplace/orders", requireAuth, async (req: Request, res: Respon
 });
 
 // GET /marketplace/orders/my — seller's orders
-router.get("/marketplace/orders/my", requireAuth, async (req: Request, res: Response) => {
+router.get("/marketplace/orders/my", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -306,7 +329,7 @@ router.get("/marketplace/orders/my", requireAuth, async (req: Request, res: Resp
 });
 
 // PATCH /marketplace/orders/:id — update order status
-router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: Response) => {
+router.patch("/marketplace/orders/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -320,7 +343,7 @@ router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: R
       if (order) {
         try {
           const caseId = randomUUID();
-          const sellerOfficeId = await resolveTenantId(userId).catch(() => null);
+          const sellerOfficeId = tenantIdOf(req);
           if (!sellerOfficeId) throw new Error("cannot resolve tenant");
           await db.execute(sql`
             INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
@@ -344,7 +367,7 @@ router.patch("/marketplace/orders/:id", requireAuth, async (req: Request, res: R
 // ══════════════════════════════════════════════════════════════════════════════
 
 // POST /marketplace/deals — open a deal
-router.post("/marketplace/deals", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/deals", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { serviceId, buyerName, buyerEmail, buyerPhone, initialPrice, notes } = req.body;
     if (!serviceId || !buyerName || !initialPrice) return res.status(400).json({ error: "serviceId وbuyerName وinitialPrice مطلوبة" });
@@ -376,7 +399,7 @@ router.post("/marketplace/deals", requireAuth, async (req: Request, res: Respons
 });
 
 // GET /marketplace/deals/my — seller's deals
-router.get("/marketplace/deals/my", requireAuth, async (req: Request, res: Response) => {
+router.get("/marketplace/deals/my", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -390,7 +413,7 @@ router.get("/marketplace/deals/my", requireAuth, async (req: Request, res: Respo
 });
 
 // GET /marketplace/deals/:id — get deal with offers
-router.get("/marketplace/deals/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/marketplace/deals/:id", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const [deal] = await dbRows(sql`SELECT * FROM marketplace_deals WHERE id = ${String(req.params.id)}`);
     if (!deal) return res.status(404).json({ error: "الصفقة غير موجودة" });
@@ -405,7 +428,7 @@ router.get("/marketplace/deals/:id", requireAuth, async (req: Request, res: Resp
 });
 
 // POST /marketplace/deals/:id/offer — add counter-offer
-router.post("/marketplace/deals/:id/offer", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/offer", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -429,7 +452,7 @@ router.post("/marketplace/deals/:id/offer", requireAuth, async (req: Request, re
 });
 
 // POST /marketplace/deals/:id/accept — accept deal → auto case
-router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/accept", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -449,7 +472,7 @@ router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, r
     let caseId: string | null = null;
     try {
       caseId = randomUUID();
-      const dealOfficeId = await resolveTenantId(userId).catch(() => null);
+      const dealOfficeId = tenantIdOf(req);
       if (!dealOfficeId) throw new Error("cannot resolve tenant");
       await db.execute(sql`
         INSERT INTO cases (id, title, case_type, client_name, status, notes, office_id, created_at, updated_at)
@@ -468,7 +491,7 @@ router.post("/marketplace/deals/:id/accept", requireAuth, async (req: Request, r
 });
 
 // POST /marketplace/deals/:id/reject — reject deal
-router.post("/marketplace/deals/:id/reject", requireAuth, async (req: Request, res: Response) => {
+router.post("/marketplace/deals/:id/reject", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });

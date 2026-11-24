@@ -1,10 +1,10 @@
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { getDbPlans } from "../platform/planCms";
 
 const router = Router();
@@ -100,7 +100,7 @@ router.get("/billing/plans", async (_req, res) => {
   }
 });
 
-router.get("/billing/stripe-status", requireAuth, async (_req, res) => {
+router.get("/billing/stripe-status", requireAuthWithTenant, async (_req, res) => {
   try {
     await getUncachableStripeClient();
     const key = process.env.STRIPE_SECRET_KEY ?? "";
@@ -113,14 +113,14 @@ router.get("/billing/stripe-status", requireAuth, async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    BILLING OVERVIEW — KPIs + Subscription + Alerts + Usage
 ══════════════════════════════════════════════════════ */
-router.get("/billing/overview", requireAuth, async (req, res) => {
+router.get("/billing/overview", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     /* 0. Resolve tenant — MUST come first; all queries below use tenantId */
-    const tenantId = await resolveTenantId(userId);
-    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     /* 1. Current office plan — scoped to this tenant only */
     const officeRows = await db.execute(sql`SELECT plan FROM office_page WHERE id = ${tenantId}::uuid LIMIT 1`);
@@ -230,7 +230,7 @@ router.get("/billing/overview", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    CHECKOUT + PAYMENT LINK
 ══════════════════════════════════════════════════════ */
-router.post("/billing/checkout", requireAuth, async (req, res) => {
+router.post("/billing/checkout", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
@@ -252,8 +252,8 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
     /* Resolve tenant + user email for this checkout */
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const tenantId = await resolveTenantId(userId);
-    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     /* Get or create Stripe customer for this tenant */
     let customerId: string | undefined;
@@ -327,7 +327,7 @@ router.post("/billing/checkout", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/billing/payment-link", requireAuth, async (req, res) => {
+router.post("/billing/payment-link", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ", hint: "أضف STRIPE_SECRET_KEY أو فعّل تكامل Stripe" });
@@ -353,7 +353,7 @@ router.post("/billing/payment-link", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    STRIPE SUBSCRIPTION DETAILS
 ══════════════════════════════════════════════════════ */
-router.get("/billing/stripe-subscription", requireAuth, async (req, res) => {
+router.get("/billing/stripe-subscription", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient | null = null;
   try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json({ configured: false, subscription: null });
@@ -382,7 +382,7 @@ router.get("/billing/stripe-subscription", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    STRIPE INVOICES
 ══════════════════════════════════════════════════════ */
-router.get("/billing/stripe-invoices", requireAuth, async (req, res) => {
+router.get("/billing/stripe-invoices", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient | null = null;
   try { stripe = await getUncachableStripeClient(); } catch { }
   if (!stripe) return res.json([]);
@@ -408,14 +408,14 @@ router.get("/billing/stripe-invoices", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    REVENUE ANALYTICS (Admin)
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue", requireAuth, requireSuperAdmin, async (req, res) => {
+router.get("/billing/revenue", requireAuthWithTenant, requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     let stripe: StripeClient | null = null;
     try { stripe = await getUncachableStripeClient(); } catch { }
-    let stripeRevenue = { total: 0, transactions: 0, recent: [] as any[] };
+    const stripeRevenue = { total: 0, transactions: 0, recent: [] as any[] };
 
     if (stripe) {
       try {
@@ -483,7 +483,7 @@ router.get("/billing/revenue", requireAuth, requireSuperAdmin, async (req, res) 
    Ensures plan activates immediately even if webhook
    hasn't fired yet.
 ══════════════════════════════════════════════════════ */
-router.post("/billing/verify-payment", requireAuth, async (req, res) => {
+router.post("/billing/verify-payment", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ" });
@@ -504,7 +504,7 @@ router.post("/billing/verify-payment", requireAuth, async (req, res) => {
     }
 
     const planId   = session.metadata?.plan ?? "basic";
-    const officeId = session.metadata?.officeId ?? (await resolveTenantId(userId));
+    const officeId = session.metadata?.officeId ?? ((req as any).tenantId as string);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const billingPeriod = (session.metadata?.billingPeriod ?? "monthly") as "monthly" | "annual";
     const amountPaid = session.amount_total ?? 0;
@@ -535,7 +535,7 @@ router.post("/billing/verify-payment", requireAuth, async (req, res) => {
    Creates a Stripe checkout session with any amount
    for any client email.
 ══════════════════════════════════════════════════════ */
-router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
+router.post("/billing/custom-invoice-link", requireAuthWithTenant, async (req, res) => {
   let stripe: StripeClient;
   try { stripe = await getUncachableStripeClient(); } catch {
     return res.status(503).json({ error: "Stripe غير مهيأ — أضف STRIPE_SECRET_KEY" });
@@ -562,8 +562,8 @@ router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
   }
 
   try {
-    const tenantId = await resolveTenantId(userId);
-    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     /* Create or retrieve customer by email */
     let customerId: string | undefined;
@@ -668,7 +668,7 @@ router.post("/billing/custom-invoice-link", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    CHANGE PLAN (upgrade / downgrade)
 ══════════════════════════════════════════════════════ */
-router.post("/billing/change-plan", requireAuth, async (req, res) => {
+router.post("/billing/change-plan", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -677,8 +677,8 @@ router.post("/billing/change-plan", requireAuth, async (req, res) => {
     const plan = PLANS.find(p => p.id === planId);
     if (!plan) return res.status(400).json({ error: "الباقة غير موجودة" });
 
-    const officeId = await resolveTenantId(userId);
-    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "default" || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const currentRows = await db.execute(sql`SELECT plan FROM office_page WHERE id = ${officeId}::uuid LIMIT 1`);
     const oldPlan = ((currentRows as any)?.rows ?? [])[0]?.plan ?? "free";
 
@@ -719,7 +719,8 @@ router.post("/billing/activate-plan", requireSuperAdmin, async (req, res) => {
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
 
     const { plan = "pro" } = req.body as { plan: string };
-    const officeId = await resolveTenantId(userId);
+    const officeId = (req as any).tenantId as string;
+    if (!officeId || officeId === "default" || officeId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { provisionTenant } = await import("../../services/tenantProvisioning");
     const email = (req as any).auth?.sessionClaims?.email ?? "";
@@ -733,12 +734,12 @@ router.post("/billing/activate-plan", requireSuperAdmin, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    LEDGER
 ══════════════════════════════════════════════════════ */
-router.get("/billing/ledger", requireAuth, async (req, res) => {
+router.get("/billing/ledger", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const tenantId = await resolveTenantId(userId);
-    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const tenantId = (req as any).tenantId as string;
+    if (!tenantId || tenantId === "default" || tenantId === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const r = await db.execute(sql`
       SELECT id, type, amount, currency, ref, description, stripe_id,
              platform_fee, stripe_fee, net_amount, created_at
@@ -754,7 +755,7 @@ router.get("/billing/ledger", requireAuth, async (req, res) => {
 /* ══════════════════════════════════════════════════════
    PLATFORM BILLING INVOICES
 ══════════════════════════════════════════════════════ */
-router.get("/billing/platform-invoices", requireAuth, async (req, res) => {
+router.get("/billing/platform-invoices", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -769,7 +770,7 @@ router.get("/billing/platform-invoices", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/billing/platform-invoices/stats", requireAuth, async (req, res) => {
+router.get("/billing/platform-invoices/stats", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -789,7 +790,7 @@ router.get("/billing/platform-invoices/stats", requireAuth, async (req, res) => 
   }
 });
 
-router.post("/billing/subscribe", requireAuth, async (req, res) => {
+router.post("/billing/subscribe", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -808,7 +809,7 @@ router.post("/billing/subscribe", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/billing/pay/:id", requireAuth, async (req, res) => {
+router.post("/billing/pay/:id", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -819,7 +820,7 @@ router.post("/billing/pay/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/billing/mark-overdue", requireAuth, async (_req, res) => {
+router.post("/billing/mark-overdue", requireAuthWithTenant, requireSuperAdmin, async (_req, res) => {
   try {
     await db.execute(sql`UPDATE platform_billing_invoices SET status='overdue' WHERE status='unpaid' AND due_date < NOW()`);
     res.json({ ok: true });
@@ -831,7 +832,7 @@ router.post("/billing/mark-overdue", requireAuth, async (_req, res) => {
 /* ══════════════════════════════════════════════════════
    BILLING ALERTS (standalone endpoint)
 ══════════════════════════════════════════════════════ */
-router.get("/billing/alerts", requireAuth, async (req, res) => {
+router.get("/billing/alerts", requireAuthWithTenant, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
@@ -844,7 +845,8 @@ router.get("/billing/alerts", requireAuth, async (req, res) => {
     if (overdueCount > 0) alerts.push({ type: "overdue_invoice", message: `${overdueCount} فاتورة متأخرة`, severity: 3 });
 
     /* Check usage > 80% — scoped to requesting user's office only */
-    const tenantIdForAlerts = await resolveTenantId(userId);
+    const tenantIdForAlerts = (req as any).tenantId as string;
+    if (!tenantIdForAlerts || tenantIdForAlerts === "default" || tenantIdForAlerts === "platform") return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const highUsageRows = tenantIdForAlerts ? await db.execute(sql`
       SELECT key, "limit", used FROM office_entitlements
       WHERE office_id = ${tenantIdForAlerts}::uuid
@@ -898,7 +900,7 @@ router.get("/billing/calc-fee", (req, res) => {
    REVENUE REPORT — تقرير الإيرادات التفصيلي
    GET /api/billing/revenue-report
 ══════════════════════════════════════════════════════ */
-router.get("/billing/revenue-report", requireAuth, requireSuperAdmin, async (req, res) => {
+router.get("/billing/revenue-report", requireAuthWithTenant, requireSuperAdmin, async (req, res) => {
   try {
     const { userId } = getAuth(req as any);
     if (!userId) return res.status(401).json({ error: "غير مصرح" });
