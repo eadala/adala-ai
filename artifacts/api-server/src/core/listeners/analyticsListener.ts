@@ -41,12 +41,13 @@ async function ensureEventCountsTable() {
     CREATE TABLE IF NOT EXISTS event_daily_counts (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       event_type  TEXT NOT NULL,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL,
       event_date  DATE NOT NULL DEFAULT CURRENT_DATE,
       count       INTEGER NOT NULL DEFAULT 1,
       UNIQUE(event_type, office_id, event_date)
     )
   `).catch(() => {});
+  await db.execute(sql`ALTER TABLE event_daily_counts ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
 }
 ensureEventCountsTable();
 

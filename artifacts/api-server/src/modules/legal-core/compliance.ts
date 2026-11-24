@@ -1,14 +1,21 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
 
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
+}
+
 // GET /compliance/items — all saved statuses
 router.get("/compliance/items", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const rows = await db.execute(sql`
       SELECT framework_key, item_id, status, notes, updated_at, updated_by
       FROM compliance_items
@@ -28,7 +35,8 @@ router.put("/compliance/items/:frameworkKey/:itemId", requireAuthWithTenant, asy
     if (!["done", "partial", "pending"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
-    const tenantId = (req as any).tenantId;
+    const tenantId = tidOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     await db.execute(sql`
       INSERT INTO compliance_items (id, framework_key, item_id, status, notes, updated_at, updated_by, office_id)
       VALUES (gen_random_uuid()::text, ${frameworkKey}, ${itemId}, ${status}, ${notes ?? null}, NOW(), ${updatedBy ?? null}, ${tenantId})

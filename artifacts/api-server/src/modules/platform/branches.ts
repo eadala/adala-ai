@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 /* ── inline branch limit lookup (mirrors plan-features.ts) ── */
 const BRANCH_LIMITS: Record<string, number | "unlimited"> = {
   free: 0, starter: 0, basic: 0,
@@ -13,6 +14,11 @@ function getPlanBranchLimit(plan?: string | null): number | "unlimited" {
 }
 
 const router = Router();
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
+}
 
 async function sqlAll(q: any): Promise<any[]> {
   const r = await db.execute(q) as any;
@@ -61,7 +67,8 @@ async function getOfficePlan(officeId: string): Promise<string> {
 /* ─── GET /api/branches ─────────────────────────────────── */
 router.get("/branches", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const branches = await sqlAll(sql`
       SELECT
         b.*,
@@ -87,7 +94,8 @@ router.get("/branches", requireAuthWithTenant, async (req, res) => {
 /* ─── GET /api/branches/:id ─────────────────────────────── */
 router.get("/branches/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const id = String(req.params.id);
     const branch = await sqlOne(sql`SELECT * FROM office_branches WHERE id = ${id}::uuid AND office_id = ${officeId}`);
     if (!branch) return res.status(404).json({ error: "الفرع غير موجود" });
@@ -100,7 +108,8 @@ router.get("/branches/:id", requireAuthWithTenant, async (req, res) => {
 /* ─── GET /api/branches/:id/stats ───────────────────────── */
 router.get("/branches/:id/stats", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const id = String(req.params.id);
     const branch = await sqlOne(sql`SELECT id FROM office_branches WHERE id = ${id}::uuid AND office_id = ${officeId}`);
     if (!branch) return res.status(404).json({ error: "الفرع غير موجود" });
@@ -135,7 +144,8 @@ router.get("/branches/:id/stats", requireAuthWithTenant, async (req, res) => {
 /* ─── POST /api/branches ────────────────────────────────── */
 router.post("/branches", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { name, code, location, description, phone, email, manager_user_id, manager_name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: "اسم الفرع مطلوب" });
 
@@ -175,7 +185,8 @@ router.post("/branches", requireAuthWithTenant, async (req, res) => {
 /* ─── PATCH /api/branches/:id ───────────────────────────── */
 router.patch("/branches/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const id = String(req.params.id);
     const { name, code, location, description, phone, email, manager_user_id, manager_name, status } = req.body;
 
@@ -206,7 +217,8 @@ router.patch("/branches/:id", requireAuthWithTenant, async (req, res) => {
 /* ─── DELETE /api/branches/:id ──────────────────────────── */
 router.delete("/branches/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const id = String(req.params.id);
     const branch = await sqlOne(sql`SELECT id FROM office_branches WHERE id = ${id}::uuid AND office_id = ${officeId}`);
     if (!branch) return res.status(404).json({ error: "الفرع غير موجود" });
@@ -229,7 +241,8 @@ router.delete("/branches/:id", requireAuthWithTenant, async (req, res) => {
 /* ─── POST /api/branches/transfer-case ──────────────────── */
 router.post("/branches/transfer-case", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { case_id, target_branch_id } = req.body;
     if (!case_id) return res.status(400).json({ error: "معرّف القضية مطلوب" });
 
@@ -254,7 +267,8 @@ router.post("/branches/transfer-case", requireAuthWithTenant, async (req, res) =
 /* ─── POST /api/branches/assign-client ──────────────────── */
 router.post("/branches/assign-client", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { client_id, branch_id } = req.body;
     if (!client_id) return res.status(400).json({ error: "معرّف العميل مطلوب" });
 
@@ -276,7 +290,8 @@ router.post("/branches/assign-client", requireAuthWithTenant, async (req, res) =
 /* ─── GET /api/branches/dashboard ───────────────────────── */
 router.get("/branches/dashboard", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const [summary, topByRevenue, recentActivity] = await Promise.all([
       sqlOne(sql`
         SELECT

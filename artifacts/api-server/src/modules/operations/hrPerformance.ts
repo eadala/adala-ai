@@ -1,9 +1,15 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
+}
 
 /* ══════════════════════════════════════════════
    ENSURE TABLES
@@ -12,6 +18,7 @@ async function ensureTables() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS performance_evaluations (
       id              SERIAL PRIMARY KEY,
+      office_id       TEXT NOT NULL,
       employee_id     TEXT NOT NULL,
       period          TEXT NOT NULL,
       cases_closed    INTEGER NOT NULL DEFAULT 0,
@@ -33,9 +40,12 @@ async function ensureTables() {
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE performance_evaluations ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_perf_eval_office ON performance_evaluations(office_id)`).catch(() => {});
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS employee_incentives (
       id          SERIAL PRIMARY KEY,
+      office_id   TEXT NOT NULL,
       employee_id TEXT NOT NULL,
       type        TEXT NOT NULL DEFAULT 'bonus',
       amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -45,6 +55,8 @@ async function ensureTables() {
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE employee_incentives ADD COLUMN IF NOT EXISTS office_id TEXT`).catch(() => {});
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_emp_incentives_office ON employee_incentives(office_id)`).catch(() => {});
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS hr_settings (
       id   SERIAL PRIMARY KEY,
@@ -171,7 +183,8 @@ router.patch("/hr-perf/settings", requireAuthWithTenant, async (req, res) => {
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT pe.*, e.full_name as employee_name, e.job_title, e.department, e.salary
@@ -185,7 +198,8 @@ router.get("/hr-perf/evaluations", requireAuthWithTenant, async (req, res) => {
 
 router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     /* verify employee belongs to office before returning evaluations */
     const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${String(req.params.employeeId)} AND office_id = ${tid} LIMIT 1`);
@@ -204,7 +218,8 @@ router.get("/hr-perf/evaluations/:employeeId", requireAuthWithTenant, async (req
 router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
   try {
-    const tid = (req as any).tenantId as string;
+    const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const ev = req.body as any;
     /* verify employee belongs to office */
     const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${String(ev.employeeId)} AND office_id = ${tid} LIMIT 1`);
@@ -230,12 +245,12 @@ router.post("/hr-perf/evaluate", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
-  /* performance_evaluations has no office_id — verify ownership via employee join */
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   await db.execute(sql`
     DELETE FROM performance_evaluations
     WHERE id = ${parseInt(String(req.params.id))}
-      AND employee_id IN (SELECT id::text FROM employees WHERE office_id = ${tid})
+      AND office_id = ${tid}
   `);
   res.status(204).end();
 });
@@ -245,7 +260,8 @@ router.delete("/hr-perf/evaluations/:id", requireAuthWithTenant, async (req, res
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT ei.*, e.full_name as employee_name, e.job_title
@@ -259,7 +275,8 @@ router.get("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 
 router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { employeeId, type, amount, reason, period } = req.body as any;
     if (!employeeId || !amount) return res.status(400).json({ error: "معرف الموظف والمبلغ مطلوبان" });
@@ -277,12 +294,12 @@ router.post("/hr-perf/incentives", requireAuthWithTenant, async (req, res) => {
 
 router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
-  /* employee_incentives has no office_id — verify via employee join */
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   await db.execute(sql`
     DELETE FROM employee_incentives
     WHERE id = ${parseInt(String(req.params.id))}
-      AND employee_id IN (SELECT id::text FROM employees WHERE office_id = ${tid})
+      AND office_id = ${tid}
   `);
   res.status(204).end();
 });
@@ -292,7 +309,8 @@ router.delete("/hr-perf/incentives/:id", requireAuthWithTenant, async (req, res)
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tidOf(req);
+  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { period } = req.query as { period?: string };
     const cfg = await getSettings();
@@ -355,7 +373,8 @@ router.get("/hr-perf/smart-payroll/preview", requireAuthWithTenant, async (req, 
 ══════════════════════════════════════════════ */
 router.get("/hr-perf/dashboard", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tenantId = (req as any).tenantId as string;
+  const tenantId = tidOf(req);
+  if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const [
       empCount, evalCount, avgScore, topPerformers, needAttention,
