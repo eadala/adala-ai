@@ -1,9 +1,16 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
 import { auditLog } from "../../lib/auditLogger";
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 const router = Router();
 
@@ -295,7 +302,8 @@ router.get("/legal-ai/templates", (_req, res) => {
 /* ── Route: generate document ── */
 router.post("/legal-ai/generate", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const { docType, variables = {}, caseId, clientId, model = "auto" } = req.body as {
       docType: string;
       variables: Record<string, string>;
@@ -315,7 +323,7 @@ router.post("/legal-ai/generate", requireAuthWithTenant, async (req, res) => {
       const rows = await sqlAll(sql`
         SELECT c.title, c.case_type, c.status,
                COALESCE(c.client_name, '') AS client_name
-        FROM cases c WHERE c.id = ${caseId} LIMIT 1
+        FROM cases c WHERE c.id = ${caseId} AND c.office_id = ${tenantId} LIMIT 1
       `);
       if (rows[0]) {
         const c = rows[0] as any;
@@ -324,7 +332,16 @@ router.post("/legal-ai/generate", requireAuthWithTenant, async (req, res) => {
     }
 
     const userMessage = template.buildPrompt(variables) + caseContext;
-    const { reply, modelUsed } = await callAI(template.systemPrompt, userMessage, [], model as any);
+    const userId = String((req as any).userId ?? "unknown");
+    const { reply, modelUsed } = await callAI(
+      template.systemPrompt,
+      userMessage,
+      [],
+      model as any,
+      tenantId,
+      "legal_ai_generate",
+      userId,
+    );
 
     const title = `${template.label} — ${new Date().toLocaleDateString("ar-SA")}`;
     await db.execute(sql`
@@ -347,15 +364,21 @@ router.post("/legal-ai/generate", requireAuthWithTenant, async (req, res) => {
 /* ── Route: refine existing document ── */
 router.post("/legal-ai/:id/refine", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const { instruction, model = "auto" } = req.body as { instruction: string; model?: string };
     const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
 
+    const userId = String((req as any).userId ?? "unknown");
     const { reply } = await callAI(
       "أنت محامٍ خبير. عدّل الوثيقة القانونية بناءً على التعليمات مع الحفاظ على الطابع الرسمي.",
       `الوثيقة:\n${(rows[0] as any).content}\n\nالتعليمات: ${instruction}`,
-      [], model as any
+      [],
+      model as any,
+      tenantId,
+      "legal_ai_refine",
+      userId,
     );
 
     await db.execute(sql`UPDATE legal_documents SET content = ${reply} WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}`);
@@ -368,7 +391,8 @@ router.post("/legal-ai/:id/refine", requireAuthWithTenant, async (req, res) => {
 /* ── Route: history ── */
 router.get("/legal-ai/history", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const rows = await sqlAll(sql`
       SELECT id, doc_type, doc_category, title, model_used, created_at,
              LEFT(content, 250) AS preview
@@ -385,7 +409,8 @@ router.get("/legal-ai/history", requireAuthWithTenant, async (req, res) => {
 /* ── Route: get single document ── */
 router.get("/legal-ai/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const rows = await sqlAll(sql`SELECT * FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId} LIMIT 1`);
     if (!rows[0]) { res.status(404).json({ error: "الوثيقة غير موجودة" }); return; }
     res.json(rows[0]);
@@ -397,7 +422,8 @@ router.get("/legal-ai/:id", requireAuthWithTenant, async (req, res) => {
 /* ── Route: delete document ── */
 router.delete("/legal-ai/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     await db.execute(sql`DELETE FROM legal_documents WHERE id = ${String(req.params.id)} AND office_id = ${tenantId}`);
     res.json({ success: true });
   } catch (e: any) {

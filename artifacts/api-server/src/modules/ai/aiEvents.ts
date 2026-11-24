@@ -1,7 +1,14 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+
+function tenantIdOf(req: any): string | null {
+  const tid = (req.tenantId ?? req.officeId) as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 const router = Router();
 
@@ -144,9 +151,9 @@ async function runAutonomousScan(officeId: string) {
 }
 
 /* ── GET /api/ai-events ─────────────────────────── */
-router.get("/ai-events", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
-  if (!officeId) { res.json({ events: [] }); return; }
+router.get("/ai-events", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantIdOf(req);
+  if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", events: [] }); return; }
 
   runAutonomousScan(officeId).catch(() => {});
 
@@ -172,10 +179,10 @@ router.get("/ai-events", requireAuth, async (req, res) => {
 });
 
 /* ── POST /api/ai-events/:id/dismiss ─────────────── */
-router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
+router.post("/ai-events/:id/dismiss", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantIdOf(req);
   const id = parseInt(String(req.params.id));
-  if (!officeId || isNaN(id)) { res.status(400).json({ error: "invalid" }); return; }
+  if (!officeId || isNaN(id)) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   try {
     await db.execute(sql`
       UPDATE ai_events SET status = 'dismissed'
@@ -188,9 +195,9 @@ router.post("/ai-events/:id/dismiss", requireAuth, async (req, res) => {
 });
 
 /* ── POST /api/ai-events/scan ─────────────────────── */
-router.post("/ai-events/scan", requireAuth, async (req, res) => {
-  const officeId = (req as any).officeId as string;
-  if (!officeId) { res.status(401).json({ error: "unauthorized" }); return; }
+router.post("/ai-events/scan", requireAuthWithTenant, async (req, res) => {
+  const officeId = tenantIdOf(req);
+  if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
   delete lastScanAt[officeId];
   try {
     await runAutonomousScan(officeId);
