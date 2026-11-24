@@ -1,8 +1,9 @@
 /**
  * Events Routes — SSE stream + event history + analytics
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router, Request, Response } from "express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { eventBus } from "../../core/eventBus";
 import { EVENT_LABELS } from "../../core/listeners/analyticsListener";
 import { db } from "@workspace/db";
@@ -10,8 +11,17 @@ import { sql } from "drizzle-orm";
 
 const router = Router();
 
+function tenantIdOf(req: Request): string | null {
+  const tid = (req as any).tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
+
 /* ── GET /api/events/stream — SSE real-time feed ── */
-router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
+router.get("/events/stream", requireAuthWithTenant, (req: Request, res: Response) => {
+  const tid = tenantIdOf(req);
+  if (!tid) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
+
   res.setHeader("Content-Type",  "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection",    "keep-alive");
@@ -19,7 +29,7 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
   res.flushHeaders();
 
   /* Welcome ping */
-  res.write(`data: ${JSON.stringify({ type: "__CONNECTED__", timestamp: new Date().toISOString() })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: "__CONNECTED__", officeId: tid, timestamp: new Date().toISOString() })}\n\n`);
 
   /* Keepalive every 25s */
   const keepalive = setInterval(() => {
@@ -27,7 +37,7 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
   }, 25_000);
 
   /* Register with userId for targeted delivery (e.g. private message notifications) */
-  const userId = (req as any).auth?.userId as string | undefined;
+  const userId = ((req as any).auth?.userId ?? (req as any).userId) as string | undefined;
   eventBus.addSSEClient(res, userId);
 
   res.on("close", () => {
@@ -36,10 +46,10 @@ router.get("/events/stream", requireAuth, (req: Request, res: Response) => {
 });
 
 /* ── GET /api/events/recent — last N events ── */
-router.get("/events/recent", requireAuth, async (req: Request, res: Response) => {
+router.get("/events/recent", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    if (!tenantId) { res.json({ events: [], total: 0 }); return; }
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", events: [], total: 0 }); return; }
     const limit  = Math.min(parseInt(String(req.query.limit  ?? 50)), 200);
     const type   = req.query.type   as string | undefined;
 
@@ -49,7 +59,7 @@ router.get("/events/recent", requireAuth, async (req: Request, res: Response) =>
         : sql`SELECT id, event_type, office_id, actor_id, payload, created_at FROM system_events WHERE office_id=${tenantId} ORDER BY created_at DESC LIMIT ${limit}`
     );
 
-    const events = (rows.rows as any[]).map(e => ({
+    const events = ((rows as any).rows as any[] ?? []).map(e => ({
       id:        e.id,
       type:      e.event_type,
       label:     (EVENT_LABELS as any)[e.event_type] ?? e.event_type,
@@ -66,10 +76,10 @@ router.get("/events/recent", requireAuth, async (req: Request, res: Response) =>
 });
 
 /* ── GET /api/events/stats — counts by type (last 30d) ── */
-router.get("/events/stats", requireAuth, async (req: Request, res: Response) => {
+router.get("/events/stats", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
-    if (!tenantId) { res.json({ total30d: 0, byType: [], byDay: [], liveClients: 0 }); return; }
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) { res.status(403).json({ error: "لا يمكن تحديد المكتب", total30d: 0, byType: [], byDay: [], liveClients: 0 }); return; }
     const [totals, byType, byDay] = await Promise.all([
       db.execute(sql`
         SELECT COUNT(*) as total FROM system_events WHERE created_at > NOW() - INTERVAL '30 days' AND office_id=${tenantId}
@@ -89,13 +99,13 @@ router.get("/events/stats", requireAuth, async (req: Request, res: Response) => 
     ]);
 
     res.json({
-      total30d: Number((totals.rows[0] as any)?.total ?? 0),
-      byType:   (byType.rows as any[]).map(r => ({
+      total30d: Number(((totals as any).rows[0] as any)?.total ?? 0),
+      byType:   ((byType as any).rows as any[]).map(r => ({
         type:  r.event_type,
         label: (EVENT_LABELS as any)[r.event_type] ?? r.event_type,
         count: Number(r.count),
       })),
-      byDay:    (byDay.rows as any[]).map(r => ({
+      byDay:    ((byDay as any).rows as any[]).map(r => ({
         day:   r.day,
         count: Number(r.count),
       })),

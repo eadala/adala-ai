@@ -1,23 +1,29 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { orchestrate } from "../../copilot/legal.orchestrator";
 import { analyzeCaseIntelligence } from "../../copilot/case.intelligence";
 import { rememberFact, recallMemory } from "../../copilot/memory";
-import { getTenantSafe } from "../../core/tenantContext";
 import { detectIntent } from "../../copilot/intent.engine";
 
 const router = Router();
 
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
+
 function getIds(req: any) {
-  const userId   = req.auth?.userId ?? "anonymous";
-  const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
+  const userId = req.auth?.userId ?? req.userId ?? "anonymous";
+  const officeId = tenantIdOf(req);
   return { userId, officeId };
 }
 
 /* ── POST /api/copilot/chat ── Legal Orchestrator v2 ── */
-router.post("/chat", requireAuth, async (req: Request, res: Response) => {
+router.post("/chat", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { message, history = [], pageContext = "" } = req.body as {
       message: string;
@@ -27,6 +33,7 @@ router.post("/chat", requireAuth, async (req: Request, res: Response) => {
     if (!message?.trim()) { res.status(400).json({ error: "الرسالة مطلوبة" }); return; }
 
     const { userId, officeId } = getIds(req);
+    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const result = await orchestrate(message, history, userId, officeId, pageContext);
 
     try {
@@ -52,7 +59,7 @@ router.post("/chat", requireAuth, async (req: Request, res: Response) => {
 /* ── GET /api/copilot/snapshot ── */
 router.get("/snapshot", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
-    const officeId = (req as any).tenantId ?? getTenantSafe()?.officeId ?? null;
+    const officeId = tenantIdOf(req);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
 
     const safeCount = async (query: ReturnType<typeof sql>): Promise<number> => {
@@ -76,7 +83,8 @@ router.get("/intelligence/:caseId", requireAuthWithTenant, async (req: Request, 
   try {
     const caseId  = String(req.params.caseId);
     const { officeId } = getIds(req);
-    const intel   = await analyzeCaseIntelligence(caseId, officeId !== "default" ? officeId : undefined);
+    if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+    const intel   = await analyzeCaseIntelligence(caseId, officeId);
     res.json(intel);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -84,8 +92,9 @@ router.get("/intelligence/:caseId", requireAuthWithTenant, async (req: Request, 
 });
 
 /* ── POST /api/copilot/intent ── */
-router.post("/intent", requireAuth, async (req: Request, res: Response) => {
+router.post("/intent", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
+    if (!tenantIdOf(req)) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const { message } = req.body ?? {};
     if (!message) { res.status(400).json({ error: "message required" }); return; }
     const intent = await detectIntent(String(message));
@@ -96,9 +105,10 @@ router.post("/intent", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── GET /api/copilot/memory ── */
-router.get("/memory", requireAuth, async (req: Request, res: Response) => {
+router.get("/memory", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId, officeId } = getIds(req);
+    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const mem = await recallMemory(userId, officeId);
     res.json({ memory: mem });
   } catch (e: any) {
@@ -107,9 +117,10 @@ router.get("/memory", requireAuth, async (req: Request, res: Response) => {
 });
 
 /* ── POST /api/copilot/memory ── */
-router.post("/memory", requireAuth, async (req: Request, res: Response) => {
+router.post("/memory", requireAuthWithTenant, async (req: Request, res: Response) => {
   try {
     const { userId, officeId } = getIds(req);
+    if (!officeId) { res.status(403).json({ error: "لا يمكن تحديد المكتب" }); return; }
     const { type = "preference", key, value } = req.body ?? {};
     if (!key || !value) { res.status(400).json({ error: "key and value required" }); return; }
     await rememberFact(userId, officeId, type, String(key), String(value));

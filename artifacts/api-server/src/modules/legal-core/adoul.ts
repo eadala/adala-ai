@@ -6,12 +6,19 @@
  * POST /api/adoul/marketing  (SSE streaming — public, sales bot)
  * POST /api/adoul/lead       (public, save lead to DB)
  */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { callAI } from "../ai/aiChat";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown" || tid === "adoul") return null;
+  return tid;
+}
 
 const router = Router();
 
@@ -95,7 +102,10 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 };
 
 /* ─── Streaming endpoint (Gemini SSE) ────────────────────────── */
-router.post("/stream", requireAuth, async (req, res) => {
+router.post("/stream", requireAuthWithTenant, async (req, res) => {
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+
   const { messages, mode = "consultation" } = req.body as {
     messages: { role: string; content: string }[];
     mode?: string;
@@ -178,8 +188,11 @@ router.post("/stream", requireAuth, async (req, res) => {
 });
 
 /* ─── Fallback JSON endpoint ──────────────────────────────────── */
-router.post("/chat", requireAuth, async (req, res) => {
+router.post("/chat", requireAuthWithTenant, async (req, res) => {
   try {
+    const tid = tenantIdOf(req);
+    if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+
     const { messages, mode = "consultation" } = req.body as {
       messages: { role: string; content: string }[];
       mode?: string;
@@ -197,12 +210,15 @@ router.post("/chat", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "last message must be user" });
     }
 
+    const userId = String((req as any).userId ?? "unknown");
     const { reply, modelUsed } = await callAI(
       systemPrompt,
       lastMsg.content,
       history,
       "auto",
-      (req as any).officeId || "adoul"
+      tid,
+      "adoul_chat",
+      userId,
     );
 
     return res.json({ reply, modelUsed });
