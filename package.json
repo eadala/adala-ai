@@ -9,7 +9,12 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "lint": "pnpm -r --filter \"./artifacts/**\" --if-present run lint",
-    "lint:fix": "pnpm -r --filter \"./artifacts/**\" --if-present run lint:fix"
+    "lint:fix": "pnpm -r --filter \"./artifacts/**\" --if-present run lint:fix",
+    "rg:classify": "node scripts/release-guardian/classify-risk.mjs",
+    "cd:preflight": "bash scripts/cd/preflight.sh",
+    "cd:simulate": "bash scripts/cd/simulate-pipeline.sh",
+    "cd:emergency-stop": "bash scripts/cd/emergency-stop.sh",
+    "cd:post-deploy": "bash scripts/cd/post-deploy-verify.sh"
   },
   "lint-staged": {
     "artifacts/adala/src/**/*.{ts,tsx}": [

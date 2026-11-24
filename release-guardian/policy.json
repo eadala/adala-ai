@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "directive_id": "ADALA-AUTONOMOUS-RELEASE-GUARDIAN-001",
+  "production_auto_promote": false,
+  "staging_auto_deploy": false,
+  "owner_activation_required": true,
+  "allowed_auto_prod_risk": ["LOW"],
+  "block_auto_prod_risk": ["MEDIUM", "HIGH", "UNKNOWN"],
+  "require_clean_history": true,
+  "contaminated_blob_oid": "3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925",
+  "forbid_public_contaminated_promote": true,
+  "production_branch": "main",
+  "staging_branch": "develop",
+  "required_ci_jobs": [
+    "Tests — existing suite",
+    "DB Migrations — test:db-migrations",
+    "Docker — production Dockerfile",
+    "Gate 1 — TypeScript",
+    "Gate 2 — ESLint",
+    "Gate 3 — Build & Bundle Budget",
+    "Gate 4 — Security Scan",
+    "Gate 5 — Dependency Audit",
+    "Gate 8 — Tenant Isolation",
+    "✅ All Gates Passed"
+  ],
+  "high_path_globs": [
+    "**/middlewares/**",
+    "**/tenant*/**",
+    "**/requireAuth*",
+    "**/*rls*",
+    "**/migrations/**",
+    "**/*stripe*",
+    "**/*payment*",
+    "**/*billing*",
+    "**/.github/workflows/**",
+    "**/Dockerfile*",
+    "**/docker-compose*",
+    "**/release-guardian/**",
+    "**/scripts/release-guardian/**",
+    "**/scripts/cd/**",
+    "**/.github/workflows/cd-*.yml",
+    "**/release-guardian/cd-policy.json",
+    "**/*secret*",
+    "**/*credential*",
+    "**/aiGateway*",
+    "**/rag/**",
+    "**/backup*"
+  ],
+  "medium_path_globs": [
+    "artifacts/api-server/src/**",
+    "artifacts/api-server/package.json",
+    "**/cron/**",
+    "**/package.json",
+    "**/pnpm-lock.yaml"
+  ],
+  "low_path_globs": [
+    "artifacts/adala/src/**/*.{css,scss}",
+    "artifacts/adala/public/**",
+    "docs/**",
+    "**/*.md",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ],
+  "high_content_patterns": [
+    "bypass_rls",
+    "app\\.current_tenant",
+    "FORCE ROW LEVEL SECURITY",
+    "DROP POLICY",
+    "CREATE POLICY",
+    "CLERK_SECRET",
+    "STRIPE_SECRET",
+    "setBypassRls",
+    "ALLOW_REMOTE_BACKUP",
+    "production_auto_promote"
+  ],
+  "health": {
+    "endpoint": "/api/healthz",
+    "max_5xx_rate": 0.02,
+    "max_p95_latency_ms": 2000,
+    "min_success_window_minutes": 15
+  },
+  "rollback": {
+    "application_image_only": true,
+    "never_auto_reverse_migrations": true
+  }
+}
