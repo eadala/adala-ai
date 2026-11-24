@@ -110,7 +110,7 @@ export async function notifyTelegramCaseStatus(updatedCase: any) {
 
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, status, error)
-      VALUES ('default', ${settings.chat_id}, ${text}, 'case_update', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
+      VALUES (${officeId}, ${settings.chat_id}, ${text}, 'case_update', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
     `);
   } catch { /* non-fatal */ }
 }
@@ -188,7 +188,7 @@ router.post("/telegram/test", requireAuthWithTenant, async (req: Request, res: R
     const r = await sendTelegramMessage(settings.bot_token, settings.chat_id, text);
     await db.execute(sql`
       INSERT INTO telegram_logs (office_id, chat_id, message, type, status, error)
-      VALUES ('default', ${settings.chat_id}, ${text}, 'test', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
+      VALUES (${tid}, ${settings.chat_id}, ${text}, 'test', ${r.ok ? 'sent' : 'failed'}, ${r.error ?? null})
     `);
     res.json(r);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
