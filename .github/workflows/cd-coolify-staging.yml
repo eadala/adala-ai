@@ -1,0 +1,105 @@
+name: CD — Coolify Staging (CI-controlled)
+
+# Automatic staging after CI succeeds on develop.
+# Inactive until:
+#   vars.ADALA_STAGING_CD_ACTIVE=true
+#   secrets.COOLIFY_STAGING_DEPLOY_WEBHOOK_URL
+#   vars.STAGING_BASE_URL
+# Does NOT touch production Coolify apps, webhooks, or branches.
+# workflow_run only fires once this file exists on the repository default branch.
+
+on:
+  workflow_run:
+    workflows: ["CI — Quality Gates"]
+    types: [completed]
+    branches: ["develop"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "simulate | live"
+        type: choice
+        options: [simulate, live]
+        default: simulate
+
+concurrency:
+  group: cd-coolify-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  simulate:
+    name: "Staging CD Simulation"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'simulate' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: bash scripts/cd/simulate-pipeline.sh
+
+  staging-deploy:
+    name: "Staging Trigger Coolify"
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop')
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+          fetch-depth: 0
+      - name: Contaminated ancestry hard stop
+        run: |
+          CONTAM=3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925
+          if git rev-list --objects HEAD | grep -q "$CONTAM"; then
+            echo "Contaminated history reachable — refusing staging CD"
+            exit 1
+          fi
+      - name: Fail-closed activation gates
+        env:
+          ADALA_CD_KILL_SWITCH: ${{ vars.ADALA_CD_KILL_SWITCH }}
+          ADALA_STAGING_CD_ACTIVE: ${{ vars.ADALA_STAGING_CD_ACTIVE }}
+        run: |
+          if [ "${ADALA_CD_KILL_SWITCH}" = "1" ] || [ "${ADALA_CD_KILL_SWITCH}" = "true" ]; then
+            echo "kill switch active"; exit 1
+          fi
+          if [ "${ADALA_STAGING_CD_ACTIVE}" != "true" ] && [ "${ADALA_STAGING_CD_ACTIVE}" != "1" ]; then
+            echo "staging CD not activated (set ADALA_STAGING_CD_ACTIVE)"; exit 1
+          fi
+      - name: Trigger Coolify staging webhook
+        env:
+          ADALA_CD_KILL_SWITCH: ${{ vars.ADALA_CD_KILL_SWITCH }}
+          ADALA_CREDENTIAL_INCIDENT_CLEARED: ${{ vars.ADALA_CREDENTIAL_INCIDENT_CLEARED }}
+          ADALA_CD_ACTIVE: ${{ vars.ADALA_STAGING_CD_ACTIVE }}
+          COOLIFY_DEPLOY_WEBHOOK_URL: ${{ secrets.COOLIFY_STAGING_DEPLOY_WEBHOOK_URL }}
+          CD_SIMULATION: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'simulate' && '1' || '' }}
+        run: bash scripts/cd/trigger-coolify.sh
+      - name: Staging smoke
+        if: ${{ vars.STAGING_BASE_URL != '' }}
+        env:
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+        run: bash scripts/release-guardian/smoke-staging.sh
+      - name: Record staging release
+        if: success()
+        run: |
+          node scripts/cd/release-registry.mjs record \
+            --commit "${{ steps.sha.outputs.sha }}" \
+            --digest "staging:${{ steps.sha.outputs.sha }}" \
+            --status success \
+            --note "cd-coolify-staging"
+      - if: failure()
+        run: bash scripts/cd/emergency-stop.sh

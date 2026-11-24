@@ -2,7 +2,7 @@ name: CI — Quality Gates
 
 on:
   push:
-    branches: [main, develop, "feature/**", "hotfix/**", "release/**"]
+    branches: [main, develop, "feature/**", "hotfix/**", "release/**", "cursor/**", "deploy/production"]
   pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened]

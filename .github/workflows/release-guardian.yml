@@ -1,0 +1,136 @@
+name: Release Guardian
+
+# Evaluates risk + promotion eligibility. Does NOT deploy to production.
+# Staging deploy steps remain gated by repository variables / secrets and
+# release-guardian/policy.json (staging_auto_deploy / production_auto_promote default false).
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, "release/**", "cursor/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-guardian-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+jobs:
+  classify:
+    name: "RG — Risk Classification"
+    runs-on: ubuntu-latest
+    outputs:
+      risk: ${{ steps.classify.outputs.risk }}
+      clean_history: ${{ steps.classify.outputs.clean_history }}
+      eligible: ${{ steps.classify.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Classify risk
+        id: classify
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || 'origin/main' }}"
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            git fetch --no-tags --depth=50 origin main || true
+            BASE=origin/main
+          fi
+          node scripts/release-guardian/classify-risk.mjs "$BASE" HEAD | tee /tmp/risk.json
+          echo "risk=$(python3 -c 'import json;print(json.load(open("/tmp/risk.json"))["risk"])')" >> "$GITHUB_OUTPUT"
+          echo "clean_history=$(python3 -c 'import json;print(str(json.load(open("/tmp/risk.json"))["clean_history"]).lower())')" >> "$GITHUB_OUTPUT"
+          echo "eligible=$(python3 -c 'import json;print(str(json.load(open("/tmp/risk.json"))["production_auto_promote_eligible"]).lower())')" >> "$GITHUB_OUTPUT"
+      - name: Upload risk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-risk-json
+          path: /tmp/risk.json
+
+  guardian-local-gates:
+    name: "RG — Local Guardian Gates"
+    runs-on: ubuntu-latest
+    needs: classify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Failure-injection suite
+        run: bash scripts/release-guardian/failure-injection.sh
+      - name: Contaminated history advisory
+        if: needs.classify.outputs.clean_history != 'true'
+        run: |
+          echo "::warning::Contaminated or unclean history detected — production auto-promote remains blocked"
+      - name: HIGH/MEDIUM advisory
+        if: needs.classify.outputs.risk == 'HIGH' || needs.classify.outputs.risk == 'MEDIUM' || needs.classify.outputs.risk == 'UNKNOWN'
+        run: |
+          echo "::notice::Risk=${{ needs.classify.outputs.risk }} — owner/approved review required before production"
+
+  staging-smoke-optional:
+    name: "RG — Staging Smoke (optional)"
+    runs-on: ubuntu-latest
+    needs: classify
+    if: ${{ vars.RELEASE_GUARDIAN_STAGING_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke staging
+        env:
+          STAGING_BASE_URL: ${{ vars.RELEASE_GUARDIAN_STAGING_URL }}
+        run: bash scripts/release-guardian/smoke-staging.sh
+
+  promotion-decision:
+    name: "RG — Promotion Decision (fail-closed)"
+    runs-on: ubuntu-latest
+    needs: [classify, guardian-local-gates]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-risk-json
+          path: /tmp
+      - name: Build gates snapshot (conservative — missing CI => block)
+        run: |
+          python3 - <<'PY'
+          import json
+          gates={
+            "owner_activated": False,
+            "jobs": {},
+            "staging_deploy": "NOT_EXECUTED",
+            "staging_smoke": "NOT_EXECUTED",
+            "release_artifact_digest": None,
+            "rollback_target": None,
+            "backup_verified": False,
+            "unresolved_p0": True,  # public history incident until owner closes
+            "unresolved_p1_security": False,
+            "production_baseline_healthy": False,
+          }
+          open("/tmp/gates.json","w").write(json.dumps(gates, indent=2))
+          PY
+      - name: Evaluate promotion
+        id: promo
+        run: |
+          set +e
+          node scripts/release-guardian/evaluate-promotion.mjs --risk /tmp/risk.json --gates /tmp/gates.json | tee /tmp/promo.json
+          code=$?
+          set -e
+          echo "exit=$code"
+          if grep -q PROMOTE_ALLOWED /tmp/promo.json; then
+            echo "Unexpected PROMOTE_ALLOWED while production_auto_promote=false"
+            exit 1
+          fi
+          echo "✅ Production promotion correctly blocked (fail-closed)"
+      - name: Upload promotion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-promotion-decision
+          path: |
+            /tmp/risk.json
+            /tmp/gates.json
+            /tmp/promo.json
