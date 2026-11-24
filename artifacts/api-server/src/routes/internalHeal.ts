@@ -6,17 +6,29 @@
  *
  * الحماية: Bearer token (HEAL_SECRET) + IP داخلي فقط.
  * لا يُعرَّض عبر Nginx — يصل إليه Alertmanager مباشرةً عبر Docker network.
+ *
+ * Stage 9: production fails closed when HEAL_SECRET is unset (no default).
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 9 HEAL_SECRET fail-closed only */
 
 import { Router } from "express";
 import { logger } from "../lib/logger";
+import { resolveHealSecret } from "../lib/healSecret";
 
 const router = Router();
 
-const HEAL_SECRET = process.env.HEAL_SECRET ?? "adala-heal-token";
+const healSecretResolved = resolveHealSecret();
+if (!healSecretResolved.ok) {
+  logger.error(
+    { reason: healSecretResolved.reason },
+    "[AutoHeal] HEAL_SECRET missing/invalid in production — heal endpoint fail-closed",
+  );
+}
+const HEAL_SECRET = healSecretResolved.ok ? healSecretResolved.secret : null;
 
 /* ── التحقق من Bearer token ──────────────────────────── */
 function verifyHealToken(req: any): boolean {
+  if (!HEAL_SECRET) return false;
   const auth = req.headers["authorization"] ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
   return token === HEAL_SECRET && HEAL_SECRET.length >= 12;
@@ -40,6 +52,12 @@ function isInternalSource(req: any): boolean {
  * { alerts: [{ labels: { alertname, severity }, status: 'firing' }] }
  */
 router.post("/heal", (req, res) => {
+  /* 0. Production fail-closed when HEAL_SECRET unset */
+  if (!HEAL_SECRET) {
+    logger.error("[AutoHeal] ⛔ رُفض — HEAL_SECRET غير مضبوط (production fail-closed)");
+    return void res.status(503).json({ error: "heal_secret_not_configured" });
+  }
+
   /* 1. IP check */
   if (!isInternalSource(req)) {
     logger.warn({ ip: req.ip }, "[AutoHeal] ⛔ رُفض — مصدر خارجي");

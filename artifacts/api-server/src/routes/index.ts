@@ -59,6 +59,8 @@ import erpLedgerRouter             from "../modules/financial/erp-ledger";
 import reconciliationRouter        from "../modules/financial/reconciliation";
 import financialGuardRouter        from "../modules/financial/financial-guard";
 import financialCompletionsRouter  from "../modules/financial/financial-completions";
+import feeAgreementsRouter         from "../modules/legal-core/feeAgreements";
+import refundWorkflowRouter        from "../modules/financial/refundWorkflow";
 
 // ── AI ───────────────────────────────────────────────────────────────────────
 import aiGatewayRouter        from "../modules/ai/aiGateway";
@@ -224,6 +226,8 @@ router.use(erpLedgerRouter);
 router.use(reconciliationRouter);
 router.use(financialGuardRouter);
 router.use(financialCompletionsRouter);
+router.use(feeAgreementsRouter);
+router.use(refundWorkflowRouter);
 
 // AI — Gateway first (unified entry point)
 router.use(aiGatewayRouter);

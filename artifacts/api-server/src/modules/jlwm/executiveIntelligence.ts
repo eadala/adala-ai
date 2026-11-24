@@ -3,6 +3,9 @@
  * Generates Office Intelligence Reports: weekly/monthly summaries,
  * revenue forecasts, risk concentration, lawyer performance, client risk.
  * All data is tenant-isolated via office_id.
+ *
+ * Schema authority: Migration 035 (Stage 4C).
+ * ensureExecutiveTable is SELECT-only readiness (no CREATE/INDEX).
  */
 
 import { Router }                from "express";
@@ -18,34 +21,17 @@ const EI_SYSTEM = `أنت نظام الذكاء التنفيذي JLWM — مست
 مهمتك تحليل أداء المكتب وإنتاج تقارير تنفيذية عالية الجودة بالعربية.
 كن دقيقاً وعملياً. استند للأرقام الفعلية. لا تختلق بيانات. أعد JSON فقط بدون أي نص إضافي.`;
 
-/* ── DB Bootstrap ────────────────────────────────────────────── */
+/* ── SELECT-only readiness (Migration 035) ───────────────────── */
 export async function ensureExecutiveTable(): Promise<void> {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS jlwm_executive_reports (
-      id                  TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      office_id           TEXT NOT NULL,
-      report_type         TEXT NOT NULL DEFAULT 'weekly',
-      period_start        TIMESTAMPTZ NOT NULL,
-      period_end          TIMESTAMPTZ NOT NULL,
-      executive_summary   TEXT,
-      kpis                JSONB NOT NULL DEFAULT '{}',
-      revenue_forecast    JSONB NOT NULL DEFAULT '{}',
-      risk_concentration  JSONB NOT NULL DEFAULT '{}',
-      lawyer_performance  JSONB NOT NULL DEFAULT '[]',
-      client_risk         JSONB NOT NULL DEFAULT '[]',
-      opportunities       JSONB NOT NULL DEFAULT '[]',
-      alerts              JSONB NOT NULL DEFAULT '[]',
-      generated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      model_used          TEXT,
-      generation_ms       INT
-    )
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jer_office ON jlwm_executive_reports(office_id)
-  `).catch(() => {});
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_jer_type ON jlwm_executive_reports(office_id, report_type, generated_at DESC)
-  `).catch(() => {});
+  const { rows } = await db.execute(sql`
+    SELECT to_regclass('public.jlwm_executive_reports') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  if (!(rows[0] as { ok?: boolean } | undefined)?.ok) {
+    console.error(
+      "[JLWM] Migration 035 satellite schema not ready — missing jlwm_executive_reports",
+      "(apply artifacts/api-server/migrations/035_jlwm_satellites_schema_authority.sql)",
+    );
+  }
 }
 
 /* ── Data Collectors ─────────────────────────────────────────── */

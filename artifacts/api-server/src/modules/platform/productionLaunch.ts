@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 orphan AI refs remediation */
 /**
  * Production Launch Center — مركز إطلاق الإنتاج
  * ══════════════════════════════════════════════
@@ -20,22 +21,23 @@ async function qOne(query: string): Promise<any> {
   return (await q(query))[0] ?? null;
 }
 
-/* ── ensure launch_events table ── */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS launch_events (
-      id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      launched_by   TEXT NOT NULL,
-      phase         TEXT NOT NULL DEFAULT 'production',
-      gate_score    INT,
-      decision      TEXT,
-      notes         TEXT,
-      docker_config TEXT,
-      launched_at   TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+/* ── readiness — schema owned by Migration 054 ── */
+let launchEventsSchemaReady = false;
+async function ensureLaunchEventsSchemaReady() {
+  if (launchEventsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.launch_events') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[productionLaunch] Migration 054 schema not ready — launch_events missing");
+      return;
+    }
+    launchEventsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables().catch(() => {});
+ensureLaunchEventsSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════════════════════════
    GET /api/production-launch/readiness
@@ -79,8 +81,9 @@ router.get("/production-launch/readiness", requireSuperAdmin, async (req, res) =
     });
 
     /* ── 2. AI GATEWAY LAYER ── */
-    const aiLogs = await qOne(`SELECT COUNT(*) AS n FROM ai_assistant_logs`);
-    const aiCredits = await qOne(`SELECT COUNT(*) AS n FROM ai_credits`);
+    const aiLogs = await qOne(`SELECT COUNT(*) AS n FROM ai_assistant_logs`).catch(() => ({ n: 0 }));
+    /* Migration 039 authority — office_ai_credits (balance/allowance), not obsolete ai_credits */
+    const aiCredits = await qOne(`SELECT COUNT(*) AS n FROM office_ai_credits`).catch(() => ({ n: 0 }));
     const aiSanitizer = true; // built in src/core/promptSanitizer.ts
     layers.push({
       id: "ai",
@@ -162,10 +165,10 @@ router.get("/production-launch/readiness", requireSuperAdmin, async (req, res) =
       color: "orange",
       score: 70,
       checks: [
-        { label: "SSL/TLS مُهيَّأ على Replit", ok: true },
+        { label: "SSL/TLS مُهيَّأ على Hetzner + Coolify", ok: true },
         { label: "Cloudflare WAF — يحتاج تهيئة يدوية", ok: false },
         { label: "Rate limiting edge-level — يحتاج تهيئة", ok: false },
-        { label: "DDoS protection — Replit managed", ok: true },
+        { label: "DDoS protection — Cloudflare / host-level", ok: true },
       ],
       components: ["Cloudflare DNS", "WAF Rules", "DDoS Protection", "SSL Termination"],
     });

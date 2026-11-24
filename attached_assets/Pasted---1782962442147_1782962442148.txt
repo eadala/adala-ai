@@ -1,0 +1,136 @@
+بناءً على كل التقارير السابقة، لا أنصح بتنفيذ التعديلات مباشرة دون إثباتها. هناك عدة فرضيات في التقرير (مثل أن Replit يحقن مفتاح Live تلقائياً)، وهي تحتاج إلى تحقق فعلي قبل تغيير الكود.
+
+هذا هو الأمر الاحترافي الذي أنصح بإرساله للمطور أو Agent:
+
+⸻
+
+P0 Engineering Directive — Clerk Production Root Cause Verification (Evidence Required)
+
+لا تقم بأي تعديل أو Publish أو تغيير على الكود قبل إنهاء هذا التدقيق.
+
+يوجد لدينا عدة فرضيات، لكن المطلوب الآن هو إثبات السبب الجذري بالأدلة وليس بالتخمين.
+
+المرحلة الأولى — التحقق من صحة الفرضيات
+
+1. تحقق من مفاتيح Clerk المستخدمة فعلياً أثناء Build
+
+اعرض القيم التالية أثناء عملية البناء (مع إخفاء معظم المفتاح والاكتفاء بالبادئة):
+
+* CLERK_SECRET_KEY
+* CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PROXY_URL
+
+يجب توضيح:
+
+* هل هي pk_live أم pk_test
+* هل تأتي من Secrets أم من Environment Variables
+* هل تختلف بين Workspace وProduction
+
+⸻
+
+2. تحقق من Bundle الإنتاج
+
+بعد Build افتح ملفات dist.
+
+ابحث عن:
+
+pk_live_
+pk_test_
+/api/__clerk
+clerk.adalahai.com
+publishableKeyFromHost
+proxyUrl
+
+وأرفق النتائج كاملة.
+
+⸻
+
+3. تحقق من Deployment الحقيقي
+
+بعد Publish مباشرة اعرض:
+
+curl -I https://adalahai.com
+
+ثم
+
+curl https://adalahai.com/api/__clerk/v1/environment
+
+ثم
+
+curl -I https://adalahai.com/assets/*.js
+
+مع:
+
+* Last-Modified
+* ETag
+* Cache-Control
+* CF-Cache-Status
+
+للتأكد أن الـ Production Container يستخدم الـ Build الجديد وليس ملفات قديمة.
+
+⸻
+
+4. تحقق من إعدادات Clerk
+
+أثبت بالأدلة:
+
+* هل النطاق adalahai.com مضاف داخل Clerk؟
+* هل يوجد Custom Domain؟
+* هل يوجد Proxy Configuration؟
+* هل توجد Authorized Origins؟
+* هل توجد Allowed Redirect URLs؟
+
+مع لقطات شاشة أو مخرجات API.
+
+⸻
+
+5. التحقق من سبب host_invalid
+
+حدد أي سبب هو الصحيح:
+
+* عدم تسجيل النطاق في Clerk.
+* استخدام Publishable Key غير مطابق.
+* Secret Key من Instance مختلف.
+* Proxy Configuration غير صحيح.
+* DNS لـ clerk.adalahai.com.
+* غياب VITE_CLERK_PROXY_URL.
+* سبب آخر.
+
+يجب اختيار سبب واحد مدعوم بالأدلة.
+
+⸻
+
+المرحلة الثانية — الإصلاح
+
+بعد إثبات السبب الجذري فقط:
+
+* نفذ أقل تعديل ممكن.
+* لا تغير أكثر من ملف إذا لم يكن ذلك ضرورياً.
+* لا تضف Workaround.
+* لا تضف Hack.
+* لا تضف أي منطق مؤقت.
+
+⸻
+
+المرحلة الثالثة — إثبات نجاح الإصلاح
+
+أرفق الأدلة التالية:
+
+* /api/__clerk/v1/environment → 200
+* Clerk.isLoaded = true
+* اختفاء شاشة التحميل.
+* تحميل الصفحة الرئيسية بالكامل.
+* تسجيل الدخول.
+* تسجيل مستخدم جديد.
+* تسجيل الخروج.
+* دخول لوحة التحكم.
+* عدم وجود host_invalid.
+* اسم الـ Bundle الجديد.
+* Commit SHA المنشور.
+* Deployment ID.
+* Build Logs كاملة.
+
+⸻
+
+لا أريد تقريراً نظرياً. أريد تقريراً مبنياً على أدلة تشغيل فعلية (Evidence-Based Root Cause Analysis) يثبت السبب الحقيقي ثم يثبت نجاح الإصلاح.

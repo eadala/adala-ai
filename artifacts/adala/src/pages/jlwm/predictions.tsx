@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState }                                    from "react";
 import { useQuery, useMutation, useQueryClient }       from "@tanstack/react-query";
 import {
@@ -11,6 +12,7 @@ import { Button }    from "@/components/ui/button";
 import { Progress }  from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast }  from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ──────────────────────────────────────────────────── */
 interface CasePredictions {
@@ -65,7 +67,7 @@ function CasePredictionsPanel({ caseId, caseTitle }: { caseId: string; caseTitle
   const { data, isLoading } = useQuery({
     queryKey: ["jlwm", "predictions", "case", caseId],
     queryFn: async () => {
-      const r = await fetch(`/api/jlwm/predictions/case/${caseId}`);
+      const r = await authFetch(`/api/jlwm/predictions/case/${caseId}`);
       if (!r.ok) throw new Error();
       return r.json() as Promise<{ exists: boolean; predictions: CasePredictions; createdAt: string }>;
     },
@@ -75,7 +77,7 @@ function CasePredictionsPanel({ caseId, caseTitle }: { caseId: string; caseTitle
 
   const genMut = useMutation({
     mutationFn: async (force: boolean) => {
-      const r = await fetch(`/api/jlwm/predictions/case/${caseId}`, {
+      const r = await authFetch(`/api/jlwm/predictions/case/${caseId}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force }),
       });
       if (!r.ok) throw new Error("فشل التحليل");
@@ -195,7 +197,7 @@ function RevenueForecastPanel() {
   const { data, isLoading, refetch } = useQuery<RevenueForecast>({
     queryKey: ["jlwm", "predictions", "revenue"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/predictions/revenue", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const r = await authFetch("/api/jlwm/predictions/revenue", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       if (!r.ok) throw new Error();
       return r.json();
     },
@@ -278,7 +280,7 @@ export default function PredictionsPage() {
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-list-pred"],
     queryFn: async () => {
-      const r = await fetch("/api/cases?limit=50&status=active");
+      const r = await authFetch("/api/cases?limit=50&status=active");
       if (!r.ok) return [];
       const d = await r.json();
       return Array.isArray(d) ? d : (d.cases ?? d.data ?? []);
@@ -289,7 +291,7 @@ export default function PredictionsPage() {
   const { data: summary } = useQuery({
     queryKey: ["jlwm", "predictions", "summary"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/predictions/summary");
+      const r = await authFetch("/api/jlwm/predictions/summary");
       if (!r.ok) return null;
       return r.json();
     },

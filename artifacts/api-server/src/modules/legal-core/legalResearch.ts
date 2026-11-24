@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing; Gemini auth hardening */
 import { requireAuth } from "../../middlewares/requireAuth";
 import { Router } from "express";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 const router = Router();
 
@@ -52,7 +58,7 @@ async function semanticSearch(query: string, category: string): Promise<{ result
     return { ...item, score };
   }).filter(i => i.score > 0).sort((a, b) => b.score - a.score);
 
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
@@ -63,10 +69,10 @@ async function semanticSearch(query: string, category: string): Promise<{ result
   try {
     if (GEMINI_KEY && scored.length > 0) {
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        geminiGenerateContentUrl("gemini-2.5-flash"),
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: geminiApiHeaders(GEMINI_KEY),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { maxOutputTokens: 512 },

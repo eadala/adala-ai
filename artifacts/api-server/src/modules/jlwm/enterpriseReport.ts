@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 18 ownership only */
 /**
  * JLWM Enterprise Platform Integration, Security & Reliability Framework
  *
@@ -23,6 +24,7 @@ import { db }                    from "@workspace/db";
 import { sql }                   from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { auditLog }              from "../../lib/auditLogger";
+import { logJlwmSkip, resolveJlwmOfficeId } from "../../lib/jlwmOwnership";
 
 const router = Router();
 
@@ -271,7 +273,12 @@ async function checkAIIntegration(officeId: string): Promise<{
         COUNT(DISTINCT model_used) AS models_count
       FROM jlwm_ai_audit WHERE office_id = ${officeId}
     `),
-    qOne(sql`SELECT COALESCE(SUM(credits_used),0)::int AS used FROM ai_credits WHERE office_id=${officeId}`).catch(() => ({ used: 0 })),
+    /* Migration 039: usage debits from ai_credit_transactions (not obsolete ai_credits) */
+    qOne(sql`
+      SELECT COALESCE(SUM(ABS(amount)),0)::int AS used
+      FROM ai_credit_transactions
+      WHERE office_id = ${officeId} AND type = 'usage'
+    `).catch(() => ({ used: 0 })),
   ]);
 
   const models = await qAll(sql`
@@ -660,10 +667,24 @@ router.get("/jlwm/enterprise/backup-status", requireAuthWithTenant, async (req, 
 /**
  * rebuildJLWMFromLiveData — rebuilds all JLWM live-sync tables from real office data.
  * Called by sync-all and by EventBus listeners on case/client changes.
+ * Stage 18 — refuse all tenant reads/writes unless officeId is a canonical Office UUID.
  */
-export async function rebuildJLWMFromLiveData(officeId: string, triggeredBy = "manual"): Promise<{
+export async function rebuildJLWMFromLiveData(officeIdRaw: string, triggeredBy = "manual"): Promise<{
   worldState: boolean; caseTwins: number; clientTwins: number; memoryNodes: number;
 }> {
+  const officeId = resolveJlwmOfficeId(officeIdRaw);
+  if (!officeId) {
+    logJlwmSkip({
+      trigger: triggeredBy,
+      officeIdRaw,
+      reason:
+        officeIdRaw == null || officeIdRaw === ""
+          ? "MISSING_CANONICAL_OFFICE_UUID"
+          : "NON_UUID_OFFICE_ID",
+    });
+    return { worldState: false, caseTwins: 0, clientTwins: 0, memoryNodes: 0 };
+  }
+
   /* ── 1. Gather live metrics ──────────────────────────────────── */
   const [caseStats, clientStats, taskStats, finStats, invoiceStats, hearingStats] =
     await Promise.all([
@@ -793,7 +814,10 @@ export async function rebuildJLWMFromLiveData(officeId: string, triggeredBy = "m
     `).catch(() => ({}));
     const invRow = await qOne(sql`
       SELECT COALESCE(SUM(total_amount),0)::float AS exposure
-      FROM client_invoices WHERE case_id=${c.id} AND status IN ('pending','overdue')
+      FROM client_invoices
+      WHERE case_id=${c.id}
+        AND office_id=${officeId}
+        AND status IN ('pending','overdue')
     `).catch(() => ({}));
     const tot = Number(taskRow.total ?? 0);
     const don = Number(taskRow.done  ?? 0);

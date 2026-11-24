@@ -6,24 +6,22 @@ import { sql } from "drizzle-orm";
 const router = Router();
 
 /* ══════════════════════════════════════════════
-   ENSURE TABLES
+   Readiness — schema owned by Migration 055
 ══════════════════════════════════════════════ */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS organization_units (
-      id          SERIAL PRIMARY KEY,
-      firm_id     TEXT NOT NULL DEFAULT 'default',
-      name        TEXT NOT NULL,
-      type        TEXT NOT NULL DEFAULT 'DEPARTMENT',
-      parent_id   INTEGER REFERENCES organization_units(id) ON DELETE SET NULL,
-      manager_id  TEXT,
-      manager_name TEXT,
-      status      TEXT NOT NULL DEFAULT 'active',
-      description TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
+let orgUnitsSchemaReady = false;
+async function ensureOrgUnitsSchemaReady() {
+  if (orgUnitsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.organization_units') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[orgStructure] Migration 055 schema not ready — organization_units missing");
+      return;
+    }
+    orgUnitsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 async function sqlAll(q: any): Promise<any[]> {
@@ -43,7 +41,7 @@ async function sqlOne(q: any): Promise<any> {
 
 /* GET all units */
 router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const units = await sqlAll(sql`
       SELECT * FROM organization_units ORDER BY created_at ASC
@@ -54,7 +52,7 @@ router.get("/org-units", requireAuthWithTenant, async (_req, res) => {
 
 /* GET single unit */
 router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const unit = await sqlOne(sql`SELECT * FROM organization_units WHERE id = ${parseInt(String(req.params.id))}`);
     if (!unit) return res.status(404).json({ error: "الوحدة غير موجودة" });
@@ -64,7 +62,7 @@ router.get("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 
 /* GET unit stats */
 router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   const id = parseInt(String(req.params.id));
   try {
     const [cases, clients, contracts, invoicesAgg] = await Promise.all([
@@ -85,7 +83,7 @@ router.get("/org-units/:id/stats", requireAuthWithTenant, async (req, res) => {
 
 /* GET dashboard aggregate stats */
 router.get("/org-units-dashboard", requireAuthWithTenant, async (_req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const [total, active, byType, topUnits] = await Promise.all([
       sqlOne(sql`SELECT COUNT(*)::int as count FROM organization_units`),
@@ -112,7 +110,7 @@ router.get("/org-units-dashboard", requireAuthWithTenant, async (_req, res) => {
 
 /* POST create unit */
 router.post("/org-units", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const { name, type, parentId, managerId, managerName, description } = req.body as {
       name: string; type: string; parentId?: number | null;
@@ -131,7 +129,7 @@ router.post("/org-units", requireAuthWithTenant, async (req, res) => {
 
 /* PATCH update unit */
 router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const tid = (req as any).tenantId as string;
     const { name, type, parentId, managerId, managerName, description, status } = req.body as any;
@@ -157,7 +155,7 @@ router.patch("/org-units/:id", requireAuthWithTenant, async (req, res) => {
 
 /* PATCH move unit (change parent) */
 router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const tid = (req as any).tenantId as string;
     const { parentId } = req.body as { parentId: number | null };
@@ -172,7 +170,7 @@ router.patch("/org-units/:id/move", requireAuthWithTenant, async (req, res) => {
 
 /* PATCH toggle status */
 router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const tid = (req as any).tenantId as string;
     const { status } = req.body as { status: string };
@@ -187,7 +185,7 @@ router.patch("/org-units/:id/status", requireAuthWithTenant, async (req, res) =>
 
 /* DELETE unit */
 router.delete("/org-units/:id", requireAuthWithTenant, async (req, res) => {
-  await ensureTables();
+  await ensureOrgUnitsSchemaReady();
   try {
     const tid = (req as any).tenantId as string;
     const children = await sqlOne(sql`SELECT id FROM organization_units WHERE parent_id = ${parseInt(String(req.params.id))} AND office_id = ${tid} LIMIT 1`);

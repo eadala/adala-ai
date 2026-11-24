@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,14 +18,25 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
+import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type RemindersPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 const empty = () => ({ title: "", body: "", dueDate: "", dueTime: "", priority: "medium", category: "general", caseId: "" });
 
 export default function RemindersPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(empty());
@@ -46,21 +58,34 @@ export default function RemindersPage() {
     { value: "meeting",  label: tx("اجتماع", "Meeting") },
   ];
 
-  const { data: rows = [], isLoading } = useQuery<any[]>({
-    queryKey: ["reminders", filter],
-    queryFn: () => {
-      const q = filter === "pending" ? "?done=false" : filter === "done" ? "?done=true" : "";
-      return fetch(`${BASE}/api/reminders${q}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+  const { data: pageRes, isLoading } = useQuery<RemindersPageResponse>({
+    queryKey: ["reminders", filter, page],
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(page),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (filter === "pending") p.set("done", "false");
+      else if (filter === "done") p.set("done", "true");
+      const r = await authFetch(`${BASE}/api/reminders?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return { data: json, total: json.length, page: 1, limit: json.length || LEGAL_LIST_PAGE_SIZE, pages: 1 };
+      }
+      return json as RemindersPageResponse;
     },
     staleTime: 60_000,
     refetchInterval: 2 * 60_000,
   });
+  const rows = pageRes?.data ?? [];
+  const listTotal = Number(pageRes?.total ?? 0);
 
   const saveMut = useMutation({
     mutationFn: (data: any) => {
       const url = editing ? `${BASE}/api/reminders/${editing.id}` : `${BASE}/api/reminders`;
       const method = editing ? "PATCH" : "POST";
-      return fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      return authFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
@@ -73,7 +98,7 @@ export default function RemindersPage() {
 
   const doneMut = useMutation({
     mutationFn: ({ id, done }: { id: number; done: boolean }) =>
-      fetch(`${BASE}/api/reminders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/reminders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
       qc.invalidateQueries({ queryKey: ["reminders-count"] });
@@ -82,7 +107,7 @@ export default function RemindersPage() {
   });
 
   const delMut = useMutation({
-    mutationFn: (id: number) => fetch(`${BASE}/api/reminders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: number) => authFetch(`${BASE}/api/reminders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
       qc.invalidateQueries({ queryKey: ["reminders-count"] });
@@ -134,7 +159,7 @@ export default function RemindersPage() {
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key as any)}
+            onClick={() => { setFilter(tab.key as any); setPage(1); }}
             className={cn(
               "px-4 py-1.5 text-sm font-medium rounded-t transition-colors",
               filter === tab.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
@@ -221,6 +246,13 @@ export default function RemindersPage() {
               </Card>
             );
           })}
+          <ListPagination
+            page={page}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={listTotal}
+            onPageChange={setPage}
+            dir={dir}
+          />
         </div>
       )}
 

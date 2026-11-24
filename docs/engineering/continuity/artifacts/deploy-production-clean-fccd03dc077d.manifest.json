@@ -1,0 +1,12 @@
+{
+  "directive_id": "ADALA-CD-FINAL-ACTIVATION-003",
+  "deployment_branch": "deploy/production",
+  "clean_commit": "fccd03dc077d24c53078180549469c9840c19754",
+  "tree": "d782e05f20d5f64189c39cd8b6e4e18dacf99f94",
+  "source_tip": "a68e645cb39ff16a38dc5f2c9ce4bf38d32a0e2e",
+  "bundle": "docs/engineering/continuity/artifacts/deploy-production-clean-fccd03dc077d.bundle",
+  "created_at_utc": "2026-11-23T21:21:03Z",
+  "public_push": "NOT_PERFORMED",
+  "coolify_activation": "NOT_PERFORMED",
+  "note": "Push only after credential revocation verified + owner approval; use this orphan history only."
+}

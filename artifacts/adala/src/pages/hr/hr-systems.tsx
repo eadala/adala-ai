@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,8 @@ import {
   Stamp, ExternalLink, RefreshCw, BarChart3, UserCheck,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { authFetch } from "@/lib/authFetch";
+import { EmployeeSearchSelect } from "@/components/employee-search-select";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -222,7 +225,7 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
 
   const mut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/hr-internal/announcements`, {
+      const r = await authFetch(`${BASE}/api/hr-internal/announcements`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, content: form.content, priority: form.priority, targetDept: form.targetDept || null, expiresAt: form.expiresAt || null }),
       });
@@ -285,7 +288,7 @@ function AnnouncementDialog({ open, onClose }: { open: boolean; onClose: () => v
 }
 
 /* ══════════════════════════════════════════════ REQUEST DIALOG */
-function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: () => void; employees: any[] }) {
+function RequestDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState({ employeeId: "", type: "salary_cert", subject: "", body: "" });
@@ -296,7 +299,7 @@ function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: (
 
   const mut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/hr-internal/requests`, {
+      const r = await authFetch(`${BASE}/api/hr-internal/requests`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId: form.employeeId, type: form.type, subject: form.subject, body: form.body }),
       });
@@ -318,10 +321,12 @@ function RequestDialog({ open, onClose, employees }: { open: boolean; onClose: (
           <div className="grid grid-cols-2 gap-3 mobile-single-col">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">الموظف *</Label>
-              <Select value={form.employeeId} onValueChange={v => upd("employeeId", v)}>
-                <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
-                <SelectContent>{employees.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.full_name}</SelectItem>)}</SelectContent>
-              </Select>
+              <EmployeeSearchSelect
+                value={form.employeeId}
+                onValueChange={v => upd("employeeId", v)}
+                status="active"
+                placeholder="ابحث عن موظف..."
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">نوع الطلب</Label>
@@ -372,7 +377,7 @@ function RespondDialog({ open, onClose, request }: { open: boolean; onClose: () 
 
   const mut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/hr-internal/requests/${request.id}`, {
+      const r = await authFetch(`${BASE}/api/hr-internal/requests/${request.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, response }),
       });
@@ -431,44 +436,38 @@ export default function HRSystems() {
   const [payslipTarget, setPayslipTarget] = useState<any>(null);
   const [balYear, setBalYear] = useState(String(new Date().getFullYear()));
 
-  const { data: employees = [] } = useQuery<any[]>({
-    queryKey: ["hr-employees-list"],
-    queryFn: () => fetch(`${BASE}/api/hr/employees`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
-  });
-  const activeEmps = employees.filter((e: any) => e.status === "active");
-
   const { data: dash } = useQuery<any>({
     queryKey: ["hr-internal-dash"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr-internal/dashboard`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: announcements = [], isLoading: annLoading } = useQuery<any[]>({
     queryKey: ["announcements"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/announcements/all`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr-internal/announcements/all`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: requests = [], isLoading: reqLoading } = useQuery<any[]>({
     queryKey: ["emp-requests"],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/requests`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr-internal/requests`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: balances = [], isLoading: balLoading } = useQuery<any[]>({
     queryKey: ["leave-balances", balYear],
-    queryFn: () => fetch(`${BASE}/api/hr-internal/leave-balances?year=${balYear}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr-internal/leave-balances?year=${balYear}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: payrollList = [] } = useQuery<any[]>({
     queryKey: ["payroll"],
-    queryFn: () => fetch(`${BASE}/api/hr/payroll`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/hr/payroll`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const delAnn = useMutation({
-    mutationFn: (id: number) => fetch(`${BASE}/api/hr-internal/announcements/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => authFetch(`${BASE}/api/hr-internal/announcements/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["announcements"] }); toast({ title: "تم الحذف" }); },
   });
 
   const delReq = useMutation({
-    mutationFn: (id: number) => fetch(`${BASE}/api/hr-internal/requests/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => authFetch(`${BASE}/api/hr-internal/requests/${id}`, { method: "DELETE" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["emp-requests"] }); toast({ title: "تم الحذف" }); },
   });
 
@@ -503,7 +502,7 @@ export default function HRSystems() {
           { label: "إعلانات نشطة",    value: dash?.announcements ?? 0,    icon: Megaphone,     color: "#6366F1" },
           { label: "طلبات معلّقة",    value: dash?.pendingRequests ?? 0,  icon: Clock,          color: "#F59E0B" },
           { label: "إجازات معلّقة",   value: dash?.pendingLeaves ?? 0,    icon: CalendarDays,   color: "#EF4444" },
-          { label: "موظفون نشطون",    value: dash?.totalEmployees ?? activeEmps.length, icon: Users, color: "#10B981" },
+          { label: "موظفون نشطون",    value: dash?.totalEmployees ?? 0, icon: Users, color: "#10B981" },
         ].map(c => (
           <div key={c.label} className="rounded-2xl border border-border/50 bg-card p-3 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${c.color}15` }}>
@@ -764,7 +763,7 @@ export default function HRSystems() {
 
       {/* Dialogs */}
       <AnnouncementDialog open={annDialog} onClose={() => setAnnDialog(false)} />
-      <RequestDialog open={reqDialog} onClose={() => setReqDialog(false)} employees={activeEmps} />
+      <RequestDialog open={reqDialog} onClose={() => setReqDialog(false)} />
       {respondTarget && <RespondDialog open onClose={() => setRespondTarget(null)} request={respondTarget} />}
       {payslipTarget && <PayslipModal payroll={payslipTarget} onClose={() => setPayslipTarget(null)} />}
     </div>

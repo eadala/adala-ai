@@ -1,0 +1,92 @@
+هذا التشخيص يبدو أكثر قوة من الفرضيات السابقة لأنه يربط المشكلة بسلوك معروف في تطبيقات Vite:
+
+* أثناء Build، يتم حقن متغيرات VITE_* في الـ bundle.
+* إذا لم يكن VITE_CLERK_PROXY_URL موجودًا وقت البناء، فسيصبح undefined داخل الـ bundle، ولن يفيد إضافته لاحقًا كمتغير بيئة دون إعادة بناء.
+* إذا أصبح proxyUrl يُشتق وقت التشغيل من:
+
+`${window.location.origin}/api/__clerk`
+
+    فلن يعتمد على حقن متغير البيئة، وسيعمل على أي نطاق يُخدَّم منه التطبيق، بشرط أن يكون مسار /api/__clerk نفسه يعمل بشكل صحيح.
+
+لكن لا يمكن الجزم بأن هذا هو الحل النهائي قبل التحقق بعد النشر.
+
+أرسل هذا التوجيه الاحترافي:
+
+⸻
+
+P0 Final Production Verification — Runtime-Derived Clerk Proxy
+
+تم استبدال الاعتماد على VITE_CLERK_PROXY_URL داخل الـ bundle باشتقاق proxyUrl أثناء التشغيل (Runtime) باستخدام:
+
+const proxyUrl = `${window.location.origin}/api/__clerk`;
+
+الهدف هو إزالة الاعتماد على متغيرات VITE_* التي تُحقن فقط أثناء بناء Vite، وضمان أن يعمل التطبيق على أي نطاق إنتاجي دون الحاجة إلى إعادة ضبط proxyUrl لكل بيئة.
+
+المطلوب بعد الضغط على Publish
+
+لا تعتبر المهمة ناجحة حتى يتم تنفيذ جميع خطوات التحقق التالية بالأدلة.
+
+المرحلة 1 — Bundle Verification
+
+تحقق من:
+
+* اسم ملف index-*.js
+* أن الـ Hash تغير عن الإصدار السابق.
+* أن الـ bundle لم يعد يحتوي على:
+    * proxyUrl: undefined
+    * أو أي قيمة فارغة لـ proxyUrl.
+
+المرحلة 2 — Clerk Proxy Verification
+
+اختبر:
+
+* GET /api/__clerk/v1/environment
+* GET /api/__clerk/v1/client
+* GET /api/__clerk/v1/me
+
+ويجب عرض:
+
+* HTTP Status
+* Response Headers
+* Response Body
+
+ويجب أن يختفي host_invalid بالكامل.
+
+المرحلة 3 — Authentication Flow
+
+اختبر التسلسل الكامل:
+
+Landing Page
+→ Sign In
+→ Clerk Initialization
+→ Session Creation
+→ Redirect
+→ Dashboard
+
+وحدد أي نقطة فشل إن وجدت.
+
+المرحلة 4 — Runtime Verification
+
+سجل القيم التالية أثناء التشغيل:
+
+* Clerk.loaded
+* useAuth().isLoaded
+* useAuth().isSignedIn
+* useUser().isLoaded
+* useUser().isSignedIn
+
+المرحلة 5 — Production Validation
+
+يجب إثبات جميع البنود التالية:
+
+* ✅ الصفحة الرئيسية تعمل.
+* ✅ صفحة تسجيل الدخول تعمل.
+* ✅ /api/__clerk/v1/environment يعيد HTTP 200.
+* ✅ اختفاء host_invalid.
+* ✅ Clerk.isLoaded === true.
+* ✅ نجاح إنشاء Session.
+* ✅ الوصول إلى Dashboard.
+* ✅ عدم وجود أخطاء JavaScript أو Runtime جديدة.
+* ✅ عدم وجود Regression في بقية وظائف النظام.
+
+لا تُعلن نجاح الإصلاح إلا بعد تقديم الأدلة (Network، Logs، Runtime، ولقطات شاشة عند الحاجة) التي تثبت اكتمال جميع عناصر التحقق السابقة.

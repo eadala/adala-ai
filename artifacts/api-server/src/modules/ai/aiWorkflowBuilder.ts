@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -11,26 +10,12 @@ const router = Router();
 const sqlAll = async (q: any) => { const r = await db.execute(q); return Array.isArray(r) ? r : (r as any).rows ?? []; };
 const sqlOne = async (q: any) => (await sqlAll(q))[0] ?? null;
 
-async function getOfficeId(reqOrUserId: any): Promise<string | null> {
+async function getOfficeId(userId: string): Promise<string | null> {
   try {
-    if (reqOrUserId && typeof reqOrUserId === "object") {
-      const t = reqOrUserId.tenantId as string | undefined;
-      if (t && t !== "platform") return t;
-      const userId = reqOrUserId.auth?.userId ?? reqOrUserId.userId ?? "";
-      if (!userId) return null;
-      const arr = await sqlAll(sql`
-        SELECT op.id FROM office_page op
-        JOIN office_members om ON om.office_id = op.id
-        WHERE om.user_id = ${userId} AND om.status = 'active' LIMIT 1
-      `);
-      return arr[0]?.id ?? null;
-    }
-    const userId = String(reqOrUserId ?? "");
-    if (!userId) return null;
     const arr = await sqlAll(sql`
       SELECT op.id FROM office_page op
       JOIN office_members om ON om.office_id = op.id
-      WHERE om.user_id = ${userId} AND om.status = 'active' LIMIT 1
+      WHERE om.user_id = ${userId} LIMIT 1
     `);
     return arr[0]?.id ?? null;
   } catch { return null; }
@@ -39,7 +24,7 @@ async function getOfficeId(reqOrUserId: any): Promise<string | null> {
 /* ── SECURITY: Super Admin OR explicit office grant ──────────────── */
 async function canUseWorkflowBuilder(req: any): Promise<boolean> {
   if (req.isSuperAdmin) return true;
-  const officeId = await getOfficeId(req);
+  const officeId = await getOfficeId(req.auth?.userId ?? req.userId ?? "");
   if (!officeId) return false;
   const grant = await sqlOne(sql`
     SELECT id FROM workflow_builder_grants
@@ -58,7 +43,7 @@ async function requireWorkflowAccess(req: any, res: any, next: any) {
 router.get("/ai-workflow/access-check", requireAuthWithTenant, async (req: any, res) => {
   try {
     const allowed = await canUseWorkflowBuilder(req);
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     let grant = null;
     if (officeId && !req.isSuperAdmin) {
       grant = await sqlOne(sql`SELECT * FROM workflow_builder_grants WHERE office_id = ${officeId}::uuid`);
@@ -153,7 +138,7 @@ router.post("/ai-workflow/generate", requireAuthWithTenant, requireWorkflowAcces
 
 router.get("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
   try {
-    const officeId = req.isSuperAdmin ? null : await getOfficeId(req);
+    const officeId = req.isSuperAdmin ? null : await getOfficeId(req.auth.userId);
     const rows = await sqlAll(
       officeId
         ? sql`SELECT id, name, description, status, run_count, last_run_at, created_at FROM ai_workflows WHERE office_id = ${officeId}::uuid ORDER BY created_at DESC`
@@ -165,7 +150,7 @@ router.get("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (
 
 router.post("/ai-workflow", requireAuthWithTenant, requireWorkflowAccess, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId && !req.isSuperAdmin) return res.status(404).json({ error: "لا يوجد مكتب" });
     const { name, description, prompt, graph_json } = req.body;
     const oid = officeId ?? "00000000-0000-0000-0000-000000000000";

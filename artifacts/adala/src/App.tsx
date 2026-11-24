@@ -1,9 +1,11 @@
+ 
 import { lazy, Suspense, useState, useEffect, useRef, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import Landing from "@/pages/landing"; // eager — public homepage must never be lazy-blocked
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth } from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +15,8 @@ import { useRole } from "@/hooks/use-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRouteAnalytics } from "@/hooks/use-route-analytics";
 import { OfficeThemeProvider } from "@/components/office-theme-provider";
+import { ClerkAuthFetchBridge } from "@/components/clerk-auth-fetch-bridge";
+import { authFetch } from "@/lib/authFetch";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 // Core (likely first visit)
@@ -40,14 +44,9 @@ const BranchesPage         = lazy(() => import("@/pages/platform/branches"));
 const AiTasks              = lazy(() => import("@/pages/ai/ai-tasks"));
 const AIRouterDashboard    = lazy(() => import("@/pages/ai/ai-router-dashboard"));
 const AIHub                = lazy(() => import("@/pages/ai/ai-hub"));
-const AICopilotPage        = lazy(() => import("@/pages/ai/ai-copilot"));
-const AiChat               = lazy(() => import("@/pages/ai/ai-chat"));
-const AdoulPage            = lazy(() => import("@/pages/legal-core/adoul"));
 const OpponentSimulator    = lazy(() => import("@/pages/legal-core/opponent-simulator"));
-const AiAgents             = lazy(() => import("@/pages/ai/ai-agents"));
 const CommandCenter        = lazy(() => import("@/pages/ai/command-center"));
 const LegalAIPage          = lazy(() => import("@/pages/legal-core/legal-ai"));
-const AIAssistant          = lazy(() => import("@/pages/ai/ai-assistant"));
 
 // Legal & Research
 const LegalResearch        = lazy(() => import("@/pages/legal-core/legal-research"));
@@ -218,20 +217,24 @@ const queryClient = new QueryClient({
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// Use the publishable key directly from the environment variable.
-// publishableKeyFromHost from @clerk/react/internal was throwing in production
-// for the .replit.app hostname, which was corrupting the Clerk singleton and
-// causing ClerkProvider to fail silently → blank page.
-const clerkPubKey: string = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? "";
+// REQUIRED — resolves the key from window.location.hostname so the same build
+// serves dev (pk_test) and prod (pk_live) without any NODE_ENV gates.
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
 
-// Replit sets VITE_CLERK_PROXY_URL to a relative path like "/api/__clerk"
-// Clerk v6 requires an absolute URL in production — expand at runtime.
-const _rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
-const clerkProxyUrl = _rawProxy
-  ? _rawProxy.startsWith("/")
-    ? `${window.location.origin}${_rawProxy}`
-    : _rawProxy
-  : undefined;
+// REQUIRED — in dev, never pass proxyUrl: shared env can leak a production
+// absolute URL into Vite's dev server, which breaks CSP and Clerk init.
+// In production, only pass proxyUrl when VITE_CLERK_PROXY_URL is set.
+// Custom-domain Clerk (clerk.adalahai.com) needs no proxyUrl.
+const clerkProxyUrl = import.meta.env.DEV
+  ? undefined
+  : (() => {
+      const rawProxy = import.meta.env.VITE_CLERK_PROXY_URL;
+      if (!rawProxy) return undefined;
+      return rawProxy.startsWith("http") ? rawProxy : `${window.location.origin}${rawProxy}`;
+    })();
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -502,7 +505,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     const errorId = this.state.errorId;
-    const label = (this.props as any).label ?? "root";
+    const label = this.props.label ?? "root";
     console.error(`[Adala][${label}][${errorId}]`, error.message, info.componentStack?.slice(0, 400));
     // Send to monitoring (non-blocking)
     try {
@@ -525,7 +528,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode; label?: string }
   render() {
     const { error, errorId } = this.state;
     if (error) {
-      const isModule = !!(this.props as any).label;
+      const isModule = !!this.props.label;
       if (isModule) {
         return (
           <div dir="rtl" style={{
@@ -675,7 +678,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["onboarding-state"],
-    queryFn: () => fetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
+    queryFn: () => authFetch(`${basePath}/api/onboarding/state`).then(r => r.json()),
     staleTime: 10 * 60 * 1000,
     retry: false,
     enabled: !skip,
@@ -796,6 +799,7 @@ function AppRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ClerkAuthFetchBridge />
       <ClerkQueryClientCacheInvalidator />
       <OfficeThemeProvider />
       <AppErrorBoundary>
@@ -816,7 +820,7 @@ function AppRoutes() {
 
             {/* ── Portal (public, before /:token catch-all) ── */}
             <Route path="/sign/:token">{({ token }: { token: string }) => <PublicPage><SignPage token={token} /></PublicPage>}</Route>
-            <Route path="/invoice/:token">{(p: any) => <Suspense fallback={<PageLoader />}><InvoicePublic token={p.token} /></Suspense>}</Route>
+            <Route path="/invoice/:token">{({ token }: { token: string }) => <Suspense fallback={<PageLoader />}><InvoicePublic token={token} /></Suspense>}</Route>
             <Route path="/portal/login"><PublicPage><PortalLogin /></PublicPage></Route>
             <Route path="/portal/my-cases"><PublicPage><PortalMyCases /></PublicPage></Route>
             <Route path="/portal/:token"><PublicPage><PortalView /></PublicPage></Route>
@@ -842,7 +846,9 @@ function AppRoutes() {
             <Route path="/clients/:id"><WorkspaceRoute><ClientDetail /></WorkspaceRoute></Route>
 
             {/* Documents */}
+            <Route path="/documents/new"><ProtectedRoute><Documents /></ProtectedRoute></Route>
             <Route path="/documents"><ProtectedRoute><Documents /></ProtectedRoute></Route>
+            <Route path="/contracts/new"><ProtectedRoute><Contracts /></ProtectedRoute></Route>
             <Route path="/contracts"><ProtectedRoute><Contracts /></ProtectedRoute></Route>
             <Route path="/letters"><ProtectedRoute><Letters /></ProtectedRoute></Route>
             <Route path="/warnings"><ProtectedRoute><Warnings /></ProtectedRoute></Route>
@@ -890,6 +896,7 @@ function AppRoutes() {
             <Route path="/compliance"><ProtectedRoute><Compliance /></ProtectedRoute></Route>
 
             {/* Finance */}
+            <Route path="/invoices/new"><ProtectedRoute><Invoices /></ProtectedRoute></Route>
             <Route path="/invoices"><ProtectedRoute><Invoices /></ProtectedRoute></Route>
             <Route path="/revenues"><ProtectedRoute><Revenues /></ProtectedRoute></Route>
             <Route path="/expenses"><ProtectedRoute><Expenses /></ProtectedRoute></Route>

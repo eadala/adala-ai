@@ -14,33 +14,18 @@ function getClerk() {
   return _clerk;
 }
 
+/* Migration 053 owns DDL; readiness only */
 (async () => {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS high_risk_op_log (
-        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        operation     TEXT NOT NULL,
-        user_id       TEXT NOT NULL,
-        office_id     TEXT,
-        ip_address    TEXT,
-        user_agent    TEXT,
-        confirmed_mfa BOOLEAN DEFAULT false,
-        confirmed_pwd BOOLEAN DEFAULT false,
-        result        TEXT DEFAULT 'pending',
-        metadata      JSONB DEFAULT '{}',
-        created_at    TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS recovery_codes (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     TEXT NOT NULL,
-        code_hash   TEXT NOT NULL,
-        used        BOOLEAN DEFAULT false,
-        used_at     TIMESTAMPTZ,
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_high_risk_op_user ON high_risk_op_log(user_id);
-      CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.high_risk_op_log') IS NOT NULL AS high_risk_op_log_present,
+        to_regclass('public.recovery_codes') IS NOT NULL AS recovery_codes_present
+    `) as any;
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.high_risk_op_log_present || !row.recovery_codes_present) {
+      console.error("[mfa-center] Migration 053 schema not ready — high_risk_op_log / recovery_codes missing");
+    }
   } catch {}
 })();
 

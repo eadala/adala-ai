@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -5,6 +6,11 @@ import { contractsTable } from "@workspace/db/schema";
 import { sql } from "drizzle-orm";
 import { callAI } from "../ai/aiChat";
 import { auditLog } from "../../lib/auditLogger";
+import {
+  MAX_PAGE_LIMIT,
+  parsePageLimit,
+  queryHasPageAndLimit,
+} from "../../lib/paginationSafety";
 
 const router = Router();
 
@@ -28,45 +34,8 @@ async function sqlAll<T = any>(q: string, params: any[] = []): Promise<T[]> {
   return ((r as any).rows ?? r) as T[];
 }
 
-// ── Ensure tables ──────────────────────────────────────────────────────────────
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS contract_categories (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), office_id TEXT,
-      name TEXT NOT NULL, name_en TEXT, icon TEXT DEFAULT 'FileText',
-      color TEXT DEFAULT '#6366F1', is_system BOOLEAN DEFAULT true,
-      sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_templates (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      category_id UUID REFERENCES contract_categories(id) ON DELETE SET NULL,
-      office_id TEXT, name TEXT NOT NULL, name_en TEXT, description TEXT,
-      content TEXT NOT NULL DEFAULT '', variables JSONB DEFAULT '[]',
-      is_system BOOLEAN DEFAULT true, usage_count INTEGER DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_versions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), contract_id UUID NOT NULL,
-      office_id TEXT, version_number INTEGER NOT NULL DEFAULT 1,
-      content TEXT, note TEXT, created_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS contract_ai_history (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), contract_id UUID NOT NULL,
-      office_id TEXT, action TEXT NOT NULL, prompt TEXT, result TEXT,
-      model_used TEXT, tokens_used INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS template_id UUID;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS value_amount TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS payment_method TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS lawyer_id TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS version_number INTEGER DEFAULT 1;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS optional_clauses JSONB DEFAULT '[]';
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS compliance_score TEXT;
-    ALTER TABLE contracts ADD COLUMN IF NOT EXISTS compliance_notes TEXT;
-  `);
-}
-ensureTables().catch(console.error);
+// Schema for contract_* tables + contracts column extensions:
+// artifacts/api-server/migrations/004_legal_core_extensions.sql (no Runtime DDL).
 
 // ── Saudi Legal Format Header ──────────────────────────────────────────────────
 function saudiHeader(title: string, party1Label = "الطرف الأول", party2Label = "الطرف الثاني") {
@@ -878,13 +847,48 @@ router.get("/contracts", requireAuthWithTenant, async (req, res) => {
   try {
     const tid = (req as any).tenantId;
     const { search, status, type } = req.query as Record<string, string>;
-    let q = "SELECT c.*, cl.full_name as client_name, cs.title as case_title FROM contracts c LEFT JOIN clients cl ON cl.id::text = c.client_id::text AND cl.office_id = c.office_id LEFT JOIN cases cs ON cs.id::text = c.case_id::text AND cs.office_id = c.office_id WHERE c.office_id = $1";
+    const paginated = queryHasPageAndLimit(req.query);
+    const { page, limit, offset } = paginated
+      ? parsePageLimit(req.query, 50)
+      : { page: 1, limit: MAX_PAGE_LIMIT, offset: 0 };
+
+    let where =
+      "FROM contracts c LEFT JOIN clients cl ON cl.id::text = c.client_id::text AND cl.office_id = c.office_id LEFT JOIN cases cs ON cs.id::text = c.case_id::text AND cs.office_id = c.office_id WHERE c.office_id = $1";
     const p: any[] = [tid];
-    if (search) { q += ` AND (c.title ILIKE $${p.length + 1} OR c.notes ILIKE $${p.length + 1})`; p.push(`%${search}%`); }
-    if (status && status !== "all") { q += ` AND c.status = $${p.length + 1}`; p.push(status); }
-    if (type && type !== "all") { q += ` AND c.type = $${p.length + 1}`; p.push(type); }
-    q += " ORDER BY c.created_at DESC";
-    res.json(await sqlAll(q, p));
+    if (search) {
+      where += ` AND (c.title ILIKE $${p.length + 1} OR c.notes ILIKE $${p.length + 1})`;
+      p.push(`%${search}%`);
+    }
+    if (status && status !== "all") {
+      where += ` AND c.status = $${p.length + 1}`;
+      p.push(status);
+    }
+    if (type && type !== "all") {
+      where += ` AND c.type = $${p.length + 1}`;
+      p.push(type);
+    }
+
+    const dataSql =
+      `SELECT c.*, cl.full_name as client_name, cs.title as case_title ${where} ORDER BY c.created_at DESC LIMIT $${p.length + 1} OFFSET $${p.length + 2}`;
+    const rows = await sqlAll(dataSql, [...p, limit, offset]);
+
+    if (!paginated) {
+      res.json(rows);
+      return;
+    }
+
+    const countRow = await sqlOne<{ total: string | number }>(
+      `SELECT COUNT(*)::int AS total ${where}`,
+      p,
+    );
+    const total = Number(countRow?.total ?? 0);
+    res.json({
+      data: rows,
+      total,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(total / limit)),
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

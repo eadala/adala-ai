@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useQuery } from "@tanstack/react-query";
 import {
   Crown, BrainCircuit, Target, BarChart3, AlertTriangle,
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -31,7 +33,7 @@ export function JLWMIntelligenceTab() {
   const { data: cooStats, isLoading: cooLoading } = useQuery({
     queryKey: ["sa", "jlwm", "coo-platform"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/coo/platform-stats`);
+      const r = await authFetch(`${BASE}/api/jlwm/coo/platform-stats`);
       if (!r.ok) throw new Error("غير مصرح");
       return r.json();
     },
@@ -41,7 +43,7 @@ export function JLWMIntelligenceTab() {
   const { data: accStats, isLoading: accLoading } = useQuery({
     queryKey: ["sa", "jlwm", "accuracy-stats"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/jlwm/accuracy/stats`);
+      const r = await authFetch(`${BASE}/api/jlwm/accuracy/stats`);
       if (!r.ok) return null;
       return r.json();
     },

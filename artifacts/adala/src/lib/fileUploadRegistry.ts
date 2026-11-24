@@ -11,6 +11,7 @@
 /* ── Types ────────────────────────────────────────────────────────── */
 
 export type UploadStorageProvider =
+  | "cloudflare_r2"
   | "replit_object_storage"
   | "db_base64"
   | "signed_url"
@@ -93,7 +94,7 @@ export const FILE_UPLOAD_REGISTRY: FileUploadPoint[] = [
     apiEndpoint:      "POST /api/document-center/upload",
     method:           "POST",
     auth:             "requireAuthWithTenant",
-    storageProvider:  "replit_object_storage",
+    storageProvider:  "cloudflare_r2",
     allowedMime: [
       "application/pdf",
       "application/msword",
@@ -170,7 +171,7 @@ export const FILE_UPLOAD_REGISTRY: FileUploadPoint[] = [
     apiEndpoint:      "POST /api/portal/:token/upload",
     method:           "POST",
     auth:             "portal_token",
-    storageProvider:  "replit_object_storage",
+    storageProvider:  "cloudflare_r2",
     allowedMime: [
       "application/pdf",
       "image/jpeg", "image/png", "image/gif",

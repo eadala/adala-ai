@@ -1,0 +1,159 @@
+يمكنك إرسال هذا التوجيه بصيغة حازمة واحترافية:
+
+⸻
+
+🚨 P0 Executive Engineering Directive — وقف جميع محاولات الإصلاح العشوائية
+
+من هذه اللحظة يُمنع تنفيذ أي تعديل جديد على الكود أو ملفات الإعداد أو البنية التحتية قبل تحديد السبب الجذري الحقيقي بالأدلة القاطعة.
+
+خلال المحاولات السابقة تم تغيير عدة عناصر (Clerk، Health Checks، artifact.toml، serve.mjs، proxyUrl، Build Configuration، Cache)، ومع ذلك ما زالت المشكلة قائمة. لذلك لن نقبل أي فرضيات جديدة دون إثبات.
+
+المطلوب
+
+إجراء تحقيق جنائي (Forensic Investigation) كامل لسلسلة النشر من البداية حتى نهاية التشغيل.
+
+يجب تتبع جميع المراحل التالية:
+
+Developer Commit
+        │
+GitHub Push
+        │
+CI Build
+        │
+Artifact Generation
+        │
+Artifact Upload
+        │
+Deployment Activation
+        │
+Health Checks
+        │
+Traffic Switch
+        │
+Production Runtime
+        │
+Browser
+
+⸻
+
+المطلوب إثباته لكل مرحلة
+
+لكل مرحلة يجب تقديم:
+
+* PASS أو FAIL
+* الدليل المباشر
+* Timestamp
+* Logs
+* Identifier (Build ID / Deployment ID / Revision)
+* السبب إذا فشلت
+
+ولا تُقبل أي استنتاجات بدون دليل.
+
+⸻
+
+المطلوب جمعه
+
+أولاً: Build
+
+أثبت بالأدلة:
+
+* هل بدأ Build جديد؟
+* هل انتهى Build؟
+* هل استُخدم Cache؟
+* هل أُنشئت ملفات dist الجديدة؟
+* ما أسماء الملفات الجديدة؟
+* ما Hash كل Bundle؟
+* ما وقت إنشاء كل ملف؟
+
+⸻
+
+ثانياً: Deployment
+
+أثبت:
+
+* Deployment ID
+* Active Revision
+* Previous Revision
+* Current Revision
+* هل حدث Traffic Switch فعلاً؟
+* هل الـ Origin يخدم الـ Revision الجديد أم القديم؟
+
+⸻
+
+ثالثاً: Production
+
+لكل أصل (Asset):
+
+* Last-Modified
+* ETag
+* Cache-Control
+* Content-Length
+* SHA256
+* Bundle Hash
+
+ثم قارنها بالملفات المحلية.
+
+⸻
+
+رابعاً: Runtime
+
+تحقق من:
+
+* React Bootstrap
+* Vite
+* Clerk
+* Auth
+* API
+* Static Assets
+* Network
+* Console
+* Browser Errors
+
+مع تحديد أول نقطة يتوقف عندها التطبيق.
+
+⸻
+
+ممنوع استخدام عبارات مثل
+
+* أعتقد
+* ربما
+* على الأغلب
+* يبدو
+* قد يكون
+* يُحتمل
+
+أي استنتاج يجب أن يستند إلى دليل مباشر من Logs أو Runtime أو Source Code أو Documentation.
+
+⸻
+
+إذا كان السبب هو Build Cache
+
+فيجب إثبات ذلك بالأدلة التالية:
+
+1. Cache Key المستخدم.
+2. Build Layer المعاد استخدامها.
+3. سبب إعادة الاستخدام.
+4. لماذا لم يُنفذ Build جديد.
+5. المرجع الرسمي الذي يثبت سلوك Replit.
+
+إذا تعذر إثبات هذه النقاط، فلا يجوز اعتبار Build Cache هو السبب الجذري.
+
+⸻
+
+التقرير النهائي المطلوب
+
+أريد تقريراً واحداً فقط يحتوي على:
+
+المرحلة	PASS / FAIL	الدليل	Root Cause
+
+وفي النهاية:
+
+1. Root Cause واحد فقط مدعوم بالأدلة.
+2. Minimal Fix يعالج السبب الجذري فقط.
+3. Risk Assessment يوضح تأثير الإصلاح.
+4. Rollback Plan في حال فشل الإصلاح.
+5. Verification Plan لإثبات نجاح الإصلاح بعد النشر.
+
+قاعدة العمل
+
+لن يتم قبول أي Commit أو Publish أو تعديل جديد قبل إغلاق التحقيق الفني وتحديد السبب الجذري الوحيد بالأدلة القاطعة. الهدف هو إنهاء المشكلة من جذورها، وليس الاستمرار في دورة من المحاولات والتخمينات.

@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ShieldCheck, Building2, Users, Package, Tag, KeyRound, Activity,
@@ -46,6 +46,7 @@ import {
 } from "recharts";
 import { API, useAdmin } from "../shared/api";
 import { StatCard } from "../shared/components";
+import { authFetch } from "@/lib/authFetch";
 import {
   PLAN_SLUG_COLORS, PLAN_SLUG_LABELS, PLAN_FEATURE_FLAGS, TABS,
   arabicToSlug, PERM_LABELS
@@ -74,31 +75,29 @@ export function GlobalControlTab({ toast }: { toast: any }) {
   const [changingPlan, setChangingPlan] = useState<{ id: string; name: string } | null>(null);
   const [newPlan, setNewPlan] = useState("pro");
   const [planChanging, setPlanChanging] = useState(false);
-  const { getToken } = useAuth();
 
-  async function authFetch(path: string, opts?: RequestInit) {
-    const token = await getToken();
+  async function adminApi(path: string, opts?: RequestInit) {
     const BASE2 = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
-    const r = await fetch(`${BASE2}/api/admin${path}`, {
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    const r = await authFetch(`${BASE2}/api/admin${path}`, {
+      headers: { "Content-Type": "application/json" },
       ...opts,
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   }
 
-  const { data: rev,    isLoading: lRev  } = useQuery({ queryKey: ["gc","revenue"],      queryFn: () => authFetch("/tenants/revenue"), retry: false });
-  const { data: tenants,isLoading: lTen  } = useQuery({ queryKey: ["gc","tenants"],      queryFn: () => authFetch("/tenants"),         retry: false });
-  const { data: risk,   isLoading: lRisk } = useQuery({ queryKey: ["gc","risk"],         queryFn: () => authFetch("/risk"),            retry: false });
-  const { data: growth, isLoading: lGrow } = useQuery({ queryKey: ["gc","growth"],       queryFn: () => authFetch("/growth"),          retry: false });
-  const { data: ai,     isLoading: lAI   } = useQuery({ queryKey: ["gc","ai-analytics"], queryFn: () => authFetch("/ai-analytics"),    retry: false });
+  const { data: rev,    isLoading: lRev  } = useQuery({ queryKey: ["gc","revenue"],      queryFn: () => adminApi("/tenants/revenue"), retry: false });
+  const { data: tenants,isLoading: lTen  } = useQuery({ queryKey: ["gc","tenants"],      queryFn: () => adminApi("/tenants"),         retry: false });
+  const { data: risk,   isLoading: lRisk } = useQuery({ queryKey: ["gc","risk"],         queryFn: () => adminApi("/risk"),            retry: false });
+  const { data: growth, isLoading: lGrow } = useQuery({ queryKey: ["gc","growth"],       queryFn: () => adminApi("/growth"),          retry: false });
+  const { data: ai,     isLoading: lAI   } = useQuery({ queryKey: ["gc","ai-analytics"], queryFn: () => adminApi("/ai-analytics"),    retry: false });
   const qc = useQueryClient();
 
   async function doChangePlan() {
     if (!changingPlan) return;
     setPlanChanging(true);
     try {
-      await authFetch(`/tenants/${changingPlan.id}/plan`, {
+      await adminApi(`/tenants/${changingPlan.id}/plan`, {
         method: "POST", body: JSON.stringify({ plan: newPlan }),
       });
       toast({ title: "تم تغيير الباقة", description: `${changingPlan.name} → ${newPlan}` });

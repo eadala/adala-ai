@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,12 +7,13 @@ import {
   Circle, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api  = (p: string) => `${BASE}${p}`;
-async function get(u: string) { const r = await fetch(u); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+async function get(u: string) { const r = await authFetch(u); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function post(u: string, b?: object) {
-  const r = await fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b ?? {}) });
+  const r = await authFetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b ?? {}) });
   if (!r.ok) throw new Error(await r.text()); return r.json();
 }
 

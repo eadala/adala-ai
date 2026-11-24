@@ -1,0 +1,14 @@
+{
+  "milestone": "phoenix-v-050-055-unified",
+  "dev_tip_commit": "e8974a31cd905c3b76cbbb3867fea44a4d0d60b6",
+  "clean_tree_commit": "04a33a4cc3b3c00d5c5ebf4acdec7082378b3f56",
+  "tree": "ea0e0a588b3cf2600a682e5d9d61b765e7df830f",
+  "backup_ref": "refs/backup/milestones/phoenix-v-050-055-unified-clean-tree-e8974a31cd90",
+  "dev_tip_ref": "refs/backup/milestones/phoenix-v-050-055-unified-e8974a31cd90",
+  "bundle": "docs/engineering/continuity/artifacts/phoenix-v-050-055-unified-e8974a31cd90.bundle",
+  "sha256_file": "docs/engineering/continuity/artifacts/phoenix-v-050-055-unified-e8974a31cd90.bundle.sha256",
+  "created_at_utc": "2026-11-23T21:00:10Z",
+  "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
+  "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer"
+}

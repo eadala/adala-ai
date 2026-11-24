@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 7 schema ownership only */
+/**
+ * AI COO — executive ops + notification prefs.
+ * Schema owned by Migration 044 — Runtime CREATE removed.
+ */
 import { Router } from "express";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -13,23 +18,21 @@ function sqlOne<T = any>(q: ReturnType<typeof sql>): Promise<T | null> {
   });
 }
 
+/* ── readiness — schema owned by Migration 044 ── */
+let notifSchemaReady = false;
 async function ensureNotifTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS ai_coo_notif_settings (
-      id                SERIAL PRIMARY KEY,
-      office_id         TEXT NOT NULL UNIQUE,
-      telegram_enabled  BOOLEAN DEFAULT false,
-      whatsapp_enabled  BOOLEAN DEFAULT false,
-      email_enabled     BOOLEAN DEFAULT false,
-      min_level         TEXT DEFAULT 'critical',
-      email_recipients  TEXT DEFAULT '',
-      whatsapp_numbers  TEXT DEFAULT '',
-      auto_notify       BOOLEAN DEFAULT false,
-      last_notified_at  TIMESTAMPTZ,
-      created_at        TIMESTAMPTZ DEFAULT NOW(),
-      updated_at        TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+  if (notifSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.ai_coo_notif_settings') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      console.error("[aiCoo] Migration 044 schema not ready — ai_coo_notif_settings missing");
+      return;
+    }
+    notifSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── channel senders ── */

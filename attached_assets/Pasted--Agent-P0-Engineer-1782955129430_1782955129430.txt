@@ -1,0 +1,123 @@
+يمكنك إرسال هذا التوجيه الاحترافي إلى فريق التطوير أو إلى أي Agent يعمل على المشروع:
+
+⸻
+
+P0 Engineering Directive — Git History Reconciliation & Repository Normalization
+
+الهدف: إنهاء حالة diverged history بين Replit وGitHub مع المحافظة على جميع الـ commits، ومنع تكرار المشكلة مستقبلاً.
+
+الوضع الحالي
+
+تم التأكد بالأدلة أن:
+
+* ✅ جميع الملفات البرمجية متطابقة بين Local و GitHub.
+* ✅ لا يوجد أي Data Loss.
+* ✅ جميع إصلاحات P0 موجودة في GitHub.
+* ✅ CI نجح بالكامل (جميع Quality Gates PASS).
+* ✅ Production يعمل بصورة طبيعية.
+
+المشكلة الوحيدة المتبقية هي اختلاف تاريخ Git فقط (Git History Divergence) الناتج عن كتابة Replit Checkpoints محلياً وGitHub Contents API على المستودع البعيد.
+
+⸻
+
+المطلوب
+
+نفّذ عملية Git History Reconciliation بدون أي Force Push وبدون إعادة كتابة التاريخ.
+
+خطوات التنفيذ
+
+1. التحقق من الحالة الحالية:
+
+git status
+git branch -vv
+git log --graph --decorate --oneline --all -20
+
+2. جلب آخر تحديثات GitHub:
+
+git fetch origin
+
+3. إعادة ترتيب التاريخ:
+
+git pull --rebase origin main
+
+إذا لم توجد تعارضات:
+
+git push origin main
+
+⸻
+
+في حال وجود تعارض
+
+لا تستخدم:
+
+git push --force
+git reset --hard
+git rebase --skip
+git rebase --abort
+
+إلا بعد إصدار تقرير يوضح السبب.
+
+يجب حل التعارضات يدوياً مع المحافظة على جميع commits.
+
+⸻
+
+بعد الانتهاء
+
+نفّذ التقرير التالي:
+
+git status
+git rev-parse HEAD
+git rev-parse origin/main
+git branch -vv
+git log --graph --decorate --oneline -15
+
+ويجب أن تكون النتيجة:
+
+* Working Tree Clean
+* Ahead: 0
+* Behind: 0
+* Local HEAD = origin/main
+* لا يوجد Merge أو Rebase نشط
+
+⸻
+
+منع تكرار المشكلة
+
+يجب اعتماد السياسة التالية بشكل دائم:
+
+* GitHub هو Single Source of Truth.
+* يمنع التعديل المباشر على main.
+* جميع الأعمال تتم عبر:
+    * feature/*
+    * fix/*
+    * hotfix/*
+* الدمج يتم فقط عبر Pull Request.
+* يمنع استخدام GitHub Contents API لكتابة ملفات على main.
+* يمنع استخدام git push --force على الفروع المحمية.
+* يمنع تنفيذ أي Commit على main من Replit Agent مباشرة.
+
+⸻
+
+Deliverables
+
+أرفق تقريراً نهائياً يتضمن:
+
+* SHA المحلي.
+* SHA في GitHub.
+* نتيجة git status.
+* نتيجة git branch -vv.
+* نتيجة git log --graph.
+* حالة Ahead/Behind.
+* تأكيد عدم وجود Merge أو Rebase.
+* تأكيد نجاح Push/Pull.
+* تأكيد أن GitHub وReplit متزامنان بنسبة 100%.
+
+معيار النجاح النهائي:
+
+* ✅ Local HEAD = origin/main = GitHub HEAD.
+* ✅ Ahead = 0 / Behind = 0.
+* ✅ Working Tree Clean.
+* ✅ لا توجد عمليات Git معلقة.
+* ✅ لا يوجد Force Push.
+* ✅ لا يوجد فقدان لأي Commit.
+* ✅ استقرار مستودع Git وجاهزيته للعمل المتوازي بين عدة مطورين وبيئات تطوير مختلفة.

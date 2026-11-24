@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const RISK_COLORS: Record<string, string> = {
   critical: "#EF4444",
@@ -103,12 +105,12 @@ export default function RiskManagement() {
 
   const { data: contracts = [] } = useQuery<any[]>({
     queryKey: ["contracts"],
-    queryFn: () => fetch("/api/contracts").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/contracts").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases"],
-    queryFn: () => fetch("/api/cases").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch("/api/cases").then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   // Build risk items from real data

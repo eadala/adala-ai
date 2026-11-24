@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Financial Intelligence Center — مركز الذكاء المالي
  * Unified dashboard: KPIs + AI Insights + Anomaly Detection + Forecast + Charts
@@ -18,6 +19,7 @@ import {
 } from "recharts";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE  = import.meta.env.BASE_URL.replace(/\/$/, "");
 const GOLD  = "#2563EB";
@@ -109,7 +111,7 @@ export default function FinancialIntelligencePage() {
 
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ["finance-intelligence"],
-    queryFn:  () => fetch(`${BASE}/api/finance/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn:  () => authFetch(`${BASE}/api/finance/intelligence`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 120_000,
   });
 

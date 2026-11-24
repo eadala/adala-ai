@@ -1,0 +1,14 @@
+{
+  "milestone": "ultimate-phoenix-security-recovery",
+  "dev_tip_commit": "233b7f7562b561c96e632ca77afdb82192172b22",
+  "clean_tree_commit": "20fb50998911d66ac15b3dfc6c4017c32862e257",
+  "tree": "1b57d4986c4dbd9dcfc1f355d869171ba77fc481",
+  "backup_ref": "refs/backup/milestones/ultimate-phoenix-security-recovery-clean-tree-233b7f7562b5",
+  "dev_tip_ref": "refs/backup/milestones/ultimate-phoenix-security-recovery-233b7f7562b5",
+  "bundle": "docs/engineering/continuity/artifacts/ultimate-phoenix-security-recovery-233b7f7562b5.bundle",
+  "sha256_file": "docs/engineering/continuity/artifacts/ultimate-phoenix-security-recovery-233b7f7562b5.bundle.sha256",
+  "created_at_utc": "2026-11-23T21:07:14Z",
+  "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
+  "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer"
+}

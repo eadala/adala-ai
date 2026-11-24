@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; Stage 7 schema ownership only */
 /**
  * Adala AI — Multi-Agent Runtime Engine
  * محرك الوكلاء الذكيين — طبقة التشغيل المستقلة
  *
  * Agents: Legal | Finance | Risk | System | HR
  * Orchestrator resolves conflicts → AUTO_EXECUTE | RECOMMEND | REQUIRE_APPROVAL
+ *
+ * Schema owned by Migration 042 — Runtime CREATE removed.
  */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
@@ -30,49 +33,35 @@ function getClerk() {
   return _clerk;
 }
 
-/* ═══════════════════════════════════════════════════
-   DB SETUP
-═══════════════════════════════════════════════════ */
-(async () => {
+/* ── readiness + seed DML — schema owned by Migration 042 ── */
+let agentsSchemaReady = false;
+async function ensureAgentsSchemaReady() {
+  if (agentsSchemaReady) return;
   try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.ai_agents') IS NOT NULL AS agents,
+        to_regclass('public.agent_actions') IS NOT NULL AS actions
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.agents || !row.actions) {
+      console.error("[agentRuntime] Migration 042 schema not ready — ai_agents / agent_actions missing");
+      return;
+    }
+    /* seed default agents (DML; not schema mutation) */
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS ai_agents (
-        id          TEXT PRIMARY KEY,
-        name        TEXT NOT NULL,
-        name_ar     TEXT NOT NULL,
-        type        TEXT NOT NULL,
-        description TEXT,
-        status      TEXT DEFAULT 'active',
-        last_run    TIMESTAMPTZ,
-        run_count   INTEGER DEFAULT 0,
-        memory      JSONB DEFAULT '{}',
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-
-      CREATE TABLE IF NOT EXISTS agent_actions (
-        id           BIGSERIAL PRIMARY KEY,
-        agent_id     TEXT NOT NULL,
-        event_type   TEXT NOT NULL,
-        decision     TEXT NOT NULL,
-        title        TEXT NOT NULL,
-        body         TEXT,
-        payload      JSONB DEFAULT '{}',
-        severity     TEXT DEFAULT 'info',
-        status       TEXT DEFAULT 'pending',
-        created_at   TIMESTAMPTZ DEFAULT NOW(),
-        resolved_at  TIMESTAMPTZ
-      );
-
       INSERT INTO ai_agents (id, name, name_ar, type, description) VALUES
         ('legal',   'Legal Agent',   'الوكيل القانوني', 'legal',   'يراقب القضايا والمواعيد والمستندات القانونية'),
         ('finance', 'Finance Agent', 'الوكيل المالي',   'finance', 'يراقب الفواتير والتدفق المالي والتحصيل'),
         ('risk',    'Risk Agent',    'وكيل المخاطر',    'risk',    'يحسب درجة المخاطرة ويكتشف الأنماط غير الطبيعية'),
         ('system',  'System Agent',  'وكيل النظام',     'system',  'يراقب أداء المنصة والأخطاء والموارد'),
         ('hr',      'HR Agent',      'وكيل الموارد البشرية', 'hr', 'يراقب الأداء والحضور وتوزيع المهام')
-      ON CONFLICT (id) DO NOTHING;
-    `);
-  } catch {}
-})();
+      ON CONFLICT (id) DO NOTHING
+    `).catch(() => {});
+    agentsSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensureAgentsSchemaReady().catch(() => {});
 
 /* ═══════════════════════════════════════════════════
    AGENT RUNNERS

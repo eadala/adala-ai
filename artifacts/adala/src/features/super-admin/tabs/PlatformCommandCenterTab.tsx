@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { useAuth } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ShieldCheck, Building2, Users, Package, Tag, KeyRound, Activity,
@@ -45,6 +45,7 @@ import {
 } from "recharts";
 import { API, DEV_API, useAdmin } from "../shared/api";
 import { StatCard } from "../shared/components";
+import { authFetch } from "@/lib/authFetch";
 import {
   PLAN_SLUG_COLORS, PLAN_SLUG_LABELS, PLAN_FEATURE_FLAGS, TABS,
   arabicToSlug, PERM_LABELS
@@ -52,8 +53,8 @@ import {
 
 const SA_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-function saFetch(path: string, token: string) {
-  return fetch(path, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+function saFetch(path: string) {
+  return authFetch(path).then(r => r.json());
 }
 
 function HealthPill({ value, label, icon: Icon, color }: { value: string | number; label: string; icon: any; color: string }) {
@@ -100,34 +101,33 @@ function fmtUptime(sec: number) {
 }
 
 export function PlatformCommandCenterTab({ toast }: { toast: any }) {
-  const { getToken } = useAuth();
   const [pccTab, setPccTab] = useState<"health" | "tenants" | "events" | "ai">("health");
   const [tenantSearch, setTenantSearch] = useState("");
   const [evtSearch, setEvtSearch] = useState("");
 
   const { data: health, refetch: refetchHealth, isFetching: hFetching } = useQuery<any>({
     queryKey: ["pcc", "health"],
-    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/system-health`, await getToken() ?? ""),
+    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/system-health`),
     refetchInterval: 10_000,
     staleTime: 5_000,
   });
 
   const { data: tenants, refetch: refetchTenants, isFetching: tFetching } = useQuery<any>({
     queryKey: ["pcc", "tenants"],
-    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/tenant-matrix`, await getToken() ?? ""),
+    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/tenant-matrix`),
     staleTime: 60_000,
   });
 
   const { data: events, refetch: refetchEvents, isFetching: eFetching } = useQuery<any>({
     queryKey: ["pcc", "events"],
-    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/event-stream?limit=60`, await getToken() ?? ""),
+    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/event-stream?limit=60`),
     refetchInterval: 20_000,
     staleTime: 10_000,
   });
 
   const { data: aiOps, isFetching: aFetching } = useQuery<any>({
     queryKey: ["pcc", "ai-ops"],
-    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/ai-ops`, await getToken() ?? ""),
+    queryFn: async () => saFetch(`${SA_BASE}/api/pcc/ai-ops`),
     staleTime: 120_000,
   });
 

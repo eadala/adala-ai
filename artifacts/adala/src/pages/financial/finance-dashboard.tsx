@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart,
 } from "recharts";
+import { authFetch } from "@/lib/authFetch";
 import {
   DollarSign, TrendingUp, TrendingDown, FileText, RefreshCw,
   AlertTriangle, CheckCircle2, Clock, Minus, Printer,
@@ -13,7 +15,7 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api  = (p: string) => `${BASE}${p}`;
 async function get(url: string) {
-  const r = await fetch(url); if (!r.ok) throw new Error(await r.text()); return r.json();
+  const r = await authFetch(url); if (!r.ok) throw new Error(await r.text()); return r.json();
 }
 
 const SAR = (n: number) => {

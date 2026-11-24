@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckoutInvoiceModal } from "@/features/billing/CheckoutInvoiceModal";
@@ -23,6 +24,7 @@ import { AdaptiveDialog, AdaptiveDialogContent } from "@/components/adaptive";
 import { useToast } from "@/hooks/use-toast";
 import { useOfficePlan } from "@/hooks/use-office-plan";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -370,7 +372,7 @@ export default function Billing() {
 
   const handleCheckoutDone = useCallback(() => {
     setSuccessSessionId(null);
-    qc.invalidateQueries({ queryKey: ["office-plan"] });
+    qc.invalidateQueries({ queryKey: ["office-subscription"] });
     qc.invalidateQueries({ queryKey: ["billing-overview"] });
     qc.invalidateQueries({ queryKey: ["entitlements"] });
     qc.invalidateQueries({ queryKey: ["plan-notifications"] });
@@ -397,21 +399,22 @@ export default function Billing() {
   /* ── Queries ─────────────────────────────────────────── */
   const { data: stripeStatus } = useQuery<any>({
     queryKey: ["stripe-status"],
-    queryFn: () => fetch(`${BASE}/api/billing/stripe-status`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/stripe-status`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery<any>({
     queryKey: ["billing-overview"],
-    queryFn: () => fetch(`${BASE}/api/billing/overview`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/overview`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 60_000,
   });
   const { data: plans = [], isLoading: plansLoading } = useQuery<any[]>({
     queryKey: ["billing-plans"],
     queryFn: () => fetch(`${BASE}/api/billing/plans`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    staleTime: 10 * 60_000,
   });
   const { data: entitlements = [], isLoading: entLoading } = useQuery<any[]>({
     queryKey: ["entitlements"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/entitlements`);
+      const r = await authFetch(`${BASE}/api/entitlements`);
       const d = await r.json();
       return d.entitlements ?? [];
     },
@@ -419,32 +422,32 @@ export default function Billing() {
   });
   const { data: apiKeys = [], isLoading: keysLoading, refetch: refetchKeys } = useQuery<any[]>({
     queryKey: ["office-api-keys"],
-    queryFn: () => fetch(`${BASE}/api/office/api-keys`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/office/api-keys`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: tab === "apikeys",
   });
   const { data: ledger = [], isLoading: ledgerLoading } = useQuery<any[]>({
     queryKey: ["billing-ledger"],
-    queryFn: () => fetch(`${BASE}/api/billing/ledger`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/ledger`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: tab === "ledger",
   });
   const { data: platInvoices = [], isLoading: platInvLoading, refetch: refetchPlatInv } = useQuery<any[]>({
     queryKey: ["platform-invoices"],
-    queryFn: () => fetch(`${BASE}/api/billing/platform-invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/platform-invoices`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: tab === "invoices",
   });
   const { data: platStats } = useQuery<any>({
     queryKey: ["platform-invoice-stats"],
-    queryFn: () => fetch(`${BASE}/api/billing/platform-invoices/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/platform-invoices/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: tab === "invoices",
   });
   const { data: myGift, refetch: refetchGift } = useQuery<any>({
     queryKey: ["my-gift"],
-    queryFn: () => fetch(`${BASE}/api/promo/my-gift`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/promo/my-gift`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
   const [promoCode, setPromoCode] = useState("");
   const redeemMutation = useMutation({
     mutationFn: async (code: string) => {
-      const r = await fetch(`${BASE}/api/promo/redeem`, {
+      const r = await authFetch(`${BASE}/api/promo/redeem`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
@@ -455,7 +458,7 @@ export default function Billing() {
         toast({ title: "🎁 تم تفعيل الاشتراك المجاني!", description: `باقة ${data.planSlug} فعّالة حتى ${new Date(data.endsAt).toLocaleDateString("ar-SA")}` });
         setPromoCode("");
         refetchGift();
-        qc.invalidateQueries({ queryKey: ["office-plan"] });
+        qc.invalidateQueries({ queryKey: ["office-subscription"] });
       } else {
         toast({ title: "خطأ", description: data.error, variant: "destructive" });
       }
@@ -463,13 +466,13 @@ export default function Billing() {
   });
   const { data: revenueData, isLoading: revenueLoading } = useQuery<any>({
     queryKey: ["billing-revenue"],
-    queryFn: () => fetch(`${BASE}/api/billing/revenue`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/billing/revenue`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: tab === "analytics",
   });
 
   /* ── Mutations ─────────────────────────────────────── */
   const payInvoiceMutation = useMutation({
-    mutationFn: async (id: string) => fetch(`${BASE}/api/billing/pay/${id}`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: async (id: string) => authFetch(`${BASE}/api/billing/pay/${id}`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast({ title: "✅ تم تسجيل الدفع!", description: "تم تحديث حالة الفاتورة إلى مدفوعة" });
       qc.invalidateQueries({ queryKey: ["platform-invoices"] });
@@ -478,7 +481,7 @@ export default function Billing() {
     onError: () => toast({ title: "خطأ", variant: "destructive" }),
   });
   const genInvoiceMutation = useMutation({
-    mutationFn: async (planId: string) => fetch(`${BASE}/api/billing/subscribe`, {
+    mutationFn: async (planId: string) => authFetch(`${BASE}/api/billing/subscribe`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
@@ -489,7 +492,7 @@ export default function Billing() {
   });
   const checkoutMutation = useMutation({
     mutationFn: async ({ planId, period }: { planId: string; period: "monthly" | "annual" }) =>
-      fetch(`${BASE}/api/billing/checkout`, {
+      authFetch(`${BASE}/api/billing/checkout`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId, billingPeriod: period }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -501,7 +504,7 @@ export default function Billing() {
     onError: () => { setLoadingPlan(null); toast({ title: "خطأ في الاتصال", variant: "destructive" }); },
   });
   const changePlanMutation = useMutation({
-    mutationFn: async (planId: string) => fetch(`${BASE}/api/billing/change-plan`, {
+    mutationFn: async (planId: string) => authFetch(`${BASE}/api/billing/change-plan`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
@@ -520,7 +523,7 @@ export default function Billing() {
     onError: () => { setChangingPlan(false); toast({ title: "خطأ في الاتصال", variant: "destructive" }); },
   });
   const createKeyMutation = useMutation({
-    mutationFn: async (name: string) => fetch(`${BASE}/api/office/api-keys`, {
+    mutationFn: async (name: string) => authFetch(`${BASE}/api/office/api-keys`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, permissions: ["read","write"] }),
     }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (data) => {
@@ -533,11 +536,11 @@ export default function Billing() {
   });
   const revokeKeyMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) =>
-      fetch(`${BASE}/api/office/api-keys/${id}/${active ? "revoke" : "activate"}`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/office/api-keys/${id}/${active ? "revoke" : "activate"}`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => refetchKeys(),
   });
   const deleteKeyMutation = useMutation({
-    mutationFn: async (id: string) => fetch(`${BASE}/api/office/api-keys/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: async (id: string) => authFetch(`${BASE}/api/office/api-keys/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: "تم حذف المفتاح" }); refetchKeys(); },
   });
 
@@ -772,7 +775,7 @@ export default function Billing() {
               <div>
                 <p className="text-sm font-semibold text-yellow-400">Stripe يحتاج المفتاح السري</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  أضف <code className="bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> في Replit Secrets لتفعيل الدفع.
+                  أضف <code className="bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> في متغيرات بيئة Coolify لتفعيل الدفع.
                 </p>
               </div>
             </div>

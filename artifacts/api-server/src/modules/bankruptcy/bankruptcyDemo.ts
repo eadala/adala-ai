@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -23,18 +24,10 @@ const COURTS     = ["محكمة التجارة بالرياض", "محكمة ال
 const TRUSTEES   = ["أ. محمد العتيبي", "أ. عبدالله الشمري", "أ. سالم الحربي", "أ. خالد المطيري"];
 
 /* ═══════════════════════════════════════════════════
-   ADD is_demo COLUMN TO ALL TABLES (IDEMPOTENT)
+   Demo columns — schema owned by migration 014
 ═══════════════════════════════════════════════════ */
 async function ensureDemoColumns() {
-  const tbls = [
-    "bankruptcy_cases","bk_creditors","bk_claims","bk_assets",
-    "bk_meetings","bk_distributions","bk_distribution_items",
-    "bk_reports","bk_ai_analysis","bk_tasks","bk_alerts",
-    "bk_opening_requests","bk_opening_request_documents",
-  ];
-  for (const t of tbls) {
-    await db.execute(sql`ALTER TABLE ${sql.raw(t)} ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
-  }
+  /* is_demo columns are owned by artifacts/api-server/migrations/014_bankruptcy_schema.sql. */
 }
 
 /* ═══════════════════════════════════════════════════

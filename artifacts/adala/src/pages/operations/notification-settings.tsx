@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -124,7 +126,7 @@ export default function NotificationSettingsPage() {
   /* ── Load from server ── */
   const { data, isLoading } = useQuery({
     queryKey: ["notification-settings"],
-    queryFn: () => fetch(`${BASE}/api/notifications/settings`).then(r => r.json()),
+    queryFn: () => authFetch(`${BASE}/api/notifications/settings`).then(r => r.json()),
     staleTime: 30_000,
   });
 
@@ -143,7 +145,7 @@ export default function NotificationSettingsPage() {
   /* ── Save ── */
   const saveMut = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/notifications/settings`, {
+      authFetch(`${BASE}/api/notifications/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: Object.values(local) }),

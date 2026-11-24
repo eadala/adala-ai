@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router, type Request, type Response } from "express";
 import { db, messagesTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { requireProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 
@@ -36,7 +36,6 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
      Set WHATSAPP_APP_SECRET in env vars to the Meta App Secret.
   ─────────────────────────────────────────────────────────────────────────── */
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-  const isProd = process.env.NODE_ENV === "production";
   if (appSecret) {
     const sigHeader = req.headers["x-hub-signature-256"] as string | undefined;
     if (!sigHeader) {
@@ -48,24 +47,13 @@ router.post("/webhook/whatsapp", async (req: Request, res: Response) => {
       .createHmac("sha256", appSecret)
       .update(rawBody)
       .digest("hex");
-    try {
-      const a = Buffer.from(sigHeader);
-      const b = Buffer.from(expected);
-      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-        res.status(403).json({ error: "Invalid webhook signature" });
-        return;
-      }
-    } catch {
+    if (!crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expected))) {
       res.status(403).json({ error: "Invalid webhook signature" });
       return;
     }
-  } else if (isProd) {
-    /* Fail closed in production — never accept unsigned WhatsApp webhooks live */
-    console.error("[WhatsApp Webhook] WHATSAPP_APP_SECRET missing in production — rejecting");
-    res.status(503).json({ error: "WhatsApp webhook signature verification not configured" });
-    return;
   } else {
-    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED (non-production only).");
+    /* Warn in logs — operator must set WHATSAPP_APP_SECRET before go-live */
+    console.warn("[WhatsApp Webhook] ⚠️  WHATSAPP_APP_SECRET not set — signature verification SKIPPED. Set this env var before production.");
   }
 
   try {
@@ -223,11 +211,7 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
        Fix: use timingSafeEqual + reject if sig missing (not just wrong).
        If no webhook_secret is set, log warning but allow (graceful degradation).
     ─────────────────────────────────────────────────────────────────────── */
-    const officeId = body.metadata?.office_id;
-    if (!officeId || officeId === "default" || officeId === "platform") {
-      res.status(400).json({ error: "metadata.office_id مطلوب لتوجيه دفعة Moyasar" });
-      return;
-    }
+    const officeId = body.metadata?.office_id ?? "default";
     const settings = await dbRows(sql`
       SELECT webhook_secret FROM moyasar_settings WHERE office_id = ${officeId} LIMIT 1
     `);
@@ -250,12 +234,8 @@ router.post("/webhook/moyasar", async (req: Request, res: Response) => {
         res.status(403).json({ error: "توقيع Moyasar غير صحيح" });
         return;
       }
-    } else if (process.env.NODE_ENV === "production") {
-      console.error("[Moyasar Webhook] webhook_secret missing for office=" + officeId + " — rejecting in production");
-      res.status(503).json({ error: "Moyasar webhook signature not configured for office" });
-      return;
     } else {
-      console.warn("[Moyasar Webhook] ⚠️  webhook_secret not configured for office=" + officeId + " — signature verification SKIPPED (non-production only).");
+      console.warn("[Moyasar Webhook] ⚠️  webhook_secret not configured for office=" + officeId + " — signature verification SKIPPED.");
     }
 
     const { id: moyasarId, status, amount, currency, description, metadata } = body;
@@ -331,9 +311,7 @@ router.get("/webhook/moyasar/callback", async (req: Request, res: Response) => {
         WHERE id = ${tx}::uuid
       `).catch(() => {});
     }
-    const base = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : "https://adala-ai.app";
+    const base = requireProductionBaseUrl();
     res.redirect(`${base}/payment-center?gateway=moyasar&result=${mStatus ?? "unknown"}`);
   } catch (e: any) {
     res.status(500).json({ error: e.message });

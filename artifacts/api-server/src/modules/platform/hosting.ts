@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
+import { getProductionBaseUrl } from "../../lib/productionUrl";
 
 const router = Router();
 const adminOnly = requireSuperAdmin;
@@ -61,8 +62,7 @@ router.get("/hosting/status", adminOnly, async (_req, res) => {
       systemTotal: fmt(totalMem),
       usedPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
     },
-    replitDomain:  process.env.REPLIT_DEV_DOMAIN ?? null,
-    replSlug:      process.env.REPL_SLUG ?? null,
+    productionUrl: getProductionBaseUrl({ required: false }),
     totalOffices:  officesCount[0]?.cnt ?? 0,
   });
 });
@@ -167,11 +167,11 @@ router.get("/hosting/offices-subdomains", adminOnly, async (_req, res) => {
       SELECT id, name, slug, plan, email, phone, is_published, created_at
       FROM office_page ORDER BY created_at DESC
     `);
-    const replitDomain = process.env.REPLIT_DEV_DOMAIN ?? null;
+    const productionBase = getProductionBaseUrl({ required: false });
     res.json(offices.map((o: any) => ({
       ...o,
       subdomain:   `${o.slug}`,
-      previewUrl:  replitDomain ? `https://${replitDomain}/firms/${o.slug}` : `/firms/${o.slug}`,
+      previewUrl:  productionBase ? `${productionBase}/firms/${o.slug}` : `/firms/${o.slug}`,
     })));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -180,14 +180,16 @@ router.get("/hosting/offices-subdomains", adminOnly, async (_req, res) => {
    DOMAIN DNS RECORDS  (simulate / Cloudflare info)
 ══════════════════════════════════════════════════ */
 router.get("/hosting/dns-guide", adminOnly, (_req, res) => {
-  const replitDomain = process.env.REPLIT_DEV_DOMAIN;
-  const targetIp = "Replit Proxy (CNAME)";
+  const productionBase = getProductionBaseUrl({ required: false });
+  const cnameTarget = productionBase
+    ? new URL(productionBase).host
+    : "your-production-domain.com";
   res.json({
-    cname: replitDomain ?? "your-replit-app.replit.app",
-    targetIp,
+    cname: cnameTarget,
+    targetIp: "CNAME → origin host",
     instructions: [
       { step: 1, desc: "في لوحة تحكم DNS (Cloudflare/GoDaddy)، أضف سجل CNAME" },
-      { step: 2, desc: `اجعل القيمة تشير إلى: ${replitDomain ?? "your-replit-app.replit.app"}` },
+      { step: 2, desc: `اجعل القيمة تشير إلى: ${cnameTarget}` },
       { step: 3, desc: "فعّل الوضع Proxied في Cloudflare لتفعيل SSL تلقائياً" },
       { step: 4, desc: "انتظر حتى 24 ساعة لنشر DNS، ثم اضغط 'تحقق'" },
     ],

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * Legal Services Marketplace — إعادة تصميم كاملة
  * Concept: Khamsat × Upwork × Legal SaaS
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -94,7 +96,7 @@ function BuyNowDialog({ service, onClose }: { service: Service; onClose: () => v
 
   const order = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/marketplace/orders`, {
+      authFetch(`${BASE}/api/marketplace/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -185,14 +187,14 @@ function DealRoomDialog({ service, onClose }: { service: Service; onClose: () =>
 
   const { data: deal } = useQuery<any>({
     queryKey: ["deal", dealId],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${dealId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/deals/${dealId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!dealId,
     refetchInterval: 5000,
   });
 
   const openDeal = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/marketplace/deals`, {
+      authFetch(`${BASE}/api/marketplace/deals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -378,7 +380,7 @@ function AddServiceDialog({ onCreated }: { onCreated: () => void }) {
 
   const create = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/marketplace/services`, {
+      authFetch(`${BASE}/api/marketplace/services`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -493,7 +495,7 @@ function ServiceCard({
 
   const toggle = useMutation({
     mutationFn: () =>
-      fetch(`${BASE}/api/marketplace/services/${service.id}`, {
+      authFetch(`${BASE}/api/marketplace/services/${service.id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !service.is_active }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -612,25 +614,25 @@ function DealsDashboard() {
 
   const { data: deals = [], isLoading: dealsLoading } = useQuery<any[]>({
     queryKey: ["my-deals"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/deals/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     refetchInterval: 15000,
   });
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<any[]>({
     queryKey: ["my-orders"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/orders/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/orders/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
   });
 
   const { data: dealDetail } = useQuery<any>({
     queryKey: ["deal-detail", openDeal],
-    queryFn: () => fetch(`${BASE}/api/marketplace/deals/${openDeal}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/deals/${openDeal}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!openDeal,
     refetchInterval: 5000,
   });
 
   const sendCounter = useMutation({
     mutationFn: (dealId: string) =>
-      fetch(`${BASE}/api/marketplace/deals/${dealId}/offer`, {
+      authFetch(`${BASE}/api/marketplace/deals/${dealId}/offer`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price: parseFloat(counterPrice[dealId] ?? "0"), message: counterMsg[dealId] || undefined }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -640,7 +642,7 @@ function DealsDashboard() {
 
   const acceptDeal = useMutation({
     mutationFn: (dealId: string) =>
-      fetch(`${BASE}/api/marketplace/deals/${dealId}/accept`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/marketplace/deals/${dealId}/accept`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ["my-deals"] });
       qc.invalidateQueries({ queryKey: ["deal-detail", openDeal] });
@@ -651,14 +653,14 @@ function DealsDashboard() {
 
   const rejectDeal = useMutation({
     mutationFn: (dealId: string) =>
-      fetch(`${BASE}/api/marketplace/deals/${dealId}/reject`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/marketplace/deals/${dealId}/reject`, { method: "POST" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-deals"] }); toast({ title: "تم رفض الصفقة" }); },
     onError: () => toast({ title: "حدث خطأ، يرجى المحاولة مجدداً", variant: "destructive" }),
   });
 
   const updateOrder = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      fetch(`${BASE}/api/marketplace/orders/${id}`, {
+      authFetch(`${BASE}/api/marketplace/orders/${id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -850,7 +852,7 @@ export default function Marketplace() {
   /* ── Queries ── */
   const { data: stats } = useQuery<any>({
     queryKey: ["marketplace-stats"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -860,19 +862,19 @@ export default function Marketplace() {
       const p = new URLSearchParams();
       if (activeCategory !== "all") p.set("category", activeCategory);
       if (search) p.set("search", search);
-      return fetch(`${BASE}/api/marketplace/services?${p}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      return authFetch(`${BASE}/api/marketplace/services?${p}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
   });
 
   const { data: myServices = [] } = useQuery<Service[]>({
     queryKey: ["marketplace-my"],
-    queryFn: () => fetch(`${BASE}/api/marketplace/services/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/marketplace/services/my`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!user?.id,
   });
 
   const deleteService = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/marketplace/services/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/marketplace/services/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => {
       toast({ title: "تم حذف الخدمة" });
       qc.invalidateQueries({ queryKey: ["marketplace"] });

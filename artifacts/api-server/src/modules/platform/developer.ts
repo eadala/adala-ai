@@ -5,6 +5,10 @@ import { sql } from "drizzle-orm";
 import { getAuth, createClerkClient } from "@clerk/express";
 import * as os from "os";
 import * as crypto from "crypto";
+import {
+  clerkProductionReadiness,
+  stripeProductionReadiness,
+} from "../../lib/launchReadiness";
 
 const router = Router();
 const devOnly = requireSuperAdmin;
@@ -148,21 +152,26 @@ router.delete("/developer/tokens/:id", devOnly, async (req, res) => {
    OFFICE IMPERSONATION (دخول كمدير المكتب)
 ══════════════════════════════════════════════════ */
 
-/* Ensure table exists */
-(async () => {
+/* Ensure readiness — schema owned by Migration 055 */
+let developerSchemaReady = false;
+async function ensureDeveloperSchemaReady() {
+  if (developerSchemaReady) return;
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS developer_impersonation (
-        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        super_admin_user_id TEXT NOT NULL UNIQUE,
-        impersonated_office_id TEXT NOT NULL,
-        office_name      TEXT DEFAULT '',
-        started_at       TIMESTAMPTZ DEFAULT NOW(),
-        expires_at       TIMESTAMPTZ
-      )
-    `);
-  } catch {}
-})();
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.developer_impersonation') IS NOT NULL AS impersonation_present,
+        to_regclass('public.ghost_access_log') IS NOT NULL AS ghost_present,
+        to_regclass('public.developer_accounts') IS NOT NULL AS accounts_present
+    `) as { rows?: { impersonation_present?: boolean; ghost_present?: boolean; accounts_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.impersonation_present || !row.ghost_present || !row.accounts_present) {
+      console.error("[developer] Migration 055 schema not ready — developer_* / ghost_access_log missing");
+      return;
+    }
+    developerSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+ensureDeveloperSchemaReady().catch(() => {});
 
 /* GET /api/developer/offices — list all offices with rich stats */
 router.get("/developer/offices", devOnly, async (_req, res) => {
@@ -225,16 +234,6 @@ router.post("/developer/impersonate/:officeId", devOnly, async (req: any, res) =
     `);
     /* Server-side only ghost log — never exposed to the office */
     try {
-      await db.execute(sql`
-        CREATE TABLE IF NOT EXISTS ghost_access_log (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          admin_user_id TEXT NOT NULL,
-          office_id TEXT NOT NULL,
-          office_name TEXT,
-          action TEXT NOT NULL,
-          logged_at TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
       await db.execute(sql`
         INSERT INTO ghost_access_log (admin_user_id, office_id, office_name, action)
         VALUES (${userId}, ${officeId}, ${officeName}, 'enter')
@@ -314,7 +313,7 @@ router.get("/developer/office-snapshot/:officeId", devOnly, async (req: any, res
 ══════════════════════════════════════════════════ */
 router.get("/developer/env-info", devOnly, (_req, res) => {
   const safe: Record<string, string> = {};
-  const SAFE_KEYS = ["NODE_ENV","PORT","DATABASE_URL","VITE_CLERK_PUBLISHABLE_KEY","REPL_SLUG","REPLIT_DEV_DOMAIN","TZ","LANG"];
+  const SAFE_KEYS = ["NODE_ENV","PORT","DATABASE_URL","VITE_CLERK_PUBLISHABLE_KEY","PRODUCTION_URL","APP_URL","GITHUB_TOKEN","TZ","LANG"];
   for (const key of SAFE_KEYS) {
     const val = process.env[key];
     if (!val) continue;
@@ -324,9 +323,13 @@ router.get("/developer/env-info", devOnly, (_req, res) => {
     else { safe[key] = val; }
   }
   safe["PLATFORM_OWNER_EMAIL_SET"] = process.env.PLATFORM_OWNER_EMAIL ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
-  safe["CLERK_SECRET_KEY_SET"]     = process.env.CLERK_SECRET_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
   safe["ANTHROPIC_API_KEY_SET"]    = process.env.ANTHROPIC_API_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
-  safe["STRIPE_SECRET_KEY_SET"]    = process.env.STRIPE_SECRET_KEY ? "✓ مُعيَّن" : "✗ غير مُعيَّن";
+  safe["STRIPE_READINESS"]         = stripeProductionReadiness().ok
+    ? "✓ جاهز للإنتاج"
+    : `⚠ ${stripeProductionReadiness().detail}`;
+  safe["CLERK_READINESS"]          = clerkProductionReadiness().ok
+    ? "✓ جاهز للإنتاج"
+    : `⚠ ${clerkProductionReadiness().detail}`;
   res.json(safe);
 });
 
@@ -439,19 +442,7 @@ router.delete("/developer/platform-admins/:userId", devOnly, async (req: any, re
 ══════════════════════════════════════════════════ */
 
 async function ensureDevAccountsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS developer_accounts (
-      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      email       TEXT        NOT NULL UNIQUE,
-      name        TEXT        NOT NULL DEFAULT '',
-      clerk_user_id TEXT,
-      permissions JSONB       NOT NULL DEFAULT '{}',
-      is_active   BOOLEAN     NOT NULL DEFAULT true,
-      notes       TEXT        DEFAULT '',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
+  await ensureDeveloperSchemaReady();
 }
 
 /* GET /api/developer/dev-accounts */

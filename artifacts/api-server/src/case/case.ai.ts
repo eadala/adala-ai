@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; Stage 7 schema ownership only */
 /**
  * Case AI — Autonomous Legal Assistant Engine
  * ─────────────────────────────────────────────
@@ -7,11 +8,14 @@
  *  - touch financial data
  *  - execute without approval
  *  - bypass tenant isolation
+ *
+ * Schema owned by Migration 043 — Runtime CREATE/INDEX removed.
  */
 
 import { db }    from "@workspace/db";
 import { sql }   from "drizzle-orm";
 import { callAI } from "../modules/ai/aiChat";
+import { resolveTaskOfficeId } from "../lib/taskTenantVisibility";
 
 /* ── helpers ────────────────────────────────────── */
 function sqlOne(r: any)  { return (r?.rows ?? r)?.[0] ?? null; }
@@ -46,24 +50,21 @@ export interface AIInsight {
   created_at:  string;
 }
 
-/* ── DB bootstrap ────────────────────────────────── */
+/* ── readiness — schema owned by Migration 043 ── */
+let insightsSchemaReady = false;
 export async function ensureAIInsightsTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS case_ai_insights (
-      id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      case_id     TEXT NOT NULL,
-      office_id   TEXT NOT NULL,
-      risks       JSONB DEFAULT '[]',
-      suggestions JSONB DEFAULT '[]',
-      alerts      JSONB DEFAULT '[]',
-      auto_tasks  JSONB DEFAULT '[]',
-      created_at  TIMESTAMPTZ DEFAULT now()
-    )
-  `);
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_case_ai_insights_case
-    ON case_ai_insights(case_id, office_id, created_at DESC)
-  `).catch(() => {});
+  if (insightsSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.case_ai_insights') IS NOT NULL AS present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.present) {
+      console.error("[case.ai] Migration 043 schema not ready — case_ai_insights missing");
+      return;
+    }
+    insightsSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── Mask PII before sending to external AI ─────── */
@@ -334,8 +335,10 @@ export async function approveAITask(
   const target  = tasks.find(t => t.id === taskId);
   if (!target || target.status !== "pending_approval") return null;
 
-  /* create real task */
-  /* case_id is TEXT, office_id is UUID */
+  /* create real task — never insert office_id NULL */
+  const resolvedOffice = resolveTaskOfficeId(officeId);
+  if (!resolvedOffice) return null;
+
   const created = sqlOne(await db.execute(sql`
     INSERT INTO tasks (case_id, title, description, priority, status, office_id)
     VALUES (
@@ -344,7 +347,7 @@ export async function approveAITask(
       ${target.description ?? ""},
       ${target.priority ?? "medium"},
       'todo',
-      ${officeId}::uuid
+      ${resolvedOffice}::uuid
     )
     RETURNING *
   `));
@@ -353,7 +356,7 @@ export async function approveAITask(
   const updated = tasks.map(t => t.id === taskId ? { ...t, status: "approved" as const } : t);
   await db.execute(sql`
     UPDATE case_ai_insights SET auto_tasks = ${JSON.stringify(updated)}::jsonb
-    WHERE id = ${insightId} AND office_id = ${officeId}
+    WHERE id = ${insightId} AND office_id = ${resolvedOffice}
   `);
 
   return created;

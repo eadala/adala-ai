@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * لوحة الإطلاق التجاري — Commercial Launch Dashboard
  * ────────────────────────────────────────────────────────────────
@@ -13,6 +14,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
+import { authFetch } from "@/lib/authFetch";
 import {
   TrendingUp, TrendingDown, Users, Sparkles, CreditCard,
   Crown, CheckCircle2, AlertTriangle, XCircle, Building2,
@@ -122,7 +124,7 @@ function ScoreRing({ score }: { score: number }) {
 export default function CommercialLaunchDashboard() {
   const { data, isLoading, refetch, isFetching } = useQuery<GoLiveData>({
     queryKey: ["go-live-metrics"],
-    queryFn: () => fetch(`${BASE}/api/admin/go-live-metrics`).then(r => {
+    queryFn: () => authFetch(`${BASE}/api/admin/go-live-metrics`).then(r => {
       if (!r.ok) throw new Error("Unauthorized or server error");
       return r.json();
     }),

@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
-import { requireAuth, requireAuthWithTenant, checkIsSuperAdmin} from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { requireAuthWithTenant, checkIsSuperAdmin } from "../../middlewares/requireAuth";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import {
@@ -7,7 +8,24 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../../lib/objectStorage";
-import { ObjectPermission } from "../../lib/objectAcl";
+import {
+  resolveStorageOfficeId,
+  storageMgmtAuthResponse,
+  type StorageMgmtAuthFailure,
+} from "../../lib/storageOfficeId";
+import {
+  registerStorageFileWithQuota,
+  storageRegisterErrorResponse,
+} from "../../lib/storageFileRegister";
+import { createStorageFolder } from "../../lib/storageFolderCreate";
+import { filterVisibleFolders } from "../../lib/storageFolderListAccess";
+import { logEndpointError } from "../../lib/endpointErrorLog";
+import {
+  entityIdFromCanonicalKey,
+  normalizeToCanonicalObjectKey,
+  tenantOwnsCanonicalObjectKey,
+} from "../../lib/storageObjectOwnership";
+import { parseLimitOffset } from "../../lib/paginationSafety";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -28,15 +46,19 @@ router.post("/storage/uploads/request-url", requireAuthWithTenant, async (req: R
 
   try {
     const { name, size, contentType } = parsed.data;
+    const safeType =
+      typeof contentType === "string" && contentType.trim()
+        ? contentType.trim()
+        : "application/octet-stream";
 
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(safeType);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
         objectPath,
-        metadata: { name, size, contentType },
+        metadata: { name, size, contentType: safeType },
       }),
     );
   } catch (error) {
@@ -87,27 +109,46 @@ router.get("/storage/public-objects/*filePath", requireAuthWithTenant, async (re
  * be protected with authentication or ACL checks based on the use case.
  */
 router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const notFound = () => {
+    res.status(404).json({ error: "Object not found" });
+  };
+
   try {
     const raw = String(req.params.path);
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
-    const objectPath = `/objects/${wildcardPath}`;
-    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+    const tenantId = (req as any).tenantId as string | undefined;
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    // Canonicalize first — reject traversal / ambiguous paths without touching storage.
+    const canonicalKey = normalizeToCanonicalObjectKey(wildcardPath);
+    if (!canonicalKey) {
+      notFound();
+      return;
+    }
 
+    // Ownership BEFORE object lookup — never reveal existence of foreign/missing keys.
+    let owns = false;
+    try {
+      owns = await tenantOwnsCanonicalObjectKey({
+        tenantId: tenantId ?? "",
+        canonicalKey,
+      });
+    } catch (dbErr) {
+      req.log.error({ err: dbErr }, "Ownership check failed (fail closed)");
+      notFound();
+      return;
+    }
+    if (!owns) {
+      notFound();
+      return;
+    }
+
+    const entityId = entityIdFromCanonicalKey(canonicalKey);
+    if (!entityId) {
+      notFound();
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(`/objects/${entityId}`);
     const response = await objectStorageService.downloadObject(objectFile);
 
     res.status(response.status);
@@ -121,12 +162,12 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
     }
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
-      req.log.warn({ err: error }, "Object not found");
-      res.status(404).json({ error: "Object not found" });
+      notFound();
       return;
     }
     req.log.error({ err: error }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    // Fail closed — do not stream; use same 404 to avoid existence oracle.
+    notFound();
   }
 });
 
@@ -134,10 +175,14 @@ router.get("/storage/objects/*path", requireAuthWithTenant, async (req: Request,
    SMART STORAGE MANAGEMENT
 ══════════════════════════════════════════════════ */
 import { createClerkClient, getAuth } from "@clerk/express";
-import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
+import {
+  getGeminiApiKey,
+  geminiApiHeaders,
+  geminiGenerateContentUrl,
+} from "../../lib/geminiAuth";
 
 let _clerk2: ReturnType<typeof createClerkClient> | null = null;
 const getClerkMgmt = () => {
@@ -145,19 +190,34 @@ const getClerkMgmt = () => {
   return _clerk2;
 };
 
-async function getMgmtUser(req: any) {
+type MgmtUser = {
+  userId: string;
+  officeId: string;
+  email: string;
+  isSA: boolean;
+  officeRole: string;
+  isAdmin: boolean;
+  isImpersonating: boolean;
+};
+
+type GetMgmtUserResult =
+  | { ok: true; user: MgmtUser }
+  | { ok: false; reason: StorageMgmtAuthFailure };
+
+async function getMgmtUser(req: any): Promise<GetMgmtUserResult> {
   const auth = getAuth(req);
-  if (!auth?.userId) return null;
+  if (!auth?.userId) return { ok: false, reason: "unauthenticated" };
   try {
     const user = await getClerkMgmt().users.getUser(auth.userId);
     const email = user.emailAddresses.find((e: any) => e.id === user.primaryEmailAddressId)?.emailAddress ?? "";
     const isSA = await checkIsSuperAdmin(auth.userId);
-    // Prefer middleware tenant; never fall back to Clerk userId as office id.
-    const headerTenant = req.headers?.["x-tenant-id"] as string | undefined;
-    let officeId =
-      (typeof req.tenantId === "string" && req.tenantId) ||
-      (await resolveTenantId(auth.userId, headerTenant));
-    if (!officeId) return null;
+    // Prefer tenant from requireAuthWithTenant; never fall back to Clerk userId.
+    const resolvedOfficeId = resolveStorageOfficeId({
+      tenantId: req.tenantId,
+      metadataOfficeId: user.publicMetadata?.officeId,
+    });
+    if (!resolvedOfficeId) return { ok: false, reason: "office_required" };
+    let officeId: string = resolvedOfficeId;
 
     // Developer impersonation: SA viewing as a specific office
     let isImpersonating = false;
@@ -180,8 +240,26 @@ async function getMgmtUser(req: any) {
     // When impersonating, act as firm_owner (full access) but not global SA
     const effectiveSA = isSA && !isImpersonating;
     const isAdmin = effectiveSA || officeRole === "firm_owner" || officeRole === "office_manager" || isImpersonating;
-    return { userId: auth.userId, officeId, email, isSA: effectiveSA, officeRole: isImpersonating ? "firm_owner" : officeRole, isAdmin, isImpersonating };
-  } catch { return null; }
+    return {
+      ok: true,
+      user: {
+        userId: auth.userId,
+        officeId,
+        email,
+        isSA: effectiveSA,
+        officeRole: isImpersonating ? "firm_owner" : officeRole,
+        isAdmin,
+        isImpersonating,
+      },
+    };
+  } catch {
+    return { ok: false, reason: "unauthenticated" };
+  }
+}
+
+function rejectMgmtUser(res: Response, result: Extract<GetMgmtUserResult, { ok: false }>): void {
+  const { status, body } = storageMgmtAuthResponse(result.reason);
+  res.status(status).json(body);
 }
 
 /**
@@ -195,7 +273,7 @@ async function getMgmtUser(req: any) {
  * For 'write': can the user upload files / create sub-folders in it?
  * For 'manage': can the user rename, delete, change permissions of this folder?
  */
-async function getFolderAccess(folderId: string, u: NonNullable<Awaited<ReturnType<typeof getMgmtUser>>>, need: "read" | "write" | "manage"): Promise<boolean> {
+async function getFolderAccess(folderId: string, u: MgmtUser, need: "read" | "write" | "manage"): Promise<boolean> {
   if (u.isSA) return true;
   const rows = await dbRows(sql`SELECT visibility, created_by FROM storage_folders WHERE id=${folderId}::uuid AND office_id=${u.officeId}`);
   if (!rows.length) return false;
@@ -271,8 +349,9 @@ function fmtB(b: number) {
 
 /* STATS */
 router.get("/storage/stats", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   if (!u.isSA) syncQuota(u.officeId).catch(() => {});
   const f = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const [tot, byCat, recent, large, trash, quota] = await Promise.all([
@@ -294,9 +373,11 @@ router.get("/storage/stats", requireAuthWithTenant, async (req, res) => {
 
 /* FILE LIST */
 router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
-  const { category, archived, deleted, search, caseId, folderId, limit = "100", offset = "0" } = req.query as any;
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  const { category, archived, deleted, search, caseId, folderId } = req.query as any;
+  const { limit, offset } = parseLimitOffset(req.query, 100);
   const of2 = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const cf  = category ? sql`AND category=${category}` : sql``;
   const af  = archived === "true" ? sql`AND is_archived=true AND NOT is_deleted` : deleted === "true" ? sql`AND is_deleted=true` : sql`AND NOT is_deleted`;
@@ -306,7 +387,7 @@ router.get("/storage/files", requireAuthWithTenant, async (req, res) => {
   const fof = folderId === "root" ? sql`AND folder_id IS NULL`
             : folderId ? sql`AND folder_id=${folderId}::uuid`
             : sql``;
-  const rows = await dbRows(sql`SELECT id,office_id,case_id,folder_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ${fof} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`);
+  const rows = await dbRows(sql`SELECT id,office_id,case_id,folder_id,original_name,file_name,mime_type,file_size,category,is_archived,is_deleted,deleted_at,archived_at,created_at,file_url FROM storage_files WHERE ${of2} ${af} ${cf} ${sf} ${csf} ${fof} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`);
   res.json(rows);
 });
 
@@ -324,8 +405,9 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 
 /* REGISTER FILE (metadata) */
 router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const { originalName, mimeType, fileSize, fileUrl, storageKey, category = "document", caseId, clientId } = req.body;
   if (!originalName) return res.status(400).json({ error: "اسم الملف مطلوب" });
 
@@ -357,40 +439,137 @@ router.post("/storage/files", requireAuthWithTenant, async (req, res) => {
     if (dup.length > 0) return res.status(409).json({ duplicate: true, existing: dup[0], message: "هذا الملف موجود بالفعل" });
   }
   try {
-    const rows = await dbRows(sql`INSERT INTO storage_files (office_id,case_id,client_id,uploaded_by,original_name,file_name,mime_type,file_size,file_hash,file_url,storage_key,category) VALUES (${u.officeId},${caseId??null},${clientId??null},${u.userId},${originalName},${storageKey??originalName},${mimeType??null},${fileSize??0},${fileHash},${fileUrl??null},${storageKey??null},${category}) RETURNING *`);
-    await db.execute(sql`INSERT INTO office_storage_quota (office_id,used_bytes,files_count) VALUES (${u.officeId},${fileSize??0},1) ON CONFLICT (office_id) DO UPDATE SET used_bytes=office_storage_quota.used_bytes+${fileSize??0},files_count=office_storage_quota.files_count+1,updated_at=NOW()`);
-    res.json(rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    /* Atomic: storage_files insert + quota upsert; rollback file row on quota failure */
+    const { record } = await registerStorageFileWithQuota({
+      officeId: u.officeId,
+      userId: u.userId,
+      originalName,
+      mimeType,
+      fileSize,
+      fileUrl,
+      storageKey,
+      category,
+      caseId,
+      clientId,
+      fileHash,
+    });
+    res.json(record);
+  } catch (e: unknown) {
+    logEndpointError("POST /api/storage/files", req, e, { officeId: u.officeId });
+    const safe = storageRegisterErrorResponse();
+    res.status(safe.status).json(safe.body);
+  }
+});
+
+/**
+ * GET /storage/files/:id/signed-url
+ *
+ * Authenticated short-lived R2 GET URL for opening/downloading a private file.
+ * Tenant ownership is verified via storage_files row (office_id) before signing.
+ * Follows Document Center download pattern — objects stay private.
+ */
+router.get("/storage/files/:id/signed-url", requireAuthWithTenant, async (req, res) => {
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  const id = String(req.params.id ?? "").trim();
+  if (!id) return res.status(400).json({ error: "معرف الملف مطلوب" });
+
+  try {
+    const rows = await dbRows(sql`
+      SELECT id, office_id, original_name, mime_type, storage_key, file_url, is_deleted
+      FROM storage_files
+      WHERE id = ${id}::uuid
+        AND (office_id = ${u.officeId} OR ${u.isSA})
+      LIMIT 1
+    `);
+    const file = rows[0];
+    if (!file || file.is_deleted) {
+      return res.status(404).json({ error: "الملف غير موجود" });
+    }
+
+    const refs = [file.storage_key, file.file_url].filter(
+      (r): r is string => typeof r === "string" && r.trim().length > 0,
+    );
+    if (refs.length === 0) {
+      return res.status(422).json({ error: "لا يوجد مفتاح تخزين لهذا الملف" });
+    }
+
+    /* Prefer storage_key; repair legacy duplicated /objects/objects/ in file_url. */
+    let canonicalKey: string | null = null;
+    for (const ref of refs) {
+      canonicalKey = normalizeToCanonicalObjectKey(ref);
+      if (canonicalKey) break;
+      const repaired = ref.replace(/\/objects\/objects\//g, "/objects/");
+      if (repaired !== ref) {
+        canonicalKey = normalizeToCanonicalObjectKey(repaired);
+        if (canonicalKey) break;
+      }
+    }
+    if (!canonicalKey) {
+      return res.status(404).json({ error: "مسار التخزين غير صالح" });
+    }
+
+    /* Defense in depth: canonical ownership for non-SA */
+    if (!u.isSA) {
+      const owns = await tenantOwnsCanonicalObjectKey({
+        tenantId: u.officeId,
+        canonicalKey,
+      });
+      if (!owns) {
+        return res.status(404).json({ error: "الملف غير موجود" });
+      }
+    }
+
+    const ttlSec = 300;
+    const url = await objectStorageService.getObjectEntityDownloadURL(canonicalKey, ttlSec);
+    res.json({
+      url,
+      fileName: file.original_name,
+      contentType: file.mime_type ?? "application/octet-stream",
+      expiresIn: ttlSec,
+    });
+  } catch (e: unknown) {
+    if (e instanceof ObjectNotFoundError) {
+      return res.status(404).json({ error: "الملف غير موجود" });
+    }
+    logEndpointError("GET /api/storage/files/:id/signed-url", req, e, { officeId: u.officeId });
+    res.status(500).json({ error: "تعذر إنشاء رابط التحميل" });
+  }
 });
 
 /* ARCHIVE TOGGLE */
 router.patch("/storage/files/:id/archive", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const rows = await dbRows(sql`UPDATE storage_files SET is_archived=NOT is_archived, archived_at=CASE WHEN NOT is_archived THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
 /* MOVE TO TRASH */
 router.patch("/storage/files/:id/trash", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=true, deleted_at=NOW(), updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
 /* RESTORE FROM TRASH */
 router.patch("/storage/files/:id/restore", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const rows = await dbRows(sql`UPDATE storage_files SET is_deleted=false, deleted_at=NULL, updated_at=NOW() WHERE id=${String(req.params.id)}::uuid AND (office_id=${u.officeId} OR ${u.isSA}) RETURNING *`);
   res.json(rows[0] ?? { ok: true });
 });
 
 /* PERMANENT DELETE */
 router.delete("/storage/files/:id", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const file = await dbRows(sql`SELECT file_size, office_id FROM storage_files WHERE id=${String(req.params.id)}::uuid`);
   if (!file.length) return res.status(404).json({ error: "الملف غير موجود" });
   if (!u.isSA && file[0].office_id !== u.officeId) return res.status(403).json({ error: "غير مصرح" });
@@ -402,8 +581,9 @@ router.delete("/storage/files/:id", requireAuthWithTenant, async (req, res) => {
 
 /* EMPTY TRASH */
 router.delete("/storage/trash/empty", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   try {
     const trashFiles = await dbRows(sql`SELECT id, file_size FROM storage_files WHERE is_deleted=true AND office_id=${u.officeId}`);
     const totalBytes = trashFiles.reduce((s: number, f: any) => s + Number(f.file_size ?? 0), 0);
@@ -415,16 +595,20 @@ router.delete("/storage/trash/empty", requireAuthWithTenant, async (req, res) =>
 
 /* QUOTA LIST (SA) */
 router.get("/storage/quotas", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  if (!u.isSA) return res.status(403).json({ error: "غير مصرح" });
   const rows = await dbRows(sql`SELECT * FROM office_storage_quota ORDER BY used_bytes DESC`);
   res.json(rows);
 });
 
 /* UPDATE QUOTA (SA) */
 router.patch("/storage/quotas/:officeId", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  if (!u.isSA) return res.status(403).json({ error: "غير مصرح" });
   const { maxBytes } = req.body;
   await db.execute(sql`INSERT INTO office_storage_quota (office_id,max_bytes) VALUES (${String(req.params.officeId)},${maxBytes}) ON CONFLICT (office_id) DO UPDATE SET max_bytes=${maxBytes},updated_at=NOW()`);
   res.json({ ok: true });
@@ -432,15 +616,19 @@ router.patch("/storage/quotas/:officeId", requireAuthWithTenant, async (req, res
 
 /* SETTINGS (SA) */
 router.get("/storage/settings", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  if (!u.isSA) return res.status(403).json({ error: "غير مصرح" });
   const rows = await dbRows(sql`SELECT * FROM storage_settings ORDER BY setting_key`);
   res.json(rows);
 });
 
 router.patch("/storage/settings", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u?.isSA) return res.status(403).json({ error: "غير مصرح" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
+  if (!u.isSA) return res.status(403).json({ error: "غير مصرح" });
   const { settings } = req.body;
   try {
     for (const [key, value] of Object.entries(settings as Record<string, string>)) {
@@ -456,13 +644,13 @@ router.patch("/storage/settings", requireAuthWithTenant, async (req, res) => {
    Returns: { ok, docType, parties, dates, caseType, court, summary, tags, text }
 ══════════════════════════════════════════════════ */
 router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
 
   const { base64, mimeType } = req.body;
   if (!base64 || !mimeType) return res.status(400).json({ error: "base64 و mimeType مطلوبان" });
 
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_KEY = getGeminiApiKey();
   if (!GEMINI_KEY) return res.json({ ok: false, error: "Gemini غير متاح" });
 
   const prompt = `أنت محلل مستندات قانوني خبير. حلل هذا المستند وأرجع JSON فقط بدون أي markdown أو نص إضافي:
@@ -479,10 +667,10 @@ router.post("/storage/analyze", requireAuthWithTenant, async (req, res) => {
 
   try {
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      geminiGenerateContentUrl("gemini-2.5-flash"),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: geminiApiHeaders(GEMINI_KEY),
         body: JSON.stringify({
           contents: [{ parts: [
             { inline_data: { mime_type: mimeType, data: base64 } },
@@ -539,8 +727,9 @@ function resolveDirectUrl(raw: string): string {
 }
 
 router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
 
   const { url: rawUrl, caseId, clientId } = req.body;
   if (!rawUrl || typeof rawUrl !== "string") return res.status(400).json({ error: "الرابط مطلوب" });
@@ -571,27 +760,32 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
     if (buffer.length === 0) throw new Error("الملف فارغ");
     if (buffer.length > 10 * 1024 * 1024) throw new Error("الملف أكبر من 10 MB");
 
-    /* 2 ── رفع لمنظومة التخزين */
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    /* 2 ── رفع لمنظومة التخزين (Content-Type must match the signed PUT) */
+    const safeType = contentType.trim() || "application/octet-stream";
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(safeType);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
     const putRes = await fetch(uploadURL, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
+      headers: { "Content-Type": safeType },
       body: buffer,
     });
     if (!putRes.ok) throw new Error("فشل حفظ الملف في التخزين");
 
-    /* 3 ── تسجيل في قاعدة البيانات */
+    /* 3 ── تسجيل في قاعدة البيانات — file_url is /api/storage + /objects/... (no double objects/) */
     const fileHash = crypto.createHash("sha256").update(objectPath).digest("hex");
     const dup = await dbRows(sql`SELECT id, original_name FROM storage_files WHERE file_hash=${fileHash} AND office_id=${u.officeId} AND NOT is_deleted`);
     if (dup.length > 0) return res.status(409).json({ duplicate: true, existing: dup[0], message: "هذا الملف موجود بالفعل" });
 
-    const category = contentType.startsWith("image/") ? "image"
-      : contentType === "application/pdf" ? "pdf"
-      : contentType.includes("word") ? "word"
-      : contentType.includes("sheet") || contentType.includes("excel") ? "excel"
+    const category = safeType.startsWith("image/") ? "image"
+      : safeType === "application/pdf" ? "pdf"
+      : safeType.includes("word") ? "word"
+      : safeType.includes("sheet") || safeType.includes("excel") ? "excel"
       : "document";
+
+    const privateApiUrl = objectPath.startsWith("/objects/")
+      ? `/api/storage${objectPath}`
+      : `/api/storage/objects/${objectPath.replace(/^\//, "")}`;
 
     const rows = await dbRows(sql`
       INSERT INTO storage_files
@@ -599,8 +793,8 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
          file_size, file_hash, file_url, storage_key, category)
       VALUES
         (${u.officeId}, ${caseId ?? null}, ${clientId ?? null}, ${u.userId},
-         ${fileName}, ${objectPath}, ${contentType}, ${buffer.length}, ${fileHash},
-         ${`/api/storage/objects${objectPath}`}, ${objectPath}, ${category})
+         ${fileName}, ${objectPath}, ${safeType}, ${buffer.length}, ${fileHash},
+         ${privateApiUrl}, ${objectPath}, ${category})
       RETURNING *`);
 
     await db.execute(sql`
@@ -619,8 +813,9 @@ router.post("/storage/import-url", requireAuthWithTenant, async (req, res) => {
 
 /* AI ANALYSIS */
 router.get("/storage/ai-analysis", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const of2 = u.isSA ? sql`1=1` : sql`office_id=${u.officeId}`;
   const [largeFiles, oldFiles, dupHashes] = await Promise.all([
     dbRows(sql`SELECT id, original_name, file_size, category, created_at FROM storage_files WHERE ${of2} AND NOT is_deleted AND file_size > 10485760 ORDER BY file_size DESC LIMIT 10`),
@@ -640,10 +835,11 @@ router.get("/storage/ai-analysis", requireAuthWithTenant, async (req, res) => {
    FOLDER MANAGEMENT  (permissions-enforced)
 ══════════════════════════════════════════════════ */
 
-/* LIST folders — returns only folders the user can read */
+/* LIST folders — returns only folders the user can read (set-based ACL; O(1) queries) */
 router.get("/storage/folders", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
 
   const all = await dbRows(sql`
     SELECT f.id, f.parent_id, f.name, f.visibility, f.created_by, f.created_at,
@@ -653,19 +849,27 @@ router.get("/storage/folders", requireAuthWithTenant, async (req, res) => {
     WHERE f.office_id=${u.officeId}
     ORDER BY f.name ASC`);
 
-  // Filter by read permission
-  const visible: any[] = [];
-  for (const f of all) {
-    const ok = await getFolderAccess(f.id, u, "read");
-    if (ok) visible.push({ ...f, isOwner: f.created_by === u.userId, canManage: f.created_by === u.userId || u.isAdmin });
-  }
+  // Batch-load this user's custom grants for office folders (fixed 2nd query).
+  // SA short-circuit still uses the same path with an empty map for shape parity.
+  const perms = u.isSA
+    ? []
+    : await dbRows(sql`
+        SELECT fp.folder_id, fp.user_id, fp.can_read, fp.can_write
+        FROM folder_permissions fp
+        INNER JOIN storage_folders f
+          ON f.id = fp.folder_id AND f.office_id = ${u.officeId}
+        WHERE fp.user_id = ${u.userId}
+      `);
+
+  const visible = filterVisibleFolders(all, u, perms);
   res.json(visible);
 });
 
 /* CREATE folder */
 router.post("/storage/folders", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const { name, parentId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "اسم المجلد مطلوب" });
 
@@ -678,14 +882,32 @@ router.post("/storage/folders", requireAuthWithTenant, async (req, res) => {
   const dup = await dbRows(sql`SELECT id FROM storage_folders WHERE office_id=${u.officeId} AND COALESCE(parent_id::text,'root')=COALESCE(${parentId ?? null},'root') AND LOWER(name)=LOWER(${name.trim()})`);
   if (dup.length) return res.status(409).json({ error: "مجلد بهذا الاسم موجود بالفعل" });
 
-  const rows = await dbRows(sql`INSERT INTO storage_folders (office_id,parent_id,name,created_by) VALUES (${u.officeId},${parentId??null},${name.trim()},${u.userId}) RETURNING *`);
-  res.json(rows[0]);
+  /*
+   * Deliberately NOT using dbRows() for the INSERT: dbRows swallows every DB
+   * error and returns an empty array, which previously made this route send
+   * an HTTP 200 with an empty body on failure — crashing Safari's
+   * Response.json() with "The string did not match the expected pattern."
+   * and hiding the true cause from logs.
+   */
+  try {
+    const { folder } = await createStorageFolder({
+      officeId: u.officeId,
+      userId: u.userId,
+      name: name.trim(),
+      parentId: parentId ?? null,
+    });
+    res.status(201).json({ folder });
+  } catch (err) {
+    logEndpointError("POST /api/storage/folders", req, err, { officeId: u.officeId });
+    res.status(500).json({ error: "فشل إنشاء المجلد" });
+  }
 });
 
 /* RENAME folder — requires manage permission */
 router.patch("/storage/folders/:id/rename", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية تعديل هذا المجلد" });
   const { name } = req.body;
@@ -697,8 +919,9 @@ router.patch("/storage/folders/:id/rename", requireAuthWithTenant, async (req, r
 
 /* DELETE folder — requires manage permission */
 router.delete("/storage/folders/:id", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية حذف هذا المجلد" });
   const folder = await dbRows(sql`SELECT parent_id FROM storage_folders WHERE id=${String(req.params.id)}::uuid AND office_id=${u.officeId}`);
@@ -710,8 +933,9 @@ router.delete("/storage/folders/:id", requireAuthWithTenant, async (req, res) =>
 
 /* MOVE file to folder — requires write on target */
 router.patch("/storage/files/:id/folder", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const { folderId } = req.body;
   if (folderId) {
     const ok = await getFolderAccess(folderId, u, "write");
@@ -728,8 +952,9 @@ router.patch("/storage/files/:id/folder", requireAuthWithTenant, async (req, res
 
 /* GET /storage/folders/:id/permissions — folder info + user grants */
 router.get("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
@@ -744,8 +969,9 @@ router.get("/storage/folders/:id/permissions", requireAuthWithTenant, async (req
 
 /* PATCH /storage/folders/:id/permissions — update visibility */
 router.patch("/storage/folders/:id/permissions", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
@@ -759,8 +985,9 @@ router.patch("/storage/folders/:id/permissions", requireAuthWithTenant, async (r
 
 /* POST /storage/folders/:id/permissions/users — grant/update user access */
 router.post("/storage/folders/:id/permissions/users", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
 
@@ -777,8 +1004,9 @@ router.post("/storage/folders/:id/permissions/users", requireAuthWithTenant, asy
 
 /* DELETE /storage/folders/:id/permissions/users/:userId — revoke user access */
 router.delete("/storage/folders/:id/permissions/users/:userId", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const ok = await getFolderAccess(String(req.params.id), u, "manage");
   if (!ok) return res.status(403).json({ error: "ليس لديك صلاحية إدارة هذا المجلد" });
   await db.execute(sql`DELETE FROM folder_permissions WHERE folder_id=${String(req.params.id)}::uuid AND user_id=${String(req.params.userId)}`);
@@ -787,8 +1015,9 @@ router.delete("/storage/folders/:id/permissions/users/:userId", requireAuthWithT
 
 /* GET /storage/team — office members list (for permissions UI) */
 router.get("/storage/team", requireAuthWithTenant, async (req, res) => {
-  const u = await getMgmtUser(req);
-  if (!u) return res.status(401).json({ error: "غير مصادق" });
+  const loaded = await getMgmtUser(req);
+  if (!loaded.ok) { rejectMgmtUser(res, loaded); return; }
+  const u = loaded.user;
   const rows = await dbRows(sql`
     SELECT om.user_id, om.role,
            COALESCE(u2.full_name, om.user_id) AS name,

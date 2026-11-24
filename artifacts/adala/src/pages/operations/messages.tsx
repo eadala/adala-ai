@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt; authFetch migration */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,8 @@ import {
   AlarmClock, ListChecks, Lightbulb, Languages, ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@clerk/react";
+import { authFetch } from "@/lib/authFetch";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -155,7 +158,7 @@ function AnalyticsPanel() {
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["msg-analytics", days],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/internal-messages/analytics?days=${days}`);
+      const r = await authFetch(`${BASE}/api/internal-messages/analytics?days=${days}`);
       if (!r.ok) throw new Error("failed");
       return r.json();
     },
@@ -366,7 +369,7 @@ function MailPanel() {
   const { data: counts } = useQuery({
     queryKey: ["msg-counts"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/internal-messages/stats/counts`);
+      const r = await authFetch(`${BASE}/api/internal-messages/stats/counts`);
       if (!r.ok) return { inbox: { total: 0, unread: 0 }, sent: { total: 0 }, drafts: { total: 0 } };
       return r.json();
     },
@@ -379,7 +382,7 @@ function MailPanel() {
     queryFn: async () => {
       const params = new URLSearchParams({ folder });
       if (search) params.set("search", search);
-      const r = await fetch(`${BASE}/api/internal-messages?${params}`);
+      const r = await authFetch(`${BASE}/api/internal-messages?${params}`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -388,7 +391,7 @@ function MailPanel() {
   const { data: msgDetail } = useQuery<Message>({
     queryKey: ["internal-message-detail", selected?.id],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/internal-messages/${selected!.id}`);
+      const r = await authFetch(`${BASE}/api/internal-messages/${selected!.id}`);
       if (!r.ok) throw new Error("not found");
       return r.json();
     },
@@ -396,12 +399,12 @@ function MailPanel() {
   });
 
   const archiveMut = useMutation({
-    mutationFn: async (id: string) => { await fetch(`${BASE}/api/internal-messages/${id}/archive`, { method: "PUT" }); },
+    mutationFn: async (id: string) => { await authFetch(`${BASE}/api/internal-messages/${id}/archive`, { method: "PUT" }); },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["internal-messages"] }); setSelected(null); setMobileView("list"); toast({ title: "تم أرشفة الرسالة" }); },
     onError: () => toast({ title: "حدث خطأ", variant: "destructive" }),
   });
   const deleteMut = useMutation({
-    mutationFn: async (id: string) => { await fetch(`${BASE}/api/internal-messages/${id}`, { method: "DELETE" }); },
+    mutationFn: async (id: string) => { await authFetch(`${BASE}/api/internal-messages/${id}`, { method: "DELETE" }); },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["internal-messages"] }); setSelected(null); setMobileView("list"); toast({ title: "تم حذف الرسالة" }); },
     onError: () => toast({ title: "حدث خطأ", variant: "destructive" }),
   });
@@ -594,31 +597,47 @@ function ConversationsPanel() {
   const [newConvOpen, setNewConvOpen]   = useState(false);
   const [replyBody, setReplyBody]       = useState("");
   const [mobileView, setMobileView]     = useState<"list" | "thread">("list");
+  const [convPage, setConvPage]         = useState(1);
+  const [threadPage, setThreadPage]     = useState(1);
   const threadBottomRef = useRef<HTMLDivElement>(null);
 
   /* ── List of conversations ── */
-  const { data: convList = [], isLoading: listLoading, refetch: refetchList } = useQuery<Conversation[]>({
-    queryKey: ["conversations"],
+  const { data: convPageData, isLoading: listLoading, refetch: refetchList } = useQuery<{
+    data: Conversation[];
+    total: number;
+  }>({
+    queryKey: ["conversations", convPage],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/conversations`);
-      if (!r.ok) return [];
-      return r.json();
+      const p = new URLSearchParams({
+        page: String(convPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      const r = await authFetch(`${BASE}/api/conversations?${p}`);
+      if (!r.ok) return { data: [], total: 0 };
+      const json = await r.json();
+      if (Array.isArray(json)) return { data: json as Conversation[], total: json.length };
+      return { data: (json.data ?? []) as Conversation[], total: Number(json.total ?? 0) };
     },
     staleTime: 30_000,
   });
+  const convList = convPageData?.data ?? [];
+  const convTotal = Number(convPageData?.total ?? 0);
 
   /* ── Messages inside selected conversation ── */
-  const { data: threadData, isLoading: threadLoading } = useQuery<{ conversation: any; messages: ConvMessage[]; total: number }>({
-    queryKey: ["conv-messages", selectedConv?.id],
+  const { data: threadData, isLoading: threadLoading } = useQuery<{ conversation: any; messages: ConvMessage[]; total: number; page: number; pageSize: number }>({
+    queryKey: ["conv-messages", selectedConv?.id, threadPage],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/conversations/${selectedConv!.id}/messages?pageSize=50`);
+      const p = new URLSearchParams({
+        page: String(threadPage),
+        pageSize: "50",
+      });
+      const r = await authFetch(`${BASE}/api/conversations/${selectedConv!.id}/messages?${p}`);
       if (!r.ok) throw new Error("failed");
       return r.json();
     },
     enabled: !!selectedConv?.id,
     staleTime: 10_000,
   });
-
   /* ── Scroll to bottom on new messages ── */
   useEffect(() => {
     threadBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -649,7 +668,7 @@ function ConversationsPanel() {
   /* ── Send reply ── */
   const sendMut = useMutation({
     mutationFn: async (body: string) => {
-      const r = await fetch(`${BASE}/api/conversations/${selectedConv!.id}/messages`, {
+      const r = await authFetch(`${BASE}/api/conversations/${selectedConv!.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body }),
@@ -670,7 +689,11 @@ function ConversationsPanel() {
     sendMut.mutate(replyBody);
   };
 
-  const selectConv = (c: Conversation) => { setSelectedConv(c); setMobileView("thread"); };
+  const selectConv = (c: Conversation) => {
+    setSelectedConv(c);
+    setThreadPage(1);
+    setMobileView("thread");
+  };
 
   const convLabel = (c: Conversation) => {
     if (c.title) return c.title;
@@ -750,6 +773,15 @@ function ConversationsPanel() {
             </div>
           )}
         </ScrollArea>
+        <div className="p-2 border-t">
+          <ListPagination
+            page={convPage}
+            pageSize={LEGAL_LIST_PAGE_SIZE}
+            total={convTotal}
+            onPageChange={setConvPage}
+            className="pt-0"
+          />
+        </div>
       </div>
 
       {/* ── Right: Thread ── */}
@@ -824,6 +856,14 @@ function ConversationsPanel() {
                 </div>
               )}
             </ScrollArea>
+            <div className="px-3 pb-1 border-t">
+              <ListPagination
+                page={threadPage}
+                pageSize={50}
+                total={Number(threadData?.total ?? 0)}
+                onPageChange={setThreadPage}
+              />
+            </div>
 
             {/* Reply box */}
             <div className="p-3 border-t flex-shrink-0 bg-background">
@@ -880,7 +920,7 @@ function AiToolsButton({ conversationId }: { conversationId: string }) {
     setResult("");
     setLoading(true);
     try {
-      const r = await fetch(`${BASE}/api/internal-messages/ai-tools`, {
+      const r = await authFetch(`${BASE}/api/internal-messages/ai-tools`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool, conversationId }),
@@ -986,7 +1026,7 @@ function AddMemberButton({ convId, isAdmin, onAdded }: { convId: string; isAdmin
   const { data: users = [] } = useQuery<any[]>({
     queryKey: ["users-for-compose"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/users`);
+      const r = await authFetch(`${BASE}/api/users`);
       if (!r.ok) return [];
       const d = await r.json();
       return d.users ?? d;
@@ -996,7 +1036,7 @@ function AddMemberButton({ convId, isAdmin, onAdded }: { convId: string; isAdmin
 
   const addMut = useMutation({
     mutationFn: async ({ newUserId, newUserName }: { newUserId: string; newUserName: string }) => {
-      const r = await fetch(`${BASE}/api/conversations/${convId}/members`, {
+      const r = await authFetch(`${BASE}/api/conversations/${convId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newUserId, newUserName }),
@@ -1056,7 +1096,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   const { data: cases = [] } = useQuery<any[]>({
     queryKey: ["cases-for-conv"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/cases?limit=50`);
+      const r = await authFetch(`${BASE}/api/cases?limit=50`);
       if (!r.ok) return [];
       const d = await r.json();
       return d.cases ?? d;
@@ -1074,7 +1114,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
   const { data: users = [] } = useQuery<any[]>({
     queryKey: ["users-for-compose"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/users`);
+      const r = await authFetch(`${BASE}/api/users`);
       if (!r.ok) return [];
       const d = await r.json();
       return d.users ?? d;
@@ -1084,7 +1124,7 @@ function NewConversationDialog({ open, onClose, onCreated }: { open: boolean; on
 
   const createMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${BASE}/api/conversations`, {
+      const r = await authFetch(`${BASE}/api/conversations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1272,7 +1312,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
   const { data: users = [] } = useQuery<any[]>({
     queryKey: ["users-for-compose"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/users`);
+      const r = await authFetch(`${BASE}/api/users`);
       if (!r.ok) return [];
       const d = await r.json();
       return d.users ?? d;
@@ -1286,7 +1326,7 @@ function ComposeDialog({ open, onClose, onSent }: { open: boolean; onClose: () =
 
   const sendMut = useMutation({
     mutationFn: async (folder: "sent" | "draft") => {
-      const r = await fetch(`${BASE}/api/internal-messages`, {
+      const r = await authFetch(`${BASE}/api/internal-messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, body, recipients, folder }),

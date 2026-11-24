@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; overlap-guard wiring only */
 /**
  * 🔄 Demo Sync Engine — عدالة AI
  * ══════════════════════════════════════════════════════════
@@ -20,6 +21,10 @@ import { sql }       from "drizzle-orm";
 import { getAuth }   from "@clerk/express";
 import cron          from "node-cron";
 import { logger }    from "../../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../../lib/cronOverlapGuard";
 
 const router = Router();
 const guard = requireSuperAdmin;
@@ -188,20 +193,22 @@ function getDemoCases(officeId: string) {
 }
 
 /* ── Ensure sync log table ──────────────────────────────────────── */
-async function ensureTables() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS demo_sync_log (
-      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      office_id    TEXT NOT NULL,
-      office_label TEXT NOT NULL,
-      synced_plan  TEXT,
-      actions_count INT DEFAULT 0,
-      triggered_by TEXT DEFAULT 'manual',
-      synced_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `).catch(() => {});
+let demoSyncSchemaReady = false;
+async function ensureDemoSyncSchemaReady() {
+  if (demoSyncSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.demo_sync_log') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[demo-sync] Migration 055 schema not ready — demo_sync_log missing");
+      return;
+    }
+    demoSyncSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
-ensureTables();
+ensureDemoSyncSchemaReady().catch(() => {});
 
 /* ══════════════════════════════════════════════════════════════════
    ROUTES
@@ -335,19 +342,21 @@ router.post("/demo-sync/reseed/:officeId", guard, async (req, res) => {
    CRON — auto sync every hour (development only — skip in production)
 ══════════════════════════════════════════════════════════════════ */
 cron.schedule("0 * * * *", async () => {
-  if (process.env.NODE_ENV === "production") return; // no demo sync in prod
-  try {
-    logger.info("[DemoSync] Hourly auto-sync starting…");
-    const prodConfig = await fetchProductionConfig();
-    const result = await syncDemoOffices(prodConfig);
-    await db.execute(sql`
-      INSERT INTO demo_sync_log (office_id, office_label, synced_plan, actions_count, triggered_by, synced_at)
-      VALUES (gen_random_uuid()::text, 'all-offices', 'professional', ${result.actions.length}, 'cron', NOW())
-    `).catch(() => {});
-    logger.info({ actions: result.actions.length }, "[DemoSync] Hourly sync done ✅");
-  } catch (e: any) {
-    logger.error({ err: e.message }, "[DemoSync] Hourly sync failed");
-  }
+  await withCronOverlapProtection(CRON_JOB_NAMES.demoSync, async () => {
+    if (process.env.NODE_ENV === "production") return; // no demo sync in prod
+    try {
+      logger.info("[DemoSync] Hourly auto-sync starting…");
+      const prodConfig = await fetchProductionConfig();
+      const result = await syncDemoOffices(prodConfig);
+      await db.execute(sql`
+        INSERT INTO demo_sync_log (office_id, office_label, synced_plan, actions_count, triggered_by, synced_at)
+        VALUES (gen_random_uuid()::text, 'all-offices', 'professional', ${result.actions.length}, 'cron', NOW())
+      `).catch(() => {});
+      logger.info({ actions: result.actions.length }, "[DemoSync] Hourly sync done ✅");
+    } catch (e: any) {
+      logger.error({ err: e.message }, "[DemoSync] Hourly sync failed");
+    }
+  });
 });
 
 export default router;

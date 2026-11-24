@@ -7,9 +7,6 @@ packages:
 autoInstallPeers: false
 
 catalog:
-  '@replit/vite-plugin-cartographer': ^0.5.1
-  '@replit/vite-plugin-dev-banner': ^0.1.1
-  '@replit/vite-plugin-runtime-error-modal': ^0.0.6
   '@tailwindcss/vite': ^4.1.14
   '@tanstack/react-query': ^5.90.21
   '@types/node': ^25.3.3
@@ -26,14 +23,13 @@ catalog:
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   tsx: ^4.21.0
-  vite: ^7.3.7
+  vite: ^7.3.2
   wouter: ^3.3.5
-  zod: 4.6.7
+  zod: 3.25.76
 
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
-  - '@replit/*'
   - stripe-replit-sync
 
 onlyBuiltDependencies:
@@ -43,19 +39,6 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
-  zod: '>=4.6.6'
-  '@babel/core': '>=7.29.6'
-  fast-xml-parser: '>=5.12.0'
-  protobufjs: '>=7.6.5'
-  brace-expansion: '>=1.1.21'
-  'brace-expansion@>=2.0.0 <2.0.3': '>=2.0.3'
-  'brace-expansion@>=4.0.0 <5.0.5': '>=5.0.5'
-  fast-copy: '>=4.1.0'
-  postcss-selector-parser: '>=6.1.5'
-  glob: '>=14.0.2'
-  'minimatch@>=7.0.0 <11.0.1': '>=11.0.1'
-  'minimatch@>=3.0.0 <3.1.4': '>=3.1.4'
-  'minimatch@>=5.0.0 <5.1.8': '>=5.1.8'
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'

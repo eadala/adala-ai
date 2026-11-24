@@ -1,0 +1,225 @@
+إليك أمرًا احترافيًا وحازمًا يمكن إرساله للمبرمج أو لوكيل الذكاء الاصطناعي، مع التركيز على التنفيذ المبني على الأدلة فقط:
+
+⸻
+
+P0 EXECUTION ORDER — FINAL PRODUCTION INVESTIGATION & RESOLUTION
+
+ممنوع أي تخمين أو افتراض أو حلول التفافية.
+
+اعمل كمهندس Principal Software Engineer + SRE + DevOps + Clerk Integration Engineer.
+
+اعتمد فقط على الأدلة التشغيلية (Runtime Evidence) ولا تُغيّر أي كود قبل إثبات الحاجة إليه.
+
+⸻
+
+الوضع الحالي
+
+التدقيق الفني أثبت أن:
+
+* الكود مطابق تقريبًا للتطبيق القياسي (Canonical Implementation).
+* App.tsx مطابق.
+* clerkProxyMiddleware.ts مطابق.
+* لا توجد قيم Hardcoded.
+* لا توجد Workarounds متبقية.
+* لا توجد أخطاء CSP أو CORS.
+* المشكلة الوحيدة المتبقية هي:
+
+GET /api/__clerk/v1/environment
+→ HTTP 400
+→ host_invalid
+
+والرفض صادر مباشرة من Clerk.
+
+⸻
+
+المطلوب
+
+نفذ تحقيقًا نهائيًا يغلق القضية بالكامل.
+
+لا أريد نظريات.
+
+أريد أدلة تشغيلية فقط.
+
+⸻
+
+المرحلة الأولى — Deployment Verification
+
+تحقق من:
+
+* هل adalahai.com مرتبط بنفس الـ Deployment الحالي؟
+* هل مرتبط بنفس الـ Repl؟
+* هل Active؟
+* هل Verified؟
+* هل يوجد Deployment آخر مرتبط بنفس النطاق؟
+* هل يوجد أكثر من Production Deployment؟
+
+اعرض الأدلة كاملة.
+
+⸻
+
+المرحلة الثانية — Domains Audit
+
+راجع بالكامل:
+
+Publishing → Domains
+
+واعرض:
+
+* Primary Domain
+* Additional Domains
+* Verification Status
+* SSL Status
+* DNS Status
+* Pending Actions
+* Active Deployment
+
+إن كان أي بند ناقص، حدده بدقة.
+
+⸻
+
+المرحلة الثالثة — Clerk Audit
+
+راجع بالكامل:
+
+* Authorized Domains
+* Allowed Origins
+* Proxy Configuration
+* Production Instance
+* Publishable Key
+* Secret Key Mapping
+* Proxy Host Registration
+
+حدد هل:
+
+https://adalahai.com/api/__clerk
+
+مسجل فعلاً داخل Clerk أم لا.
+
+⸻
+
+المرحلة الرابعة — Runtime Trace
+
+نفذ التتبع الكامل:
+
+Browser
+
+↓
+
+Express
+
+↓
+
+clerkProxyMiddleware
+
+↓
+
+frontend-api.clerk.dev
+
+↓
+
+Clerk Instance
+
+↓
+
+Response
+
+وحدد بالضبط:
+
+في أي خطوة يحدث الرفض.
+
+لا أريد استنتاجات.
+
+أريد نقطة الفشل بالسطر والطلب والاستجابة.
+
+⸻
+
+المرحلة الخامسة — Build Verification
+
+أثبت أن:
+
+* نفس Bundle يعمل.
+* نفس Commit يعمل.
+* نفس Artifact يعمل.
+* نفس Static Assets تعمل.
+* لا يوجد Build قديم.
+* لا يوجد Cache.
+* لا يوجد Deployment مختلف.
+
+اعرض:
+
+* Commit SHA
+* Bundle Hash
+* Asset Hash
+* Last Modified
+* Deployment ID
+
+⸻
+
+المرحلة السادسة — Network Verification
+
+تحقق من:
+
+curl -v
+
+لكل من:
+
+* adalahai.com
+* *.replit.app
+
+واعرض الفروقات.
+
+⸻
+
+المرحلة السابعة — إذا كانت المشكلة خارج الكود
+
+إذا ثبت بالأدلة أن المشكلة ليست برمجية وإنما:
+
+* Publishing
+* Clerk Dashboard
+* Domain Registration
+* DNS
+* Replit Infrastructure
+
+فلا تقترح أي تعديل للكود.
+
+بدلاً من ذلك:
+
+أصدر تقريرًا رسميًا يحدد:
+
+* الجهة المسؤولة.
+* سبب الفشل.
+* الخطوة المطلوبة.
+* سبب عدم إمكانية إصلاحها برمجياً.
+
+⸻
+
+ممنوع
+
+* ممنوع تعديل App.tsx.
+* ممنوع تعديل Middleware.
+* ممنوع تغيير مفاتيح Clerk.
+* ممنوع إضافة Workarounds.
+* ممنوع تغيير Environment Variables.
+* ممنوع تغيير Bundle.
+* ممنوع إعادة كتابة Proxy.
+
+إلا إذا أثبتت بالأدلة أنها السبب المباشر.
+
+⸻
+
+المخرجات المطلوبة
+
+أريد تقريرًا نهائيًا يحتوي على:
+
+1. Root Cause مثبت بالأدلة.
+2. Runtime Evidence.
+3. Deployment Evidence.
+4. Domain Evidence.
+5. Clerk Evidence.
+6. Network Evidence.
+7. Build Evidence.
+8. هل المشكلة داخل الكود أم خارجه؟
+9. خطة إصلاح واحدة فقط، مبنية على الأدلة.
+10. نسبة الثقة في التشخيص (Confidence Level) مع توضيح ما هو مثبت وما هو غير مثبت.
+
+لا تُغلق المهمة إلا بعد تحديد السبب الجذري الحقيقي بالأدلة القاطعة أو إثبات أن الخلل خارج نطاق الكود ويستلزم إجراءً في إعدادات النشر أو Clerk.

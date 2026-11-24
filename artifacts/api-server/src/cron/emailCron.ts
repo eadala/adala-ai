@@ -1,8 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; overlap-guard wiring only */
 import nodemailer from "nodemailer";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import cron from "node-cron";
 import { logger } from "../lib/logger";
+import {
+  CRON_JOB_NAMES,
+  withCronOverlapProtection,
+} from "../lib/cronOverlapGuard";
 
 async function sqlOne(q: any) {
   try {
@@ -342,8 +347,10 @@ export async function runEmailCron(): Promise<{ invoices: number; sessions: numb
 
 export function startEmailCron() {
   cron.schedule("0 * * * *", async () => {
-    try { await runEmailCron(); }
-    catch (e: any) { logger.error({ err: e.message }, "Email cron error"); }
+    await withCronOverlapProtection(CRON_JOB_NAMES.email, async () => {
+      try { await runEmailCron(); }
+      catch (e: any) { logger.error({ err: e.message }, "Email cron error"); }
+    });
   });
   logger.info("Email cron started — runs every hour at :00");
 }

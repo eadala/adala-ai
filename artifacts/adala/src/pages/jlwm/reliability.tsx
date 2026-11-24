@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 /**
  * JLWM Reliability & Trust Layer — Executive Dashboard
  * 9 components unified in one page:
@@ -26,10 +27,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── API helpers ────────────────────────────────────────────── */
 const api = (path: string, opts?: RequestInit) =>
-  fetch(`/api${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
+  authFetch(`/api${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
 
 const scoreColor = (s: number) =>
   s >= 85 ? "text-emerald-600" : s >= 70 ? "text-blue-600" : s >= 55 ? "text-amber-600" : "text-red-600";

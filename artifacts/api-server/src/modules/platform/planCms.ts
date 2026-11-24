@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -152,74 +153,40 @@ export const DEFAULT_PLANS = [
   },
 ];
 
-/* ── Ensure table + new columns ─────────────────────────── */
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS plan_cms (
-      id              TEXT PRIMARY KEY,
-      name_ar         TEXT NOT NULL,
-      name_en         TEXT NOT NULL,
-      monthly_price   INTEGER NOT NULL DEFAULT 0,
-      yearly_price    INTEGER NOT NULL DEFAULT 0,
-      color           TEXT NOT NULL DEFAULT '#64748B',
-      description     TEXT,
-      badge           TEXT,
-      features        JSONB NOT NULL DEFAULT '[]',
-      recommended     BOOLEAN NOT NULL DEFAULT false,
-      is_contact_only BOOLEAN NOT NULL DEFAULT false,
-      sort_order      INTEGER NOT NULL DEFAULT 0,
-      updated_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  /* Add feature_flags and limits columns if not present */
-  await db.execute(sql`ALTER TABLE plan_cms ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}'`);
-  await db.execute(sql`ALTER TABLE plan_cms ADD COLUMN IF NOT EXISTS limits JSONB NOT NULL DEFAULT '{}'`);
+/* plan_cms schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql
+   This helper only seeds when the table is empty — no Runtime DDL.
+   Non-empty tables are read-only here so public GET /plans never rewrites admin-edited values. */
+export type PlanCmsDb = {
+  execute: (q: unknown) => Promise<unknown>;
+};
 
-  /* Seed if empty */
-  const result = await db.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
+type PlanCmsDeps = { db?: PlanCmsDb };
+
+function planCmsDb(deps?: PlanCmsDeps): PlanCmsDb {
+  return deps?.db ?? (db as unknown as PlanCmsDb);
+}
+
+/** Seed canonical defaults only when plan_cms has zero rows. No UPDATE/INSERT when non-empty. */
+export async function ensurePlanSeed(deps?: PlanCmsDeps) {
+  const database = planCmsDb(deps);
+  const result = await database.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
   const rows = Array.isArray(result) ? result : (result?.rows ?? []);
   const cnt  = Number(rows[0]?.cnt ?? rows[0]?.count ?? 0);
-  if (cnt === 0) {
-    for (const p of DEFAULT_PLANS) {
-      await db.execute(sql`
-        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
-        VALUES (
-          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
-          ${p.color}, ${p.description}, ${p.badge ?? null},
-          ${JSON.stringify(p.features)}::jsonb,
-          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
-          ${JSON.stringify(p.featureFlags)}::jsonb,
-          ${JSON.stringify(p.limits)}::jsonb
-        )
-        ON CONFLICT (id) DO NOTHING
-      `);
-    }
-  } else {
-    /* Backfill feature_flags/limits for existing rows that have empty {} */
-    for (const p of DEFAULT_PLANS) {
-      await db.execute(sql`
-        UPDATE plan_cms SET
-          feature_flags = CASE WHEN feature_flags = '{}'::jsonb THEN ${JSON.stringify(p.featureFlags)}::jsonb ELSE feature_flags END,
-          limits        = CASE WHEN limits        = '{}'::jsonb THEN ${JSON.stringify(p.limits)}::jsonb        ELSE limits        END
-        WHERE id = ${p.id}
-      `);
-    }
-    /* Always insert new plans (e.g. bk-*) that may not exist yet */
-    const BK_IDS = ["bk-starter", "bk-pro", "bk-enterprise"];
-    for (const p of DEFAULT_PLANS.filter(x => BK_IDS.includes(x.id))) {
-      await db.execute(sql`
-        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
-        VALUES (
-          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
-          ${p.color}, ${p.description}, ${p.badge ?? null},
-          ${JSON.stringify(p.features)}::jsonb,
-          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
-          ${JSON.stringify(p.featureFlags)}::jsonb,
-          ${JSON.stringify(p.limits)}::jsonb
-        )
-        ON CONFLICT (id) DO NOTHING
-      `);
-    }
+  if (cnt !== 0) return;
+
+  for (const p of DEFAULT_PLANS) {
+    await database.execute(sql`
+      INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+      VALUES (
+        ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
+        ${p.color}, ${p.description}, ${p.badge ?? null},
+        ${JSON.stringify(p.features)}::jsonb,
+        ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
+        ${JSON.stringify(p.featureFlags)}::jsonb,
+        ${JSON.stringify(p.limits)}::jsonb
+      )
+      ON CONFLICT (id) DO NOTHING
+    `);
   }
 }
 
@@ -250,10 +217,11 @@ function rowToPlan(row: any) {
 }
 
 /* ── Public helper for billing.ts ─────────────────────────── */
-export async function getDbPlans() {
+export async function getDbPlans(deps?: PlanCmsDeps) {
   try {
-    await ensureTable();
-    const result = await db.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
+    await ensurePlanSeed(deps);
+    const database = planCmsDb(deps);
+    const result = await database.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
     const rows = Array.isArray(result) ? result : (result?.rows ?? []);
     if (!rows.length) return DEFAULT_PLANS.map(p => ({ ...p, name: p.nameAr, price: p.monthlyPrice, popular: p.recommended, isFree: p.monthlyPrice === 0 }));
     return rows.map(rowToPlan);
@@ -291,7 +259,7 @@ router.get("/admin/plans", adminOnly, async (_req, res) => {
 ══════════════════════════════════════════════════════ */
 router.put("/admin/plans/:id", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id } = req.params as Record<string, string>;
     const { nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
 
@@ -327,7 +295,7 @@ router.put("/admin/plans/:id", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.post("/admin/plans", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id, nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
 
     if (!id || !nameAr) return res.status(400).json({ error: "id و nameAr مطلوبان" });
@@ -365,7 +333,7 @@ router.post("/admin/plans", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     const { id } = req.params as Record<string, string>;
     const builtIn = ["free", "basic", "pro", "growth", "advanced", "enterprise", "elite"];
     if (builtIn.includes(id)) return res.status(400).json({ error: "لا يمكن حذف الباقات الافتراضية" });
@@ -381,7 +349,7 @@ router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.post("/admin/plans/reset", adminOnly, async (_req, res) => {
   try {
-    await ensureTable();
+    await ensurePlanSeed();
     for (const p of DEFAULT_PLANS) {
       await db.execute(sql`
         INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)

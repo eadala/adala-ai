@@ -1,4 +1,6 @@
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+/* Legacy billing module — pre-existing any/non-null usage outside Stage 16.1 edits. */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -6,6 +8,12 @@ import { getAuth } from "@clerk/express";
 import { getUncachableStripeClient } from "../../stripeClient";
 import { resolveTenantId } from "../../middlewares/tenantMiddleware";
 import { getDbPlans } from "../platform/planCms";
+import {
+  fetchBillingOverview,
+  listTenantPlatformInvoices,
+  tenantPlatformInvoiceStats,
+  type StripeLike,
+} from "../../lib/billingTenantReads";
 
 const router = Router();
 
@@ -112,118 +120,36 @@ router.get("/billing/stripe-status", requireAuth, async (_req, res) => {
 
 /* ══════════════════════════════════════════════════════
    BILLING OVERVIEW — KPIs + Subscription + Alerts + Usage
+   Tenant-scoped via requireAuthWithTenant (Stage 16.1).
+   Global SA aggregates remain on /admin/billing/*.
 ══════════════════════════════════════════════════════ */
-router.get("/billing/overview", requireAuth, async (req, res) => {
+router.get("/billing/overview", requireAuthWithTenant, async (req, res) => {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-
-    /* 0. Resolve tenant — MUST come first; all queries below use tenantId */
-    const tenantId = await resolveTenantId(userId);
-    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
-
-    /* 1. Current office plan — scoped to this tenant only */
-    const officeRows = await db.execute(sql`SELECT plan FROM office_page WHERE id = ${tenantId}::uuid LIMIT 1`);
-    const planSlug = ((officeRows as any)?.rows ?? [])[0]?.plan ?? "free";
-    const planMeta = PLANS.find(p => p.id === planSlug) ?? PLANS[0];
-
-    /* 2. Entitlements / usage */
-    const entRows = await db.execute(sql`
-      SELECT key, "limit", used,
-             CASE WHEN "limit" > 0 THEN LEAST(ROUND((used::numeric/"limit")*100),100) ELSE 0 END AS percent,
-             CASE WHEN "limit" > 0 THEN GREATEST("limit"-used,0) ELSE 999999 END AS remaining
-      FROM office_entitlements
-      WHERE office_id = ${tenantId}
-      ORDER BY key
-    `);
-    const entitlements = ((entRows as any)?.rows ?? []).map((e: any) => ({
-      key: e.key, limit: Number(e.limit), used: Number(e.used),
-      percent: Number(e.percent), remaining: Number(e.remaining),
-    }));
-
-    /* 3. Stripe subscription details */
-    let stripeSubscription: any = null;
-    let stripeCustomerId: string | null = null;
-    let stripe: StripeClient | null = null;
-    try { stripe = await getUncachableStripeClient(); } catch { }
-    if (stripe) {
-      try {
-        const subs = await stripe.subscriptions.list({ limit: 1, expand: ["data.latest_invoice"] });
-        if (subs.data.length > 0) {
-          const s = subs.data[0];
-          stripeSubscription = {
-            id: s.id,
-            status: s.status,
-            currentPeriodStart: (s as any).current_period_start,
-            currentPeriodEnd: (s as any).current_period_end,
-            cancelAtPeriodEnd: s.cancel_at_period_end,
-            latestInvoiceStatus: (s.latest_invoice as any)?.status ?? null,
-          };
-          stripeCustomerId = s.customer as string;
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    const overview = await fetchBillingOverview({
+      db,
+      tenantId: tenantId ?? "",
+      plans: PLANS,
+      planOrder: PLAN_ORDER,
+      keyLabels: KEY_LABELS,
+      getStripeClient: async (): Promise<StripeLike | null> => {
+        try {
+          return (await getUncachableStripeClient()) as unknown as StripeLike;
+        } catch {
+          return null;
         }
-      } catch { /* Stripe not configured */ }
-    }
-
-    /* 4. Billing alerts */
-    const alerts: { type: "error" | "warning" | "info"; message: string; action?: string }[] = [];
-
-    if (stripeSubscription?.status === "past_due") {
-      alerts.push({ type: "error", message: "يوجد دفعة متأخرة — يرجى تحديث بيانات الدفع فوراً", action: "payment_methods" });
-    }
-    if (stripeSubscription?.status === "unpaid") {
-      alerts.push({ type: "error", message: "فشلت عملية الدفع — الاشتراك موقوف مؤقتاً", action: "payment_methods" });
-    }
-    if (stripeSubscription?.cancelAtPeriodEnd) {
-      const dt = new Date((stripeSubscription.currentPeriodEnd ?? 0) * 1000);
-      alerts.push({ type: "warning", message: `الاشتراك سيتوقف في ${dt.toLocaleDateString("ar-SA")} — يمكنك إعادة التفعيل في أي وقت` });
-    }
-    if (planSlug === "free") {
-      alerts.push({ type: "info", message: "أنت على الباقة المجانية — قم بالترقية للوصول إلى ميزات متقدمة", action: "plans" });
-    }
-    for (const ent of entitlements) {
-      const label = KEY_LABELS[ent.key] ?? ent.key;
-      if (ent.percent >= 95) {
-        alerts.push({ type: "error", message: `تجاوزت ${ent.percent}% من حد ${label} — يُنصح بالترقية فوراً` });
-      } else if (ent.percent >= 80) {
-        alerts.push({ type: "warning", message: `اقتربت من حد ${label} (${ent.percent}% مستخدم)` });
-      }
-    }
-
-    /* 5. MRR from ledger (last 30 days credits) */
-    const mrrRows = await db.execute(sql`
-      SELECT COALESCE(SUM(amount),0) AS mrr FROM office_ledger
-      WHERE type='credit' AND created_at >= NOW() - INTERVAL '30 days'
-    `);
-    const mrr = Number(((mrrRows as any)?.rows ?? [])[0]?.mrr ?? 0);
-
-    /* 6. Total paid to platform */
-    const totalRows = await db.execute(sql`SELECT COALESCE(SUM(amount),0) AS total FROM office_ledger WHERE type='credit'`);
-    const totalPaid = Number(((totalRows as any)?.rows ?? [])[0]?.total ?? 0);
-
-    /* 7. Next billing date (platform invoice) */
-    const nextInvRows = await db.execute(sql`
-      SELECT due_date FROM platform_billing_invoices
-      WHERE status='unpaid' ORDER BY due_date ASC LIMIT 1
-    `);
-    const nextDueDate = ((nextInvRows as any)?.rows ?? [])[0]?.due_date ?? null;
-
-    return res.json({
-      planSlug,
-      planName: planMeta.name,
-      planColor: planMeta.color,
-      planPrice: planMeta.monthlyPrice,
-      planOrder: PLAN_ORDER.indexOf(planSlug),
-      stripeSubscription,
-      stripeCustomerId,
-      stripeConfigured: !!stripe,
-      entitlements,
-      alerts,
-      mrr,
-      totalPaid,
-      nextDueDate,
+      },
     });
-  } catch (err: any) {
-        res.status(500).json({ error: err.message });
+    return res.json(overview);
+  } catch (err: unknown) {
+    const e = err as { code?: string; message?: string };
+    if (e?.code === "TENANT_BILLING_FORBIDDEN" || e?.message === "TENANT_BILLING_FORBIDDEN") {
+      return res.status(403).json({
+        error: "فوترة المكتب تتطلب مكتباً مرتبطاً — استخدم لوحة الإدارة للمنصة",
+        code: "TENANT_BILLING_FORBIDDEN",
+      });
+    }
+    res.status(500).json({ error: e?.message ?? "خطأ في الخادم" });
   }
 });
 
@@ -415,7 +341,7 @@ router.get("/billing/revenue", requireAuth, requireSuperAdmin, async (req, res) 
 
     let stripe: StripeClient | null = null;
     try { stripe = await getUncachableStripeClient(); } catch { }
-    let stripeRevenue = { total: 0, transactions: 0, recent: [] as any[] };
+    const stripeRevenue = { total: 0, transactions: 0, recent: [] as any[] };
 
     if (stripe) {
       try {
@@ -752,59 +678,67 @@ router.get("/billing/ledger", requireAuth, async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════
-   PLATFORM BILLING INVOICES
+   PLATFORM BILLING INVOICES — tenant-scoped (Stage 16.1)
+   Cross-tenant listing removed. SA global view: /admin/billing/*
 ══════════════════════════════════════════════════════ */
-router.get("/billing/platform-invoices", requireAuth, async (req, res) => {
+router.get("/billing/platform-invoices", requireAuthWithTenant, async (req, res) => {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const r = await db.execute(sql`
-      SELECT id, plan_id, plan_name, amount, currency, status,
-             billing_cycle, issue_date, due_date, paid_at, notes, created_at
-      FROM platform_billing_invoices ORDER BY created_at DESC LIMIT 50
-    `);
-    res.json((r as any)?.rows ?? []);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    const rows = await listTenantPlatformInvoices({ db, tenantId: tenantId ?? "" });
+    res.json(rows);
+  } catch (err: unknown) {
+    const e = err as { code?: string; message?: string };
+    if (e?.code === "TENANT_BILLING_FORBIDDEN" || e?.message === "TENANT_BILLING_FORBIDDEN") {
+      return res.status(403).json({
+        error: "فوترة المكتب تتطلب مكتباً مرتبطاً — استخدم لوحة الإدارة للمنصة",
+        code: "TENANT_BILLING_FORBIDDEN",
+      });
+    }
+    res.status(500).json({ error: e?.message ?? "خطأ في الخادم" });
   }
 });
 
-router.get("/billing/platform-invoices/stats", requireAuth, async (req, res) => {
+router.get("/billing/platform-invoices/stats", requireAuthWithTenant, async (req, res) => {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const r = await db.execute(sql`
-      SELECT
-        COUNT(*)::int                                            AS total,
-        COUNT(*) FILTER (WHERE status='paid')::int             AS paid,
-        COUNT(*) FILTER (WHERE status='unpaid')::int           AS unpaid,
-        COUNT(*) FILTER (WHERE status='overdue')::int          AS overdue,
-        COALESCE(SUM(amount) FILTER (WHERE status='paid'),0)   AS total_paid,
-        COALESCE(SUM(amount) FILTER (WHERE status='unpaid'),0) AS total_pending
-      FROM platform_billing_invoices
-    `);
-    res.json(((r as any)?.rows ?? [])[0] ?? {});
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    const stats = await tenantPlatformInvoiceStats({ db, tenantId: tenantId ?? "" });
+    res.json(stats);
+  } catch (err: unknown) {
+    const e = err as { code?: string; message?: string };
+    if (e?.code === "TENANT_BILLING_FORBIDDEN" || e?.message === "TENANT_BILLING_FORBIDDEN") {
+      return res.status(403).json({
+        error: "فوترة المكتب تتطلب مكتباً مرتبطاً — استخدم لوحة الإدارة للمنصة",
+        code: "TENANT_BILLING_FORBIDDEN",
+      });
+    }
+    res.status(500).json({ error: e?.message ?? "خطأ في الخادم" });
   }
 });
 
-router.post("/billing/subscribe", requireAuth, async (req, res) => {
+router.post("/billing/subscribe", requireAuthWithTenant, async (req, res) => {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
+    const tenantId = (req as { tenantId?: string }).tenantId;
+    if (!tenantId || tenantId === "platform") {
+      return res.status(403).json({
+        error: "فوترة المكتب تتطلب مكتباً مرتبطاً",
+        code: "TENANT_BILLING_FORBIDDEN",
+      });
+    }
     const { planId } = req.body as { planId: string };
     const plan = PLANS.find(p => p.id === planId);
     if (!plan || plan.isFree) return res.status(400).json({ error: "الباقة غير صالحة" });
     const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 7);
     const invoiceId = crypto.randomUUID();
     await db.execute(sql`
-      INSERT INTO platform_billing_invoices (id, plan_id, plan_name, amount, currency, status, billing_cycle, due_date)
-      VALUES (${invoiceId}, ${planId}, ${plan.name}, ${plan.price}, 'SAR', 'unpaid', 'monthly', ${dueDate.toISOString()})
+      INSERT INTO platform_billing_invoices
+        (id, office_id, plan_id, plan_name, amount, currency, status, billing_cycle, due_date)
+      VALUES
+        (${invoiceId}, ${tenantId}, ${planId}, ${plan.name}, ${plan.price}, 'SAR', 'unpaid', 'monthly', ${dueDate.toISOString()})
     `);
     res.json({ ok: true, invoiceId });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    res.status(500).json({ error: e?.message ?? "خطأ في الخادم" });
   }
 });
 

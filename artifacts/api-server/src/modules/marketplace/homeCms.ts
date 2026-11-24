@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; Stage 6B schema ownership only */
 import { Router } from "express";
 import { requireSuperAdmin } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -16,34 +17,20 @@ async function sqlOne(q: any) {
   } catch { return null; }
 }
 
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS home_cms (
-      id           INTEGER PRIMARY KEY DEFAULT 1,
-      hero         JSONB NOT NULL DEFAULT '{}',
-      trust        JSONB NOT NULL DEFAULT '{}',
-      features     JSONB NOT NULL DEFAULT '{}',
-      cta_section  JSONB NOT NULL DEFAULT '{}',
-      announcement JSONB NOT NULL DEFAULT '{}',
-      stats        JSONB NOT NULL DEFAULT '{}',
-      seo          JSONB NOT NULL DEFAULT '{}',
-      contact      JSONB NOT NULL DEFAULT '{}',
-      updated_at   TIMESTAMPTZ DEFAULT NOW(),
-      updated_by   TEXT
-    )
-  `);
-  /* add contact column to existing tables */
-  await db.execute(sql`
-    ALTER TABLE home_cms ADD COLUMN IF NOT EXISTS contact JSONB NOT NULL DEFAULT '{}'
-  `);
-  /* add footer column */
-  await db.execute(sql`
-    ALTER TABLE home_cms ADD COLUMN IF NOT EXISTS footer JSONB NOT NULL DEFAULT '{}'
-  `);
-  /* seed default row if missing */
+/** Readiness + singleton seed DML — schema owned by Migration 038. */
+async function ensureHomeCmsReady() {
+  const r = await db.execute(sql`
+    SELECT to_regclass('public.home_cms') IS NOT NULL AS ok
+  `).catch(() => ({ rows: [{}] }));
+  const ok = Boolean(((r as { rows?: { ok?: boolean }[] }).rows ?? [])[0]?.ok);
+  if (!ok) {
+    console.error("[homeCms] Migration 038 schema not ready — home_cms missing");
+    return;
+  }
+  /* Platform singleton seed (DML; not schema mutation) */
   await db.execute(sql`
     INSERT INTO home_cms (id) VALUES (1) ON CONFLICT DO NOTHING
-  `);
+  `).catch(() => {});
 }
 
 const DEFAULT_CONTENT = {
@@ -138,7 +125,7 @@ const DEFAULT_CONTENT = {
 ══════════════════════════════════════════════════════ */
 router.get("/home/content", async (_req, res) => {
   try {
-    await ensureTable();
+    await ensureHomeCmsReady();
     const row = await sqlOne(sql`SELECT * FROM home_cms WHERE id = 1`);
     if (!row) return res.json(DEFAULT_CONTENT);
 
@@ -161,7 +148,7 @@ router.get("/home/content", async (_req, res) => {
 ══════════════════════════════════════════════════════ */
 router.put("/home/content", adminOnly, async (req, res) => {
   try {
-    await ensureTable();
+    await ensureHomeCmsReady();
     const { hero, trust, features, cta_section, announcement, stats, seo, contact, footer, updatedBy } = req.body;
 
     await db.execute(sql`
@@ -190,7 +177,7 @@ router.put("/home/content", adminOnly, async (req, res) => {
 ══════════════════════════════════════════════════════ */
 router.post("/home/content/reset", adminOnly, async (_req, res) => {
   try {
-    await ensureTable();
+    await ensureHomeCmsReady();
     await db.execute(sql`
       UPDATE home_cms SET
         hero         = ${JSON.stringify(DEFAULT_CONTENT.hero)}::jsonb,

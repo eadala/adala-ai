@@ -8,12 +8,19 @@ import { circuitBreaker, CIRCUITS, CircuitOpenError } from "./circuit.breaker";
 import { evaluateRules, buildRuleContext } from "./rules.engine";
 import { collectMetrics } from "../observability/metrics";
 import { preventionLog } from "./prevention.log";
+export {
+  isMetricsBeaconPath,
+  isMetricsBeaconRequest,
+  getRequestPathname,
+  normalizeBeaconPath,
+} from "../lib/metricsBeaconPath";
+import { isMetricsBeaconRequest } from "../lib/metricsBeaconPath";
 
 /** حارس عام — يُركَّب على جميع مسارات /api */
 export function requestGuard(req: Request, res: Response, next: NextFunction) {
   try {
     /* 1. تحقق من نوع المحتوى لطلبات POST/PUT/PATCH */
-    if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    if (["POST", "PUT", "PATCH"].includes(req.method) && !isMetricsBeaconRequest(req)) {
       const contentType = req.headers["content-type"] ?? "";
       if (
         req.body !== undefined &&

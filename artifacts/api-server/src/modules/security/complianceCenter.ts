@@ -7,58 +7,21 @@ import { auditLog, auditMeta } from "../../lib/auditLogger";
 const router = Router();
 const saGuard = requireSuperAdmin;
 
+/* Migration 053 owns DDL; readiness only — seeds preserved */
 (async () => {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS compliance_controls (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        framework   TEXT NOT NULL DEFAULT 'PDPL',
-        control_id  TEXT NOT NULL,
-        title       TEXT NOT NULL,
-        description TEXT,
-        status      TEXT DEFAULT 'pending',
-        evidence    TEXT,
-        owner       TEXT,
-        due_date    DATE,
-        updated_at  TIMESTAMPTZ DEFAULT NOW(),
-        created_at  TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE(framework, control_id)
-      );
-      CREATE TABLE IF NOT EXISTS data_requests (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        request_type TEXT NOT NULL,
-        requester_id TEXT,
-        office_id    TEXT,
-        subject_email TEXT,
-        status       TEXT DEFAULT 'pending',
-        notes        TEXT,
-        completed_at TIMESTAMPTZ,
-        completed_by TEXT,
-        created_at   TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS retention_policies (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        resource_type   TEXT NOT NULL UNIQUE,
-        retention_days  INTEGER NOT NULL,
-        auto_delete     BOOLEAN DEFAULT false,
-        legal_hold      BOOLEAN DEFAULT false,
-        last_run        TIMESTAMPTZ,
-        created_at      TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS legal_holds (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title       TEXT NOT NULL,
-        description TEXT,
-        resources   TEXT[],
-        office_id   TEXT,
-        created_by  TEXT,
-        expires_at  TIMESTAMPTZ,
-        status      TEXT DEFAULT 'active',
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_data_requests_status ON data_requests(status);
-      CREATE INDEX IF NOT EXISTS idx_compliance_controls_framework ON compliance_controls(framework);
-    `);
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.compliance_controls') IS NOT NULL AS compliance_controls_present,
+        to_regclass('public.data_requests') IS NOT NULL AS data_requests_present,
+        to_regclass('public.retention_policies') IS NOT NULL AS retention_policies_present,
+        to_regclass('public.legal_holds') IS NOT NULL AS legal_holds_present
+    `) as any;
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.compliance_controls_present || !row.data_requests_present || !row.retention_policies_present || !row.legal_holds_present) {
+      console.error("[compliance] Migration 053 schema not ready — compliance_controls / data_requests / retention_policies / legal_holds missing");
+      return;
+    }
 
     await db.execute(sql`
       INSERT INTO compliance_controls (framework, control_id, title, description, status) VALUES

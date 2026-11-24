@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/authFetch";
+import { useAuthReady } from "@/hooks/use-auth-ready";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -10,12 +12,14 @@ export interface MyPermissions {
 }
 
 export function usePermissions() {
-  const { data, isLoading } = useQuery<MyPermissions>({
+  const authReady = useAuthReady();
+  const { data, isPending } = useQuery<MyPermissions>({
     queryKey: ["my-permissions"],
     queryFn: () =>
-      fetch(`${BASE}/api/rbac/my-permissions`).then(r => r.json()),
+      authFetch(`${BASE}/api/rbac/my-permissions`).then(r => r.json()),
     staleTime: 5 * 60 * 1000,
     retry: false,
+    enabled: authReady,
   });
 
   const permissions: string[] = data?.permissions ?? [];
@@ -44,6 +48,7 @@ export function usePermissions() {
     isOwner,
     isAdmin,
     isLawyer,
-    isLoaded: !isLoading,
+    // Wait for auth readiness + query settle (disabled query stays pending)
+    isLoaded: authReady && !isPending,
   };
 }

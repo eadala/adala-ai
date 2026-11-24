@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -8,16 +7,12 @@ import { callAI } from "../ai/aiChat";
 const router = Router();
 
 /* ─── helpers ──────────────────────────────────────────────────────── */
-async function getOfficeId(req: any): Promise<string | null> {
-  const t = req.tenantId as string | undefined;
-  if (t && t !== "platform") return t;
+async function getOfficeId(userId: string): Promise<string | null> {
   try {
-    const userId = req.auth?.userId ?? req.userId;
-    if (!userId) return null;
     const rows = await db.execute(sql`
       SELECT op.id FROM office_page op
       JOIN office_members om ON om.office_id = op.id
-      WHERE om.user_id = ${userId} AND om.status = 'active'
+      WHERE om.user_id = ${userId}
       LIMIT 1
     `);
     const arr = Array.isArray(rows) ? rows : (rows as any).rows ?? [];
@@ -28,7 +23,7 @@ async function getOfficeId(req: any): Promise<string | null> {
 /* ─── GET /website-builder/config ──────────────────────────────────── */
 router.get("/website-builder/config", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.json({ website_config: {} });
 
     const rows = await db.execute(sql`
@@ -44,7 +39,7 @@ router.get("/website-builder/config", requireAuthWithTenant, async (req: any, re
 /* ─── PATCH /website-builder/config ────────────────────────────────── */
 router.patch("/website-builder/config", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.status(404).json({ error: "No office found" });
 
     const config = req.body;
@@ -61,7 +56,7 @@ router.patch("/website-builder/config", requireAuthWithTenant, async (req: any, 
 /* ─── POST /website-builder/ai-generate ────────────────────────────── */
 router.post("/website-builder/ai-generate", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const { officeName, specializations = [], city, teamSize, currentContent: _currentContent } = req.body;
+    const { officeName, specializations = [], city, teamSize, currentContent } = req.body;
 
     const prompt = `أنت كاتب محتوى قانوني محترف. اكتب محتوى احترافي لموقع مكتب محاماة.
 
@@ -106,7 +101,7 @@ router.post("/website-builder/ai-generate", requireAuthWithTenant, async (req: a
 /* ─── GET /website-builder/pages ───────────────────────────────────── */
 router.get("/website-builder/pages", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.json([]);
 
     const rows = await db.execute(sql`
@@ -123,7 +118,7 @@ router.get("/website-builder/pages", requireAuthWithTenant, async (req: any, res
 /* ─── POST /website-builder/pages ──────────────────────────────────── */
 router.post("/website-builder/pages", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.status(404).json({ error: "No office" });
 
     const { slug, titleAr, titleEn, contentAr, contentEn, pageType, metaTitle, metaDescription, keywords } = req.body;
@@ -151,7 +146,7 @@ router.post("/website-builder/pages", requireAuthWithTenant, async (req: any, re
 /* ─── PATCH /website-builder/pages/:id ─────────────────────────────── */
 router.patch("/website-builder/pages/:id", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.status(403).json({ error: "Forbidden" });
 
     const { id } = req.params as Record<string, string>;
@@ -179,7 +174,7 @@ router.patch("/website-builder/pages/:id", requireAuthWithTenant, async (req: an
 /* ─── DELETE /website-builder/pages/:id ────────────────────────────── */
 router.delete("/website-builder/pages/:id", requireAuthWithTenant, async (req: any, res) => {
   try {
-    const officeId = await getOfficeId(req);
+    const officeId = await getOfficeId(req.auth.userId);
     if (!officeId) return res.status(403).json({ error: "Forbidden" });
 
     const { id } = req.params as Record<string, string>;

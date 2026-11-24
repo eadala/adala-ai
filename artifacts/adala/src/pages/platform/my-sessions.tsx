@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useQuery } from "@tanstack/react-query";
 import { useUser, useClerk } from "@clerk/react";
 import {
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -60,7 +62,7 @@ export default function MySessionsPage() {
 
   const { data, isLoading, refetch, isFetching } = useQuery<any>({
     queryKey: ["my-sessions"],
-    queryFn: () => fetch(`${BASE}/api/security/my-sessions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/security/my-sessions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
   });
 

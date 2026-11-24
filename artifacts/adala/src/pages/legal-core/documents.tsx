@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; create-folder Save fix */
+import React, { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useListDocuments } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,10 +26,21 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/hooks/use-lang";
 import { SmartUploader } from "@/components/smart-uploader";
+import { authFetch } from "@/lib/authFetch";
+import { fetchStorageFileSignedUrl, openStorageFile } from "@/lib/storageSignedUrl";
 import { cn } from "@/lib/utils";
 import { useImageViewer } from "@/components/ui/image-viewer";
+import { LEGAL_LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+type DocumentsPageResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function fmtSize(bytes?: number) {
@@ -52,7 +64,7 @@ function MimeIcon({ mime, cls }: { mime?: string; cls?: string }) {
 function useFolders() {
   return useQuery<any[]>({
     queryKey: ["storage-folders"],
-    queryFn: () => fetch(`${BASE}/api/storage/folders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/storage/folders`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
   });
 }
@@ -61,7 +73,7 @@ function useStorageFiles(search: string, folderId: string | null, enabled = true
   const folderParam = folderId === null ? "root" : folderId;
   return useQuery<any[]>({
     queryKey: ["storage-files", search, folderParam],
-    queryFn: () => fetch(
+    queryFn: () => authFetch(
       `${BASE}/api/storage/files?limit=200${search ? `&search=${encodeURIComponent(search)}` : ""}&folderId=${folderParam}`
     ).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
@@ -73,7 +85,7 @@ function useStorageFiles(search: string, folderId: string | null, enabled = true
 function usePortalTokens(caseId: string | null | undefined, enabled: boolean) {
   return useQuery<any[]>({
     queryKey: ["portal-tokens", caseId],
-    queryFn: () => fetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/portal/tokens/${caseId}`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: !!caseId && enabled,
     staleTime: 30_000,
   });
@@ -85,8 +97,8 @@ function ShareDialog({ doc, open, onClose, tx, dir }: { doc: any; open: boolean;
   const { data: tokens = [], isLoading } = usePortalTokens(doc?.caseId ?? doc?.case_id, open);
   const toggleMut = useMutation({
     mutationFn: async ({ tokenId, docId, shared }: { tokenId: string; docId: string; shared: boolean }) => {
-      if (shared) return fetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ docId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
-      return fetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc/${docId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      if (shared) return authFetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ docId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
+      return authFetch(`${BASE}/api/portal/tokens/${tokenId}/share-doc/${docId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); });
     },
     onSuccess: (d, vars) => {
       if (d?.error) { toast({ title: tx("خطأ","Error"), description: d.error, variant: "destructive" }); return; }
@@ -127,7 +139,7 @@ function MoveDialog({ file, folders, open, onClose }: { file: any; folders: any[
   const [selected, setSelected] = useState<string | null>(file?.folder_id ?? null);
   const moveMut = useMutation({
     mutationFn: (folderId: string | null) =>
-      fetch(`${BASE}/api/storage/files/${file.id}/folder`, {
+      authFetch(`${BASE}/api/storage/files/${file.id}/folder`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderId }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -227,7 +239,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const { data, isLoading, refetch } = useQuery<any>({
     queryKey: ["folder-permissions", folder?.id],
-    queryFn: () => fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     enabled: open && !!folder?.id,
     staleTime: 10_000,
   });
@@ -238,7 +250,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
   const saveVis = async () => {
     setSavingVis(true);
     try {
-      const r = await fetch(`${BASE}/api/storage/folders/${folder.id}/permissions`, {
+      const r = await authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visibility: vis }),
       });
@@ -254,7 +266,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const grantMut = useMutation({
     mutationFn: ({ userId, userName, canWrite }: { userId: string; userName: string; canWrite: boolean }) =>
-      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users`, {
+      authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, userName, canRead: true, canWrite, canDelete: false }),
       }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
@@ -264,7 +276,7 @@ function FolderPermissionsDialog({ folder, open, onClose }: { folder: any; open:
 
   const revokeMut = useMutation({
     mutationFn: (userId: string) =>
-      fetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders/${folder.id}/permissions/users/${userId}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: "تم سحب الصلاحية" }); refetch(); },
   });
 
@@ -479,9 +491,24 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
   const { toast } = useToast();
   const qc = useQueryClient();
   const { open: openImage, viewer: imageViewer } = useImageViewer();
+  const isImage = !!file.mime_type?.startsWith("image/");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    if (!isImage || !file?.id) {
+      setPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    fetchStorageFileSignedUrl(String(file.id))
+      .then(({ url }) => { if (!cancelled) setPreviewUrl(url); })
+      .catch(() => { if (!cancelled) setPreviewUrl(null); });
+    return () => { cancelled = true; };
+  }, [file?.id, isImage]);
 
   const trashMut = useMutation({
-    mutationFn: () => fetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: () => authFetch(`${BASE}/api/storage/files/${file.id}/trash`, { method: "PATCH" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: () => { toast({ title: tx("تم النقل إلى المهملات","Moved to trash") }); qc.invalidateQueries({ queryKey: ["storage-files"] }); },
     onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
   });
@@ -491,23 +518,47 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
     trashMut.mutate();
   };
 
-  const fileUrl = file.file_url
-    ? (file.file_url.startsWith("/") ? `${BASE}${file.file_url}` : file.file_url)
-    : null;
-  const isImage = file.mime_type?.startsWith("image/");
-  const preview = isImage && fileUrl ? fileUrl : null;
+  const handleOpen = async () => {
+    if (!file?.id || opening) return;
+    setOpening(true);
+    try {
+      await openStorageFile(String(file.id));
+    } catch (e: any) {
+      toast({ title: tx("تعذر فتح الملف","Could not open file"), description: e?.message, variant: "destructive" });
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!file?.id || opening) return;
+    setOpening(true);
+    try {
+      const { url, fileName } = await fetchStorageFileSignedUrl(String(file.id));
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.download = fileName || file.original_name || "file";
+      a.click();
+    } catch (e: any) {
+      toast({ title: tx("تعذر تحميل الملف","Could not download file"), description: e?.message, variant: "destructive" });
+    } finally {
+      setOpening(false);
+    }
+  };
 
   return (
     <Card className="hover-elevate group transition-all overflow-hidden">
       {imageViewer}
       <CardContent className="p-0">
-        {preview && (
+        {previewUrl && (
           <div
             className="h-28 overflow-hidden bg-muted/40 cursor-zoom-in relative"
-            onClick={() => openImage(preview)}
+            onClick={() => openImage(previewUrl)}
             title={tx("انقر للتكبير", "Click to enlarge")}
           >
-            <img src={preview} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" loading="lazy" />
+            <img src={previewUrl} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="" loading="lazy" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
             </div>
@@ -525,17 +576,14 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {fileUrl && (
+                {file.id && (
                   <>
-                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-                      <a href={fileUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-4 w-4" />{tx("فتح","Open")}
-                      </a>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" disabled={opening} onClick={handleOpen}>
+                      {opening ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                      {tx("فتح","Open")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
-                      <a href={fileUrl} download={file.original_name}>
-                        <Download className="h-4 w-4" />{tx("تحميل","Download")}
-                      </a>
+                    <DropdownMenuItem className="gap-2 cursor-pointer" disabled={opening} onClick={handleDownload}>
+                      <Download className="h-4 w-4" />{tx("تحميل","Download")}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -579,12 +627,15 @@ function StorageFileCard({ file, folders, onShare, onMove, tx }: { file: any; fo
 }
 
 /* ── Legacy documents tab ────────────────────────────────────────────────── */
-function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc, tx, dateLocale, qc }: any) {
+function LegacyDocTab({
+  filteredOld, loadingOld, search, setSearch, setShareDoc, tx, dateLocale, qc, dir,
+  page, setPage, total,
+}: any) {
   const { toast } = useToast();
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      fetch(`${BASE}/api/documents/${id}`, { method: "DELETE" }).then(r => { if (!r.ok && r.status !== 204) throw new Error("خطأ في الخادم"); }),
+      authFetch(`${BASE}/api/documents/${id}`, { method: "DELETE" }).then(r => { if (!r.ok && r.status !== 204) throw new Error("خطأ في الخادم"); }),
     onSuccess: () => { toast({ title: tx("تم حذف المستند","Document deleted") }); qc.invalidateQueries({ queryKey: ["documents"] }); },
     onError: () => toast({ title: tx("❌ فشل الحذف","❌ Delete failed"), variant: "destructive" }),
   });
@@ -600,7 +651,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
         <div className="relative flex-1 max-w-md">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder={tx("البحث في المستندات...","Search documents...")}
-            value={search} onChange={e => setSearch(e.target.value)} className="ps-4 pe-10" />
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="ps-4 pe-10" />
         </div>
       </div>
       {loadingOld ? (
@@ -613,6 +664,7 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
           <h3 className="text-lg font-medium">{tx("لا توجد مستندات","No Documents")}</h3>
         </div>
       ) : (
+        <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredOld.map((doc: any) => (
             <Card key={doc.id} className="hover-elevate group cursor-pointer transition-all">
@@ -676,42 +728,112 @@ function LegacyDocTab({ filteredOld, loadingOld, search, setSearch, setShareDoc,
             </Card>
           ))}
         </div>
+        <ListPagination
+          page={page}
+          pageSize={LEGAL_LIST_PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          dir={dir}
+        />
+        </div>
       )}
     </>
   );
 }
 
 /* ── Inline folder name input ────────────────────────────────────────────── */
-function FolderNameInput({ label, defaultValue = "", onSubmit, onCancel }: { label:string; defaultValue?:string; onSubmit:(n:string)=>void; onCancel:()=>void }) {
+function FolderNameInput({
+  label,
+  defaultValue = "",
+  onSubmit,
+  onCancel,
+  saveTestId,
+}: {
+  label: string;
+  defaultValue?: string;
+  onSubmit: (n: string) => void;
+  onCancel: () => void;
+  saveTestId?: string;
+}) {
   const [val, setVal] = useState(defaultValue);
+  const submit = () => {
+    const name = val.trim();
+    if (name) onSubmit(name);
+  };
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex gap-2 items-center" data-testid="folder-name-input">
       <Input
         value={val} autoFocus
         onChange={e => setVal(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter" && val.trim()) onSubmit(val.trim()); if (e.key === "Escape") onCancel(); }}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); submit(); }
+          if (e.key === "Escape") onCancel();
+        }}
         placeholder={label}
         className="h-8 text-sm flex-1"
       />
-      <Button size="sm" className="h-8 px-3 text-xs font-bold shrink-0"
+      {/* Keep focus on tap so mobile keyboard dismiss doesn't swallow the click. */}
+      <Button type="button" size="sm" className="h-8 px-3 text-xs font-bold shrink-0"
         style={{ background:"linear-gradient(135deg,#2563EB,#2563EB)", color:"#0D1626" }}
-        disabled={!val.trim()} onClick={() => onSubmit(val.trim())}>
+        disabled={!val.trim()}
+        onMouseDown={e => e.preventDefault()}
+        onClick={submit}
+        data-testid={saveTestId ?? "folder-name-save"}>
         حفظ
       </Button>
-      <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={onCancel}>إلغاء</Button>
+      <Button type="button" size="sm" variant="ghost" className="h-8 px-2 shrink-0"
+        onMouseDown={e => e.preventDefault()}
+        onClick={onCancel}>
+        إلغاء
+      </Button>
     </div>
   );
 }
 
 /* ── Main Page ───────────────────────────────────────────────────────────── */
 export default function Documents() {
-  const { data: documents, isLoading: loadingOld } = useListDocuments();
+  const [location] = useLocation();
   const [search, setSearch]             = useState("");
+  const [legacyPage, setLegacyPage]     = useState(1);
+  const [activeTab, setActiveTab]       = useState("smart");
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath]     = useState<Array<{id:string;name:string}>>([]);
   const [shareDoc, setShareDoc]         = useState<any>(null);
   const [moveFile, setMoveFile]         = useState<any>(null);
   const [uploadOpen, setUploadOpen]     = useState(false);
+
+  const { data: documentsPage, isLoading: loadingOld } = useQuery<DocumentsPageResponse>({
+    queryKey: ["documents", legacyPage, search, activeTab],
+    enabled: activeTab === "legacy",
+    queryFn: async () => {
+      const p = new URLSearchParams({
+        page: String(legacyPage),
+        limit: String(LEGAL_LIST_PAGE_SIZE),
+      });
+      if (search.trim()) p.set("search", search.trim());
+      const r = await authFetch(`${BASE}/api/documents?${p}`);
+      if (!r.ok) throw new Error("خطأ في الخادم");
+      const json = await r.json();
+      if (Array.isArray(json)) {
+        return {
+          data: json,
+          total: json.length,
+          page: 1,
+          limit: json.length || LEGAL_LIST_PAGE_SIZE,
+          pages: 1,
+        };
+      }
+      return json as DocumentsPageResponse;
+    },
+  });
+  const documents = documentsPage?.data ?? [];
+  const documentsTotal = Number(documentsPage?.total ?? 0);
+
+  useEffect(() => {
+    if (location === "/documents/new" || location.endsWith("/documents/new")) {
+      setUploadOpen(true);
+    }
+  }, [location]);
   const [newFolderParent, setNewFolderParent] = useState<string | null | "NONE">("NONE"); // "NONE"=hidden
   const [renameFolder, setRenameFolder] = useState<any>(null);
   const [permFolder, setPermFolder]     = useState<any>(null);
@@ -724,24 +846,31 @@ export default function Documents() {
   const { data: storageFiles = [], isLoading: loadingFiles, refetch: refetchFiles } =
     useStorageFiles(search, currentFolderId);
 
-  const filteredOld = (documents ?? []).filter((d: any) =>
-    !search || d.fileName?.toLowerCase().includes(search.toLowerCase()) || d.caseName?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOld = documents;
+
+  const { toast } = useToast();
 
   /* ── Folder mutations ── */
   const createFolderMut = useMutation({
     mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
-      fetch(`${BASE}/api/storage/folders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, parentId }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, parentId }),
+      }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
       qc.invalidateQueries({ queryKey: ["storage-folders"] });
       setNewFolderParent("NONE");
     },
+    onError: (e: Error) => {
+      toast({ title: `❌ ${e.message || "فشل إنشاء المجلد"}`, variant: "destructive" });
+    },
   });
 
   const renameFolderMut = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      fetch(`${BASE}/api/storage/folders/${id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+      authFetch(`${BASE}/api/storage/folders/${id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (d) => {
       if (d?.error) { toast({ title: `❌ ${d.error}`, variant: "destructive" }); return; }
       qc.invalidateQueries({ queryKey: ["storage-folders"] }); setRenameFolder(null);
@@ -749,7 +878,7 @@ export default function Documents() {
   });
 
   const deleteFolderMut = useMutation({
-    mutationFn: (id: string) => fetch(`${BASE}/api/storage/folders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    mutationFn: (id: string) => authFetch(`${BASE}/api/storage/folders/${id}`, { method: "DELETE" }).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ["storage-folders"] });
       qc.invalidateQueries({ queryKey: ["storage-files"] });
@@ -774,8 +903,6 @@ export default function Documents() {
     setFolderPath(path);
   };
 
-  const { toast } = useToast();
-
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
@@ -792,7 +919,7 @@ export default function Documents() {
       </div>
 
       {/* ── Tabs ── */}
-      <Tabs defaultValue="smart" dir={dir}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v === "legacy") setLegacyPage(1); }} dir={dir}>
         <TabsList className="mb-4">
           <TabsTrigger value="smart" className="gap-2">
             <Sparkles className="h-3.5 w-3.5" />
@@ -830,13 +957,6 @@ export default function Documents() {
                 <span className="text-[10px] text-muted-foreground">{allFolders.reduce((s,f) => s+(f.file_count??0),0)}</span>
               </button>
 
-              {/* New root folder input */}
-              {newFolderParent === null && (
-                <FolderNameInput label="اسم المجلد الجديد"
-                  onSubmit={name => createFolderMut.mutate({ name, parentId: null })}
-                  onCancel={() => setNewFolderParent("NONE")} />
-              )}
-
               {/* Folder tree */}
               {loadingFolders ? (
                 <div className="space-y-1.5">{[1,2,3].map(i => <Skeleton key={i} className="h-7 w-full rounded-lg" />)}</div>
@@ -853,13 +973,6 @@ export default function Documents() {
                       deleteFolderMut.mutate(f.id);
                   }}
                 />
-              )}
-
-              {/* Sub-folder new input (inside a folder) */}
-              {newFolderParent !== "NONE" && newFolderParent !== null && (
-                <FolderNameInput label="اسم المجلد الفرعي"
-                  onSubmit={name => createFolderMut.mutate({ name, parentId: newFolderParent })}
-                  onCancel={() => setNewFolderParent("NONE")} />
               )}
 
               {/* Rename input */}
@@ -919,6 +1032,16 @@ export default function Documents() {
                     مجلد جديد
                   </Button>
                 </div>
+
+                {/* Create-folder input — main pane (not the w-52 sidebar) so حفظ is tappable */}
+                {newFolderParent !== "NONE" && (
+                  <FolderNameInput
+                    label={newFolderParent === null ? "اسم المجلد الجديد" : "اسم المجلد الفرعي"}
+                    onSubmit={name => createFolderMut.mutate({ name, parentId: newFolderParent })}
+                    onCancel={() => setNewFolderParent("NONE")}
+                    saveTestId="documents-create-folder-save"
+                  />
+                )}
               </div>
 
               {/* Sub-folders chips in current folder */}
@@ -983,7 +1106,20 @@ export default function Documents() {
 
         {/* ══ Legacy Case Documents Tab ══ */}
         <TabsContent value="legacy">
-          <LegacyDocTab filteredOld={filteredOld} loadingOld={loadingOld} search={search} setSearch={setSearch} setShareDoc={setShareDoc} tx={tx} dateLocale={dateLocale} qc={qc} />
+          <LegacyDocTab
+            filteredOld={filteredOld}
+            loadingOld={loadingOld}
+            search={search}
+            setSearch={(v: string) => { setSearch(v); setLegacyPage(1); }}
+            setShareDoc={setShareDoc}
+            tx={tx}
+            dateLocale={dateLocale}
+            qc={qc}
+            dir={dir}
+            page={legacyPage}
+            setPage={setLegacyPage}
+            total={documentsTotal}
+          />
         </TabsContent>
       </Tabs>
 

@@ -1,0 +1,105 @@
+{
+  "phase": "031",
+  "passed": 16,
+  "failed": 0,
+  "total": 16,
+  "results": [
+    {
+      "name": "G0 baseline branch + working tree",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G0"
+    },
+    {
+      "name": "clean install applies 061 (55/59)",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G0"
+    },
+    {
+      "name": "061 fee_agreements + refund_requests + client_visible",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G5"
+    },
+    {
+      "name": "fee agreement create + installments + activate",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G1"
+    },
+    {
+      "name": "fee agreement forged tenant + cross-office denied",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G1"
+    },
+    {
+      "name": "fee agreement amend + audit history",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G1"
+    },
+    {
+      "name": "client-visible appointment create + portal list",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G2"
+    },
+    {
+      "name": "client reschedule + cancel appointment",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G2"
+    },
+    {
+      "name": "client message → lawyer reply → client view",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G3"
+    },
+    {
+      "name": "refund workflow fake transport + credit note + live refuse",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G4"
+    },
+    {
+      "name": "period-close design present; no unauthorized mutations",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G5"
+    },
+    {
+      "name": "reconciliation report tenant-scoped",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G6"
+    },
+    {
+      "name": "financial invariants: installment sum + refund cap",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G7"
+    },
+    {
+      "name": "RLS refund_requests isolation",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G8"
+    },
+    {
+      "name": "browser E2E correspondence + appointments",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G9"
+    },
+    {
+      "name": "no live external ops markers",
+      "ok": true,
+      "detail": "PASS",
+      "gate": "G10"
+    }
+  ],
+  "liveExternalCalls": "NONE"
+}

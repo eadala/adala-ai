@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- tool entity bags */
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getTenantSafe } from "../core/tenantContext";
@@ -11,22 +10,13 @@ export interface ToolResult {
   action?: { type: string; url?: string; [k: string]: any };
 }
 
-/** Fail closed — never write under a synthetic "default" office. */
-function requireOffice(): string | null {
-  const officeId = getTenantSafe()?.officeId;
-  if (!officeId || officeId === "default" || officeId === "platform") return null;
-  return officeId;
+async function getOfficeId(): Promise<string> {
+  return getTenantSafe()?.officeId ?? "default";
 }
-
-const NO_OFFICE: ToolResult = {
-  success: false,
-  message: "لا يمكن تنفيذ أمر المساعد بدون سياق مكتب محدد",
-};
 
 /* ─── Tool: CREATE_CASE ─── */
 export async function toolCreateCase(entities: any): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const title = entities.title ?? entities.caseTitle ?? `قضية ${new Date().toLocaleDateString("ar-SA")}`;
   const clientName = entities.clientName ?? entities.defendant ?? null;
   const caseType = entities.caseType ?? "other";
@@ -46,8 +36,7 @@ export async function toolCreateCase(entities: any): Promise<ToolResult> {
 
 /* ─── Tool: CREATE_CLIENT ─── */
 export async function toolCreateClient(entities: any): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const name = entities.clientName ?? entities.name ?? "عميل جديد";
   const phone = entities.phone ?? null;
   const email = entities.email ?? null;
@@ -66,8 +55,7 @@ export async function toolCreateClient(entities: any): Promise<ToolResult> {
 
 /* ─── Tool: CREATE_REMINDER ─── */
 export async function toolCreateReminder(entities: any): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const title = entities.title ?? entities.reminderTitle ?? "تذكير جديد";
   const body  = entities.body ?? null;
   const due   = entities.dateStr ?? entities.dueDate ?? new Date().toISOString().split("T")[0];
@@ -87,8 +75,7 @@ export async function toolCreateReminder(entities: any): Promise<ToolResult> {
 
 /* ─── Tool: SCHEDULE_EVENT ─── */
 export async function toolScheduleEvent(entities: any, userId: string): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const title  = entities.title ?? "موعد جديد";
   const date   = entities.dateStr ?? new Date(Date.now() + 86400000).toISOString();
   const loc    = entities.location ?? null;
@@ -127,8 +114,7 @@ export async function toolDraftDocument(entities: any): Promise<ToolResult> {
 
 /* ─── Tool: FINANCIAL_SUMMARY ─── */
 export async function toolFinancialSummary(): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const [rev, exp, inv] = await Promise.all([
     db.execute(sql`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE office_id=${officeId}`),
     db.execute(sql`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE office_id=${officeId}`),
@@ -149,8 +135,7 @@ export async function toolFinancialSummary(): Promise<ToolResult> {
 
 /* ─── Tool: SEARCH_DATA ─── */
 export async function toolSearchData(entities: any): Promise<ToolResult> {
-  const officeId = requireOffice();
-  if (!officeId) return NO_OFFICE;
+  const officeId = await getOfficeId();
   const q = entities.query ?? entities.term ?? "";
   if (!q) return { success: false, message: "لم يتم تحديد نص البحث" };
 

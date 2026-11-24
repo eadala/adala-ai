@@ -22,11 +22,15 @@
  */
 
 import { Router }            from "express";
-import { requireAuth }       from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { callAI, classifyPrompt, logAIUsage } from "./aiChat";
 import { cache }             from "../../core/cache";
 import { eventBus }          from "../../core/eventBus";
 import { auditLog, auditMeta } from "../../lib/auditLogger";
+import {
+  isAiGatewayAdmin,
+  requireAiGatewayOfficeId,
+} from "../../lib/aiGatewayTenant";
 import { db }                from "@workspace/db";
 import { sql }               from "drizzle-orm";
 import crypto                from "crypto";
@@ -74,7 +78,7 @@ function buildCacheKey(officeId: string, type: string, input: string, context?: 
 /* ─────────────────────────────────────────────────────────────────
    POST /api/ai/query
 ───────────────────────────────────────────────────────────────── */
-router.post("/ai/query", requireAuth, async (req, res) => {
+router.post("/ai/query", requireAuthWithTenant, async (req, res) => {
   const {
     type    = "legal_assistant",
     input,
@@ -97,7 +101,15 @@ router.post("/ai/query", requireAuth, async (req, res) => {
     return;
   }
 
-  const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
+  const tenant = requireAiGatewayOfficeId(req as any);
+  if (tenant.reject || !tenant.officeId) {
+    res.status(403).json({
+      success: false,
+      error: { code: "TENANT_REQUIRED", message: "معرف المكتب مطلوب لبوابة الذكاء الاصطناعي" },
+    });
+    return;
+  }
+  const officeId = tenant.officeId;
   const cacheKey = buildCacheKey(officeId, type, input.trim(), context);
 
   /* ── Cache hit ──────────────────────────────────────────────── */
@@ -153,10 +165,18 @@ router.post("/ai/query", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/summary
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
+router.get("/ai/analytics/summary", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const isAdmin  = isAiGatewayAdmin(req as any);
+    const tenant = requireAiGatewayOfficeId(req as any, { allowAdminWithoutTenant: true });
+    if (tenant.reject) {
+      res.status(403).json({
+        success: false,
+        error: { code: "TENANT_REQUIRED", message: "معرف المكتب مطلوب" },
+      });
+      return;
+    }
+    const officeId = tenant.officeId;
     const whereClause = isAdmin ? sql`` : sql`WHERE office_id = ${officeId}`;
     const rows = await db.execute(sql`
       SELECT
@@ -213,10 +233,18 @@ router.get("/ai/analytics/summary", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/daily  — 30-day trend
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
+router.get("/ai/analytics/daily", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const isAdmin  = isAiGatewayAdmin(req as any);
+    const tenant = requireAiGatewayOfficeId(req as any, { allowAdminWithoutTenant: true });
+    if (tenant.reject) {
+      res.status(403).json({
+        success: false,
+        error: { code: "TENANT_REQUIRED", message: "معرف المكتب مطلوب" },
+      });
+      return;
+    }
+    const officeId = tenant.officeId;
     const rows = await db.execute(sql`
       SELECT
         DATE(created_at)                         AS day,
@@ -250,8 +278,16 @@ router.get("/ai/analytics/daily", requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/by-office  — per-office breakdown
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
+router.get("/ai/analytics/by-office", requireAuthWithTenant, async (req, res) => {
   try {
+    /* Cross-office breakdown is admin-only — fail closed for ordinary tenants. */
+    if (!isAiGatewayAdmin(req as any)) {
+      res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "صلاحية المشرف مطلوبة" },
+      });
+      return;
+    }
     const rows = await db.execute(sql`
       SELECT office_id,
         COUNT(*)                              AS total,
@@ -278,10 +314,18 @@ router.get("/ai/analytics/by-office", requireAuth, async (_req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/analytics/recent  — last 50 queries
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/analytics/recent", requireAuth, async (req, res) => {
+router.get("/ai/analytics/recent", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId ?? (req as any).userId ?? "unknown";
-    const isAdmin  = (req as any).isAdmin === true;
+    const isAdmin  = isAiGatewayAdmin(req as any);
+    const tenant = requireAiGatewayOfficeId(req as any, { allowAdminWithoutTenant: true });
+    if (tenant.reject) {
+      res.status(403).json({
+        success: false,
+        error: { code: "TENANT_REQUIRED", message: "معرف المكتب مطلوب" },
+      });
+      return;
+    }
+    const officeId = tenant.officeId;
     const rows = await db.execute(sql`
       SELECT id, office_id, query_type, model_used, tier, cost_points, cached, response_ms, created_at
       FROM ai_usage_logs
@@ -316,7 +360,14 @@ router.get("/ai/query/types", requireAuth, (_req, res) => {
 /* ─────────────────────────────────────────────────────────────────
    GET /api/ai/query/cache-stats  — monitoring
 ───────────────────────────────────────────────────────────────── */
-router.get("/ai/query/cache-stats", requireAuth, (_req, res) => {
+router.get("/ai/query/cache-stats", requireAuthWithTenant, (req, res) => {
+  if (!isAiGatewayAdmin(req as any)) {
+    res.status(403).json({
+      success: false,
+      error: { code: "FORBIDDEN", message: "صلاحية المشرف مطلوبة" },
+    });
+    return;
+  }
   res.json({ success: true, cache: cache.stats() });
 });
 

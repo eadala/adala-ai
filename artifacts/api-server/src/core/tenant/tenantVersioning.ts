@@ -14,31 +14,20 @@ import { sql } from "drizzle-orm";
 let tablesReady = false;
 export async function ensureVersioningTables(): Promise<void> {
   if (tablesReady) return;
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS tenant_bindings (
-      id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id     TEXT NOT NULL UNIQUE,
-      tenant_id   TEXT NOT NULL,
-      version     INT  NOT NULL DEFAULT 1,
-      source      TEXT NOT NULL DEFAULT 'office_members',
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_tb_user ON tenant_bindings(user_id);
-  `);
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS tenant_binding_history (
-      id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id     TEXT NOT NULL,
-      tenant_id   TEXT NOT NULL,
-      version     INT  NOT NULL,
-      source      TEXT NOT NULL,
-      started_at  TIMESTAMPTZ,
-      ended_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_tbh_user ON tenant_binding_history(user_id);
-    CREATE INDEX IF NOT EXISTS idx_tbh_version ON tenant_binding_history(user_id, version DESC);
-  `);
-  tablesReady = true;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.tenant_bindings') IS NOT NULL AS bindings_present,
+        to_regclass('public.tenant_binding_history') IS NOT NULL AS history_present,
+        to_regclass('public.tenant_audit_archive') IS NOT NULL AS archive_present
+    `) as { rows?: { bindings_present?: boolean; history_present?: boolean; archive_present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.bindings_present || !row.history_present || !row.archive_present) {
+      console.error("[tenantVersioning] Migration 055 schema not ready — tenant_bindings / history / archive missing");
+      return;
+    }
+    tablesReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -177,20 +166,12 @@ export async function getBindingHistory(userId: string): Promise<any[]> {
 
 export async function compressAuditLogs(daysOld = 7): Promise<number> {
   try {
-    /* Ensure archive table */
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS tenant_audit_archive (
-        id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        tenant_id  TEXT,
-        period     DATE NOT NULL,
-        total      INT  NOT NULL DEFAULT 0,
-        failures   INT  NOT NULL DEFAULT 0,
-        sources    JSONB NOT NULL DEFAULT '[]',
-        compressed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_taa_tenant_period
-        ON tenant_audit_archive(tenant_id, period);
-    `);
+    await ensureVersioningTables();
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.tenant_audit_archive') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) return 0;
 
     /* Aggregate + archive */
     await db.execute(sql`

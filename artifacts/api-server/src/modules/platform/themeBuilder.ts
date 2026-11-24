@@ -198,18 +198,20 @@ async function sqlOne(q: any) {
   } catch { return null; }
 }
 
-async function ensureTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS office_themes (
-      id         SERIAL PRIMARY KEY,
-      user_id    TEXT NOT NULL,
-      name       TEXT NOT NULL DEFAULT 'الثيم المخصص',
-      tokens     JSONB NOT NULL,
-      is_active  BOOLEAN DEFAULT true,
-      scope      TEXT DEFAULT 'both',
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `).catch(() => {});
+let themeSchemaReady = false;
+async function ensureThemeSchemaReady() {
+  if (themeSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.office_themes') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[themeBuilder] Migration 055 schema not ready — office_themes missing");
+      return;
+    }
+    themeSchemaReady = true;
+  } catch { /* non-blocking */ }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -219,7 +221,7 @@ async function ensureTable() {
 /* GET /theme-builder/tokens — current user's active theme */
 router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
   try {
-    await ensureTable();
+    await ensureThemeSchemaReady();
     const { userId } = getAuth(req as any);
     const uid = userId ?? "default";
     const row = await sqlOne(sql`
@@ -239,7 +241,7 @@ router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
 /* GET /theme-builder/public-tokens — public (no auth) for landing page */
 router.get("/theme-builder/public-tokens", async (_req, res) => {
   try {
-    await ensureTable();
+    await ensureThemeSchemaReady();
     const row = await sqlOne(sql`
       SELECT tokens FROM office_themes
       WHERE is_active = true
@@ -257,7 +259,7 @@ router.get("/theme-builder/public-tokens", async (_req, res) => {
 /* POST /theme-builder/save */
 router.post("/theme-builder/save", requireAuth, async (req, res) => {
   try {
-    await ensureTable();
+    await ensureThemeSchemaReady();
     const { userId } = getAuth(req as any);
     const { tokens, name } = req.body;
     if (!tokens) return res.status(400).json({ error: "tokens مطلوب" });
@@ -288,7 +290,7 @@ router.post("/theme-builder/save", requireAuth, async (req, res) => {
 /* DELETE /theme-builder/reset — restore to defaults */
 router.delete("/theme-builder/reset", requireAuth, async (req, res) => {
   try {
-    await ensureTable();
+    await ensureThemeSchemaReady();
     const { userId } = getAuth(req as any);
     await db.execute(sql`DELETE FROM office_themes WHERE user_id = ${userId!}`);
     res.json({ ok: true });

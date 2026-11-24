@@ -7,35 +7,15 @@
  *
  * Output: reconciliation_log table + JSON report
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; schema authority */
 
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
 
-/* ── Ensure reconciliation log table ────────────────────────────── */
-export async function ensureReconciliationTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS stripe_reconciliation_log (
-      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      run_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      period_start  TIMESTAMPTZ NOT NULL,
-      period_end    TIMESTAMPTZ NOT NULL,
-      stripe_count  INTEGER NOT NULL DEFAULT 0,
-      db_count      INTEGER NOT NULL DEFAULT 0,
-      missing_count INTEGER NOT NULL DEFAULT 0,
-      drift_count   INTEGER NOT NULL DEFAULT 0,
-      status        TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','drift','error')),
-      details       JSONB,
-      error         TEXT
-    )
-  `).catch(() => {});
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_reconciliation_run_at
-      ON stripe_reconciliation_log(run_at DESC)
-  `).catch(() => {});
-}
+/* Schema: stripe_reconciliation_log owned by
+   artifacts/api-server/migrations/011_stripe_infrastructure_tables.sql */
 
 function safeRows(r: any): any[] {
   return r?.rows ?? (Array.isArray(r) ? r : []);

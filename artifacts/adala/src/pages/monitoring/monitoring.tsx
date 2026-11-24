@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,12 +8,13 @@ import {
   CreditCard, Bell, ShieldCheck, AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string) => `${BASE}${path}`;
 
 function fetchJ(url: string, opts?: RequestInit) {
-  return fetch(url, opts).then(r => {
+  return authFetch(url, opts).then(r => {
     if (!r.ok) throw new Error("خطأ في الخادم");
     return r.json();
   });

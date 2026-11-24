@@ -1,0 +1,280 @@
+إليك برومبت احترافي وحازم يوجّه الفريق إلى تشخيص علمي بدل الاستمرار في المحاولات المتكررة:
+
+⸻
+
+🚨 P0 CRITICAL ENGINEERING DIRECTIVE
+
+STOP ALL CODE CHANGES — ROOT CAUSE MUST BE PROVEN
+
+اعتبارًا من هذه اللحظة:
+
+يُمنع تنفيذ أي:
+
+* Commit
+* Merge
+* Publish
+* Re-deploy
+* Refactor
+* تعديل على Clerk
+* تعديل على Replit
+* تعديل على artifact.toml
+
+حتى يتم إثبات السبب الجذري بالأدلة القاطعة.
+
+لقد تم تنفيذ عدة إصلاحات متتالية، لكن النتيجة في Production لم تتغير، وهذا يعني أننا دخلنا في Fix-by-Assumption وهو أمر غير مقبول هندسياً.
+
+⸻
+
+المطلوب
+
+لا أريد حلولاً.
+
+لا أريد اقتراحات.
+
+لا أريد فرضيات.
+
+أريد Forensic Investigation كاملة.
+
+⸻
+
+المرحلة الأولى — Reconstruction
+
+أعد بناء التسلسل الكامل منذ الضغط على Publish وحتى وصول الطلب إلى المتصفح.
+
+يجب توثيق جميع المراحل:
+
+Git Commit
+        ↓
+GitHub
+        ↓
+Replit Build
+        ↓
+Artifact Generation
+        ↓
+Artifact Upload
+        ↓
+Deployment Activation
+        ↓
+Health Checks
+        ↓
+Traffic Switching
+        ↓
+Cloudflare
+        ↓
+Origin
+        ↓
+Browser
+        ↓
+React
+        ↓
+Clerk
+
+لكل مرحلة يجب تحديد:
+
+* هل نُفذت؟
+* هل نجحت؟
+* هل فشلت؟
+* ما الدليل؟
+
+⸻
+
+المرحلة الثانية — Failure Localization
+
+حدد أول نقطة يتوقف عندها النظام.
+
+ليس آخر خطأ.
+
+بل أول خطأ.
+
+مثال:
+
+Build
+↓
+Packaging
+↓
+Upload
+↓
+Activation
+↓
+Healthcheck
+↓
+Traffic Switch
+↓
+Bundle
+↓
+Browser
+↓
+React
+↓
+Clerk
+
+ضع علامة ❌ عند أول مرحلة فاشلة فقط.
+
+⸻
+
+المرحلة الثالثة — Evidence
+
+لكل نتيجة أرفق:
+
+* Log
+* Header
+* Response
+* Stack Trace
+* Runtime Trace
+* Build Output
+* Deployment Log
+* Browser Network
+* Browser Console
+
+أي نتيجة بدون دليل تعتبر باطلة.
+
+⸻
+
+المرحلة الرابعة — Eliminate Assumptions
+
+راجع جميع الاستنتاجات السابقة.
+
+لكل استنتاج صنفه:
+
+✅ Proven
+
+أو
+
+❌ Assumption
+
+مثل:
+
+* pnpm overhead
+* Healthcheck timeout
+* Container reuse
+* Cloudflare cache
+* Clerk DNS
+* ProxyUrl
+* Bundle mismatch
+
+إذا لم يوجد Log يثبتها:
+
+ضعها:
+
+UNVERIFIED
+
+ولا تعتمد عليها إطلاقًا.
+
+⸻
+
+المرحلة الخامسة — Runtime Comparison
+
+قارن بين:
+
+Workspace
+
+و
+
+Production Container
+
+واعرض:
+
+* Commit
+* Bundle Hash
+* index.html
+* Assets
+* Environment Variables
+* Clerk Keys
+* Proxy URL
+* Build Timestamp
+* Last Modified
+
+وأثبت أين بدأ الاختلاف.
+
+⸻
+
+المرحلة السادسة — Deployment Integrity
+
+أثبت أن آخر Publish:
+
+* Build Completed
+* Artifact Created
+* Artifact Uploaded
+* Artifact Activated
+* Traffic Switched
+
+إذا فشل أي بند:
+
+حدد السبب بالدليل.
+
+⸻
+
+المرحلة السابعة — Clerk
+
+لا تبدأ بإصلاح Clerk.
+
+أثبت أولاً:
+
+هل المشكلة سببها:
+
+* Bundle قديم؟
+* Environment؟
+* Publish؟
+* Deployment؟
+* Activation؟
+* Proxy؟
+* DNS؟
+* Clerk Instance؟
+* أكثر من سبب؟
+
+رتبها حسب التسلسل الزمني الحقيقي.
+
+⸻
+
+المرحلة الثامنة — Root Cause
+
+في النهاية يجب أن يكون هناك سبب واحد فقط:
+
+Primary Root Cause
+
+ثم:
+
+Secondary Effects
+
+ولا يُسمح بوجود أكثر من سبب رئيسي.
+
+⸻
+
+المرحلة التاسعة — Corrective Action
+
+بعد إثبات السبب الجذري فقط:
+
+اكتب:
+
+* Minimal Fix
+* لماذا يحل المشكلة
+* لماذا لن يسبب Regression
+* لماذا لن يؤثر على Production
+
+⸻
+
+المرحلة العاشرة — Executive Report
+
+أريد تقريرًا نهائيًا يحتوي فقط على:
+
+المرحلة	الحالة	الدليل
+Build	✅ / ❌	
+Packaging	✅ / ❌	
+Upload	✅ / ❌	
+Activation	✅ / ❌	
+Health Checks	✅ / ❌	
+Traffic Switch	✅ / ❌	
+Bundle	✅ / ❌	
+Runtime	✅ / ❌	
+React	✅ / ❌	
+Clerk	✅ / ❌	
+Root Cause Proven	✅ / ❌	
+
+⸻
+
+قواعد إلزامية
+
+1. أي استنتاج بدون دليل يُصنف “UNVERIFIED”.
+2. لا تُجرِ أي تعديل جديد حتى يُثبت السبب الجذري.
+3. إذا لم تستطع إثبات نقطة معينة، فاذكر صراحة أن الأدلة غير كافية بدلاً من التخمين.
+4. الهدف ليس إصلاح المشكلة بسرعة، بل الوصول إلى سببها الحقيقي القابل للإثبات، بحيث يكون الإصلاح النهائي مبنيًا على حقائق لا على فرضيات.

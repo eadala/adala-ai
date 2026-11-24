@@ -1,0 +1,14 @@
+{
+  "milestone": "release-guardian-001",
+  "dev_tip_commit": "a8eb7dbaa46aa7bbca04af544b18c5f64647a1f8",
+  "clean_tree_commit": "4adeecc970fe6e4342083ad3afa746e22db25d05",
+  "tree": "45b3fbf5f04566454331a0276b1f2b8e77977a9d",
+  "backup_ref": "refs/backup/milestones/release-guardian-001-clean-tree-a8eb7dbaa46a",
+  "dev_tip_ref": "refs/backup/milestones/release-guardian-001-a8eb7dbaa46a",
+  "bundle": "docs/engineering/continuity/artifacts/release-guardian-001-a8eb7dbaa46a.bundle",
+  "sha256_file": "docs/engineering/continuity/artifacts/release-guardian-001-a8eb7dbaa46a.bundle.sha256",
+  "created_at_utc": "2026-11-23T21:12:55Z",
+  "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
+  "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer"
+}

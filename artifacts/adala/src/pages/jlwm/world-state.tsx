@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { WorldState, LegalPattern, RiskLevel } from "@/types/jlwm";
+import { authFetch } from "@/lib/authFetch";
 
 const RISK_META: Record<RiskLevel, { label: string; color: string; bg: string; barColor: string }> = {
   green:  { label: "ممتاز",           color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-300",  barColor: "#10B981" },
@@ -81,7 +83,7 @@ export default function WorldStatePage() {
   const { data: current, isLoading } = useQuery<WorldState>({
     queryKey: ["jlwm", "world-state"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/world-state");
+      const r = await authFetch("/api/jlwm/world-state");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -91,7 +93,7 @@ export default function WorldStatePage() {
   const { data: history = [] } = useQuery<WorldState[]>({
     queryKey: ["jlwm", "world-state-history"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/world-state/history?limit=10");
+      const r = await authFetch("/api/jlwm/world-state/history?limit=10");
       if (!r.ok) return [];
       return r.json();
     },
@@ -101,7 +103,7 @@ export default function WorldStatePage() {
   const { data: patterns = [] } = useQuery<LegalPattern[]>({
     queryKey: ["jlwm", "patterns"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/world-state/patterns");
+      const r = await authFetch("/api/jlwm/world-state/patterns");
       if (!r.ok) return [];
       return r.json();
     },
@@ -109,7 +111,7 @@ export default function WorldStatePage() {
 
   const computeMut = useMutation({
     mutationFn: async (withNarrative: boolean) => {
-      const r = await fetch("/api/jlwm/world-state/compute", {
+      const r = await authFetch("/api/jlwm/world-state/compute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ withNarrative }),
@@ -127,7 +129,7 @@ export default function WorldStatePage() {
 
   const discoverMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/jlwm/world-state/discover-patterns", { method: "POST" });
+      const r = await authFetch("/api/jlwm/world-state/discover-patterns", { method: "POST" });
       if (!r.ok) throw new Error("فشل");
       return r.json();
     },

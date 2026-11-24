@@ -1,0 +1,17 @@
+=== synthetic: missing bundle ===
+FAIL: usage: ./scripts/engineering/backup-integrity.sh <bundle> [expected-commit] [expected-tree]
+EXPECTED_FAIL
+=== synthetic: REQUIRE_EXTERNAL fail-closed ===
+=== ADALA checkpoint-verify: ADALA-031 @ 8685f64a ===
+WARN: uncommitted changes present
+COMMIT=8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b
+TREE=ea8b8e85510bf68787b64a5de29f079f443f0a1a
+MIGRATION_SQL_FILES=59
+OFF_ENVIRONMENT_BACKUP=MISSING
+FAIL: REQUIRE_EXTERNAL_BACKUP=1 and external backup not verified
+RESULT=FAIL
+EXPECTED_FAIL
+=== synthetic: clean bundle pass ===
+CONTAMINATED_BLOB_ABSENT=yes
+RESULT=LOCAL_BUNDLE_INTEGRITY_VERIFIED
+NOTE: NOT OFF_ENVIRONMENT_RECOVERY_VERIFIED

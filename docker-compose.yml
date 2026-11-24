@@ -15,7 +15,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8080
-      DATABASE_URL: postgresql://adala:adala_pass@postgres:5432/adala
+      DATABASE_URL: postgresql://adala:${POSTGRES_PASSWORD:-changeme_local_only}@postgres:5432/adala
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -42,16 +42,18 @@ services:
 
   # ── قاعدة البيانات PostgreSQL ─────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: adala-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: adala
       POSTGRES_USER: adala
-      POSTGRES_PASSWORD: adala_pass
+      # Local synthetic only — never commit real secrets; override via env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:

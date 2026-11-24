@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import fs from "node:fs";
 
 const rawPort = process.env.PORT;
 const isBuild = process.argv.includes("build");
@@ -26,20 +26,42 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, ".."),
-            }),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
+    // ── Production preview server: correct cache headers + SPA fallback ─────
+    {
+      name: "preview-cache-and-spa",
+      configurePreviewServer(server) {
+        // 1. Per-file-type cache headers (runs before static file serving)
+        server.middlewares.use((req, res, next) => {
+          const url = (req.url ?? "").split("?")[0];
+          if (url.startsWith("/assets/")) {
+            // Content-hashed assets: safe to cache forever
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          } else {
+            // HTML + SW + manifest: never cache — ensures fresh HTML on every deploy
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+          }
+          next();
+        });
+        // 2. SPA fallback — return after built-in static handler so unknown routes
+        //    serve index.html instead of 404 (required for client-side routing)
+        return () => {
+          const distDir = path.resolve(import.meta.dirname, "dist/public");
+          server.middlewares.use((_req, res) => {
+            const indexPath = path.join(distDir, "index.html");
+            try {
+              const html = fs.readFileSync(indexPath, "utf-8");
+              res.setHeader("Content-Type", "text/html; charset=utf-8");
+              res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+              res.end(html);
+            } catch {
+              res.statusCode = 404;
+              res.end("Not found");
+            }
+          });
+        };
+      },
+    },
   ],
   resolve: {
     alias: {
@@ -56,14 +78,10 @@ export default defineConfig({
       "@tanstack/react-query",
       "wouter",
     ],
-    exclude: [
-      "@replit/vite-plugin-cartographer",
-      "@replit/vite-plugin-dev-banner",
-    ],
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, "dist4/public"),
     emptyOutDir: true,
     target: "es2020",
     minify: "esbuild",
@@ -164,13 +182,14 @@ export default defineConfig({
       "Content-Security-Policy": [
         "default-src 'self'",
         // Clerk needs unsafe-inline for injected styles; unsafe-eval removed
-        "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://js.stripe.com https://cdn.jsdelivr.net",
+        // Cloudflare Web Analytics beacon: https://static.cloudflareinsights.com (zone-injected)
+        "script-src 'self' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://clerk.adalahai.com https://challenges.cloudflare.com https://static.cloudflareinsights.com https://js.stripe.com https://cdn.jsdelivr.net",
         "worker-src 'self' blob:",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         "img-src 'self' data: blob: https:",
         "connect-src 'self' https: wss:",
-        "frame-src https://js.stripe.com https://clerk.accounts.dev https://*.clerk.accounts.dev",
+        "frame-src https://js.stripe.com https://clerk.accounts.dev https://*.clerk.accounts.dev https://challenges.cloudflare.com",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -192,3 +211,6 @@ export default defineConfig({
     allowedHosts: true,
   },
 });
+
+// Plugin is defined outside defineConfig to avoid hoisting issues
+// It controls cache headers per file type and provides SPA fallback for vite preview

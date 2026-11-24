@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; authFetch migration */
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { authFetch } from "@/lib/authFetch";
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -131,7 +133,7 @@ export default function ActivityStream() {
   /* ── Historical events ── */
   const { data: history, isLoading: histLoad, refetch } = useQuery<{ events: LiveEvent[]; total: number }>({
     queryKey: ["events-recent", filterType],
-    queryFn: () => fetch(
+    queryFn: () => authFetch(
       `${BASE}/api/events/recent?limit=100${filterType !== "all" ? `&type=${filterType}` : ""}`
     ).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 45_000,
@@ -141,7 +143,7 @@ export default function ActivityStream() {
   /* ── Stats ── */
   const { data: stats } = useQuery<any>({
     queryKey: ["events-stats"],
-    queryFn: () => fetch(`${BASE}/api/events/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
+    queryFn: () => authFetch(`${BASE}/api/events/stats`).then(r => { if (!r.ok) throw new Error("خطأ في الخادم"); return r.json(); }),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

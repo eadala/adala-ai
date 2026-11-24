@@ -1,0 +1,14 @@
+{
+  "milestone": "phase-049-engineering-continuity",
+  "dev_tip_commit": "0efe60762daa11fcb082721c8c3604d74368446a",
+  "clean_tree_commit": "822fa3af9b82d71507c84c64c7481864db195740",
+  "tree": "e4c239eb67461a738342633c247a996690e21309",
+  "backup_ref": "refs/backup/milestones/phase-049-engineering-continuity-clean-tree-0efe60762daa",
+  "dev_tip_ref": "refs/backup/milestones/phase-049-engineering-continuity-0efe60762daa",
+  "bundle": "docs/engineering/continuity/artifacts/phase-049-engineering-continuity-0efe60762daa.bundle",
+  "sha256_file": "docs/engineering/continuity/artifacts/phase-049-engineering-continuity-0efe60762daa.bundle.sha256",
+  "created_at_utc": "2026-11-23T20:48:31Z",
+  "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
+  "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer"
+}

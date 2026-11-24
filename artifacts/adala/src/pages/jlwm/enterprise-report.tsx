@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt; authFetch migration */
 /**
  * JLWM Enterprise Report — Phase 4
  * لوحة التكامل المؤسسي الشاملة لـ Justice Legal World Model
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { authFetch } from "@/lib/authFetch";
 
 /* ── Types ───────────────────────────────────────────────── */
 interface EnterpriseReport {
@@ -114,7 +116,7 @@ export default function JLWMEnterpriseReport() {
   const { data, isLoading, refetch, isFetching } = useQuery<{ ok: boolean; report: EnterpriseReport }>({
     queryKey: ["jlwm", "enterprise", "report"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/enterprise/report");
+      const r = await authFetch("/api/jlwm/enterprise/report");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -123,7 +125,7 @@ export default function JLWMEnterpriseReport() {
 
   const syncMut = useMutation({
     mutationFn: async () => {
-      const r = await fetch("/api/jlwm/enterprise/sync-all", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const r = await authFetch("/api/jlwm/enterprise/sync-all", { method: "POST", headers: { "Content-Type": "application/json" } });
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
@@ -141,7 +143,7 @@ export default function JLWMEnterpriseReport() {
   const secAuditQuery = useQuery({
     queryKey: ["jlwm", "enterprise", "security"],
     queryFn: async () => {
-      const r = await fetch("/api/jlwm/enterprise/security-audit");
+      const r = await authFetch("/api/jlwm/enterprise/security-audit");
       if (!r.ok) throw new Error(await r.text());
       return r.json();
     },
