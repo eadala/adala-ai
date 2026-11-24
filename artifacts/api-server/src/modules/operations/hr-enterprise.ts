@@ -9,6 +9,7 @@
  *   5. SOC Integration        — أحداث HR الحرجة تصل للمنظومة الأمنية
  *   6. Office Membership      — ربط المستخدمين بالمكاتب مع دور محدد
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -18,6 +19,11 @@ import { eventBus } from "../../core/eventBus";
 const router = Router();
 
 function rows(r: any): any[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
+}
 function one(r: any): any    { return rows(r)[0] ?? null; }
 function num(v: any)         { return parseFloat(String(v ?? "0")) || 0; }
 
@@ -170,7 +176,8 @@ async function seedDefaultRoles(officeId: string): Promise<void> {
 
 // POST /api/hr-enterprise/authorize
 router.post("/hr-enterprise/authorize", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { userId, permission } = req.body ?? {};
   if (!userId || !permission) { res.status(400).json({ error: "userId + permission مطلوبان" }); return; }
   try {
@@ -185,7 +192,8 @@ router.post("/hr-enterprise/authorize", requireAuthWithTenant, async (req, res) 
 
 // GET /api/hr-enterprise/roles
 router.get("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     await ensureHREnterpriseTables();
     await seedDefaultRoles(tid);
@@ -204,7 +212,8 @@ router.get("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
 
 // POST /api/hr-enterprise/roles
 router.post("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { name, displayName, description, hierarchy, permissions } = req.body ?? {};
   if (!name || !displayName) { res.status(400).json({ error: "name + displayName مطلوبان" }); return; }
   try {
@@ -225,7 +234,8 @@ router.post("/hr-enterprise/roles", requireAuthWithTenant, async (req, res) => {
 
 // PATCH /api/hr-enterprise/roles/:name/permissions
 router.patch("/hr-enterprise/roles/:name/permissions", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const roleName = String(req.params.name);
   const { permissions } = req.body ?? {};
   try {
@@ -248,7 +258,8 @@ router.patch("/hr-enterprise/roles/:name/permissions", requireAuthWithTenant, as
 
 // GET /api/hr-enterprise/members
 router.get("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     await ensureHREnterpriseTables();
     const data = rows(await db.execute(sql`
@@ -267,7 +278,8 @@ router.get("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => 
 
 // POST /api/hr-enterprise/members — add member to office
 router.post("/hr-enterprise/members", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { userId, roleName, employeeId } = req.body ?? {};
   if (!userId || !roleName) { res.status(400).json({ error: "userId + roleName مطلوبان" }); return; }
   try {
@@ -287,7 +299,8 @@ router.post("/hr-enterprise/members", requireAuthWithTenant, async (req, res) =>
 
 // PATCH /api/hr-enterprise/members/:userId/role — change role
 router.patch("/hr-enterprise/members/:userId/role", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const targetUserId = String(req.params.userId);
   const { roleName, reason } = req.body ?? {};
   if (!roleName) { res.status(400).json({ error: "roleName مطلوب" }); return; }
@@ -307,7 +320,8 @@ router.patch("/hr-enterprise/members/:userId/role", requireAuthWithTenant, async
 
 // PATCH /api/hr-enterprise/members/:userId/suspend
 router.patch("/hr-enterprise/members/:userId/suspend", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const targetUserId = String(req.params.userId);
   try {
     await ensureHREnterpriseTables();
@@ -323,7 +337,8 @@ router.patch("/hr-enterprise/members/:userId/suspend", requireAuthWithTenant, as
 
 // PATCH /api/hr-enterprise/members/:userId/activate
 router.patch("/hr-enterprise/members/:userId/activate", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const targetUserId = String(req.params.userId);
   try {
     await ensureHREnterpriseTables();
@@ -342,7 +357,8 @@ router.patch("/hr-enterprise/members/:userId/activate", requireAuthWithTenant, a
 
 // GET /api/hr-enterprise/workflows
 router.get("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { status, type } = req.query as Record<string, string>;
   try {
     await ensureHREnterpriseTables();
@@ -362,7 +378,8 @@ router.get("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) =
 
 // GET /api/hr-enterprise/workflows/stats
 router.get("/hr-enterprise/workflows/stats", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     await ensureHREnterpriseTables();
     const r = one(await db.execute(sql`
@@ -380,7 +397,8 @@ router.get("/hr-enterprise/workflows/stats", requireAuthWithTenant, async (req, 
 
 // POST /api/hr-enterprise/workflows — submit workflow request
 router.post("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { type, requesterName, subjectUserId, subjectName, payload, priority, notes, expiresAt } = req.body ?? {};
   if (!type) { res.status(400).json({ error: "type مطلوب" }); return; }
   const requesterId = (req as any).userId ?? "unknown";
@@ -407,7 +425,8 @@ router.post("/hr-enterprise/workflows", requireAuthWithTenant, async (req, res) 
 
 // PATCH /api/hr-enterprise/workflows/:id/approve
 router.patch("/hr-enterprise/workflows/:id/approve", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { approverName, notes } = req.body ?? {};
   const approverId = (req as any).userId ?? "unknown";
   try {
@@ -430,7 +449,8 @@ router.patch("/hr-enterprise/workflows/:id/approve", requireAuthWithTenant, asyn
 
 // PATCH /api/hr-enterprise/workflows/:id/reject
 router.patch("/hr-enterprise/workflows/:id/reject", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { approverName, notes } = req.body ?? {};
   const approverId = (req as any).userId ?? "unknown";
   try {
@@ -453,7 +473,8 @@ router.patch("/hr-enterprise/workflows/:id/reject", requireAuthWithTenant, async
 
 // GET /api/hr-enterprise/audit
 router.get("/hr-enterprise/audit", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { severity, action } = req.query as Record<string, string>;
   try {
     await ensureHREnterpriseTables();
@@ -474,7 +495,8 @@ router.get("/hr-enterprise/audit", requireAuthWithTenant, async (req, res) => {
 
 // GET /api/hr-enterprise/overview
 router.get("/hr-enterprise/overview", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     await ensureHREnterpriseTables();
     await seedDefaultRoles(tid);
@@ -513,7 +535,8 @@ router.get("/hr-enterprise/overview", requireAuthWithTenant, async (req, res) =>
 
 // GET /api/hr-enterprise/org-chart
 router.get("/hr-enterprise/org-chart", requireAuthWithTenant, async (req, res) => {
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     await ensureHREnterpriseTables();
     await seedDefaultRoles(tid);

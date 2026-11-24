@@ -4,13 +4,18 @@
  * No AI required for basic generation; AI used for enrichment when requested.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 import { Router }                from "express";
 import { db }                    from "@workspace/db";
 import { sql }                   from "drizzle-orm";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
-import { callJLWMAI }            from "./jlwmAI";
 
 const router = Router();
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
+}
 
 /* ── Recommendation Generation ───────────────────────────────── */
 export async function generateRecommendations(officeId: string): Promise<number> {
@@ -188,7 +193,8 @@ export async function generateRadarAlerts(officeId: string): Promise<number> {
 /* GET /jlwm/recommendations */
 router.get("/jlwm/recommendations", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { priority, category, limit = "30" } = req.query as any;
 
     /* Auto-generate if none exist */
@@ -232,7 +238,8 @@ router.get("/jlwm/recommendations", requireAuthWithTenant, async (req, res) => {
 /* POST /jlwm/recommendations/generate */
 router.post("/jlwm/recommendations/generate", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const generated = await generateRecommendations(officeId);
     res.json({ ok: true, generated });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -241,7 +248,8 @@ router.post("/jlwm/recommendations/generate", requireAuthWithTenant, async (req,
 /* PATCH /jlwm/recommendations/:id — mark read, applied, or dismissed */
 router.patch("/jlwm/recommendations/:id", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { id }   = req.params as { id: string };
     const { action } = req.body ?? {};   // "read" | "apply" | "dismiss"
 
@@ -264,7 +272,8 @@ router.patch("/jlwm/recommendations/:id", requireAuthWithTenant, async (req, res
 /* GET /jlwm/radar */
 router.get("/jlwm/radar", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const { severity, limit = "30" } = req.query as { severity?: string; limit?: string };
 
     /* Auto-generate if none */
@@ -299,7 +308,8 @@ router.get("/jlwm/radar", requireAuthWithTenant, async (req, res) => {
 /* PATCH /jlwm/radar/:id/ack */
 router.patch("/jlwm/radar/:id/ack", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const userId   = (req as any).auth?.userId ?? "system";
     const { id }   = req.params as { id: string };
     await db.execute(sql`
@@ -314,7 +324,8 @@ router.patch("/jlwm/radar/:id/ack", requireAuthWithTenant, async (req, res) => {
 /* POST /jlwm/radar/generate */
 router.post("/jlwm/radar/generate", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const generated = await generateRadarAlerts(officeId);
     res.json({ ok: true, generated });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -323,7 +334,8 @@ router.post("/jlwm/radar/generate", requireAuthWithTenant, async (req, res) => {
 /* POST /jlwm/feedback */
 router.post("/jlwm/feedback", requireAuthWithTenant, async (req, res) => {
   try {
-    const officeId = (req as any).tenantId as string;
+    const officeId = tidOf(req);
+  if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const userId   = (req as any).auth?.userId ?? "unknown";
     const { sourceType, sourceId, rating, wasAccurate, wasUseful, userAction, notes } = req.body ?? {};
 
