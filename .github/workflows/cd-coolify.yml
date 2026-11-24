@@ -1,0 +1,143 @@
+name: CD — Coolify (CI-controlled)
+
+# Production deploy path: deploy/production ONLY, and ONLY after CI — Quality Gates succeeds.
+# Remains inactive until owner sets:
+#   vars.ADALA_CREDENTIAL_INCIDENT_CLEARED=true
+#   vars.ADALA_CD_ACTIVE=true
+#   vars.ADALA_DB_BACKUP_VERIFIED=true
+#   secrets.COOLIFY_DEPLOY_WEBHOOK_URL
+#   vars.PRODUCTION_BASE_URL
+#   and kill switch is off
+# Feature/cursor/backup branches never deploy.
+# Coolify must NOT use unrestricted deploy-on-push; CI webhook only.
+# workflow_dispatch defaults to local simulation (no Coolify call).
+
+on:
+  workflow_run:
+    workflows: ["CI — Quality Gates"]
+    types: [completed]
+    branches: ["deploy/production"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "simulate | live"
+        type: choice
+        options: [simulate, live]
+        default: simulate
+
+concurrency:
+  group: cd-coolify-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  simulate:
+    name: "CD Simulation (safe)"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'simulate' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Run isolated CD simulation
+        run: bash scripts/cd/simulate-pipeline.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cd-simulation-registry
+          path: release-guardian/releases/registry.json
+
+  preflight:
+    name: "CD Preflight (fail-closed)"
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'deploy/production')
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
+      }}
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.sha.outputs.sha }}
+      - name: Branch + CI gate
+        run: |
+          echo "deploy_sha=${{ steps.sha.outputs.sha }}"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "ci_conclusion=${{ github.event.workflow_run.conclusion }}"
+            test "${{ github.event.workflow_run.conclusion }}" = "success"
+            test "${{ github.event.workflow_run.head_branch }}" = "deploy/production"
+          fi
+      - name: Contaminated ancestry hard stop
+        run: |
+          CONTAM=3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925
+          if git rev-list --objects HEAD | grep -q "$CONTAM"; then
+            echo "Contaminated history reachable from deploy SHA — refusing CD"
+            exit 1
+          fi
+          echo "clean_history_ok"
+      - name: Preflight
+        env:
+          ADALA_CD_KILL_SWITCH: ${{ vars.ADALA_CD_KILL_SWITCH }}
+          ADALA_CREDENTIAL_INCIDENT_CLEARED: ${{ vars.ADALA_CREDENTIAL_INCIDENT_CLEARED }}
+          ADALA_DB_BACKUP_VERIFIED: ${{ vars.ADALA_DB_BACKUP_VERIFIED }}
+          GITHUB_REF_NAME: deploy/production
+        run: bash scripts/cd/preflight.sh HEAD
+
+  deploy:
+    name: "CD Trigger Coolify"
+    needs: preflight
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.deploy_sha }}
+      - name: Trigger Coolify webhook
+        env:
+          ADALA_CD_KILL_SWITCH: ${{ vars.ADALA_CD_KILL_SWITCH }}
+          ADALA_CREDENTIAL_INCIDENT_CLEARED: ${{ vars.ADALA_CREDENTIAL_INCIDENT_CLEARED }}
+          ADALA_CD_ACTIVE: ${{ vars.ADALA_CD_ACTIVE }}
+          COOLIFY_DEPLOY_WEBHOOK_URL: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK_URL }}
+        run: bash scripts/cd/trigger-coolify.sh
+      - name: Post-deploy verify
+        if: ${{ vars.PRODUCTION_BASE_URL != '' }}
+        env:
+          APP_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+          EXPECT_COMMIT: ${{ needs.preflight.outputs.deploy_sha }}
+        run: bash scripts/cd/post-deploy-verify.sh
+      - name: Record successful release
+        if: success()
+        run: |
+          node scripts/cd/release-registry.mjs record \
+            --commit "${{ needs.preflight.outputs.deploy_sha }}" \
+            --digest "git:${{ needs.preflight.outputs.deploy_sha }}" \
+            --status success \
+            --note "cd-coolify"
+      - name: On failure — print emergency stop
+        if: failure()
+        run: bash scripts/cd/emergency-stop.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cd-evidence
+          path: release-guardian/releases/registry.json

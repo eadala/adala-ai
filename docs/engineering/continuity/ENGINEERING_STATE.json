@@ -1,0 +1,54 @@
+{
+  "project_identifier": "ADALA-AI",
+  "directive_id": "ADALA-ULTIMATE-PHOENIX-SECURITY-RECOVERY-ENGINEERING",
+  "current_branch": "cursor/ultimate-phoenix-security-recovery-da81",
+  "current_commit": "233b7f7562b561c96e632ca77afdb82192172b22",
+  "current_tree": "1b57d4986c4dbd9dcfc1f355d869171ba77fc481",
+  "last_verified_milestone": "ultimate-phoenix-security-recovery",
+  "last_local_backup": {
+    "status": "LOCAL_BUNDLE_INTEGRITY_VERIFIED",
+    "dev_tip_commit": "233b7f7562b561c96e632ca77afdb82192172b22",
+    "clean_tree_commit": "20fb50998911d66ac15b3dfc6c4017c32862e257",
+    "tree": "1b57d4986c4dbd9dcfc1f355d869171ba77fc481",
+    "bundle": "docs/engineering/continuity/artifacts/ultimate-phoenix-security-recovery-233b7f7562b5.bundle",
+    "sha256_file": "docs/engineering/continuity/artifacts/ultimate-phoenix-security-recovery-233b7f7562b5.bundle.sha256",
+    "public_push": "SKIPPED"
+  },
+  "last_remotely_verified_backup": {
+    "repo": "adalahai/adala-ai-private-recovery-2026",
+    "branch": "backup/phase-031-clean",
+    "commit": "8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b",
+    "tree": "ea8b8e85510bf68787b64a5de29f079f443f0a1a",
+    "status": "INTACT_ACCESSIBLE",
+    "phase_049_remote_transfer": "NOT_PERFORMED"
+  },
+  "test_status": {
+    "api_server_typecheck": "VERIFIED_PASS",
+    "typecheck_libs": "VERIFIED_PASS",
+    "tenant_isolation_local": "VERIFIED_PASS",
+    "live_rls_postgres": "VERIFIED_PASS",
+    "ai_gateway": "VERIFIED_PASS",
+    "secure_rag_mock": "VERIFIED_PASS",
+    "continuity_failure_injection": "VERIFIED_PASS",
+    "phase_049_clean_artifact": "VERIFIED_PASS",
+    "phoenix_v_clean_artifact": "VERIFIED_PASS",
+    "phase_031_private_backup": "VERIFIED_PASS"
+  },
+  "security_status": {
+    "origin_visibility": "PUBLIC",
+    "contaminated_history_reachable": "YES",
+    "tip_tree_secrets": "CLEAN",
+    "credential_remediation": "BLOCKED_ON_OWNER",
+    "public_push": "SKIPPED"
+  },
+  "known_blockers": [
+    "Owner must revoke/rotate exposed ghs_ installation token",
+    "Public history rewrite requires explicit approval",
+    "Private remote milestone transfer not authorized",
+    "RAG production embedding provider not authorized",
+    "Migrations 062-075 absent from tip"
+  ],
+  "next_executable_task": "After owner credential remediation + private backup auth: optional full migration chain 001-061 on disposable DB; Postgres rag_chunks adapter",
+  "updated_at_utc": "2026-11-23T21:07:14Z",
+  "notes": "No secrets stored in this manifest."
+}

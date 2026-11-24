@@ -1,0 +1,494 @@
+إذا كان هدفك الحقيقي هو **الاستغناء قدر الإمكان عن المبرمجين**، فأنا لا أنصح بإضافة صفحة جديدة فقط، بل ببناء نظام داخلي اسمه:
+
+# Adala Studio
+
+### Low-Code / No-Code Builder
+
+بحيث تستطيع إنشاء الأقسام والحقول والنماذج وسير العمل من داخل المنصة بدون تعديل الكود.
+
+---
+
+# هيكل النظام
+
+```text
+Adala Studio
+│
+├── Database Studio
+├── Page Builder
+├── Form Builder
+├── Workflow Builder
+├── AI Developer
+├── Theme Builder
+├── Plugin Store
+├── API Center
+└── DevOps Center
+```
+
+---
+
+# 1- الجداول الديناميكية
+
+## shared/schema/customTables.ts
+
+```ts
+export const customTables = pgTable(
+"custom_tables",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+officeId: uuid("office_id"),
+
+tableName: varchar(
+"table_name",
+{
+length:255
+}
+).notNull(),
+
+displayName: varchar(
+"display_name",
+{
+length:255
+}
+),
+
+icon: varchar(
+"icon",
+{
+length:100
+}
+),
+
+createdAt: timestamp(
+"created_at"
+).defaultNow()
+
+}
+);
+```
+
+---
+
+# 2- الحقول الديناميكية
+
+## shared/schema/customFields.ts
+
+```ts
+export const customFields = pgTable(
+"custom_fields",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+tableId: uuid("table_id")
+.notNull(),
+
+fieldName: varchar(
+"field_name",
+{
+length:255
+}
+),
+
+fieldLabel: varchar(
+"field_label",
+{
+length:255
+}
+),
+
+fieldType: varchar(
+"field_type",
+{
+length:50
+}
+),
+
+required: boolean(
+"required"
+).default(false)
+
+}
+);
+```
+
+---
+
+# 3- النماذج
+
+## shared/schema/forms.ts
+
+```ts
+export const forms = pgTable(
+"forms",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+name: varchar(
+"name",
+{
+length:255
+}
+),
+
+slug: varchar(
+"slug",
+{
+length:255
+}
+),
+
+isPublic: boolean(
+"is_public"
+).default(false)
+
+}
+);
+```
+
+---
+
+# 4- خدمات النظام
+
+## server/services/studioService.ts
+
+```ts
+export async function createTable(
+data:any
+){
+
+// إنشاء قسم جديد
+
+}
+
+export async function createField(
+data:any
+){
+
+// إنشاء حقل
+
+}
+
+export async function createForm(
+data:any
+){
+
+// إنشاء نموذج
+
+}
+
+export async function publishPage(
+pageId:string
+){
+
+// نشر الصفحة
+
+}
+```
+
+---
+
+# 5- Workflow Engine
+
+## shared/schema/workflows.ts
+
+```ts
+export const workflows = pgTable(
+"workflows",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+name: varchar(
+"name",
+{
+length:255
+}
+),
+
+trigger: varchar(
+"trigger",
+{
+length:100
+}
+),
+
+action: varchar(
+"action",
+{
+length:100
+}
+)
+
+}
+);
+```
+
+---
+
+## أمثلة
+
+```text
+إذا أنشئت قضية
+↓
+أنشئ مهمة
+↓
+أرسل إشعاراً
+↓
+أرسل واتساب
+↓
+أرسل بريداً إلكترونياً
+```
+
+---
+
+# 6- AI Developer
+
+## shared/schema/aiTasks.ts
+
+```ts
+export const aiTasks = pgTable(
+"ai_tasks",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+prompt:text(
+"prompt"
+),
+
+status:varchar(
+"status",
+{
+length:50
+}
+),
+
+generatedCode:text(
+"generated_code"
+)
+
+}
+);
+```
+
+---
+
+## server/services/aiDeveloperService.ts
+
+```ts
+export async function generateModule(
+prompt:string
+){
+
+// إنشاء schema
+
+// إنشاء routes
+
+// إنشاء services
+
+// إنشاء React pages
+
+}
+```
+
+---
+
+# 7- Plugin Store
+
+## shared/schema/plugins.ts
+
+```ts
+export const plugins = pgTable(
+"plugins",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+name:varchar(
+"name",
+{
+length:255
+}
+),
+
+version:varchar(
+"version",
+{
+length:50
+}
+),
+
+enabled:boolean(
+"enabled"
+)
+.default(false)
+
+}
+);
+```
+
+---
+
+# 8- API Center
+
+## shared/schema/apiKeys.ts
+
+```ts
+export const apiKeys = pgTable(
+"api_keys",
+{
+
+id: uuid("id")
+.defaultRandom()
+.primaryKey(),
+
+name:varchar(
+"name",
+{
+length:255
+}
+),
+
+apiKey:text(
+"api_key"
+),
+
+isActive:boolean(
+"is_active"
+)
+.default(true)
+
+}
+);
+```
+
+---
+
+# 9- Page Builder
+
+```tsx
+/pages/admin/PageBuilder.tsx
+```
+
+يحتوي على:
+
+```tsx
+<HeroBlock />
+
+<FeaturesBlock />
+
+<ServicesBlock />
+
+<TestimonialBlock />
+
+<ContactBlock />
+
+<FaqBlock />
+```
+
+مع خاصية السحب والإفلات.
+
+---
+
+# 10- Developer Center
+
+القائمة الجانبية:
+
+```ts
+{
+title:"Adala Studio",
+
+children:[
+
+{
+title:"Database Studio",
+href:"/studio/database"
+},
+
+{
+title:"Page Builder",
+href:"/studio/pages"
+},
+
+{
+title:"Form Builder",
+href:"/studio/forms"
+},
+
+{
+title:"Workflow Builder",
+href:"/studio/workflows"
+},
+
+{
+title:"AI Developer",
+href:"/studio/ai"
+},
+
+{
+title:"Plugin Store",
+href:"/studio/plugins"
+},
+
+{
+title:"API Center",
+href:"/studio/api"
+},
+
+{
+title:"DevOps Center",
+href:"/studio/devops"
+}
+
+]
+
+}
+```
+
+---
+
+## أكثر ميزة أوصي بها مستقبلاً
+
+إضافة:
+
+```text
+Adala AI Developer
+```
+
+بحيث تكتب:
+
+> أضف قسم المصاريف
+
+أو:
+
+> أنشئ صفحة للعقارات
+
+أو:
+
+> أضف تقرير الأرباح والخسائر
+
+فيقوم النظام تلقائياً بإنشاء:
+
+* Drizzle Schema
+* API Routes
+* Services
+* React Pages
+* الصلاحيات
+* عناصر القائمة
+
+وهذه من أقوى المزايا التي يمكن أن تجعل عدالة AI منصة قابلة للتطوير الذاتي وتقلل اعتمادك على المبرمجين بشكل كبير.

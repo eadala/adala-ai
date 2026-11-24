@@ -1,0 +1,285 @@
+تمام — سأدمج كل شيء في نظام واحد متكامل داخل منصة عدالة بدون تكرار، وبشكل جاهز للتنفيذ كـ SaaS حقيقي.
+
+الفكرة الآن ليست “مكونات منفصلة”، بل نظام مالي واحد موحد: Adalah Billing & Payments Engine.
+
+⸻
+
+💰🏛️ نظام عدالة المالي المتكامل (Unified Billing System)
+
+⸻
+
+🧠 🎯 الفكرة الكاملة
+
+النظام يتكون من 5 طبقات مترابطة:
+
+1. Checkout Layer (صفحة الدفع عالية التحويل)
+        ↓
+2. Payment Processing (Stripe + Mada + STC Pay)
+        ↓
+3. Subscription Engine (اشتراكات تلقائية)
+        ↓
+4. Billing Intelligence (فواتير + محاولات + فشل الدفع)
+        ↓
+5. Admin Dashboard (لوحة مالية كاملة)
+
+⸻
+
+🟢 1. 💳 Checkout Layer (صفحة الدفع عالية التحويل)
+
+🎯 الهدف:
+
+تقليل خطوات الدفع لأقصى حد
+
+⸻
+
+⚙️ تصميم UX:
+
+Select Plan
+    ↓
+Apple Pay / Google Pay / Card
+    ↓
+Confirm
+    ↓
+Done (Subscription Active)
+
+⸻
+
+⚙️ كود Checkout احترافي:
+
+app.post("/api/billing/checkout", async (req, res) => {
+  const { firm_id, plan_id } = req.body;
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [{
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `Adalah Plan`
+        },
+        unit_amount: 39900
+      },
+      quantity: 1
+    }],
+    success_url: "https://adalah.app/success",
+    cancel_url: "https://adalah.app/cancel",
+    metadata: { firm_id, plan_id }
+  });
+  res.json({ url: session.url });
+});
+
+⸻
+
+🔵 2. 💳 Payment Processing Layer
+
+🎯 يدعم:
+
+* Stripe (عالمي)
+* Apple Pay
+* Google Pay
+* Mada (السعودية)
+* STC Pay (لاحقًا عبر مزود محلي)
+
+⸻
+
+⚙️ Webhook موحد:
+
+app.post("/api/billing/webhook", async (req, res) => {
+  const event = req.body;
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    await activateSubscription({
+      firm_id: session.metadata.firm_id,
+      plan_id: session.metadata.plan_id,
+      customer_id: session.customer
+    });
+  }
+  res.sendStatus(200);
+});
+
+⸻
+
+🟡 3. 🔁 Subscription Engine (قلب النظام)
+
+🎯 الوظيفة:
+
+إدارة حياة الاشتراك بالكامل
+
+⸻
+
+⚙️ تفعيل الاشتراك:
+
+async function activateSubscription({ firm_id, plan_id, customer_id }) {
+  await db.subscriptions.upsert({
+    where: { firm_id },
+    update: {
+      status: "active",
+      plan_id,
+      stripe_customer_id: customer_id
+    },
+    create: {
+      firm_id,
+      plan_id,
+      status: "active",
+      stripe_customer_id: customer_id
+    }
+  });
+}
+
+⸻
+
+🔁 التجديد التلقائي:
+
+* Stripe يديرها تلقائيًا
+* النظام فقط يراقب الحالة
+
+⸻
+
+🔴 4. 🧠 Billing Intelligence (الذكاء المالي)
+
+🎯 الوظيفة:
+
+حل مشاكل الدفع تلقائيًا
+
+⸻
+
+⚙️ حالات ذكية:
+
+function billingIntelligence(invoice) {
+  if (invoice.status === "failed") {
+    return "Retry payment in 24h";
+  }
+  if (invoice.retry_count > 2) {
+    return "Suspend subscription";
+  }
+  if (invoice.paid) {
+    return "All good";
+  }
+}
+
+⸻
+
+🔁 نظام إعادة المحاولة:
+
+Failed Payment
+    ↓
+Retry 1 (بعد 24 ساعة)
+    ↓
+Retry 2 (بعد 3 أيام)
+    ↓
+Retry 3 (أخير)
+    ↓
+Suspend Account
+
+⸻
+
+🟣 5. 📊 Admin Financial Dashboard
+
+🎯 يعرض:
+
+* عدد الاشتراكات
+* الإيرادات الشهرية
+* الفواتير المدفوعة
+* الفواتير الفاشلة
+* معدل النجاح
+
+⸻
+
+⚙️ API لوحة التحكم:
+
+app.get("/api/admin/billing", async (req, res) => {
+  const active = await db.subscriptions.count({
+    where: { status: "active" }
+  });
+  const revenue = await db.billingInvoices.aggregate({
+    _sum: { amount: true },
+    where: { status: "paid" }
+  });
+  const failed = await db.billingInvoices.count({
+    where: { status: "failed" }
+  });
+  res.json({
+    active_subscriptions: active,
+    revenue: revenue._sum.amount,
+    failed_payments: failed
+  });
+});
+
+⸻
+
+🇸🇦 6. بوابة الدفع العربية (Mada / STC Pay)
+
+🎯 التكامل:
+
+* يتم عبر مزود وسيط (Tap / PayTabs / HyperPay)
+
+⸻
+
+⚙️ مثال:
+
+User selects Mada
+    ↓
+Redirect to local gateway
+    ↓
+Return success webhook
+    ↓
+Activate subscription
+
+⸻
+
+⚡ 7. التجربة النهائية للمستخدم
+
+1. يدخل الصفحة
+2. يختار الباقة
+3. يضغط Pay
+4. Apple Pay / Card / Mada
+5. تأكيد واحد فقط
+6. الاشتراك يعمل فورًا
+
+⸻
+
+🧠 💡 ما الذي أصبح لديك الآن؟
+
+💰 نظام مالي كامل داخل عدالة:
+
+✔ Checkout عالي التحويل
+✔ اشتراكات تلقائية
+✔ دعم عالمي + سعودي
+✔ إعادة محاولة الدفع
+✔ لوحة مالية إدارية
+✔ Webhooks احترافية
+✔ نظام SaaS حقيقي
+
+⸻
+
+🚀 النتيجة النهائية
+
+أنت الآن لم تعد تبني “ميزة دفع”
+
+أنت تبني:
+
+💼 منصة SaaS قانونية قابلة للبيع عالميًا بمصدر دخل متكرر (MRR)
+
+⸻
+
+🔥 إذا تبغى المرحلة التالية (مهم جدًا)
+
+أقدر أكملك إلى مستوى شركات كبيرة:
+
+🔥 Revenue analytics + توقعات الأرباح
+
+🔥 نظام كوبونات + عروض
+
+🔥 نظام ترقية/خفض الباقات تلقائي
+
+🔥 حماية متقدمة من الاحتيال (AI Fraud Detection)
+
+🔥 لوحة “CEO view” لكل الإيرادات
+
+⸻
+
+قل:
+
+“أضف نظام التحليلات المالية المتقدمة”
+
+وأبني لك طبقة ذكاء مالي فوق كل هذا النظام.

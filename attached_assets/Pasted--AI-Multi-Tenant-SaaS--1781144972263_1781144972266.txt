@@ -1,0 +1,288 @@
+نعم، وهذه من أهم المزايا التي ستجعل **عدالة AI** منصة متعددة المكاتب (Multi-Tenant SaaS) حقيقية، بحيث يمتلك كل مكتب هويته الخاصة دون الحاجة لتعديل الكود.
+
+## 1. جدول الهوية البصرية للمكاتب
+
+### `shared/schema.ts`
+
+```ts
+export const officeSettings = pgTable("office_settings", {
+
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  officeId: uuid("office_id")
+    .references(() => offices.id)
+    .notNull(),
+
+  officeName: varchar("office_name", {
+    length: 255
+  }),
+
+  logoUrl: text("logo_url"),
+
+  stampUrl: text("stamp_url"),
+
+  signatureUrl: text("signature_url"),
+
+  primaryColor: varchar("primary_color", {
+    length: 20
+  }).default("#1e40af"),
+
+  secondaryColor: varchar("secondary_color", {
+    length: 20
+  }).default("#f8fafc"),
+
+  invoiceTemplate: varchar("invoice_template", {
+    length: 50
+  }).default("classic_legal"),
+
+});
+```
+
+---
+
+# 2. القوالب المدعومة
+
+```ts
+export type InvoiceTemplate =
+
+  | "classic_legal"
+
+  | "modern_blue"
+
+  | "minimal";
+```
+
+---
+
+# 3. Hook لجلب إعدادات المكتب
+
+### `hooks/useOfficeSettings.ts`
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+
+export function useOfficeSettings() {
+
+  return useQuery({
+
+    queryKey: ["office-settings"],
+
+    queryFn: async () => {
+
+      const response = await fetch(
+        "/api/office-settings"
+      );
+
+      return response.json();
+
+    },
+
+  });
+
+}
+```
+
+---
+
+# 4. ThemeProvider
+
+### `components/providers/OfficeThemeProvider.tsx`
+
+```tsx
+import { createContext } from "react";
+
+export const OfficeThemeContext =
+  createContext(null);
+
+export function OfficeThemeProvider({
+  settings,
+  children,
+}: any) {
+
+  return (
+
+    <div
+      style={{
+        ["--primary-color" as any]:
+          settings.primaryColor,
+
+        ["--secondary-color" as any]:
+          settings.secondaryColor,
+      }}
+    >
+
+      {children}
+
+    </div>
+
+  );
+}
+```
+
+---
+
+# 5. استعمال الألوان تلقائياً
+
+بدلاً من:
+
+```tsx
+<Button className="bg-blue-700">
+```
+
+استخدم:
+
+```tsx
+<Button
+className="bg-[var(--primary-color)]"
+>
+```
+
+---
+
+# 6. الشعار في Navbar
+
+### `components/layout/Navbar.tsx`
+
+```tsx
+const { data: settings } =
+  useOfficeSettings();
+
+<Image
+
+  src={settings.logoUrl}
+
+  alt="logo"
+
+  width={45}
+
+  height={45}
+
+/>
+```
+
+---
+
+# 7. الشعار في الفواتير
+
+داخل:
+
+```tsx
+InvoicePDFTemplate.tsx
+```
+
+```tsx
+<Image
+  src={office.logoUrl}
+  style={styles.logo}
+/>
+```
+
+---
+
+# 8. التوقيع والختم
+
+```tsx
+<Image
+  src={office.signatureUrl}
+  style={styles.signature}
+/>
+
+<Image
+  src={office.stampUrl}
+  style={styles.stamp}
+/>
+```
+
+---
+
+# 9. اختيار القالب
+
+```tsx
+switch (
+ office.invoiceTemplate
+) {
+
+case "classic_legal":
+
+ return (
+   <ClassicLegalInvoice />
+ );
+
+case "modern_blue":
+
+ return (
+   <ModernBlueInvoice />
+ );
+
+case "minimal":
+
+ return (
+   <MinimalInvoice />
+ );
+
+}
+```
+
+---
+
+# 10. صفحة الإعدادات
+
+## الإعدادات > الهوية البصرية
+
+إنشاء:
+
+```text
+اسم المكتب
+
+رفع الشعار
+
+رفع الختم
+
+رفع التوقيع
+
+اللون الأساسي
+
+اللون الثانوي
+
+اختيار قالب الفاتورة
+```
+
+---
+
+# 11. دعم كامل في:
+
+✅ الفواتير PDF.
+
+✅ البوابة الإلكترونية للعميل.
+
+✅ العقود.
+
+✅ التقارير.
+
+✅ الرسائل البريدية.
+
+✅ الصفحة الرئيسية.
+
+✅ القائمة الجانبية.
+
+✅ صفحة تسجيل الدخول الخاصة بالمكتب.
+
+---
+
+# أنصح أيضاً بإضافة:
+
+```ts
+faviconUrl
+loginBackgroundUrl
+watermarkUrl
+```
+
+حتى يصبح لكل مكتب:
+
+* شعاره.
+* ألوانه.
+* خلفية تسجيل الدخول الخاصة به.
+* العلامة المائية الخاصة به.
+* قالب الفواتير الخاص به.
+
+وبذلك تتحول عدالة AI إلى منصة SaaS احترافية بمستوى Clio وPracticePanther وZoho، مع هوية مستقلة لكل مكتب.

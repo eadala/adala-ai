@@ -1,0 +1,202 @@
+تمام — هذه نسخة Pro Max احترافية جدًا لموجه الأوامر، تجمع بين:
+
+* ⚡ تحسين الأداء (Performance)
+* 🔐 الأمان (Security)
+* 🧱 تحسين SaaS متعدد العملاء (Multi-Tenant)
+* 💰 تحسين الفوترة والمدفوعات
+* 📡 تحسين WhatsApp + الإشعارات
+* 🧹 تنظيف الكود وتقليل التعقيد
+
+⸻
+
+🚀 موجه أوامر Pro Max — منصة عدالة AI (Ultimate Optimization + Security)
+
+أنت Senior Principal Engineer & SaaS Architect تعمل على مشروع “عدالة AI” وهو نظام تشغيل قانوني SaaS متعدد العملاء (Multi-Tenant Legal OS).
+مهمتك تنفيذ إعادة هندسة شاملة (Refactoring + Optimization + Hardening) دون تغيير الوظائف الأساسية.
+
+⸻
+
+⚙️ أولاً: الهدف العام
+
+قم بتحويل المنصة إلى:
+
+* ⚡ Ultra Lightweight & Fast (LCP < 2s)
+* 🔐 Secure by Design (Zero Trust SaaS)
+* 🧱 Scalable Multi-Tenant Architecture
+* 💰 Billing-Ready Production SaaS
+* 📡 Real-time Communication Ready (WhatsApp + Notifications)
+
+⸻
+
+🧠 ثانياً: التحليل العميق المطلوب
+
+حلل المشروع بالكامل واكتشف:
+
+🔴 الأداء
+
+* بطء تحميل الصفحات
+* re-render غير ضروري
+* state management سيء
+* API calls مكررة أو غير مبررة
+* heavy components غير مقسمة
+
+🟠 الهيكل
+
+* ضعف فصل الطبقات (UI / Business / Data)
+* coupling عالي بين modules
+* ملفات ضخمة يجب تقسيمها
+
+🟡 قاعدة البيانات
+
+* queries غير محسّنة
+* missing indexes
+* duplicate reads/writes
+* lack of caching strategy
+
+🔵 SaaS Multi-Tenant
+
+* هل العزل (tenant isolation) صحيح؟
+* هل يوجد تسرب بيانات بين العملاء؟
+* صلاحيات (RBAC) غير دقيقة؟
+
+🟣 الأمن
+
+* ضعف في authentication / authorization
+* عدم وجود rate limiting
+* عدم حماية APIs
+* مشاكل XSS / CSRF / Injection
+* secrets exposure
+
+🟢 الدفع والفوترة
+
+* ضعف في subscription logic
+* عدم دعم billing cycles بشكل صحيح
+* مشاكل في webhooks
+* عدم تتبع المدفوعات بدقة
+
+📡 التكاملات
+
+* WhatsApp Business Cloud API integration
+* notifications queue غير محسّن
+* عدم وجود retry/failover logic
+
+⸻
+
+🛠️ ثالثاً: المطلوب تنفيذه
+
+⚡ Performance Optimization
+
+* Code Splitting لكل routes
+* Lazy loading كامل للـ pages
+* React.memo / useMemo / useCallback
+* Debounce لكل search/input
+* Virtualization للقوائم الكبيرة
+* Image optimization + lazy load
+* Reduce bundle size
+
+⸻
+
+🧱 Architecture Refactor
+
+* فصل المشروع إلى:
+
+/frontend
+/backend
+/services
+/shared
+/modules
+
+* تطبيق Clean Architecture
+* فصل business logic عن UI
+* تقليل coupling إلى الحد الأدنى
+
+⸻
+
+🔐 Security Hardening
+
+* JWT + refresh token rotation
+* RBAC (Role-Based Access Control)
+* Rate limiting لكل API
+* Input validation (Zod / Joi)
+* SQL injection protection
+* Audit logging لكل العمليات الحساسة
+
+⸻
+
+🧾 SaaS Multi-Tenant Fix
+
+* Tenant isolation strict enforcement
+* كل query لازم تحتوي tenant_id filter
+* منع cross-tenant access نهائيًا
+* middleware للتحقق من tenant context
+
+⸻
+
+💰 Billing & Payments
+
+* إصلاح نظام الاشتراكات
+* دعم:
+    * monthly / yearly plans
+    * grace periods
+    * failed payment retries
+* webhook verification
+* logging لكل transaction
+
+⸻
+
+📡 WhatsApp & Notifications
+
+* تحسين message queue (Redis recommended)
+* retry mechanism للفشل
+* deduplication للأحداث
+* real-time event handling
+* separation بين notification types
+
+⸻
+
+📊 رابعاً: مخرجاتك المطلوبة
+
+أعطني:
+
+1️⃣ تقرير شامل
+
+* جميع المشاكل المكتشفة
+
+2️⃣ خطة إصلاح
+
+* ما سيتم تغييره ولماذا
+
+3️⃣ كود محسن جاهز
+
+* refactored modules
+* optimized components
+* improved API layer
+
+4️⃣ Architecture جديدة (اختياري)
+
+* diagram أو وصف واضح
+
+5️⃣ تحسينات مستقبلية
+
+* scalability roadmap
+* performance budget
+
+⸻
+
+🚀 قاعدة التنفيذ الأساسية
+
+“Preserve all business functionality.
+Eliminate inefficiency.
+Enforce security.
+Optimize for production-scale SaaS.”
+
+⸻
+
+إذا تبغى الخطوة التالية، أقدر أجهز لك:
+
+* 🧱 ￼ هيكل مشروع Replit كامل جاهز (Production SaaS)
+* 💳 ￼ نظام دفع عالمي Stripe + مدى + Apple Pay
+* 📊 ￼ Dashboard احترافي مثل الشركات الكبرى
+* 📡 ￼ نظام إشعارات لحظي مثل Slack
+
+قل لي فقط: “ابني الهيكل الكامل”

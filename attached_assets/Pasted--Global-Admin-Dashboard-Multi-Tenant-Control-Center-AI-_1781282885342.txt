@@ -1,0 +1,254 @@
+تمام—سأبني لك الآن Global Admin Dashboard احترافي (Multi-Tenant Control Center) لمنصة عدالة AI، وهو أعلى مستوى إداري في النظام:
+
+وظيفته:
+
+* مراقبة كل المكاتب (Tenants)
+* تتبع الإيرادات لحظيًا
+* تحليل الاشتراكات
+* مراقبة استخدام AI
+* كشف العملاء الخطرين
+* التحكم بالباقات عالميًا
+
+⸻
+
+🧠 1) هيكل لوحة الإدارة العالمية
+
+Global Admin Dashboard
+│
+├── 📊 Revenue Overview
+├── 🏢 Tenants List
+├── 💳 Subscriptions Monitor
+├── 🤖 AI Usage Analytics
+├── ⚠️ Risk Engine (Fraud / Loss)
+├── 📈 Growth Insights
+└── ⚙️ System Controls
+
+⸻
+
+📊 2) إجمالي الإيرادات العالمية (Global Revenue)
+
+export async function getGlobalRevenue() {
+  const invoices = await db.invoice.findMany();
+  const gross = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+  const platformFee = gross * 0.10;
+  const stripeFee = gross * 0.029;
+  return {
+    gross,
+    platformFee,
+    stripeFee,
+    netRevenue: gross - platformFee - stripeFee,
+    totalInvoices: invoices.length
+  };
+}
+
+⸻
+
+🏢 3) قائمة جميع المكاتب (Tenants Overview)
+
+export async function getTenantsOverview() {
+  const tenants = await db.tenant.findMany({
+    include: {
+      users: true,
+      invoices: true
+    }
+  });
+  return tenants.map(t => {
+    const revenue = t.invoices.reduce((s, i) => s + i.amount, 0);
+    return {
+      tenantId: t.id,
+      name: t.name,
+      plan: t.plan,
+      users: t.users.length,
+      revenue,
+      stripeConnected: !!t.stripeId
+    };
+  });
+}
+
+⸻
+
+🤖 4) تحليل استخدام الذكاء الاصطناعي (AI Analytics)
+
+export async function getAIAnalytics() {
+  const logs = await db.aiUsage.findMany();
+  const totalCalls = logs.length;
+  const byTenant = logs.reduce((acc, log) => {
+    acc[log.tenantId] = (acc[log.tenantId] || 0) + 1;
+    return acc;
+  }, {});
+  return {
+    totalCalls,
+    topTenants: Object.entries(byTenant)
+      .sort((a: any, b: any) => b[1] - a[1])
+      .slice(0, 10)
+  };
+}
+
+⸻
+
+⚠️ 5) نظام المخاطر (Risk Engine)
+
+export async function getRiskReport() {
+  const tenants = await db.tenant.findMany();
+  return tenants.map(t => {
+    const revenue = t.invoices?.reduce((s, i) => s + i.amount, 0) || 0;
+    const aiUsage = t.aiUsage || 0;
+    let risk = 0;
+    // 🚨 قواعد المخاطر
+    if (revenue === 0 && aiUsage > 20) risk += 70;
+    if (t.plan === "FREE" && aiUsage > 50) risk += 40;
+    if (t.plan === "BASIC" && revenue < 100) risk += 20;
+    return {
+      tenantId: t.id,
+      name: t.name,
+      revenue,
+      aiUsage,
+      riskScore: risk,
+      level:
+        risk > 70 ? "HIGH_RISK" :
+        risk > 40 ? "MEDIUM_RISK" :
+        "LOW_RISK"
+    };
+  });
+}
+
+⸻
+
+📈 6) النمو (Growth Insights)
+
+export async function getGrowthInsights() {
+  const tenants = await db.tenant.findMany();
+  const active = tenants.filter(t => t.plan !== "FREE").length;
+  const free = tenants.length - active;
+  const conversionRate = (active / tenants.length) * 100;
+  return {
+    totalTenants: tenants.length,
+    activeSubscriptions: active,
+    freeUsers: free,
+    conversionRate: conversionRate.toFixed(2) + "%"
+  };
+}
+
+⸻
+
+💳 7) مراقبة الاشتراكات (Subscriptions Monitor)
+
+export async function getSubscriptionsMonitor() {
+  const tenants = await db.tenant.findMany();
+  return tenants.map(t => ({
+    tenantId: t.id,
+    plan: t.plan,
+    status: t.plan === "FREE" ? "inactive" : "active",
+    stripeCustomer: t.stripeId ? true : false
+  }));
+}
+
+⸻
+
+⚙️ 8) التحكم العالمي بالباقات (Global Plan Control)
+
+export async function updateTenantPlan(tenantId: string, plan: string) {
+  await db.tenant.update({
+    where: { id: tenantId },
+    data: { plan }
+  });
+  return {
+    success: true,
+    tenantId,
+    newPlan: plan
+  };
+}
+
+⸻
+
+🌐 9) API لوحة الإدارة
+
+import express from "express";
+const app = express();
+app.use(express.json());
+app.get("/admin/revenue", async (req, res) => {
+  res.json(await getGlobalRevenue());
+});
+app.get("/admin/tenants", async (req, res) => {
+  res.json(await getTenantsOverview());
+});
+app.get("/admin/ai", async (req, res) => {
+  res.json(await getAIAnalytics());
+});
+app.get("/admin/risk", async (req, res) => {
+  res.json(await getRiskReport());
+});
+app.get("/admin/growth", async (req, res) => {
+  res.json(await getGrowthInsights());
+});
+app.post("/admin/tenant/plan", async (req, res) => {
+  const { tenantId, plan } = req.body;
+  res.json(await updateTenantPlan(tenantId, plan));
+});
+app.listen(4000, () => {
+  console.log("🧠 Global Admin Dashboard running on port 4000");
+});
+
+⸻
+
+🧠 ماذا أصبحت تمتلك الآن؟
+
+🏢 منصة إدارة عالمية كاملة:
+
+💰 Revenue Intelligence
+
+* إجمالي الأرباح
+* صافي المنصة
+* تحليل الفواتير
+
+🏢 Multi-Tenant Control
+
+* كل مكتب مستقل
+* تتبع الاشتراكات
+* التحكم بالباقات
+
+🤖 AI Intelligence
+
+* من يستخدم الذكاء أكثر
+* تحليل الاستخدام
+
+⚠️ Risk Engine
+
+* كشف العملاء الخاسرين
+* تقييم المخاطر تلقائيًا
+
+📈 Growth Engine
+
+* معدل التحويل
+* نمو المنصة
+
+⸻
+
+🚀 النتيجة النهائية
+
+أصبح عندك:
+
+🧠 “عقل إداري عالمي لمنصة SaaS قانونية”
+
+مثل:
+
+* Stripe Dashboard
+* AWS Billing Console
+* HubSpot Analytics
+* Notion Workspace Admin
+
+⸻
+
+🔥 الخطوة التالية (مستوى أعلى جدًا)
+
+إذا تريد أقوى مرحلة في النظام، أقدر أبني لك:
+
+💥 AI CEO SYSTEM
+
+* يتخذ قرارات تسعير تلقائيًا
+* يوقف الحسابات الخاسرة
+* يرفع أسعار المكاتب الناجحة
+* يتنبأ بالإيرادات المستقبلية
+
+فقط قل:
+“ابني العقل التنفيذي الذكي AI CEO”

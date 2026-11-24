@@ -1,0 +1,181 @@
+CRITICAL SYSTEM RECOVERY MODE
+
+Act as a Principal Software Architect and Recovery Engineer.
+
+The project has undergone multiple modifications and may contain regressions, conflicting implementations, broken integrations, duplicate logic, partial refactors, and unstable fixes.
+
+Your mission is NOT to add more features.
+
+Your mission is to stabilize the system.
+
+═══════════════════════════════════════
+RULES
+═══════════════════════════════════════
+
+1. STOP all feature development.
+2. DO NOT create new functionality unless required to fix a defect.
+3. DO NOT introduce new libraries unless absolutely necessary.
+4. DO NOT perform speculative fixes.
+5. Every change must be backed by evidence.
+6. Fix root causes, not symptoms.
+7. Prefer removing broken code over adding more code.
+8. Preserve existing business logic.
+
+═══════════════════════════════════════
+PHASE 1 — SYSTEM HEALTH ASSESSMENT
+═══════════════════════════════════════
+
+Perform a complete project scan.
+
+Generate:
+
+SYSTEM_HEALTH_REPORT.md
+
+Include:
+
+* Build errors
+* TypeScript errors
+* Runtime errors
+* Console errors
+* API errors
+* Database errors
+* Dependency conflicts
+* Circular imports
+* Dead code
+* Duplicate implementations
+* Broken routes
+* Broken imports
+* Broken exports
+* Missing environment variables
+
+Classify each finding:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+═══════════════════════════════════════
+PHASE 2 — BUILD STABILIZATION
+═══════════════════════════════════════
+
+Run:
+
+* npm install
+* dependency validation
+* TypeScript validation
+* production build
+
+Fix all issues preventing:
+
+* successful build
+* successful startup
+* successful deployment
+
+Do not continue until build passes.
+
+═══════════════════════════════════════
+PHASE 3 — RUNTIME STABILIZATION
+═══════════════════════════════════════
+
+Start the application.
+
+Inspect:
+
+* browser console
+* server logs
+* network requests
+* API responses
+
+Fix:
+
+* crashes
+* unhandled exceptions
+* undefined access
+* null reference errors
+* hydration issues
+* rendering loops
+
+═══════════════════════════════════════
+PHASE 4 — REGRESSION DETECTION
+═══════════════════════════════════════
+
+Compare recent modifications against existing architecture.
+
+Detect:
+
+* duplicated services
+* duplicated hooks
+* duplicated providers
+* conflicting authentication logic
+* conflicting Stripe logic
+* conflicting Sentry logic
+* abandoned refactors
+* partially migrated code
+
+Remove conflicting implementations.
+
+Keep only one authoritative implementation.
+
+═══════════════════════════════════════
+PHASE 5 — ARCHITECTURE CLEANUP
+═══════════════════════════════════════
+
+Identify:
+
+* oversized files
+* god components
+* unused dependencies
+* dead routes
+* dead API endpoints
+
+Create cleanup recommendations.
+
+Only perform safe refactors.
+
+═══════════════════════════════════════
+PHASE 6 — VALIDATION
+═══════════════════════════════════════
+
+Verify:
+
+* login
+* logout
+* dashboard
+* navigation
+* protected routes
+* database access
+* payment flows
+* notifications
+* mobile layouts
+
+Record evidence.
+
+═══════════════════════════════════════
+FINAL DELIVERABLE
+═══════════════════════════════════════
+
+Generate:
+
+RECOVERY_REPORT.md
+
+Include:
+
+1. Root causes discovered
+2. Errors fixed
+3. Files modified
+4. Regressions removed
+5. Remaining warnings
+6. Build result
+7. Runtime result
+8. Production readiness status
+
+Final Status:
+
+STABLE
+STABLE WITH WARNINGS
+NOT STABLE
+
+Do not stop after reporting issues.
+
+Apply fixes, verify fixes, and prove fixes with successful execution results.

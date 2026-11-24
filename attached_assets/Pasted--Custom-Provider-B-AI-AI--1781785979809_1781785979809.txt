@@ -1,0 +1,175 @@
+تقدر تبني نفس فكرة Custom Provider (زي B.AI) داخل مشروع عدالة AI بنفسك، وهذا فعليًا شيء قوي جدًا لأي SaaS قانوني. الفكرة اسمها تقنيًا:
+
+AI Provider Abstraction Layer / AI Router
+
+خلني أبسطها لك عمليًا خطوة بخطوة:
+
+⸻
+
+🧠 الفكرة العامة
+
+بدل ما تطبيقك يتصل بـ OpenAI مباشرة:
+
+❌ Frontend → OpenAI
+
+تخليها كذا:
+
+✅ Frontend → Backend (AI Gateway) → (OpenAI / Gemini / Claude / غيره)
+
+⸻
+
+⚙️ 1) أنشئ طبقة وسيطة (AI Service)
+
+في مشروعك (Node.js / TypeScript):
+
+/src/ai
+  ├── provider.interface.ts
+  ├── openai.provider.ts
+  ├── gemini.provider.ts
+  ├── claude.provider.ts
+  ├── router.ts
+
+⸻
+
+🧩 2) تعريف Interface موحد لكل المزودين
+
+export interface AIProvider {
+  generateText(prompt: string, options?: any): Promise<string>;
+}
+
+⸻
+
+🤖 3) كل مزود AI له Adapter
+
+OpenAI مثال:
+
+import OpenAI from "openai";
+export class OpenAIProvider implements AIProvider {
+  private client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  async generateText(prompt: string) {
+    const res = await this.client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
+    return res.choices[0].message.content || "";
+  }
+}
+
+⸻
+
+Gemini مثال:
+
+export class GeminiProvider implements AIProvider {
+  async generateText(prompt: string) {
+    const res = await fetch("https://generativelanguage.googleapis.com/...", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await res.json();
+    return data.text;
+  }
+}
+
+⸻
+
+🔀 4) AI Router (هنا السر الحقيقي)
+
+هذا هو اللي يعطيك “Custom Provider”
+
+import { OpenAIProvider } from "./openai.provider";
+import { GeminiProvider } from "./gemini.provider";
+export class AIRouter {
+  private providers: Record<string, AIProvider> = {
+    openai: new OpenAIProvider(),
+    gemini: new GeminiProvider(),
+  };
+  async generate(provider: string, prompt: string) {
+    const selected = this.providers[provider];
+    if (!selected) {
+      throw new Error("Provider not found");
+    }
+    return selected.generateText(prompt);
+  }
+}
+
+⸻
+
+🧠 5) استخدامه داخل عدالة AI
+
+const router = new AIRouter();
+const result = await router.generate("openai", "اكتب لائحة دعوى");
+
+أو:
+
+await router.generate("gemini", "حلل هذا العقد");
+
+⸻
+
+💡 6) تطوير مهم (احترافي جدًا)
+
+لو تبغى نسخة SaaS قوية مثل B.AI فعليًا:
+
+🔹 A. اختيار تلقائي (Smart Routing)
+
+if (task === "legal_analysis") use Claude
+if (cheap_mode) use Gemini Flash
+
+⸻
+
+🔹 B. نظام تكلفة لكل طلب
+
+log: {
+  provider,
+  tokens,
+  cost,
+}
+
+⸻
+
+🔹 C. Multi-tenant control
+
+كل مكتب قانوني يختار مزوده:
+
+{
+  "tenantId": "law_firm_1",
+  "provider": "openai"
+}
+
+⸻
+
+🔹 D. Fallback System
+
+لو OpenAI فشل:
+
+try OpenAI
+catch → Gemini
+
+⸻
+
+🚀 النتيجة النهائية داخل “عدالة AI”
+
+تصير عندك:
+
+* تحكم كامل بالـ AI 🔥
+* تخفيض تكلفة قوي 💰
+* مرونة لكل عميل
+* قابلية توسع عالمي SaaS
+
+⸻
+
+⚡ لو أبغى ألخصها بجملة:
+
+أنت تبني “مخ” داخل عدالة AI يقرر:
+
+أي نموذج ذكاء اصطناعي يستخدم، ومتى، وبأي تكلفة.
+
+⸻
+
+إذا تبغى الخطوة التالية أقدر أبني لك:
+
+* 🔥 ￼ Architecture كاملة لعدالة AI AI Layer (Production Ready)
+* أو 🔥 ￼ نظام Billing حسب كل AI request
+* أو 🔥 ￼ لوحة تحكم لاختيار المزود لكل مكتب قانوني
+
+قل لي وش تبغى نكمل عليه.

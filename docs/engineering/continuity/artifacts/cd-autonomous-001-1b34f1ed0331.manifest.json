@@ -1,0 +1,14 @@
+{
+  "milestone": "cd-autonomous-001",
+  "dev_tip_commit": "1b34f1ed033186568dbeb0fa62ca904173b0074c",
+  "clean_tree_commit": "2b78ada451fd31c98326107fbbc722312418380d",
+  "tree": "ecf1e20fdd00698080a745ec908a65f80f546fa8",
+  "backup_ref": "refs/backup/milestones/cd-autonomous-001-clean-tree-1b34f1ed0331",
+  "dev_tip_ref": "refs/backup/milestones/cd-autonomous-001-1b34f1ed0331",
+  "bundle": "docs/engineering/continuity/artifacts/cd-autonomous-001-1b34f1ed0331.bundle",
+  "sha256_file": "docs/engineering/continuity/artifacts/cd-autonomous-001-1b34f1ed0331.bundle.sha256",
+  "created_at_utc": "2026-11-23T21:16:19Z",
+  "remote_push": "NOT_PERFORMED",
+  "contamination_note": "Bundle is orphan clean-tree; full tip ancestry may still contain historical contaminated objects",
+  "note": "Set ALLOW_REMOTE_BACKUP=1 only after owner authorizes external transfer"
+}

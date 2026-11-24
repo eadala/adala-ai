@@ -1,0 +1,327 @@
+ADALAH AI — REAL-TIME LIVE ZERO TRUST PROTECTION SYSTEM (RUNTIME SHIELD)
+
+MISSION
+
+This system operates AFTER production launch.
+
+It is not an audit tool.
+
+It is a live runtime security layer that:
+
+* Detects attacks instantly
+* Blocks requests before execution
+* Enforces tenant isolation in real time
+* Repairs unsafe queries automatically
+* Prevents AI/data leakage dynamically
+
+⸻
+
+🧠 CORE PRINCIPLE
+
+Every request is suspicious until proven safe.
+
+⸻
+
+🔐 LAYER 1 — REAL-TIME TENANT SHIELD (CRITICAL CORE)
+
+Intercept ALL incoming requests:
+
+ENFORCEMENT RULES:
+
+* Force office_id = user.office_id
+* Ignore all client-supplied tenant IDs
+* Block mismatched tenant context
+* Validate ownership BEFORE database access
+
+BLOCK CONDITIONS:
+
+❌ Any cross-office access attempt
+❌ Manipulated office_id in payload
+❌ Token mismatch vs requested resource
+
+AUTO ACTION:
+
+* Block request instantly
+* Log incident
+* Trigger security alert
+
+⸻
+
+⚡ LAYER 2 — API INTERCEPTION FIREWALL
+
+Intercept all API calls:
+
+/cases
+/clients
+/contracts
+/invoices
+/documents
+/tasks
+/sessions
+/ai
+/search
+
+VALIDATION FLOW:
+
+1. Authenticate user
+2. Validate session integrity
+3. Enforce tenant scope
+4. Validate permissions
+5. Sanitize payload
+
+ATTACK DETECTION:
+
+* IDOR attempts
+* URL manipulation
+* unauthorized object access
+* privilege escalation
+
+RESPONSE:
+
+* BLOCK + RETURN SAFE ERROR
+* DO NOT EXECUTE QUERY
+
+⸻
+
+🧱 LAYER 3 — DATABASE QUERY GUARD (RUNTIME FIX ENGINE)
+
+Every query passes through interceptor:
+
+AUTO ENFORCEMENT:
+
+query.where("office_id", user.office_id)
+
+DETECT:
+
+* raw SQL without tenant filter
+* unsafe joins
+* global aggregates
+
+AUTO FIX:
+
+* inject office_id filter
+* rewrite unsafe query
+* block dangerous execution if unfixable
+
+⸻
+
+🧠 LAYER 4 — AI REAL-TIME SAFETY SHIELD
+
+Protect all AI systems:
+
+* Case AI
+* Contract AI
+* Legal Assistant
+* Knowledge Base AI
+
+STRICT RULE:
+
+AI can ONLY access:
+
+→ current office data
+→ scoped embeddings
+→ filtered vector DB
+
+BLOCK PROMPTS:
+
+❌ “show all cases”
+❌ “list all clients”
+❌ “system-wide data”
+
+DEFENSE:
+
+* Prompt injection detection
+* Context sanitization
+* Retrieval filtering
+* Response auditing
+
+AUTO ACTION:
+
+* truncate response
+* re-run with safe context
+* block unsafe outputs
+
+⸻
+
+📂 LAYER 5 — DOCUMENT ACCESS SHIELD
+
+Every file request is verified:
+
+RULES:
+
+* signed URL validation required
+* office_id embedded in storage path
+* no direct bucket access
+
+BLOCK:
+
+❌ URL guessing
+❌ cross-office file access
+❌ public file exposure
+
+AUTO FIX:
+
+* regenerate secure URL
+* revoke old links
+* revalidate access
+
+⸻
+
+🔔 LAYER 6 — EVENT & NOTIFICATION GUARD
+
+Ensure strict isolation:
+
+* event bus partitioned by office_id
+* queue isolation enforced
+* no cross-tenant broadcast
+
+BLOCK:
+
+❌ event leakage
+❌ wrong recipient notifications
+
+⸻
+
+🔍 LAYER 7 — SEARCH REAL-TIME FILTER ENGINE
+
+All search queries MUST include:
+
+* office_id filter
+* tenant-scoped index
+
+BLOCK:
+
+❌ global search results
+❌ cross-office index leakage
+
+AUTO FIX:
+
+* inject filter into query
+* rerun safe search
+
+⸻
+
+🧾 LAYER 8 — AUDIT & FORENSIC LOGGER
+
+Log EVERYTHING:
+
+* user_id
+* office_id
+* IP
+* device_id
+* action
+* payload hash
+
+RULES:
+
+* immutable logs
+* append-only storage
+* no deletion allowed
+
+⸻
+
+🚨 LIVE THREAT RESPONSE ENGINE
+
+When threat detected:
+
+STEP 1:
+
+Block request instantly
+
+STEP 2:
+
+Classify threat:
+
+* P0: data breach attempt
+* P1: unauthorized access
+* P2: suspicious behavior
+* P3: anomaly
+
+STEP 3:
+
+Execute response:
+
+* deny access
+* isolate session
+* alert admin dashboard
+* log incident
+
+⸻
+
+🧠 SELF-HEALING ENGINE
+
+If safe fix possible:
+
+* patch query automatically
+* inject missing filters
+* correct tenant scope
+* retry request safely
+
+If NOT safe:
+
+→ BLOCK permanently
+
+⸻
+
+⚡ PERFORMANCE RULES
+
+System MUST:
+
+* respond < 200ms for validation layer
+* not block legitimate users
+* cache security decisions safely per tenant
+* avoid duplication checks
+
+⸻
+
+🟢 FINAL GUARANTEE MODEL
+
+System is considered stable ONLY if:
+
+✔ Zero cross-tenant leakage possible
+✔ All APIs intercepted
+✔ AI fully scoped
+✔ Files secured
+✔ Search isolated
+✔ Logs immutable
+✔ Runtime protection active
+
+⸻
+
+🚦 FINAL OUTPUT (LIVE STATUS)
+
+SYSTEM MODE:
+🟢 PROTECTED / 🟡 DEGRADED / 🔴 COMPROMISED
+
+TENANT SECURITY:
+AI SECURITY:
+API SECURITY:
+DATABASE SECURITY:
+FILE SECURITY:
+SEARCH SECURITY:
+
+ACTIVE THREATS:
+
+* …
+
+BLOCKED ATTACKS:
+
+* …
+
+AUTO FIXES APPLIED:
+
+* …
+
+⸻
+
+🧠 SYSTEM STATEMENT
+
+This system does not “monitor”.
+
+It actively prevents breaches before they happen.
+
+Every request is verified, controlled, and either:
+
+→ Approved
+→ Sanitized
+→ Blocked

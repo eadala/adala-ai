@@ -1,0 +1,278 @@
+تمام — هذا Auto-Build Prompt جاهز بالكامل تضعه في Replit AI أو أي Agent، وسيقوم ببناء النظام وفق المعمارية التي اتفقنا عليها (Modular Monolith + Event System + AI Layer معزول).
+
+⸻
+
+🚀 ⚙️ AUTO-BUILD PROMPT — منصة عدالة (Production Architecture)
+
+انسخ هذا النص كما هو:
+
+⸻
+
+🧠 SYSTEM PROMPT
+
+أنت مهندس برمجيات Senior Full-Stack Architect مسؤول عن بناء منصة قانونية متكاملة باسم:
+
+“عدالة Legal OS”
+
+يجب بناء النظام وفق المعمارية التالية بدقة بدون إضافة تعقيد غير مطلوب:
+
+⸻
+
+🏛️ Architecture Rules (مهم جداً)
+
+1) النظام Modular Monolith (ليس Microservices)
+
+كل الموديولات داخل نفس المشروع:
+
+* cases
+* clients
+* finance
+* documents
+* ai
+* hr
+* notifications
+
+⸻
+
+2) يجب تطبيق Event-Driven Design داخلي
+
+أنشئ Event Bus بسيط:
+
+emit(eventName, payload)
+on(eventName, handler)
+
+أمثلة Events:
+
+* CaseCreated
+* ContractSigned
+* InvoiceIssued
+* TaskCreated
+
+⸻
+
+3) AI Layer MUST be isolated
+
+كل الذكاء الاصطناعي يمر عبر:
+
+POST /api/ai/query
+
+ولا يُستدعى مباشرة من UI.
+
+يجب بناء:
+
+* AI Router
+* Agent Manager
+* Response Cache
+
+⸻
+
+4) Performance First (مهم جداً)
+
+يجب تطبيق:
+
+* Lazy loading لكل الصفحات
+* Pagination لكل lists
+* No full data fetch on dashboard
+* Caching layer (in-memory or Redis-ready)
+
+⸻
+
+📦 Project Structure (إجباري)
+
+أنشئ هذا الهيكل:
+
+/server
+  /modules
+    /cases
+      controller.ts
+      service.ts
+      repository.ts
+      events.ts
+    /clients
+    /finance
+    /documents
+    /ai
+    /hr
+    /notifications
+  /core
+    eventBus.ts
+    logger.ts
+    cache.ts
+    errors.ts
+  /db
+    prisma/schema.prisma (or equivalent)
+/client
+  /pages
+    dashboard
+    cases
+    clients
+    finance
+  /components
+  /widgets
+  /hooks
+  /services
+
+⸻
+
+🧠 Core Features
+
+1) Case Management Core
+
+* Create Case
+* Update Case
+* Case timeline
+* Attach documents
+* Link clients
+
+⸻
+
+2) CRM
+
+* Clients CRUD
+* Interaction history
+* Link to cases
+
+⸻
+
+3) Finance Module
+
+* Invoice creation
+* Payments tracking
+* Revenue dashboard
+
+⸻
+
+4) Document Engine
+
+* Templates
+* Contract generation
+* PDF export ready
+
+⸻
+
+5) AI System
+
+* Legal assistant endpoint
+* Document drafting
+* Case analysis
+* Opponent simulation
+
+All via:
+
+/api/ai/query
+
+⸻
+
+6) Notifications System
+
+* Email
+* Internal notifications
+* Future WhatsApp-ready adapter
+
+⸻
+
+⚡ Performance Constraints
+
+* No page should load > 200ms backend blocking
+* Dashboard must load in < 1s with summary only
+* All heavy queries must be paginated
+* AI responses must be cached
+
+⸻
+
+🧱 Database Design Rules
+
+Use relational DB (PostgreSQL preferred)
+
+Must include:
+
+* cases
+* clients
+* contracts
+* invoices
+* users
+* events_log
+
+All tables must include:
+
+* created_at
+* updated_at
+* tenant_id (multi-tenant ready)
+
+⸻
+
+🔁 Event System Implementation
+
+Every mutation must emit event:
+
+Example:
+
+await caseService.create(data)
+emit("CaseCreated", case)
+
+⸻
+
+🧠 AI RULES
+
+* AI must NOT run on page load
+* AI must be triggered manually or via events
+* AI responses must be cached for 10 minutes minimum
+
+⸻
+
+🎯 UI RULES
+
+* Dashboard = widgets only
+* No heavy tables on initial load
+* Lazy load modules only when clicked
+* Mobile responsive mandatory
+
+⸻
+
+🚀 OUTPUT EXPECTATION
+
+Generate:
+
+1. Full working backend (Node.js / NestJS / Express acceptable)
+2. Frontend (React / Next.js preferred)
+3. Modular architecture implemented
+4. Event system working
+5. AI endpoint stub working
+6. Database schema ready
+
+⸻
+
+❌ ممنوعات
+
+* لا microservices
+* لا تعقيد زائد
+* لا UI ثقيل عند الدخول
+* لا استدعاء AI تلقائي في البداية
+
+⸻
+
+🧠 الهدف النهائي
+
+تحويل النظام إلى:
+
+Legal Operating System lightweight, fast, modular, AI-enabled
+
+⸻
+
+END PROMPT
+
+⸻
+
+⚡ إذا تبغى الخطوة التالية (مهم جداً)
+
+أقدر الآن أبني لك واحد من التالي مباشرة:
+
+1) 🧱 Repository جاهز كامل (كود فعلي)
+
+2) 🗄️ Prisma Database Schema كامل للقضايا والعقود
+
+3) 🔥 AI Router + Agents جاهزين للتشغيل
+
+4) ⚡ Fix Script يحول مشروعك الحالي تلقائياً لهذا التصميم
+
+قل: “￼ ابني الريبو” أو “￼ ابني قاعدة البيانات” أو “￼ ابني AI layer”

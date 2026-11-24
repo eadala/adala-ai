@@ -1,0 +1,81 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    timeout: 10s
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+scrape_configs:
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project"]
+    relabel_configs:
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: container
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+      # لا نجمع لوقات Promtail نفسه
+      - source_labels: [container]
+        regex: "adala-promtail"
+        action: drop
+      # لا نجمع لوقات OTel Collector (ضوضاء)
+      - source_labels: [container]
+        regex: "adala-otel-collector"
+        action: drop
+
+    pipeline_stages:
+      # ── 1. تحليل JSON من pino ─────────────────────────
+      - match:
+          selector: '{service="api"}'
+          stages:
+            - json:
+                expressions:
+                  level:   level
+                  msg:     msg
+                  req_id:  reqId
+                  tenant:  tenant
+                  err:     err
+                  traceId: traceId
+            - labels:
+                level:
+                tenant:
+            - output:
+                source: msg
+
+      # ── 2. إسقاط debug logs (توفير مساحة + تقليل ضوضاء) ──
+      - drop:
+          expression: '.*level="debug".*'
+          drop_counter_reason: debug_log_dropped
+
+      # ── 3. إسقاط health checks المتكررة ─────────────────
+      - drop:
+          expression: '.*"GET /api ".*'
+          drop_counter_reason: healthcheck_dropped
+
+      - drop:
+          expression: '.*"GET /api/ping".*'
+          drop_counter_reason: healthcheck_dropped
+
+      # ── 4. إسقاط metrics scraping (Prometheus polling) ──
+      - drop:
+          expression: '.*"GET /metrics".*'
+          drop_counter_reason: metrics_scrape_dropped
+
+      # ── 5. Timestamp صحيح ─────────────────────────────
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+          action_on_failure: skip

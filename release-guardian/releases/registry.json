@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "releases": [],
+  "note": "Populated by CD success path / local simulation. Stores commit+digest only — never secrets."
+}

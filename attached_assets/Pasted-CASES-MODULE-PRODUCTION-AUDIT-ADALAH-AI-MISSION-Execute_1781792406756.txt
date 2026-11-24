@@ -1,0 +1,460 @@
+CASES MODULE PRODUCTION AUDIT — ADALAH AI
+
+MISSION:
+Execute a complete production-grade audit of the entire Cases Module and all dependent services inside Adalah AI.
+
+Do not perform a superficial code review.
+
+Perform:
+
+* Source Code Audit
+* Database Audit
+* API Audit
+* Security Audit
+* Integration Audit
+* Performance Audit
+* End-to-End Functional Testing
+* Multi-Tenant Isolation Testing
+
+Automatically detect defects, vulnerabilities, broken relations, missing indexes, orphan records, performance bottlenecks, and integration failures.
+
+Generate a final report and apply fixes where safe.
+
+⸻
+
+PHASE 1 — DATABASE INTEGRITY AUDIT
+
+Inspect all case-related tables.
+
+Validate:
+
+✓ Schema consistency
+✓ Foreign Keys
+✓ Cascading rules
+✓ Indexes
+✓ Constraints
+✓ office_id isolation
+✓ Query performance
+✓ Data consistency
+✓ Orphan records
+✓ Duplicate records
+
+Audit:
+
+cases
+case_sessions
+case_documents
+case_tasks
+case_notes
+case_reminders
+case_events
+case_parties
+courts
+court_circuits
+
+Verify:
+
+* Every record belongs to an office.
+* No cross-office access is possible.
+* No nullable fields that should be mandatory.
+* No broken relationships.
+
+Output:
+
+DATABASE_SCORE
+DATABASE_ISSUES
+DATABASE_FIXES
+
+⸻
+
+PHASE 2 — CASE MANAGEMENT AUDIT
+
+Verify full lifecycle:
+
+Create Case
+Read Case
+Update Case
+Archive Case
+Delete Case
+
+Validate fields:
+
+case_number
+title
+case_type
+status
+court_id
+circuit_id
+city
+claim_amount
+description
+opening_date
+next_session_date
+assigned_lawyer
+assigned_team
+
+Test:
+
+✓ CRUD operations
+✓ Validation rules
+✓ Form errors
+✓ API responses
+✓ UI synchronization
+
+Output:
+
+CASES_SCORE
+CASES_BUGS
+CASES_FIXES
+
+⸻
+
+PHASE 3 — COURTS & SESSIONS AUDIT
+
+Verify:
+
+Court Creation
+Court Update
+Court Search
+
+Circuit Creation
+Circuit Update
+Circuit Search
+
+Session Management
+
+Create Session
+Update Session
+Delete Session
+Archive Session
+
+Validate:
+
+* Session linked to case
+* Upcoming session updates automatically
+* Dashboard synchronization
+* Calendar synchronization
+
+Output:
+
+SESSIONS_SCORE
+SESSIONS_BUGS
+SESSIONS_FIXES
+
+⸻
+
+PHASE 4 — DOCUMENT MANAGEMENT AUDIT
+
+Verify server integration.
+
+Test:
+
+Upload
+Preview
+Download
+Replace
+Delete
+Archive
+
+File Types:
+
+PDF
+DOCX
+XLSX
+JPG
+PNG
+
+Validate:
+
+* Storage paths
+* Signed URLs
+* Access permissions
+* Tenant isolation
+* Broken links
+* Audit logs
+
+Check:
+
+Maximum file size
+Virus protection
+File validation
+Unauthorized access
+
+Output:
+
+DOCUMENTS_SCORE
+DOCUMENTS_BUGS
+DOCUMENTS_FIXES
+
+⸻
+
+PHASE 5 — EMPLOYEE INTEGRATION AUDIT
+
+Verify:
+
+Case Assignment
+
+Lawyer Assignment
+Team Assignment
+Transfer Ownership
+
+Validate:
+
+* Employee visibility
+* Permission enforcement
+* Office isolation
+* Workload calculation
+* Case ownership tracking
+
+Output:
+
+EMPLOYEE_SCORE
+EMPLOYEE_BUGS
+EMPLOYEE_FIXES
+
+⸻
+
+PHASE 6 — TASK MANAGEMENT AUDIT
+
+Verify:
+
+Create Task
+Assign Task
+Complete Task
+Reopen Task
+Delete Task
+
+Validate:
+
+Case → Task Relationship
+
+Check:
+
+Task Status
+Due Dates
+Priority Levels
+Assigned Employee
+
+Output:
+
+TASKS_SCORE
+TASKS_BUGS
+TASKS_FIXES
+
+⸻
+
+PHASE 7 — REMINDERS & NOTIFICATIONS AUDIT
+
+Verify:
+
+Session Reminders
+Deadline Reminders
+Task Reminders
+Document Expiry Reminders
+
+Test:
+
+In-App Notifications
+Email Notifications
+WhatsApp Notifications
+Telegram Notifications
+
+Validate:
+
+Delivery
+Scheduling
+Retries
+Failures
+
+Output:
+
+NOTIFICATIONS_SCORE
+NOTIFICATIONS_BUGS
+NOTIFICATIONS_FIXES
+
+⸻
+
+PHASE 8 — ACCOUNTING INTEGRATION AUDIT
+
+Verify integration between Cases and:
+
+Invoices
+Contracts
+Payments
+Revenues
+Expenses
+Receipts
+Vouchers
+
+Validate:
+
+Case Profitability
+
+Revenue Per Case
+Expense Per Case
+Net Profit Per Case
+
+Check:
+
+Financial Reports
+Dashboard Statistics
+Case Financial History
+
+Output:
+
+ACCOUNTING_SCORE
+ACCOUNTING_BUGS
+ACCOUNTING_FIXES
+
+⸻
+
+PHASE 9 — DASHBOARD INTEGRATION AUDIT
+
+Verify dashboard widgets:
+
+Total Cases
+Active Cases
+Upcoming Sessions
+Completed Sessions
+Open Tasks
+Revenue Per Case
+
+Validate:
+
+Real-time updates
+Aggregation accuracy
+Caching consistency
+
+Output:
+
+DASHBOARD_SCORE
+DASHBOARD_BUGS
+DASHBOARD_FIXES
+
+⸻
+
+PHASE 10 — SECURITY AUDIT
+
+Perform penetration-style testing.
+
+Check:
+
+SQL Injection
+XSS
+CSRF
+Broken Access Control
+IDOR
+Privilege Escalation
+File Upload Exploits
+Mass Assignment
+
+Validate:
+
+API Security
+Authentication
+Authorization
+Tenant Isolation
+
+Output:
+
+SECURITY_SCORE
+CRITICAL_VULNERABILITIES
+SECURITY_FIXES
+
+⸻
+
+PHASE 11 — PERFORMANCE AUDIT
+
+Measure:
+
+Cases List Load Time
+Case Details Load Time
+Documents Load Time
+Sessions Load Time
+
+Detect:
+
+N+1 Queries
+Slow Queries
+Missing Indexes
+Memory Leaks
+Excessive Re-renders
+
+Target:
+
+< 2 Seconds Average Response Time
+
+Output:
+
+PERFORMANCE_SCORE
+PERFORMANCE_ISSUES
+PERFORMANCE_FIXES
+
+⸻
+
+PHASE 12 — AUDIT LOGS AUDIT
+
+Verify audit logging for:
+
+Create Case
+Update Case
+Delete Case
+
+Create Session
+Update Session
+Delete Session
+
+Upload Document
+Delete Document
+
+Create Task
+Update Task
+Delete Task
+
+Validate stored fields:
+
+office_id
+user_id
+ip_address
+user_agent
+timestamp
+
+Output:
+
+AUDIT_LOGS_SCORE
+AUDIT_LOGS_ISSUES
+AUDIT_LOGS_FIXES
+
+⸻
+
+FINAL REPORT
+
+Generate:
+
+OVERALL_PRODUCTION_READINESS %
+
+DATABASE_SCORE /100
+CASES_SCORE /100
+DOCUMENTS_SCORE /100
+SESSIONS_SCORE /100
+EMPLOYEE_SCORE /100
+TASKS_SCORE /100
+NOTIFICATIONS_SCORE /100
+ACCOUNTING_SCORE /100
+DASHBOARD_SCORE /100
+SECURITY_SCORE /100
+PERFORMANCE_SCORE /100
+AUDIT_LOGS_SCORE /100
+
+Classify findings:
+
+P0 Critical
+P1 High
+P2 Medium
+P3 Low
+
+Apply all safe fixes automatically.
+
+Provide complete list of modified files.
+
+System must not finish until all audits have been executed and final readiness report is generated.

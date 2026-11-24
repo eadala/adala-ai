@@ -1,0 +1,282 @@
+تمام. هذه معمارية إنتاجية جاهزة (Production Docker Architecture) لمنصة عدالة AI على Hetzner مبنية بطريقة قابلة للتوسع وفصل الأحمال بشكل صحيح.
+
+سأعطيك تصميم + ملفات تشغيل مباشرة.
+
+⸻
+
+🧠 1. المعمارية النهائية (Target Architecture)
+
+                ┌───────────────┐
+                │  Cloudflare   │
+                └──────┬────────┘
+                       │
+                ┌──────▼────────┐
+                │  Nginx Proxy   │
+                └──────┬────────┘
+        ┌──────────────┼────────────────┐
+        │              │                │
+┌───────▼──────┐ ┌─────▼─────┐ ┌───────▼────────┐
+│ API SERVER   │ │ FRONTEND  │ │  AI SERVICE    │
+│ (Node.js)    │ │ (Next.js) │ │ (LLM/RAG/OCR)  │
+└───────┬──────┘ └───────────┘ └───────┬────────┘
+        │                              │
+        │                              │
+┌───────▼────────┐          ┌──────────▼─────────┐
+│ PostgreSQL     │          │ Redis (Queue/Cache)│
+└───────┬────────┘          └──────────┬─────────┘
+        │                              │
+        └──────────────┬───────────────┘
+                       ▼
+              ┌──────────────────┐
+              │ Worker Service   │
+              │ (BullMQ Jobs)    │
+              └──────────────────┘
+
+⸻
+
+📁 2. هيكل المشروع
+
+adalah-ai/
+│
+├── apps/
+│   ├── api/           # Backend API
+│   ├── web/           # Frontend Next.js
+│   ├── worker/        # Background Jobs
+│   └── ai-service/    # AI processing layer
+│
+├── infra/
+│   ├── nginx/
+│   └── docker/
+│
+├── docker-compose.yml
+└── .env
+
+⸻
+
+🐳 3. docker-compose (النواة)
+
+version: "3.9"
+services:
+  api:
+    build: ./apps/api
+    container_name: adalah-api
+    restart: always
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/adalah
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "4000:4000"
+  web:
+    build: ./apps/web
+    container_name: adalah-web
+    restart: always
+    ports:
+      - "3000:3000"
+  worker:
+    build: ./apps/worker
+    container_name: adalah-worker
+    restart: always
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/adalah
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - db
+      - redis
+  ai-service:
+    build: ./apps/ai-service
+    container_name: adalah-ai
+    restart: always
+    environment:
+      REDIS_URL: redis://redis:6379
+  db:
+    image: postgres:16
+    container_name: adalah-db
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: adalah
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    container_name: adalah-redis
+    restart: always
+  nginx:
+    image: nginx:latest
+    container_name: adalah-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx:/etc/nginx/conf.d
+    depends_on:
+      - api
+      - web
+volumes:
+  pgdata:
+
+⸻
+
+🌐 4. Nginx Config
+
+server {
+  listen 80;
+  server_name adalahai.com;
+  location / {
+    proxy_pass http://web:3000;
+  }
+  location /api {
+    proxy_pass http://api:4000;
+  }
+}
+
+⸻
+
+⚙️ 5. API Server (Node.js + UUID + Queue)
+
+import express from "express";
+import { Queue } from "bullmq";
+import { Pool } from "pg";
+const app = express();
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10
+});
+const workflowQueue = new Queue("workflows", {
+  connection: { host: "redis", port: 6379 }
+});
+app.post("/cases", async (req, res) => {
+  const result = await db.query(
+    "INSERT INTO cases (id, data) VALUES (gen_random_uuid(), $1) RETURNING id",
+    [req.body]
+  );
+  await workflowQueue.add("process-case", {
+    caseId: result.rows[0].id
+  });
+  res.json({ id: result.rows[0].id });
+});
+app.listen(4000);
+
+⸻
+
+⚡ 6. Worker Service (AI + Jobs)
+
+import { Worker } from "bullmq";
+import { Pool } from "pg";
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+const worker = new Worker(
+  "workflows",
+  async job => {
+    const { caseId } = job.data;
+    const caseData = await db.query(
+      "SELECT * FROM cases WHERE id = $1",
+      [caseId]
+    );
+    // AI processing placeholder
+    const result = await processAI(caseData.rows[0]);
+    await db.query(
+      "UPDATE cases SET ai_result = $1 WHERE id = $2",
+      [result, caseId]
+    );
+  },
+  {
+    connection: { host: "redis", port: 6379 }
+  }
+);
+async function processAI(data: any) {
+  return { summary: "processed", confidence: 0.92 };
+}
+
+⸻
+
+🧠 7. AI Service (اختياري منفصل)
+
+export async function analyzeDocument(text: string) {
+  // هنا يتم ربط LLM / RAG / OCR
+  return {
+    summary: "...",
+    entities: [],
+    riskScore: 0.1
+  };
+}
+
+⸻
+
+🗄️ 8. PostgreSQL Schema (UUID جاهز)
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data JSONB,
+  ai_result JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+⸻
+
+🚀 9. تشغيل النظام على Hetzner
+
+docker compose up -d --build
+
+⸻
+
+🔐 10. نقاط احترافية مهمة (Critical)
+
+✔ لا Cron Jobs
+
+كل شيء يتحول إلى Queue
+
+✔ API stateless
+
+بدون state داخل السيرفر
+
+✔ Workers منفصلين
+
+حتى لا يسقط API
+
+✔ Redis إلزامي
+
+* caching
+* queues
+
+✔ PostgreSQL فقط مصدر الحقيقة
+
+⸻
+
+📈 11. ماذا يعطيك هذا التصميم؟
+
+* يدعم آلاف المستخدمين
+* AI jobs لا توقف الموقع
+* قابل للتوسعة أفقياً
+* مناسب لمنصة قانونية (عدالة)
+* جاهز لإضافة:
+    * Escrow
+    * OCR
+    * RAG
+    * Agents
+    * Notifications
+
+⸻
+
+🧠 الخلاصة
+
+أنت الآن تنتقل من:
+
+Replit Monolith (هش)
+
+إلى:
+
+SaaS Legal AI Infrastructure (Production-grade)
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك مباشرة:
+
+🔥 “CI/CD كامل لـ عدالة على GitHub → Hetzner (Auto Deploy + Migrations + Rollbacks)”
+
+وهذا هو المستوى الذي يجعل النظام شبه شركات SaaS العالمية.

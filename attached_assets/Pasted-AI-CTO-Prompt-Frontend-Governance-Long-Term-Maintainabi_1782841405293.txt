@@ -1,0 +1,166 @@
+AI CTO Prompt — Frontend Governance & Long-Term Maintainability
+
+بعد اجتياز Enterprise Frontend Quality Gate بنجاح، انتقل إلى مرحلة Frontend Governance.
+
+الهدف من هذه المرحلة ليس إضافة أي ميزة جديدة، وإنما ضمان أن تبقى جودة الواجهة ثابتة خلال السنوات القادمة مع توسع منصة عدالة.
+
+⸻
+
+الهدف
+
+تحويل طبقة الواجهة إلى منصة مستقرة ذات معايير إلزامية تمنع التراجع في الجودة (Regression) مع أي تطوير مستقبلي.
+
+⸻
+
+1. Architecture Lock
+
+اعتماد معمارية الواجهة الحالية كمرجع رسمي.
+
+يمنع:
+
+* إنشاء مكونات بديلة للمكونات القياسية.
+* إنشاء Dialogs أو Modals أو Tables أو Forms خارج Design System.
+* إدخال مكتبات واجهة جديدة تؤدي إلى ازدواجية أو تعارض، إلا بعد مراجعة معمارية واعتماد رسمي.
+
+⸻
+
+2. CI/CD Quality Gates
+
+إضافة فحوصات تلقائية ضمن خط البناء (CI/CD) بحيث يفشل البناء إذا حدث أي مما يلي:
+
+* TypeScript Errors.
+* ESLint Errors.
+* استخدام مكونات محظورة.
+* تجاوز حدود الأداء (Performance Budget).
+* انخفاض تغطية الاختبارات.
+* مخالفة معايير إمكانية الوصول.
+* استخدام console.log أو تعليمات Debug في بيئة الإنتاج.
+
+⸻
+
+3. Automated UI Audits
+
+تنفيذ مراجعات دورية تلقائية تشمل:
+
+* المكونات غير المستخدمة.
+* الأنماط (CSS) غير المستخدمة.
+* Hooks غير المستخدمة.
+* Dead Code.
+* Imports غير المستخدمة.
+* تضارب أنظمة التصميم.
+* تكرار المكونات.
+
+وإصدار تقرير دوري بالملاحظات.
+
+⸻
+
+4. Design System Governance
+
+إنشاء سجل رسمي للمكونات القياسية يتضمن:
+
+* اسم المكون.
+* الغرض منه.
+* حالات الاستخدام.
+* أمثلة.
+* القيود.
+* المكونات البديلة (إن وجدت).
+* حالة الاعتماد (Stable / Experimental / Deprecated).
+
+⸻
+
+5. Coding Standards
+
+اعتماد دليل تطوير إلزامي يشمل:
+
+* Naming Conventions.
+* File Structure.
+* Component Structure.
+* State Management.
+* Hooks Usage.
+* Styling Rules.
+* Accessibility Rules.
+* Responsive Rules.
+* Adaptive UI Rules.
+
+ولا تُقبل أي مساهمة لا تلتزم بهذه المعايير.
+
+⸻
+
+6. Regression Prevention
+
+إضافة اختبارات تلقائية تغطي:
+
+* Visual Regression.
+* End-to-End.
+* Accessibility.
+* Responsive Layouts.
+* Adaptive UI.
+* Navigation.
+* Forms.
+* Dialogs.
+* Tables.
+
+بحيث تُكتشف أي مشكلة قبل وصولها إلى الإنتاج.
+
+⸻
+
+7. Performance Monitoring
+
+إضافة مراقبة مستمرة للمؤشرات التالية:
+
+* LCP.
+* INP.
+* CLS.
+* حجم الحزم (Bundle Size).
+* زمن تحميل الصفحات.
+* استهلاك الذاكرة.
+
+مع تنبيهات عند تجاوز الحدود المعتمدة.
+
+⸻
+
+8. Change Control
+
+أي تغيير مستقبلي في طبقة الواجهة يجب أن يجيب عن الأسئلة التالية:
+
+* هل يضيف قيمة حقيقية؟
+* هل يمكن تنفيذه باستخدام المكونات الحالية؟
+* هل يؤثر على الأداء؟
+* هل يؤثر على إمكانية الوصول؟
+* هل يحافظ على التوافق مع الجوال والأجهزة اللوحية وسطح المكتب؟
+* هل يتوافق مع Design System؟
+
+إذا كانت الإجابة “لا” على أي نقطة، فلا يُعتمد التغيير حتى تتم معالجته.
+
+⸻
+
+9. Release Readiness
+
+قبل أي إصدار إنتاجي، يجب تنفيذ قائمة تحقق إلزامية تشمل:
+
+* Build ناجح.
+* TypeScript = 0.
+* ESLint = 0.
+* اختبارات آلية ناجحة.
+* اختبارات الأداء ضمن الحدود.
+* اختبارات إمكانية الوصول ناجحة.
+* Visual Regression = 0.
+* عدم وجود أخطاء حرجة أو عالية الخطورة.
+
+⸻
+
+10. Success Criteria
+
+تعتبر طبقة الواجهة في منصة عدالة محكومة بالكامل إذا تحققت الشروط التالية:
+
+* Architecture Governance: PASS
+* Design System Governance: PASS
+* CI/CD Quality Gates: PASS
+* Automated UI Audits: PASS
+* Regression Protection: PASS
+* Performance Monitoring: ACTIVE
+* Production Readiness: CERTIFIED
+
+النتيجة المتوقعة
+
+أن تصبح واجهة منصة عدالة مستقرة، قابلة للتوسع، وسهلة الصيانة، مع وجود حوكمة تقنية تمنع تدهور الجودة مستقبلاً، وتضمن أن أي تطوير جديد يلتزم بنفس المعايير المؤسسية التي تم الوصول إليها اليوم.

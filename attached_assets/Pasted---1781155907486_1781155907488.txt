@@ -1,0 +1,147 @@
+إذا كانت المشكلة بسبب تكرار عناصر **المحاسبة المالية** داخل القائمة الجانبية، فأنصح بأن تجعل جميع العناصر معرفة مرة واحدة فقط، ثم تستخدمها داخل القائمة الرئيسية.
+
+## 1. تعريف عناصر المحاسبة المالية
+
+### `sidebar/financialItems.ts`
+
+```ts
+export const financialAccountingItems = [
+  {
+    title: "الإيرادات",
+    href: "/revenues",
+    icon: "TrendingUp"
+  },
+  {
+    title: "المصاريف",
+    href: "/expenses",
+    icon: "TrendingDown"
+  },
+  {
+    title: "التدفقات النقدية",
+    href: "/cashflows",
+    icon: "ArrowLeftRight"
+  },
+  {
+    title: "الحسابات البنكية",
+    href: "/bank-accounts",
+    icon: "Landmark"
+  },
+  {
+    title: "العهد والسلف",
+    href: "/advances",
+    icon: "Wallet"
+  },
+  {
+    title: "القيود اليومية",
+    href: "/journal-entries",
+    icon: "BookOpen"
+  },
+  {
+    title: "سندات القبض",
+    href: "/receipts",
+    icon: "Receipt"
+  },
+  {
+    title: "سندات الصرف",
+    href: "/payments",
+    icon: "CreditCard"
+  },
+  {
+    title: "الرواتب",
+    href: "/payroll",
+    icon: "BadgeDollarSign"
+  },
+  {
+    title: "الأرباح والخسائر",
+    href: "/profit-loss",
+    icon: "BarChart3"
+  }
+];
+```
+
+---
+
+## 2. القائمة الرئيسية
+
+### `sidebarItems.ts`
+
+```ts
+import { financialAccountingItems } from "./financialItems";
+
+export const sidebarItems = [
+
+  {
+    title: "الإدارة المالية",
+    icon: "DollarSign",
+    children: [
+
+      {
+        title: "الفواتير",
+        href: "/invoices"
+      },
+
+      {
+        title: "الاشتراكات والفوترة",
+        href: "/subscriptions"
+      },
+
+      {
+        title: "المركز المالي",
+        href: "/finance-dashboard"
+      },
+
+      {
+        title: "المحاسبة المالية",
+        children: financialAccountingItems
+      }
+
+    ]
+  }
+
+];
+```
+
+---
+
+# إذا كانت العناصر تظهر مرتين بسبب خطأ في الـ JSX
+
+ابحث عن:
+
+```tsx
+<SidebarGroup title="المحاسبة المالية">
+    {financialAccountingItems.map(renderMenu)}
+</SidebarGroup>
+
+<SidebarGroup title="المحاسبة المالية">
+    {financialAccountingItems.map(renderMenu)}
+</SidebarGroup>
+```
+
+واحذف المجموعة الثانية.
+
+---
+
+# الهيكل الاحترافي الذي أوصي به لعدالة AI
+
+```text
+الإدارة المالية
+│
+├── الفواتير
+├── الاشتراكات والفوترة
+├── المركز المالي
+│
+└── المحاسبة المالية
+     ├── الإيرادات
+     ├── المصاريف
+     ├── التدفقات النقدية
+     ├── الحسابات البنكية
+     ├── العهد والسلف
+     ├── القيود اليومية
+     ├── سندات القبض
+     ├── سندات الصرف
+     ├── الرواتب
+     ├── الأرباح والخسائر
+     └── التقارير المالية
+```
+
+وبذلك ستظهر قائمة **المحاسبة المالية مرة واحدة فقط** بدون أي تكرار.

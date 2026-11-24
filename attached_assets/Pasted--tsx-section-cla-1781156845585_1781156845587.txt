@@ -1,0 +1,319 @@
+يمكنك إعطاء المبرمج هذا الكود الجاهز لاستبدال محتوى الصفحة الرئيسية بالكامل:
+
+```tsx
+<section className="relative overflow-hidden py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="max-w-5xl mx-auto text-center">
+
+      <div className="inline-flex items-center rounded-full border px-4 py-2 text-sm bg-primary/5 mb-6">
+
+        ✨ منصة إدارة قانونية مدعومة بالذكاء الاصطناعي
+
+      </div>
+
+      <h1 className="text-5xl md:text-7xl font-bold leading-tight">
+
+        إدارة قانونية أكثر ذكاءً
+
+      </h1>
+
+      <p className="mt-8 text-xl text-muted-foreground leading-9 max-w-4xl mx-auto">
+
+        عدالة AI منصة SaaS متكاملة للمكاتب القانونية والشركات، تجمع إدارة القضايا والعملاء والعقود والمستندات والفوترة والإدارة المالية والموارد البشرية والذكاء الاصطناعي في منصة واحدة آمنة وقابلة للتوسع عالمياً.
+
+      </p>
+
+      <div className="flex flex-wrap justify-center gap-4 mt-12">
+
+        <Button
+          size="lg"
+          className="h-14 px-8 text-lg"
+        >
+          ابدأ مجاناً
+        </Button>
+
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-14 px-8 text-lg"
+        >
+          استكشف المنصة
+        </Button>
+
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-8 mt-10 text-sm text-muted-foreground">
+
+        <span>✓ لا يتطلب بطاقة ائتمانية</span>
+
+        <span>✓ إعداد خلال دقائق</span>
+
+        <span>✓ دعم العربية والإنجليزية</span>
+
+        <span>✓ تجربة تفاعلية متكاملة</span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* الخدمات الرئيسية */}
+
+<section className="py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="text-center mb-16">
+
+      <h2 className="text-4xl font-bold">
+
+        كل ما يحتاجه مكتبك في منصة واحدة
+
+      </h2>
+
+      <p className="mt-4 text-muted-foreground">
+
+        حلول متكاملة لإدارة الأعمال القانونية بكفاءة أعلى.
+
+      </p>
+
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-8">
+
+      <FeatureCard
+        title="إدارة القضايا"
+        description="إدارة القضايا والجلسات والمواعيد والمهام القانونية."
+      />
+
+      <FeatureCard
+        title="إدارة العملاء"
+        description="ملفات العملاء والتواصل والمستندات والعقود."
+      />
+
+      <FeatureCard
+        title="إدارة المستندات"
+        description="أرشفة ذكية وربط المستندات بالقضايا والعملاء."
+      />
+
+      <FeatureCard
+        title="الذكاء الاصطناعي القانوني"
+        description="تحليل العقود والمستندات واستخراج المعلومات تلقائياً."
+      />
+
+      <FeatureCard
+        title="الإدارة المالية"
+        description="فواتير وإيرادات ومصروفات ورواتب وتقارير مالية."
+      />
+
+      <FeatureCard
+        title="فريق العمل"
+        description="إدارة الموظفين والصلاحيات والمهام والأداء."
+      />
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* الذكاء الاصطناعي */}
+
+<section className="py-24 bg-muted/30">
+
+  <div className="container mx-auto px-6">
+
+    <div className="max-w-4xl mx-auto text-center">
+
+      <h2 className="text-4xl font-bold">
+
+        ذكاء اصطناعي مصمم للأعمال القانونية
+
+      </h2>
+
+      <p className="mt-6 text-lg text-muted-foreground">
+
+        تحليل العقود، تلخيص المستندات، إنشاء المذكرات القانونية،
+        استخراج البيانات المهمة، وتقديم رؤى تساعد فريقك على العمل بسرعة وكفاءة أعلى.
+
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* المواقع وبوابة العملاء */}
+
+<section className="py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="grid lg:grid-cols-2 gap-16">
+
+      <div>
+
+        <h2 className="text-4xl font-bold">
+
+          موقع إلكتروني احترافي لكل مكتب
+
+        </h2>
+
+        <p className="mt-6 text-muted-foreground">
+
+          احصل على موقع احترافي متكامل يعكس هوية مكتبك
+          ويعرض خدماتك وفريق العمل ونماذج التواصل.
+
+        </p>
+
+      </div>
+
+      <div>
+
+        <h2 className="text-4xl font-bold">
+
+          بوابة عملاء متكاملة
+
+        </h2>
+
+        <p className="mt-6 text-muted-foreground">
+
+          تمكّن عملاءك من متابعة القضايا والفواتير والمواعيد
+          ورفع المستندات والدفع الإلكتروني من أي مكان.
+
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* الأمان */}
+
+<section className="py-24 bg-muted/30">
+
+  <div className="container mx-auto px-6 text-center">
+
+    <h2 className="text-4xl font-bold">
+
+      أمان وخصوصية على مستوى المؤسسات
+
+    </h2>
+
+    <p className="mt-6 text-lg text-muted-foreground max-w-3xl mx-auto">
+
+      تشفير البيانات، نسخ احتياطية متعددة، عزل كامل لبيانات كل مكتب،
+      سجلات تدقيق متقدمة، وصلاحيات مرنة لحماية معلوماتك الحساسة.
+
+    </p>
+
+  </div>
+
+</section>
+
+
+{/* الإحصائيات */}
+
+<section className="py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="grid md:grid-cols-4 gap-8 text-center">
+
+      <StatCard
+        title="1000+"
+        subtitle="مكتب قانوني"
+      />
+
+      <StatCard
+        title="100,000+"
+        subtitle="قضية مُدارة"
+      />
+
+      <StatCard
+        title="99.9%"
+        subtitle="جاهزية النظام"
+      />
+
+      <StatCard
+        title="40%"
+        subtitle="توفير في الوقت"
+      />
+
+    </div>
+
+  </div>
+
+</section>
+
+
+{/* الدعوة النهائية */}
+
+<section className="py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="rounded-3xl border p-16 text-center">
+
+      <h2 className="text-5xl font-bold">
+
+        جاهز لتطوير مكتبك؟
+
+      </h2>
+
+      <p className="mt-6 text-xl text-muted-foreground">
+
+        انضم إلى المكاتب القانونية والشركات التي تعتمد على عدالة AI لإدارة أعمالها بكفاءة أعلى.
+
+      </p>
+
+      <div className="flex flex-wrap justify-center gap-4 mt-10">
+
+        <Button size="lg">
+
+          ابدأ مجاناً
+
+        </Button>
+
+        <Button
+          size="lg"
+          variant="outline"
+        >
+
+          استكشف المنصة
+
+        </Button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+```
+
+أهم التعديلات التسويقية:
+
+* حذف أي ذكر لـ **المملكة** أو سوق محلي.
+* إبراز أن المنصة عالمية.
+* إبراز إدارة القضايا والعملاء والعقود.
+* إبراز الذكاء الاصطناعي القانوني.
+* إبراز الإدارة المالية والرواتب.
+* إبراز الموقع الإلكتروني وبوابة العملاء.
+* إبراز الأمان والنسخ الاحتياطية.
+* استبدال **"احجز عرضاً مجانياً"** بـ **"استكشف المنصة"** أو **"ابدأ مجاناً"**.
+* جعل الرسالة التسويقية مناسبة للمكاتب القانونية والشركات في أي دولة.

@@ -1,0 +1,300 @@
+EXECUTION DIRECTIVE — JUSTICE LEGAL WORLD MODEL (JLWM)
+
+Objective
+
+Implement a new enterprise-grade intelligence layer inside Adala called:
+
+Justice Legal World Model (JLWM)
+
+JLWM must transform Adala from a legal management platform into an intelligent legal operating system capable of:
+
+* Building digital twins.
+* Predicting legal outcomes.
+* Monitoring legal risks.
+* Generating recommendations.
+* Simulating legal scenarios.
+* Exploring future paths.
+* Providing executive intelligence.
+
+This implementation must be fully isolated, production-ready, multi-tenant aware, scalable, and must not break or modify existing functionality.
+
+⸻
+
+Critical Rules
+
+1. Do not modify existing database tables.
+2. Do not rename existing APIs.
+3. Do not change existing business logic.
+4. All new tables must use the prefix:
+
+jlwm_
+
+5. All routes must be namespaced under:
+
+/api/jlwm/*
+
+6. All data access must be tenant isolated using office_id.
+7. Use existing authentication and authorization systems.
+8. Reuse existing AI infrastructure.
+9. Reuse existing audit logging.
+10. Reuse existing office_ai_credits accounting.
+
+⸻
+
+Phase 1 (Mandatory)
+
+Implement only the following modules:
+
+Core Infrastructure
+
+Create:
+
+modules/jlwm/
+
+with:
+
+* jlwm.schema.ts
+* jlwmAI.ts
+* index.ts
+
+⸻
+
+Database Schema
+
+Create and register:
+
+* jlwm_config
+* jlwm_case_twins
+* jlwm_client_twins
+* jlwm_firm_twin
+* jlwm_world_states
+* jlwm_predictions
+* jlwm_recommendations
+* jlwm_radar_alerts
+* jlwm_feedback
+
+All tables must include:
+
+* id
+* office_id
+* created_at
+* updated_at
+
+Create indexes for:
+
+* office_id
+* case_id
+* client_id
+* prediction_type
+* risk_level
+
+⸻
+
+AI Integration
+
+Create:
+
+callJLWMAI()
+
+Requirements:
+
+* Uses existing callAI()
+* Supports Gemini primary
+* Supports existing fallback chain
+* Logs usage in ai_usage_logs
+* Charges office_ai_credits
+* Supports structured JSON output
+
+⸻
+
+Dashboard
+
+Create:
+
+JLWM Dashboard
+
+Menu:
+
+AI Center
+└── Justice Legal World Model
+
+Dashboard widgets:
+
+* Firm Health Score
+* Legal Risk Score
+* Active Cases
+* Active Threats
+* Recommendations
+* Prediction Summary
+
+Responsive design required.
+
+⸻
+
+Digital Twins
+
+Implement:
+
+Case Digital Twin
+
+Client Digital Twin
+
+Firm Digital Twin
+
+Data sources:
+
+cases
+case_timeline
+clients
+documents
+invoices
+revenues
+expenses
+contracts
+
+Generate:
+
+* health scores
+* risk scores
+* performance scores
+
+without AI dependency where possible.
+
+⸻
+
+World State Engine
+
+Implement:
+
+worldState.ts
+
+Generate:
+
+state_vector
+
+Example:
+
+{
+“active_cases”: 124,
+“critical_cases”: 8,
+“revenue_momentum”: 0.14,
+“client_risk”: 0.21
+}
+
+Store results in:
+
+jlwm_world_states
+
+⸻
+
+Recommendations Engine
+
+Generate recommendations based on:
+
+* overdue tasks
+* critical deadlines
+* financial anomalies
+* case risks
+
+Store in:
+
+jlwm_recommendations
+
+Priority levels:
+
+critical
+high
+medium
+low
+
+⸻
+
+Radar Engine
+
+Generate alerts for:
+
+* missed deadlines
+* abnormal financial activity
+* high-risk cases
+* prediction shifts
+
+Store in:
+
+jlwm_radar_alerts
+
+⸻
+
+Learning Loop
+
+Implement:
+
+jlwm_feedback
+
+Track:
+
+* prediction accuracy
+* recommendation effectiveness
+* user actions
+
+This table will be used for future model improvement.
+
+⸻
+
+Frontend Integration
+
+Integrate with:
+
+dashboard.tsx
+case-detail.tsx
+client-detail.tsx
+layout.tsx
+
+Add:
+
+Justice Command Center
+
+Display:
+
+* Firm Health
+* Revenue Trend
+* Risk Overview
+* Radar Alerts
+* Recommended Actions
+
+⸻
+
+Deliverables
+
+Provide:
+
+1. Database migrations.
+2. Schema creation code.
+3. API routes.
+4. Services.
+5. React pages.
+6. Dashboard widgets.
+7. TypeScript types.
+8. Validation schemas.
+9. Seed data.
+10. Documentation.
+
+⸻
+
+Output Requirements
+
+Before writing code:
+
+1. Scan the current codebase.
+2. Detect architecture patterns.
+3. Detect database helpers.
+4. Detect routing conventions.
+5. Detect UI component standards.
+6. Detect authentication middleware.
+
+Then implement JLWM using existing project standards.
+
+Do not create alternative architectures.
+
+Do not duplicate existing functionality.
+
+All code must be production-ready, typed, tested, tenant-safe, and enterprise-grade.

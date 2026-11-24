@@ -1,0 +1,225 @@
+إذا كنت ستنفذها على Replit باستخدام React + Node.js + PostgreSQL + Prisma، فالأفضل عدم كتابة الصلاحيات داخل الكود بشكل عشوائي، بل بناء RBAC System احترافي.
+
+انسخ هذا الهيكل للمطور مباشرة:
+
+Adalah RBAC (Role Based Access Control)
+
+System Roles
+
+export const SYSTEM_ROLES = {
+  PLATFORM_OWNER: "platform_owner",
+  PLATFORM_ADMIN: "platform_admin",
+  DEVELOPER: "developer",
+  FIRM_OWNER: "firm_owner",
+  OFFICE_MANAGER: "office_manager",
+  LAWYER: "lawyer",
+  TRAINEE_LAWYER: "trainee_lawyer",
+  ACCOUNTANT: "accountant",
+  SECRETARY: "secretary",
+  BROKER: "broker",
+  COLLABORATOR: "collaborator",
+  CLIENT: "client"
+};
+
+⸻
+
+Permissions Matrix
+
+export const PERMISSIONS = {
+  // Cases
+  CASE_VIEW: "case.view",
+  CASE_CREATE: "case.create",
+  CASE_EDIT: "case.edit",
+  CASE_DELETE: "case.delete",
+  CASE_ASSIGN: "case.assign",
+  CASE_CLOSE: "case.close",
+  // Clients
+  CLIENT_VIEW: "client.view",
+  CLIENT_CREATE: "client.create",
+  CLIENT_EDIT: "client.edit",
+  CLIENT_DELETE: "client.delete",
+  // Contracts
+  CONTRACT_VIEW: "contract.view",
+  CONTRACT_CREATE: "contract.create",
+  CONTRACT_EDIT: "contract.edit",
+  CONTRACT_DELETE: "contract.delete",
+  // Documents
+  DOCUMENT_VIEW: "document.view",
+  DOCUMENT_UPLOAD: "document.upload",
+  DOCUMENT_EDIT: "document.edit",
+  DOCUMENT_DELETE: "document.delete",
+  // Financial
+  INVOICE_VIEW: "invoice.view",
+  INVOICE_CREATE: "invoice.create",
+  INVOICE_EDIT: "invoice.edit",
+  INVOICE_DELETE: "invoice.delete",
+  PAYMENT_VIEW: "payment.view",
+  PAYMENT_CREATE: "payment.create",
+  FINANCIAL_REPORTS_VIEW: "financial_reports.view",
+  FINANCIAL_STATEMENTS_VIEW: "financial_statements.view",
+  // Users
+  USER_VIEW: "user.view",
+  USER_CREATE: "user.create",
+  USER_EDIT: "user.edit",
+  USER_DELETE: "user.delete",
+  ROLE_VIEW: "role.view",
+  ROLE_CREATE: "role.create",
+  ROLE_EDIT: "role.edit",
+  // Settings
+  SETTINGS_VIEW: "settings.view",
+  SETTINGS_EDIT: "settings.edit",
+  // AI
+  AI_ACCESS: "ai.access",
+  // Support
+  SUPPORT_VIEW: "support.view",
+  SUPPORT_REPLY: "support.reply",
+  // Referral
+  REFERRAL_CREATE: "referral.create",
+  REFERRAL_VIEW: "referral.view",
+  // Collaborator
+  COLLABORATOR_ACCESS: "collaborator.access",
+  // Audit
+  AUDIT_VIEW: "audit.view"
+};
+
+⸻
+
+Default Role Permissions
+
+export const ROLE_PERMISSIONS = {
+  platform_owner: ["*"],
+  platform_admin: [
+    "support.view",
+    "support.reply",
+    "audit.view"
+  ],
+  developer: [
+    "support.view",
+    "support.reply"
+  ],
+  firm_owner: ["*"],
+  office_manager: [
+    "case.view",
+    "case.create",
+    "case.edit",
+    "case.assign",
+    "client.view",
+    "client.create",
+    "client.edit",
+    "contract.view",
+    "contract.create",
+    "contract.edit",
+    "document.view",
+    "document.upload",
+    "user.view",
+    "user.create",
+    "user.edit",
+    "financial_reports.view",
+    "settings.view",
+    "ai.access"
+  ],
+  lawyer: [
+    "case.view",
+    "case.create",
+    "case.edit",
+    "client.view",
+    "contract.view",
+    "contract.create",
+    "contract.edit",
+    "document.view",
+    "document.upload",
+    "ai.access"
+  ],
+  trainee_lawyer: [
+    "case.view",
+    "client.view",
+    "document.view",
+    "document.upload",
+    "ai.access"
+  ],
+  accountant: [
+    "invoice.view",
+    "invoice.create",
+    "invoice.edit",
+    "payment.view",
+    "payment.create",
+    "financial_reports.view",
+    "financial_statements.view"
+  ],
+  secretary: [
+    "client.view",
+    "client.create",
+    "document.view",
+    "document.upload"
+  ],
+  broker: [
+    "referral.create",
+    "referral.view"
+  ],
+  collaborator: [
+    "collaborator.access",
+    "document.view",
+    "document.upload"
+  ],
+  client: [
+    "case.view",
+    "document.view",
+    "invoice.view"
+  ]
+};
+
+⸻
+
+Visibility Scope
+
+export const VISIBILITY_SCOPE = {
+  firm_owner: "all",
+  office_manager: "all",
+  lawyer: "assigned_only",
+  trainee_lawyer: "assigned_only",
+  accountant: "financial_only",
+  secretary: "limited",
+  broker: "own_referrals",
+  collaborator: "shared_only",
+  client: "own_only"
+};
+
+⸻
+
+Permission Middleware
+
+export function can(user, permission) {
+  const permissions =
+    ROLE_PERMISSIONS[user.role] || [];
+  if (permissions.includes("*"))
+    return true;
+  return permissions.includes(permission);
+}
+
+⸻
+
+Example Usage
+
+if (!can(user, "invoice.create")) {
+  throw new Error("Access Denied");
+}
+
+⸻
+
+Smart Office Roles
+
+جاهزة داخل عدالة:
+
+* مالك المكتب
+* مدير المكتب
+* محامي
+* محامي متدرب
+* محاسب
+* سكرتير
+* وسيط
+* متعاون
+* عميل
+
+مع إمكانية إنشاء أدوار مخصصة من لوحة التحكم دون تعديل الكود.
+
+هذا الهيكل مناسب جدًا لـ Replit وPrisma وPostgreSQL، وقابل للتوسع لاحقًا لإضافة الفروع، الموافقات، وسجل التدقيق (Audit Log) دون إعادة بناء النظام.

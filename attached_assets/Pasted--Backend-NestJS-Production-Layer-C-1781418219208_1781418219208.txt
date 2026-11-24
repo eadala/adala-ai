@@ -1,0 +1,342 @@
+تمام — الآن سنبني Backend NestJS Production Layer فوق قاعدة البيانات التي صممناها بطريقة احترافية (Clean Architecture + Modular + Scalable).
+
+سأعطيك مشروع جاهز “هيكلياً + منطقياً + كود أساسي” وليس مجرد أفكار.
+
+⸻
+
+⚙️ ⚖️ عدالة AI — NestJS Backend (Production Blueprint)
+
+🧠 الهدف
+
+تحويل هذا النظام إلى:
+
+🧩 Legal Marketplace OS + Deal Engine + Case System
+
+⸻
+
+🏗️ 1) هيكل المشروع (NestJS Clean Architecture)
+
+src/
+ ├── main.ts
+ ├── app.module.ts
+ │
+ ├── modules/
+ │    ├── auth/
+ │    ├── users/
+ │    ├── tenants/
+ │    ├── marketplace/
+ │    ├── orders/
+ │    ├── deals/
+ │    ├── offers/
+ │    ├── contracts/
+ │    ├── cases/
+ │    ├── workspace/
+ │    ├── payments/
+ │    ├── rbac/
+ │    ├── audit/
+ │
+ ├── core/
+ │    ├── orchestration/
+ │    ├── events/
+ │    ├── guards/
+ │    ├── decorators/
+ │
+ ├── infrastructure/
+ │    ├── prisma/
+ │    ├── redis/
+ │    ├── storage/
+
+⸻
+
+⚙️ 2) أهم نقطة: App Module
+
+@Module({
+  imports: [
+    AuthModule,
+    UsersModule,
+    TenantsModule,
+    MarketplaceModule,
+    OrdersModule,
+    DealsModule,
+    OffersModule,
+    ContractsModule,
+    CasesModule,
+    WorkspaceModule,
+    PaymentsModule,
+    RBACModule,
+    AuditModule,
+    OrchestrationModule,
+  ],
+})
+export class AppModule {}
+
+⸻
+
+🧠 3) Orchestration Engine (قلب النظام)
+
+هذا أهم جزء في المشروع.
+
+🔥 Event Driven System
+
+ORDER_PAID
+   ↓
+CREATE_DEAL
+   ↓
+NEGOTIATION (optional)
+   ↓
+CONTRACT_GENERATED
+   ↓
+CASE_CREATED
+   ↓
+WORKSPACE_INIT
+
+⸻
+
+⚙️ Orchestration Service
+
+@Injectable()
+export class OrchestrationService {
+  constructor(
+    private deals: DealsService,
+    private cases: CasesService,
+    private contracts: ContractsService,
+  ) {}
+  async handleOrderPaid(order: Order) {
+    const deal = await this.deals.createFromOrder(order)
+    if (order.service.type === 'fixed') {
+      return this.createContractFlow(deal.id)
+    }
+    return deal
+  }
+  async createContractFlow(dealId: string) {
+    const contract = await this.contracts.generate(dealId)
+    await this.cases.createFromContract(contract)
+    return contract
+  }
+}
+
+⸻
+
+🛒 4) Marketplace Module
+
+Controller
+
+@Controller('services')
+export class MarketplaceController {
+  constructor(private service: MarketplaceService) {}
+  @Get()
+  findAll(@Tenant() tenantId: string) {
+    return this.service.findAll(tenantId)
+  }
+  @Post()
+  create(@Body() dto: CreateServiceDto) {
+    return this.service.create(dto)
+  }
+}
+
+⸻
+
+Service
+
+@Injectable()
+export class MarketplaceService {
+  constructor(private prisma: PrismaService) {}
+  findAll(tenantId: string) {
+    return this.prisma.services.findMany({
+      where: { tenant_id: tenantId }
+    })
+  }
+  create(dto: CreateServiceDto) {
+    return this.prisma.services.create({ data: dto })
+  }
+}
+
+⸻
+
+📦 5) Orders Module
+
+@Controller('orders')
+export class OrdersController {
+  constructor(
+    private orders: OrdersService,
+    private orchestration: OrchestrationService
+  ) {}
+  @Post()
+  async create(@Body() dto: CreateOrderDto) {
+    return this.orders.create(dto)
+  }
+  @Post(':id/pay')
+  async pay(@Param('id') id: string) {
+    const order = await this.orders.markPaid(id)
+    return this.orchestration.handleOrderPaid(order)
+  }
+}
+
+⸻
+
+💬 6) Deals Module (Negotiation Engine)
+
+Create Deal
+
+@Injectable()
+export class DealsService {
+  constructor(private prisma: PrismaService) {}
+  createFromOrder(order: Order) {
+    return this.prisma.deals.create({
+      data: {
+        order_id: order.id,
+        client_id: order.user_id,
+        status: 'open'
+      }
+    })
+  }
+}
+
+⸻
+
+Offers
+
+@Post(':id/offer')
+createOffer(@Param('id') dealId: string, @Body() dto) {
+  return this.offersService.create(dealId, dto)
+}
+
+⸻
+
+📄 7) Contracts Module
+
+@Injectable()
+export class ContractsService {
+  constructor(private prisma: PrismaService) {}
+  async generate(dealId: string) {
+    const deal = await this.prisma.deals.findUnique({
+      where: { id: dealId }
+    })
+    return this.prisma.contracts.create({
+      data: {
+        deal_id: dealId,
+        content: this.buildTemplate(deal),
+        status: 'draft'
+      }
+    })
+  }
+  buildTemplate(deal: any) {
+    return {
+      client: deal.client_id,
+      price: deal.final_price,
+      terms: "Legal Service Agreement"
+    }
+  }
+}
+
+⸻
+
+⚖️ 8) Cases Module (عدالة AI Core)
+
+@Injectable()
+export class CasesService {
+  constructor(private prisma: PrismaService) {}
+  async createFromContract(contract: any) {
+    return this.prisma.cases.create({
+      data: {
+        contract_id: contract.id,
+        client_id: contract.client_id,
+        status: 'active'
+      }
+    })
+  }
+}
+
+⸻
+
+🔐 9) RBAC Guard (مهم جداً)
+
+@Injectable()
+export class RbacGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const user = context.switchToHttp().getRequest().user
+    const action = context.getHandler().name
+    return user.permissions.includes(action)
+  }
+}
+
+⸻
+
+⚡ 10) Payments Webhook (Checkout.com)
+
+@Post('webhooks/payment')
+async handlePayment(@Body() event: any) {
+  if (event.type === 'payment_success') {
+    return this.orchestration.handleOrderPaid(event.data.order)
+  }
+}
+
+⸻
+
+💬 11) Workspace Module (بعد إنشاء القضية)
+
+Case Workspace:
+ ├── messages
+ ├── documents
+ ├── tasks
+ ├── timeline
+
+⸻
+
+🔥 12) النظام النهائي (Flow كامل)
+
+Service Selected
+   ↓
+Order Created
+   ↓
+Payment Confirmed
+   ↓
+Deal Created
+   ↓
+Negotiation (optional)
+   ↓
+Contract Generated
+   ↓
+Case Created
+   ↓
+Workspace Activated
+
+⸻
+
+🚀 ماذا أنجزنا الآن؟
+
+أنت الآن عندك:
+
+⚙️ Backend NestJS كامل Architecture
+
+🧠 Orchestration Engine (قلب النظام)
+
+🛒 Marketplace Module
+
+💬 Deal Negotiation System
+
+📄 Contract Generator
+
+⚖️ Case Management Core
+
+🔐 RBAC Security Layer
+
+💳 Payment Integration Flow
+
+⸻
+
+💡 الخطوة التالية (الأهم)
+
+الآن النظام جاهز “هيكلياً”، الخطوة الطبيعية:
+
+1️⃣ 🎨 بناء Frontend (Marketplace + Deal Room UI مثل خمسات + Upwork)
+
+2️⃣ 🔌 ربط Frontend مع هذا Backend
+
+3️⃣ 🚀 بناء MVP قابل للإطلاق خلال 2–4 أسابيع
+
+⸻
+
+إذا تبغى نكمل بشكل احترافي جداً:
+
+قلّي: ابدأ بالواجهة (Frontend Marketplace UI) أو نبني الـ API فعليًا مع Prisma + migrations

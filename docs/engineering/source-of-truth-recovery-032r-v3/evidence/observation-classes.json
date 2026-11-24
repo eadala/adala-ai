@@ -1,0 +1,40 @@
+{
+  "OBSERVED": {
+    "current_branch": "cursor/lineage-recovery-integration-032-da81",
+    "current_head": "8bb33323a821dd0ad7f01d9aff2fd3ce748459bf",
+    "current_tree": "666d24190d696b8850f685d4b3e3e5a644d18dbb",
+    "phase030_cat_file": "MISSING",
+    "phase031_present": true,
+    "phase031_backup_ref": "refs/backup/phase-031-8685f64a",
+    "phase031_bundle_on_disk": true,
+    "phase031_commits_vs_recovery_base": 3,
+    "phase031_files_vs_recovery_base": 35,
+    "migrations_present": "001-061",
+    "agent_bcId": "bc-019f3701-e3a8-71f2-984d-9e47a4bbda81",
+    "environmentPublicId": "2889434f-df4e-11f1-ba91-f63b1661ac50",
+    "boot_buildId": "bld-20261123-d1ca7c65-45bb-4762-888c-da1bab13acad",
+    "gitSetup": "reuse",
+    "warmFork": "lazy_load"
+  },
+  "VERIFIED": {
+    "phase030_absent_this_object_db": true,
+    "phase031_sha_tree_match_directive": true,
+    "recovery_base_is_ancestor_of_031": true
+  },
+  "INFERRED": {
+    "prior_local_only_phases_created_on_earlier_vm_disk_of_same_agent": true,
+    "environment_rebuild_dropped_never_pushed_objects": true,
+    "system_recurring_builds_unlikely_to_bake_unpushed_commits": true
+  },
+  "UNAVAILABLE": [
+    "exact_phase030_objects",
+    "phase017_029_tips",
+    "accessible_original_vm_disk"
+  ],
+  "BLOCKED": [
+    "external_fetch",
+    "bundle_import",
+    "merge",
+    "deploy"
+  ]
+}

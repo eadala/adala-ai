@@ -1,0 +1,165 @@
+ADALA AI — TENANT ISOLATION TRUTH VALIDATION (RED TEAM TEST)
+
+This is a mandatory security verification task.
+
+Do NOT trust previous reports or logs.
+
+You must PROVE tenant isolation is correct through real execution tests only.
+
+⸻
+
+🎯 OBJECTIVE
+
+Verify that no cross-tenant data leakage is possible under any scenario.
+
+This is a REAL security test, not a code review.
+
+⸻
+
+🧪 TEST ENVIRONMENT SETUP
+
+Create two fully isolated test tenants:
+
+Office A
+
+* Create 3 users
+* Create 3 clients
+* Create 3 cases
+* Create 3 contracts
+* Create 3 invoices
+
+Office B
+
+* Create 3 users
+* Create 3 clients
+* Create 3 cases
+* Create 3 contracts
+* Create 3 invoices
+
+Ensure all data is distinct and clearly labeled.
+
+⸻
+
+🔥 TEST 1 — DATABASE ISOLATION
+
+Run raw queries:
+
+SELECT * FROM cases;
+SELECT * FROM clients;
+SELECT * FROM contracts;
+SELECT * FROM invoices;
+
+Then verify:
+
+1. When logged in as Office A user:
+    * ONLY Office A data is returned
+    * NO Office B records exist in API response or DB query
+2. When logged in as Office B user:
+    * ONLY Office B data is returned
+    * NO Office A records exist anywhere
+
+⸻
+
+🔥 TEST 2 — API ISOLATION ATTACK SIMULATION
+
+Attempt the following:
+
+1. Office A user tries:
+    * GET /api/cases?officeId=OfficeB
+    * GET /api/clients?officeId=OfficeB
+    * Direct ID guessing of Office B records
+2. Office B user tries reverse attacks.
+
+Expected Result:
+
+* ALL requests must be blocked or scoped to own tenant
+* NO data leakage allowed under ANY condition
+
+⸻
+
+🔥 TEST 3 — AUTH BYPASS ATTEMPT
+
+Simulate:
+
+* Missing token requests
+* Invalid token requests
+* Cross-user session reuse
+* Role manipulation attempts
+
+Expected Result:
+
+* Requests rejected or scoped correctly
+* No unauthorized access possible
+
+⸻
+
+🔥 TEST 4 — SEARCH LEAK TEST
+
+Test global search:
+
+* Search for any client or case from Office B while logged into Office A
+
+Expected Result:
+
+* Search results MUST be tenant-scoped only
+
+⸻
+
+🔥 TEST 5 — AI DATA LEAK TEST (CRITICAL)
+
+Test all AI endpoints:
+
+* AI chat
+* AI legal research
+* AI document generation
+* AI agents
+* AI history
+
+Verify:
+
+* AI NEVER accesses cross-tenant data
+* AI context is fully isolated per office_id
+* No memory leakage between tenants
+
+⸻
+
+🔥 TEST 6 — EXPORT LEAK TEST
+
+Attempt:
+
+* Export cases
+* Export clients
+* Export invoices
+
+Ensure:
+
+* Export files contain ONLY current tenant data
+* No cross-tenant aggregation exists
+
+⸻
+
+📊 FINAL OUTPUT REQUIRED
+
+Generate a formal security certification report:
+
+1. Test results (Pass/Fail per test)
+2. Any detected leakage (must be explicitly listed)
+3. Root cause if failure occurs
+4. Exact file/module responsible
+5. Fix recommendation (if needed)
+6. Final Tenant Isolation Score (0–100)
+7. Production Approval Status:
+    * APPROVED FOR PRODUCTION
+    * NOT APPROVED
+
+⸻
+
+⚠️ RULES
+
+* Do NOT simulate results.
+* Do NOT assume isolation is correct.
+* Do NOT reuse previous audit data.
+* Every test must execute in real runtime.
+* Evidence must come from actual API/DB responses.
+
+This is a ZERO-TRUST SECURITY CERTIFICATION.

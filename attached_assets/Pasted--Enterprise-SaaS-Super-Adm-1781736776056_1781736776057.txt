@@ -1,0 +1,304 @@
+تمام. سأعطيك تصميم نظام كامل متكامل لعدالة (Enterprise SaaS) يشمل:
+
+* لوحة الإدارة العليا (Super Admin)
+* نظام الفروع
+* نظام الذكاء الاصطناعي
+* التقارير المالية
+* الصلاحيات
+* البنية الخلفية (Backend Architecture)
+
+بدون تجزئة نظرية — هذا تصميم “جاهز للبناء”.
+
+⸻
+
+⚖️ عدالة AI — النظام الكامل (Enterprise Architecture)
+
+                     ┌──────────────────────┐
+                     │  Super Admin Panel   │
+                     └─────────┬────────────┘
+                               ↓
+                ┌────────────────────────────┐
+                │  SaaS Core Control Layer   │
+                └─────────┬──────────────────┘
+                          ↓
+        ┌────────────────────────────────────────┐
+        │         Tenant Management Layer        │
+        └──────────────┬─────────────────────────┘
+                       ↓
+        ┌────────────────────────────────────────┐
+        │     Branch System (Multi-Branch)      │
+        └──────────────┬─────────────────────────┘
+                       ↓
+        ┌────────────────────────────────────────┐
+        │   Business Modules (Cases, Clients)   │
+        └──────────────┬─────────────────────────┘
+                       ↓
+        ┌────────────────────────────────────────┐
+        │      AI Router + Legal Agents         │
+        └──────────────┬─────────────────────────┘
+                       ↓
+        ┌────────────────────────────────────────┐
+        │ PostgreSQL + Redis + Vector DB        │
+        └────────────────────────────────────────┘
+
+⸻
+
+🧠 1) لوحة الإدارة العليا (SUPER ADMIN PANEL)
+
+الموقع:
+
+/admin
+
+⸻
+
+الوظائف الأساسية
+
+1. إدارة جميع المكاتب (Tenants)
+
+* إنشاء مكتب جديد
+* إيقاف / تفعيل مكتب
+* تغيير الباقة
+* مراقبة الاستهلاك
+
+⸻
+
+2. مراقبة الفروع
+
+* عدد الفروع لكل مكتب
+* أكثر فرع استهلاكاً للذكاء
+* أكثر فرع ربحاً
+
+⸻
+
+3. مراقبة الذكاء الاصطناعي
+
+- عدد الطلبات اليوم
+- تكلفة الذكاء الاصطناعي
+- أكثر نموذج مستخدم
+- نسبة Cache Hit
+
+⸻
+
+4. الإيرادات (Revenue Engine)
+
+- إجمالي الاشتراكات
+- الإضافات (AI / Storage / Branches)
+- صافي الربح
+
+⸻
+
+5. التحكم الكامل
+
+* إيقاف عميل
+* فرض حدود AI
+* تغيير أسعار الباقات
+* فرض قيود على الفروع
+
+⸻
+
+🏢 2) نظام الفروع (Enterprise Multi-Branch)
+
+قاعدة البيانات
+
+CREATE TABLE office_branches (
+  id UUID PRIMARY KEY,
+  tenant_id TEXT,
+  name TEXT,
+  location TEXT,
+  manager_id TEXT,
+  status TEXT,
+  created_at TIMESTAMP
+);
+
+⸻
+
+العزل (Critical)
+
+كل البيانات:
+
+tenant_id + branch_id
+
+⸻
+
+مثال:
+
+* قضية في الرياض → لا تظهر في جدة
+* عميل في فرع → لا يظهر في فرع آخر
+
+⸻
+
+🧠 3) نظام الذكاء الاصطناعي (AI Core System)
+
+AI Router + Agents
+
+User Request
+   ↓
+AI Router
+   ↓
+Branch Context Injection
+   ↓
+Legal Agents
+   ↓
+RAG (Documents)
+   ↓
+Model (OpenAI / DeepSeek)
+   ↓
+Response
+
+⸻
+
+AI Scope (مهم جداً)
+
+function buildContext(req) {
+  return {
+    tenantId: req.tenantId,
+    branchId: req.branchId,
+    role: req.role,
+  };
+}
+
+⸻
+
+⚖️ 4) نظام القضايا (Cases Engine)
+
+CREATE TABLE cases (
+  id UUID PRIMARY KEY,
+  tenant_id TEXT,
+  branch_id UUID,
+  title TEXT,
+  status TEXT,
+  priority TEXT,
+  client_id TEXT,
+  assigned_to TEXT,
+  created_at TIMESTAMP
+);
+
+⸻
+
+👥 5) نظام العملاء (Clients Engine)
+
+CREATE TABLE clients (
+  id UUID PRIMARY KEY,
+  tenant_id TEXT,
+  branch_id UUID,
+  name TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP
+);
+
+⸻
+
+💰 6) نظام الفوترة والربح
+
+حساب لكل فرع
+
+function calculateBranchFinance(data) {
+  return {
+    revenue: data.subscriptions + data.addons,
+    ai_cost: data.ai_usage * 0.01,
+    server_cost: data.server_share,
+    profit: data.revenue - data.cost
+  };
+}
+
+⸻
+
+🔐 7) نظام الصلاحيات (RBAC)
+
+SUPER_ADMIN → كل شيء
+TENANT_ADMIN → مكتب كامل
+BRANCH_MANAGER → فرع فقط
+LAWYER → قضايا محددة
+CLIENT → ملفه فقط
+
+⸻
+
+⚙️ 8) API Gateway (النقطة المركزية)
+
+app.use((req, res, next) => {
+  req.context = {
+    tenantId: req.headers["x-tenant-id"],
+    branchId: req.headers["x-branch-id"],
+    role: req.headers["x-role"]
+  };
+  next();
+});
+
+⸻
+
+📊 9) لوحة الإدارة العليا (UI Structure)
+
+ADMIN DASHBOARD
+ ├── Overview
+ │    ├── Total Tenants
+ │    ├── Total Revenue
+ │    ├── AI Cost
+ │
+ ├── Tenants
+ │    ├── List
+ │    ├── Plans
+ │    ├── Suspend
+ │
+ ├── Branches
+ │    ├── All Branches
+ │    ├── Top Performing
+ │
+ ├── AI Monitoring
+ │    ├── Requests
+ │    ├── Models
+ │    ├── Cache Hit
+ │
+ ├── Billing Engine
+ │    ├── Revenue
+ │    ├── Costs
+ │    ├── Profit
+ │
+ ├── System Control
+      ├── Feature Flags
+      ├── Limits
+      ├── Pricing Control
+
+⸻
+
+🧠 10) ماذا أصبحت عدالة الآن؟
+
+قبل:
+
+❌ تطبيق SaaS عادي
+
+الآن:
+
+✔ Legal Operating System
+✔ Multi-Tenant Enterprise Platform
+✔ AI-Powered Legal Brain
+✔ Branch-based Business OS
+✔ Revenue Intelligence System
+
+⸻
+
+🔥 11) أهم قيمة استراتيجية
+
+هذا التصميم يعطيك:
+
+* بيع لكل مكتب + فروع إضافية
+* تحكم كامل بالتكلفة
+* ذكاء اصطناعي ربحي
+* قابلية توسع عالمي
+* جاهز للاستثمار أو البيع لاحقاً
+
+⸻
+
+🚀 إذا تريد الخطوة التالية (مهم جداً)
+
+أقدر أبني لك مباشرة واحد من:
+
+1. 🔥 كود كامل للـ Super Admin Dashboard (React + Charts + RBAC)
+
+2. 🔥 نظام Feature Flags (تشغيل/إيقاف ميزات لكل عميل)
+
+3. 🔥 نظام مراقبة لحظي (Real-time SaaS Monitoring)
+
+4. 🔥 تحويله إلى SaaS عالمي متعدد الدول (Multi-Region Architecture)
+
+قل لي فقط: أكمل على أي جزء الآن.

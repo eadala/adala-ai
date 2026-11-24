@@ -1,0 +1,220 @@
+واضح أنك تريد الانتقال من “نصائح تصميم” إلى نظام جاهز للتطبيق مباشرة (UI Kit عملي). سأبنيه لك بشكل منظم بحيث تقدر تنقله إلى أي مشروع (Replit / React / Next / Vue / حتى HTML فقط).
+
+⸻
+
+🧩 UI KIT كامل لمنصة “عدالة”
+
+🧭 1) الأساس: Design Tokens (العمود الفقري)
+
+🎨 الألوان
+
+:root {
+  --primary: #1E3A8A;      /* أزرق قانوني ثقة */
+  --secondary: #64748B;    /* رمادي احترافي */
+  --bg: #F8FAFC;           /* خلفية عامة */
+  --card: #FFFFFF;         /* الكروت */
+  --border: #E2E8F0;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --danger: #DC2626;
+}
+
+⸻
+
+🔤 الخطوط
+
+body {
+  font-family: "IBM Plex Sans Arabic", sans-serif;
+}
+
+⸻
+
+📏 المسافات (Spacing System)
+
+--space-1: 4px;
+--space-2: 8px;
+--space-3: 12px;
+--space-4: 16px;
+--space-5: 24px;
+--space-6: 32px;
+--space-7: 48px;
+
+⸻
+
+🔲 الزوايا
+
+--radius-sm: 8px;
+--radius-md: 12px;
+--radius-lg: 16px;
+
+⸻
+
+🧱 2) Card System (جاهز للاستخدام)
+
+🔹 Base Card (أساس كل الكروت)
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+⸻
+
+🔹 Case Card (القضايا)
+
+<div class="card case-card">
+  <div class="title">قضية رقم #48392</div>
+  <span class="badge warning">قيد المراجعة</span>
+  <div class="meta">
+    المحكمة: الرياض العامة
+    <br />
+    آخر تحديث: اليوم
+  </div>
+  <button class="btn-primary">عرض التفاصيل</button>
+</div>
+.case-card .title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.case-card .meta {
+  font-size: 13px;
+  color: var(--secondary);
+  margin: 12px 0;
+}
+
+⸻
+
+🔹 Stats Card (إحصائيات)
+
+<div class="card stats-card">
+  <div class="label">القضايا المفتوحة</div>
+  <div class="value">24</div>
+</div>
+.stats-card {
+  text-align: right;
+}
+.stats-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+⸻
+
+🔹 Large Detail Card (تفاصيل كاملة)
+
+.detail-card {
+  padding: 24px;
+}
+.section {
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+⸻
+
+🔘 3) Buttons System
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+}
+
+⸻
+
+🏷️ 4) Badges (حالات النظام)
+
+.badge {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+.badge.success { background: #DCFCE7; color: #166534; }
+.badge.warning { background: #FEF3C7; color: #92400E; }
+.badge.danger { background: #FEE2E2; color: #991B1B; }
+
+⸻
+
+📐 5) Layout System (Dashboard)
+
+الشكل الصحيح:
+
+[Sidebar]
+   |
+[Top Bar]
+   |
+[Stats Cards Row]
+   |
+[Cases Grid]
+   |
+[Recent Activity]
+
+⸻
+
+Grid للكروت
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+⸻
+
+⚠️ أهم إصلاح لمشكلتك السابقة
+
+المشكلة:
+
+* كرت كبير + خط صغير
+
+الحل داخل النظام هذا:
+
+✔ الخط داخل الكرت = 15–18px
+✔ padding = 16px
+✔ لا height ثابت
+✔ كل كرت فيه hierarchy واضحة
+
+⸻
+
+🚀 النتيجة بعد تطبيق هذا UI KIT
+
+ستحصل على:
+
+* واجهة “قانونية احترافية” مثل SaaS عالمي
+* توازن بصري مضبوط
+* كروت غير “فارغة بصريًا”
+* خط واضح ومقروء
+* تجربة تشبه أنظمة مثل Clio / Notion / Stripe dashboards
+
+⸻
+
+إذا تبغى الخطوة التالية (مهم جدًا)
+
+أقدر أحول هذا إلى:
+
+🔥 1) React Components جاهزة
+
+🔥 2) Tailwind config كامل
+
+🔥 3) أو إعادة تصميم شاشة “القضايا” عندك فعليًا
+
+بس قل:
+“حوّله إلى React” أو “حوّله إلى Tailwind”

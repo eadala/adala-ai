@@ -1,0 +1,125 @@
+Production Incident — Domain Works in Replit but Not on AdalahAI.com
+
+لدينا مشكلة إنتاجية حرجة.
+
+الحالة الحالية
+
+* التطبيق يعمل بالكامل داخل بيئة Replit.
+* التطبيق لا يعمل عند الوصول عبر النطاق الإنتاجي:
+    * https://adalahai.com
+    * https://www.adalahai.com (إن وجد)
+
+المطلوب عدم إجراء أي تعديلات عشوائية على الكود، وإنما تنفيذ تشخيص منهجي حتى يتم تحديد السبب الجذري (Root Cause Analysis).
+
+خطوات الفحص
+
+1. Domain & DNS
+
+تحقق من:
+
+* سجلات A / AAAA / CNAME.
+* حالة انتشار DNS.
+* توافق النطاق مع إعدادات Replit.
+* وجود أي تعارض بين الجذر (apex) وwww.
+
+⸻
+
+2. Replit Deployment
+
+تحقق من:
+
+* نجاح آخر Deployment.
+* أن النسخة الإنتاجية هي آخر نسخة.
+* أن الخدمة تعمل Production وليس Preview.
+* أن المنفذ (PORT) مضبوط بشكل صحيح.
+* أن التطبيق يستمع إلى 0.0.0.0 وليس localhost فقط.
+
+⸻
+
+3. Custom Domain
+
+تحقق من:
+
+* ربط النطاق داخل إعدادات Replit.
+* حالة Verification.
+* إصدار شهادة SSL.
+* عدم وجود Pending أو Failed Certificate.
+
+⸻
+
+4. HTTPS
+
+تحقق من:
+
+* صلاحية شهادة SSL.
+* عدم وجود Redirect Loop.
+* عدم وجود Mixed Content.
+* إجبار HTTP إلى HTTPS بطريقة صحيحة.
+
+⸻
+
+5. Environment Variables
+
+راجع جميع متغيرات البيئة المرتبطة بالإنتاج، مثل:
+
+* APP_URL
+* BASE_URL
+* PUBLIC_URL
+* VITE_API_URL
+* ALLOWED_ORIGINS
+* COOKIE_DOMAIN
+* SESSION_DOMAIN
+
+وتأكد من أنها تشير إلى https://adalahai.com وليس إلى نطاق Replit.
+
+⸻
+
+6. API Connectivity
+
+تحقق من:
+
+* نجاح جميع طلبات API.
+* عدم وجود أخطاء CORS.
+* عدم وجود أخطاء 401 أو 403 بسبب النطاق.
+* عمل ملفات تعريف الارتباط (Cookies) بشكل صحيح.
+
+⸻
+
+7. Build Verification
+
+تأكد من أن:
+
+* Build الإنتاج هو نفسه الذي يعمل داخل Replit.
+* لا توجد ملفات قديمة (Stale Assets).
+* لا توجد أخطاء أثناء البناء أو النشر.
+
+⸻
+
+8. Browser Diagnostics
+
+راجع:
+
+* Console Errors.
+* Network Requests.
+* Failed Resources.
+* JavaScript Runtime Errors.
+* HTTP Status Codes.
+
+⸻
+
+المطلوب النهائي
+
+لا تكتفِ بإصلاح المشكلة.
+
+قدّم تقريرًا يتضمن:
+
+* السبب الجذري للمشكلة (Root Cause).
+* خطوات الإصلاح التي نُفذت.
+* كيفية منع تكرار المشكلة مستقبلًا.
+* تأكيد أن:
+    * الموقع يعمل على النطاق الإنتاجي.
+    * SSL يعمل.
+    * جميع Routes تعمل.
+    * جميع APIs تعمل.
+    * لا توجد أخطاء Console أو Network.
+    * التطبيق جاهز للإنتاج.

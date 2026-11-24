@@ -1,0 +1,130 @@
+يمكنك استبدال قسم الـ Hero الحالي في الصفحة الرئيسية بـهذا التصميم الاحترافي المناسب لمنصة **عدالة AI**:
+
+```tsx
+<section className="relative overflow-hidden py-24">
+
+  <div className="container mx-auto px-6">
+
+    <div className="max-w-4xl mx-auto text-center">
+
+      <div className="inline-flex items-center rounded-full border px-4 py-2 text-sm mb-6 bg-primary/5">
+
+        ✨ منصة إدارة قانونية مدعومة بالذكاء الاصطناعي
+
+      </div>
+
+      <h1 className="text-5xl md:text-7xl font-bold leading-tight">
+
+        إدارة قانونية أكثر ذكاءً
+
+      </h1>
+
+      <p className="mt-8 text-xl text-muted-foreground leading-9">
+
+        منصة SaaS متكاملة لإدارة القضايا والعملاء والعقود والمستندات والفواتير والعمليات القانونية، مدعومة بالذكاء الاصطناعي، ومصممة للمكاتب القانونية والشركات حول العالم.
+
+      </p>
+
+      <div className="mt-12 flex flex-wrap justify-center gap-4">
+
+        <Button
+          size="lg"
+          className="h-14 px-8 text-lg"
+        >
+          ابدأ مجاناً
+        </Button>
+
+        <Button
+          size="lg"
+          variant="outline"
+          className="h-14 px-8 text-lg"
+        >
+          ✨ استكشف المنصة
+        </Button>
+
+      </div>
+
+      <p className="mt-4 text-sm text-muted-foreground">
+
+        جرّب جميع مزايا عدالة AI من خلال بيئة تجريبية تفاعلية تحاكي مكتب محاماة حقيقياً.
+
+      </p>
+
+      <div className="mt-12 flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+
+        <div className="flex items-center gap-2">
+
+          <span>✓</span>
+
+          <span>لا يتطلب بطاقة ائتمانية</span>
+
+        </div>
+
+        <div className="flex items-center gap-2">
+
+          <span>✓</span>
+
+          <span>إعداد خلال دقائق</span>
+
+        </div>
+
+        <div className="flex items-center gap-2">
+
+          <span>✓</span>
+
+          <span>دعم كامل للعربية والإنجليزية</span>
+
+        </div>
+
+        <div className="flex items-center gap-2">
+
+          <span>✓</span>
+
+          <span>تجربة تفاعلية متكاملة</span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+```
+
+وأوصي أيضاً بحذف عبارة:
+
+```text
+احجز عرضاً مجانياً
+```
+
+واستبدالها بـ:
+
+```text
+✨ استكشف المنصة
+```
+
+بحيث يدخل المستخدم إلى:
+
+```ts
+/demo
+```
+
+ويشاهد نسخة تجريبية كاملة تحتوي على:
+
+* القضايا.
+* العملاء.
+* العقود.
+* الموظفين.
+* الرواتب.
+* الإيرادات.
+* المصروفات.
+* الحسابات البنكية.
+* العهد والسلف.
+* الفواتير.
+* المراسلات.
+* التقارير.
+* الذكاء الاصطناعي.
+
+مما يجعل الصفحة الرئيسية أكثر احترافية وتسويقاً، ويزيد معدل تحويل الزوار إلى عملاء مشتركين.

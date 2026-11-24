@@ -1,0 +1,62 @@
+{
+  "confirmed": 1,
+  "findings": [
+    {
+      "FILE_PATH": "docs/engineering/forensic-git-recovery-032r/evidence/baseline-capture.txt",
+      "SECRET_TYPE": "github_token_and_or_jwt",
+      "CLASSIFICATION": "CONFIRMED_SECRET",
+      "SHAPES": [
+        {
+          "shape": "ghs",
+          "len": 48
+        },
+        {
+          "shape": "jwt",
+          "len": 378
+        }
+      ],
+      "MASKED": false,
+      "IN_PHASE_031_TREE": false,
+      "EXPOSURE_SCOPE": "LOCAL_CHECKPOINT_HISTORY",
+      "REMEDIATION_REQUIRED": "Exclude from transferred ancestry; rotate if token still valid"
+    },
+    {
+      "FILE_PATH": ".replit",
+      "CLASSIFICATION": "UNKNOWN",
+      "NOTE": "not readable from expected refs",
+      "ERR": "CalledProcessError"
+    },
+    {
+      "FILE_PATH": "docker-compose.yml",
+      "SECRET_TYPE": "postgres_password_literal",
+      "CLASSIFICATION": "NEEDS_MANUAL_REVIEW",
+      "LEN": 10,
+      "EXPOSURE_SCOPE": "PUBLIC_ORIGIN_TIP",
+      "REMEDIATION_REQUIRED": "Env subst; rotate if non-local use"
+    },
+    {
+      "FILE_PATH": ".env.example",
+      "SECRET_TYPE": "CLERK_SECRET_KEY",
+      "CLASSIFICATION": "LIKELY_PLACEHOLDER",
+      "LEN": 11,
+      "EXPOSURE_SCOPE": "PUBLIC_ORIGIN_TIP",
+      "REMEDIATION_REQUIRED": "Obvious placeholders"
+    },
+    {
+      "FILE_PATH": ".env.example",
+      "SECRET_TYPE": "STRIPE_SECRET_KEY",
+      "CLASSIFICATION": "LIKELY_PLACEHOLDER",
+      "LEN": 11,
+      "EXPOSURE_SCOPE": "PUBLIC_ORIGIN_TIP",
+      "REMEDIATION_REQUIRED": "Obvious placeholders"
+    },
+    {
+      "FILE_PATH": ".env.example",
+      "SECRET_TYPE": "STRIPE_WEBHOOK_SECRET",
+      "CLASSIFICATION": "LIKELY_PLACEHOLDER",
+      "LEN": 9,
+      "EXPOSURE_SCOPE": "PUBLIC_ORIGIN_TIP",
+      "REMEDIATION_REQUIRED": "Obvious placeholders"
+    }
+  ]
+}

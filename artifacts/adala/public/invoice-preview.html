@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>معاينة — فاتورة ضريبية / Tax Invoice</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Montserrat:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',Arial,sans-serif;background:#e8eaf0;padding:24px;color:#1a1a2e}
+.watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:88pt;font-weight:900;letter-spacing:4px;pointer-events:none;z-index:0;color:rgba(16,185,129,0.07)}
+.page{width:794px;min-height:1123px;margin:0 auto;background:#fff;box-shadow:0 8px 40px rgba(0,0,0,.15);border-radius:4px;position:relative;z-index:1;display:flex;flex-direction:column}
+.accent-bar{height:6px;background:linear-gradient(90deg,#1A2744 0%,#1A2744 40%,#C9A84C 40%,#C9A84C 60%,#1A2744 60%,#1A2744 100%);border-radius:4px 4px 0 0}
+.header{background:linear-gradient(135deg,#0f1c35 0%,#1A2744 60%,#243560 100%);padding:28px 32px 24px;display:flex;justify-content:space-between;align-items:flex-start;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;top:-40px;left:-40px;width:180px;height:180px;border-radius:50%;background:rgba(201,168,76,0.08)}
+.header::after{content:'';position:absolute;bottom:-50px;right:10%;width:240px;height:240px;border-radius:50%;background:rgba(201,168,76,0.05)}
+.brand-block{position:relative;z-index:1}
+.brand-ar{font-size:28pt;font-weight:900;color:#fff;line-height:1;letter-spacing:-0.5px}
+.brand-ar span{color:#C9A84C}
+.brand-en{font-family:'Montserrat',sans-serif;font-size:10pt;font-weight:600;color:rgba(201,168,76,0.8);letter-spacing:3px;text-transform:uppercase;margin-top:3px}
+.brand-tagline{font-size:8pt;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:300}
+.inv-badge{position:relative;z-index:1;text-align:left}
+.inv-badge .inv-type-ar{font-size:16pt;font-weight:900;color:#C9A84C;line-height:1.1}
+.inv-badge .inv-type-en{font-family:'Montserrat',sans-serif;font-size:9pt;color:rgba(201,168,76,0.7);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.inv-badge .inv-num{background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);border-radius:6px;padding:6px 12px;display:inline-block;font-family:'Montserrat',sans-serif;font-size:11pt;font-weight:700;color:#fff;letter-spacing:1px}
+.status-ribbon{padding:8px 32px;display:flex;justify-content:space-between;align-items:center;font-family:'Montserrat',sans-serif;font-size:8.5pt;background:#dcfce7;border-bottom:2px solid #86efac}
+.status-ribbon .dates{display:flex;gap:24px;color:#555}
+.status-ribbon .dates span{display:flex;align-items:center;gap:6px}
+.status-ribbon .dates label{font-weight:700;color:#333}
+.status-pill{display:flex;align-items:center;gap:7px;font-weight:700;font-size:9pt;padding:4px 14px;border-radius:20px;background:#dcfce7;color:#15803d;border:1.5px solid #86efac}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#22c55e}
+.body{padding:22px 32px;flex:1}
+.parties{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-bottom:20px;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+.party{padding:16px 20px}
+.party:first-child{background:#fafbfd}
+.party-divider{background:#e8e8e8}
+.party:last-child{background:#fff}
+.party-label{font-size:7.5pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C9A84C;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.party-label .dot{width:5px;height:5px;border-radius:50%;background:#C9A84C}
+.party-name{font-size:13pt;font-weight:900;color:#1A2744;margin-bottom:4px}
+.party-detail{font-size:9pt;color:#666;line-height:1.7}
+.party-detail strong{color:#444}
+.tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e8e8e8;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+.tbl-head{background:linear-gradient(90deg,#1A2744,#243560)}
+th{padding:11px 14px;font-size:9pt;font-weight:700;color:#fff;text-align:right}
+th .en{font-family:'Montserrat',sans-serif;font-size:7pt;color:rgba(201,168,76,0.8);font-weight:600;display:block;letter-spacing:1px}
+td{padding:10px 14px;font-size:10pt;border-bottom:1px solid #f0f0f0;color:#333;text-align:right}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even) td{background:#f9fafb}
+td.idx{width:36px;color:#aaa;font-size:9pt;font-family:'Montserrat',sans-serif}
+td.num{font-family:'Montserrat',sans-serif;font-weight:600;color:#1A2744}
+.svc-ar{font-weight:700;color:#1A2744}
+.svc-en{font-size:8pt;color:#aaa;font-family:'Montserrat',sans-serif;margin-top:2px}
+.bottom-row{display:grid;grid-template-columns:1fr 280px;gap:20px;margin-bottom:20px}
+.payment-box{border:1px solid #e8e8e8;border-radius:10px;padding:16px;display:flex;flex-direction:column;justify-content:space-between}
+.payment-box h4{font-size:8pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C9A84C;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.payment-methods{display:flex;flex-wrap:wrap;gap:6px}
+.pm-chip{padding:4px 10px;border-radius:20px;font-size:8pt;font-weight:600;background:#f4f4f5;color:#555;border:1px solid #e4e4e7;font-family:'Montserrat',sans-serif}
+.pm-chip.primary{background:#1A2744;color:#C9A84C;border-color:#1A2744}
+.due-notice{margin-top:10px;padding:7px 10px;border-radius:6px;background:#fffbf0;border:1px dashed rgba(201,168,76,0.4);font-size:8.5pt;color:#92400e}
+.due-notice strong{color:#C9A84C}
+.totals-box{border:1px solid #e8e8e8;border-radius:10px;overflow:hidden}
+.tot-row{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:10pt}
+.tot-row:last-child{border-bottom:none}
+.tot-row .lbl{color:#666}
+.tot-row .lbl-en{font-family:'Montserrat',sans-serif;font-size:7.5pt;color:#aaa;display:block}
+.tot-row .val{font-weight:700;color:#1A2744;font-family:'Montserrat',sans-serif;font-size:11pt}
+.tot-row.vat .val{color:#555}
+.tot-row.grand{background:linear-gradient(90deg,#1A2744,#243560);padding:14px 16px}
+.tot-row.grand .lbl{color:rgba(255,255,255,0.8);font-weight:700;font-size:11pt}
+.tot-row.grand .lbl-en{color:rgba(201,168,76,0.7)}
+.tot-row.grand .val{color:#C9A84C;font-size:15pt;font-weight:900}
+.sig-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+.sig-box{border-top:1.5px solid #d0d0d0;padding-top:8px}
+.sig-box .sig-label{font-size:8pt;color:#aaa;font-weight:600;letter-spacing:1px}
+.sig-box .sig-name{font-size:9.5pt;color:#444;margin-top:24px;font-weight:700}
+.footer-bar{background:linear-gradient(90deg,#0f1c35,#1A2744);padding:14px 32px;display:flex;justify-content:space-between;align-items:center;margin-top:auto;border-radius:0 0 4px 4px}
+.footer-bar .f-brand{color:#C9A84C;font-weight:900;font-size:10pt}
+.footer-bar .f-brand span{color:rgba(255,255,255,0.5);font-weight:400;font-size:8pt}
+.footer-bar .f-meta{font-family:'Montserrat',sans-serif;font-size:7.5pt;color:rgba(255,255,255,0.4);text-align:left;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="watermark">PAID ✓</div>
+<div class="page">
+  <div class="accent-bar"></div>
+  <div class="header">
+    <div class="brand-block">
+      <div class="brand-ar">عدالة <span>AI</span></div>
+      <div class="brand-en">Adalah AI · Legal OS</div>
+      <div class="brand-tagline">منصة إدارة المكاتب القانونية · Kingdom of Saudi Arabia</div>
+    </div>
+    <div class="inv-badge">
+      <div class="inv-type-ar">فاتورة ضريبية</div>
+      <div class="inv-type-en">Tax Invoice</div>
+      <div class="inv-num">INV-2026-0042</div>
+    </div>
+  </div>
+  <div class="status-ribbon">
+    <div class="dates">
+      <span><label>تاريخ الإصدار:</label> 11 يونيو 2026 · 11/06/2026</span>
+      <span><label>تاريخ الاستحقاق / Due:</label> 25 يونيو 2026 · 25/06/2026</span>
+    </div>
+    <div class="status-pill"><div class="status-dot"></div>مدفوعة / PAID</div>
+  </div>
+  <div class="body">
+    <div class="parties">
+      <div class="party">
+        <div class="party-label"><div class="dot"></div> المُصدِر / ISSUED BY</div>
+        <div class="party-name">مكتب عدالة AI للمحاماة</div>
+        <div class="party-detail">
+          Adalah AI Law Firm<br>
+          <strong>📍</strong> المملكة العربية السعودية · KSA<br>
+          <strong>✉</strong> info@adalah-ai.sa<br>
+          <strong>🌐</strong> adalah-ai.sa
+        </div>
+      </div>
+      <div class="party-divider"></div>
+      <div class="party">
+        <div class="party-label"><div class="dot"></div> العميل / BILLED TO</div>
+        <div class="party-name">خالد محمد الفارسي</div>
+        <div class="party-detail">
+          <strong>✉</strong> khalid.alfarsi@email.com<br>
+          <strong>⚖️</strong> القضية: نزاع تجاري — المحكمة التجارية
+        </div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead class="tbl-head">
+          <tr>
+            <th style="width:36px">#</th>
+            <th>الخدمة / Service <span class="en">DESCRIPTION</span></th>
+            <th style="width:70px">الكمية <span class="en">QTY</span></th>
+            <th style="width:120px">سعر الوحدة <span class="en">UNIT PRICE</span></th>
+            <th style="width:130px">الإجمالي <span class="en">TOTAL</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="idx">1</td>
+            <td><div class="svc-ar">استشارة قانونية</div><div class="svc-en">Legal Consultation — Case Analysis</div></td>
+            <td class="num" style="text-align:center">2</td>
+            <td class="num">500.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+            <td class="num">1,000.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+          </tr>
+          <tr>
+            <td class="idx">2</td>
+            <td><div class="svc-ar">صياغة مذكرة قانونية</div><div class="svc-en">Legal Drafting — Defense Brief</div></td>
+            <td class="num" style="text-align:center">1</td>
+            <td class="num">1,500.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+            <td class="num">1,500.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+          </tr>
+          <tr>
+            <td class="idx">3</td>
+            <td><div class="svc-ar">تمثيل قضائي</div><div class="svc-en">Court Representation — 3 Sessions</div></td>
+            <td class="num" style="text-align:center">3</td>
+            <td class="num">800.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+            <td class="num">2,400.00 <small style="color:#aaa;font-size:8pt">SAR</small></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="bottom-row">
+      <div class="payment-box">
+        <div>
+          <h4>💳 طرق الدفع / Payment Methods</h4>
+          <div class="payment-methods">
+            <span class="pm-chip primary">تحويل بنكي / Bank Transfer</span>
+            <span class="pm-chip">بطاقة ائتمانية / Card</span>
+            <span class="pm-chip">رابط دفع / Payment Link</span>
+            <span class="pm-chip">مدى / MADA</span>
+          </div>
+        </div>
+        <div class="due-notice">⏰ الدفع مستحق خلال <strong>14 يوماً</strong> من تاريخ الإصدار<br><span style="font-family:'Montserrat',sans-serif;font-size:7.5pt">Payment due within 14 days of issue</span></div>
+      </div>
+      <div class="totals-box">
+        <div class="tot-row">
+          <span class="lbl">المجموع قبل الضريبة<span class="lbl-en">Subtotal</span></span>
+          <span class="val">4,900.00 <small style="font-size:8pt;opacity:.7">SAR</small></span>
+        </div>
+        <div class="tot-row vat">
+          <span class="lbl">ضريبة القيمة المضافة (15%)<span class="lbl-en">VAT</span></span>
+          <span class="val">735.00 <small style="font-size:8pt;opacity:.7">SAR</small></span>
+        </div>
+        <div class="tot-row grand">
+          <span class="lbl">الإجمالي النهائي<span class="lbl-en">Grand Total</span></span>
+          <span class="val">5,635.00 <small style="font-size:10pt;font-weight:600;opacity:.8">SAR</small></span>
+        </div>
+      </div>
+    </div>
+    <div class="sig-row">
+      <div class="sig-box"><div class="sig-label">توقيع المسؤول / Authorized Signature</div><div class="sig-name">&nbsp;</div></div>
+      <div class="sig-box"><div class="sig-label">ختم المكتب / Office Stamp</div><div class="sig-name">&nbsp;</div></div>
+      <div class="sig-box"><div class="sig-label">توقيع العميل / Client Signature</div><div class="sig-name">&nbsp;</div></div>
+    </div>
+  </div>
+  <div class="footer-bar">
+    <div class="f-brand">عدالة AI <span>· منصة إدارة المكاتب القانونية</span></div>
+    <div class="f-meta">adalah-ai.sa &nbsp;·&nbsp; VAT: 300XXXXXXXX &nbsp;·&nbsp; CR: 1234567890<br>Generated: 11/06/2026 &nbsp;·&nbsp; Adalah AI Legal OS v2</div>
+  </div>
+</div>
+</body>
+</html>

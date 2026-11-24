@@ -1,0 +1,5 @@
+OBSERVED:
+  git bundle verify → OK, complete history
+  disposable bare fetch → verify = 04e4e234fb570e135bb438f6c1a1b0f7b56dbe29
+  tree = af3af2b8d87cc1a3caaa6db920f9171f817bf0a7
+OFF_ENVIRONMENT_BACKUP: NO

@@ -1,0 +1,286 @@
+تمام—هنا الفكرة تختلف جذريًا: أنت لا تريد إلغاء الداشبورد بالكامل، بل تريد تحويل لوحة مالك المنصة + المطور إلى “Engineering Command Center” بدل Dashboard تقليدي.
+
+هذا Prompt دقيق ومخصص لهذا الهدف:
+
+⸻
+
+Adala AI — Platform Owner & Developer Command Center Transformation
+
+أنت فريق هندسة متقدم متخصص في:
+
+* Platform Engineering (SaaS Multi-Tenant Systems)
+* DevOps & Observability
+* AI System Operations
+* Security Engineering
+* Product Analytics
+
+مهمتك إعادة تصميم لوحة التحكم الخاصة بـ:
+
+* مالك منصة عدالة AI (Platform Owner)
+* فريق التطوير (Developers / Engineers)
+
+⸻
+
+الهدف الأساسي
+
+تحويل جميع لوحات التحكم التقليدية إلى:
+
+Platform Command Center (PCC)
+Engineering Operations Interface (EOI)
+
+بدلاً من:
+
+* Dashboards
+* KPI Pages
+* Static Admin Panels
+
+⸻
+
+المرحلة 1: إزالة الداشبورد التقليدي
+
+قم بإلغاء أو إعادة تصميم:
+
+* Owner Dashboard
+* Super Admin Dashboard
+* Developer Dashboard
+* Analytics Dashboards التقليدية
+
+واستبدالها بـ نظام موحد:
+
+Real-time Command + Observability + Control System
+
+⸻
+
+المرحلة 2: إنشاء Platform Command Center (PCC)
+
+Core Interface:
+
+1. Global Command Bar (Primary Control Layer)
+
+أوامر مباشرة مثل:
+
+* “اعرض حالة جميع المكاتب”
+* “ما هي الأخطاء الحرجة الآن؟”
+* “حلل أداء المنصة اليوم”
+* “أين يوجد ضغط في النظام؟”
+* “أوقف خدمة AI مؤقتاً”
+* “راجع استخدام API هذا الأسبوع”
+
+⸻
+
+2. System Health View (Live)
+
+بدون dashboards تقليدية، بل:
+
+* CPU / Memory / DB Load
+* API latency
+* Error rate
+* Queue backlog
+* Active tenants
+
+كلها real-time streams وليس صفحات ثابتة
+
+⸻
+
+3. Tenant Intelligence Layer
+
+عرض جميع المكاتب (Tenants) ككيانات ذكية:
+
+لكل مكتب:
+
+* Health Score
+* Revenue
+* Active users
+* AI usage
+* Risk indicators
+* Billing status
+
+مع إمكانية:
+
+* الدخول إلى أي مكتب (Impersonation Mode)
+* تحليل سلوكه
+* مقارنة الأداء بين المكاتب
+
+⸻
+
+4. Engineering Command Layer
+
+أوامر مباشرة:
+
+* “اعرض آخر 50 خطأ في النظام”
+* “حلل البطء في API /cases”
+* “أعد تشغيل خدمة notifications”
+* “اعرض الاستعلامات البطيئة في DB”
+
+⸻
+
+5. AI Operations Center
+
+مراقبة الذكاء الاصطناعي:
+
+* AI usage per tenant
+* Cost per request
+* Most used models
+* Failure rate
+* Automation success rate
+
+⸻
+
+6. Security & Audit Center
+
+* جميع الدخولات
+* impersonation sessions
+* API token usage
+* suspicious activity
+* role changes
+
+⸻
+
+المرحلة 3: System Intelligence Layer
+
+Platform Intelligence Engine
+
+النظام يجب أن يقوم تلقائيًا بـ:
+
+* اكتشاف المشاكل قبل حدوثها
+* تنبيه المالك بالمخاطر
+* اقتراح تحسينات
+* تحليل الاتجاهات
+
+⸻
+
+مثال:
+
+Detected:
+High API latency in /legal-ai
+AI Analysis:
+Cause: database query bottleneck
+Suggestion:
+Add index on case_status + tenant_id
+
+⸻
+
+المرحلة 4: Impersonation Mode (Secure)
+
+يجب أن يحتوي النظام على:
+
+Secure Tenant Access
+
+* الدخول إلى أي مكتب كـ Owner
+* مراقبة كاملة
+* تسجيل كل العمليات (Audit Log)
+* تنبيه واضح: “You are in impersonation mode”
+
+⸻
+
+المرحلة 5: Real-Time Event Stream
+
+بدلاً من dashboards:
+
+استخدم:
+
+* Live event feed
+* System log stream
+* AI insights stream
+* Error stream
+* Activity stream
+
+⸻
+
+المرحلة 6: Developer Command System
+
+المطور لا يتعامل مع صفحات، بل أوامر:
+
+* “deploy latest version”
+* “rollback last release”
+* “run database optimization”
+* “check API performance”
+* “list broken endpoints”
+
+⸻
+
+المرحلة 7: Performance & Observability Layer
+
+عرض:
+
+* Request per second
+* p95 latency
+* DB query time
+* cache hit rate
+* memory usage
+* queue health
+
+كلها في real-time streaming format
+
+⸻
+
+المرحلة 8: UX Philosophy
+
+* لا توجد dashboards تقليدية
+* لا توجد صفحات KPI ثابتة
+* كل شيء “live + command-based”
+* كل شيء قابل للاستدعاء بالأمر
+
+⸻
+
+المرحلة 9: Safety Rules
+
+* لا يمكن تنفيذ destructive actions بدون confirmation
+* جميع الأوامر تُسجل
+* impersonation fully logged
+* access control strict (RBAC + ABAC)
+
+⸻
+
+المرحلة 10: Final Vision
+
+تحويل لوحة مالك منصة عدالة AI إلى:
+
+“AI-powered SaaS Operating Command System”
+يجمع بين:
+
+* Stripe Ops Console
+* AWS CloudWatch
+* Linear Engineering UI
+* ChatGPT Command Interface
+
+⸻
+
+النتيجة النهائية
+
+بدلاً من:
+
+* Dashboard
+* KPIs
+* Pages
+
+تصبح:
+
+* Commands
+* Live Streams
+* System Intelligence
+* Tenant Control
+* Engineering Operations
+
+⸻
+
+الخلاصة
+
+هذا التحول يجعل لوحة مالك المنصة:
+
+* ليست “لوحة معلومات”
+* بل “غرفة تحكم منصة SaaS كاملة”
+
+تشبه:
+
+* AWS Console
+* Stripe Dashboard
+* Datadog
+* GitHub Actions
+    لكن مدموجة في نظام واحد ذكي
+
+⸻
+
+إذا تريد الخطوة التالية، أقدر أبني لك:
+
+Architecture فعلي لكيف تبني Command Engine داخل React + Node + PostgreSQL (كود حقيقي وليس Prompt)

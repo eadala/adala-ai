@@ -1,0 +1,165 @@
+Adala Go-Live Hardening Checklist
+
+Objective
+
+Ensure Adala platform is fully production-ready for real law firms with paying clients, with zero risk of data leakage, downtime, or silent failures.
+
+⸻
+
+🔴 1. Tenant Isolation Final Verification (CRITICAL)
+
+Must verify:
+
+* Every database query includes office_id
+* No raw DB access exists anywhere in codebase
+* No endpoint returns unfiltered data
+* No cached data leaks between tenants
+
+Test:
+
+* Create 2 tenants (Office A, Office B)
+* Insert identical case/client IDs
+* Verify zero cross-access under any scenario
+
+⸻
+
+🔴 2. Authentication & Session Integrity
+
+Must verify:
+
+* Clerk session cannot be spoofed
+* JWT cannot be reused across tenants
+* Session expiration works correctly
+* No auth bypass via query params or headers
+
+Test cases:
+
+* Invalid token → reject
+* Expired session → force logout
+* Cross-tenant session reuse → blocked
+
+⸻
+
+🔴 3. API Security Lockdown
+
+Must verify:
+
+* All routes use securityGateway
+* No public GET endpoints expose sensitive data
+* No missing middleware on any route
+
+Scan:
+
+* /cases
+* /clients
+* /documents
+* /contracts
+* /invoices
+
+⸻
+
+🔴 4. Data Leakage Simulation Test
+
+Simulate attack scenarios:
+
+* Change office_id in request
+* Modify JWT claims manually
+* Replay old API responses
+* Attempt ID enumeration
+
+Expected result:
+
+* All attempts blocked
+* No data returned outside tenant
+
+⸻
+
+🟠 5. Performance Under Load
+
+Test under:
+
+* 50 concurrent users
+* 500 requests/minute
+
+Check:
+
+* API response time < 300ms
+* No memory leaks
+* No DB connection exhaustion
+
+⸻
+
+🟠 6. Database Integrity
+
+Verify:
+
+* No orphan records exist
+* Foreign keys enforced
+* Cascading deletes behave correctly
+* No UUID/TEXT mismatches remain
+
+⸻
+
+🟡 7. Frontend Stability
+
+Verify:
+
+* No blank screen under production build
+* No chunk loading failures
+* No React hydration errors
+* Clerk loads consistently on .replit.app
+
+⸻
+
+🟡 8. Error Handling & Observability
+
+Must confirm:
+
+* All backend errors logged
+* No silent failures
+* Frontend ErrorBoundary active
+* API errors return structured JSON
+
+Format:
+
+{
+“error”: true,
+“code”: “…”,
+“message”: “…”
+}
+
+⸻
+
+🟡 9. Billing & Payment Safety
+
+Verify:
+
+* No duplicate Stripe webhooks
+* Signature verification enforced
+* No manual invoice tampering
+* Payment state is idempotent
+
+⸻
+
+🟢 10. Go-Live Readiness Gate
+
+System is considered LIVE ONLY IF:
+
+* Tenant isolation = 100% safe
+* No critical security issues
+* No unprotected endpoints
+* No production JS errors
+* No DB inconsistency
+
+⸻
+
+FINAL VERDICT
+
+Return one of:
+
+* NOT READY
+* READY WITH RISKS
+* PRODUCTION READY
+* ENTERPRISE READY
+
+Include list of all blocking issues if any exist.

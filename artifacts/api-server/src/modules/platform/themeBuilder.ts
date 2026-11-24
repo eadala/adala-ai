@@ -1,0 +1,303 @@
+import { requireAuth } from "../../middlewares/requireAuth";
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+
+const router = Router();
+
+/* ═══════════════════════════════════════════════════
+   DEFAULT TOKENS  (Legal Blue — Adala Design System)
+═══════════════════════════════════════════════════ */
+export const DEFAULT_TOKENS = {
+  colors: {
+    primary:    "#FFFFFF",
+    accent:     "#1E3A8A",
+    background: "#F8FAFC",
+    surface:    "#FFFFFF",
+    sidebar:    "#FFFFFF",
+    text:       "#1E293B",
+    textMuted:  "#64748B",
+    border:     "#E2E8F0",
+    success:    "#16A34A",
+    warning:    "#F59E0B",
+    danger:     "#DC2626",
+  },
+  typography: {
+    fontFamily:    "IBM Plex Sans Arabic",
+    headingFont:   "IBM Plex Sans Arabic",
+    baseSize:      "14",
+    headingWeight: "700",
+    bodyWeight:    "400",
+  },
+  radius:  { card: "12", button: "8",  input: "8",  badge: "6"  },
+  spacing: { sm:  "8",   md:     "16", lg:    "24", xl:   "32" },
+  shadows: {
+    card:   "0 2px 12px rgba(0,0,0,0.06)",
+    button: "0 2px 6px rgba(30,58,138,0.2)",
+  },
+  scope: "both" as const,
+};
+
+/* ═══════════════════════════════════════════════════
+   PRESET DEFINITIONS  (12 Arabic-named presets)
+═══════════════════════════════════════════════════ */
+const PRESETS = [
+  /* ── عدالة الافتراضي (مقفول) ── */
+  {
+    id: "adala-default",
+    name: "عدالة الافتراضي",
+    category: "light",
+    preview: "#1E3A8A",
+    tokens: DEFAULT_TOKENS,
+  },
+
+  /* ── LIGHT ── */
+  {
+    id: "pure-white",
+    name: "أبيض نقي",
+    category: "light",
+    preview: "#FFFFFF",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#E8EEF8",
+        accent:     "#1E3A5F",
+        background: "#FFFFFF",
+        surface:    "#F8FAFC",
+        sidebar:    "#F1F5F9",
+        text:       "#0F172A",
+        textMuted:  "#64748B",
+        border:     "#CBD5E1",
+        success:    "#16A34A",
+        warning:    "#D97706",
+        danger:     "#DC2626",
+      },
+    },
+  },
+  {
+    id: "white-gold",
+    name: "أبيض ذهبي",
+    category: "light",
+    preview: "#FFFEF7",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#EEE8D8",
+        accent:     "#C9A84C",
+        background: "#FFFEF7",
+        surface:    "#FFFFFF",
+        sidebar:    "#FBF8F1",
+        text:       "#1C1610",
+        textMuted:  "#78663A",
+        border:     "#DDD5BE",
+        success:    "#16A34A",
+        warning:    "#D97706",
+        danger:     "#DC2626",
+      },
+    },
+  },
+  {
+    id: "warm-sand",
+    name: "رملي دافئ",
+    category: "light",
+    preview: "#FAF5EC",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#E8D9B8",
+        accent:     "#A0845C",
+        background: "#FAF5EC",
+        surface:    "#FFF8F0",
+        sidebar:    "#EEE0C8",
+        text:       "#2C1810",
+        textMuted:  "#7C6040",
+        border:     "#D4BC90",
+        success:    "#4A7C59",
+        warning:    "#D4831F",
+        danger:     "#C0392B",
+      },
+    },
+  },
+  {
+    id: "morning-blue",
+    name: "أزرق صباحي",
+    category: "light",
+    preview: "#F0F7FF",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#DBE9F8",
+        accent:     "#1565C0",
+        background: "#F0F7FF",
+        surface:    "#FFFFFF",
+        sidebar:    "#E3EEFA",
+        text:       "#0D2137",
+        textMuted:  "#4A6585",
+        border:     "#BDD4EF",
+        success:    "#1B7340",
+        warning:    "#C77700",
+        danger:     "#C0392B",
+      },
+    },
+  },
+  {
+    id: "mint-fresh",
+    name: "أخضر نعناعي",
+    category: "light",
+    preview: "#F0FAF5",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#D0EEDC",
+        accent:     "#0E7549",
+        background: "#F0FAF5",
+        surface:    "#FFFFFF",
+        sidebar:    "#E0F2E9",
+        text:       "#0D2818",
+        textMuted:  "#3D7055",
+        border:     "#B0DCC0",
+        success:    "#0E7549",
+        warning:    "#C77700",
+        danger:     "#C0392B",
+      },
+    },
+  },
+  {
+    id: "soft-gray",
+    name: "رمادي ناعم",
+    category: "light",
+    preview: "#F5F7FA",
+    tokens: {
+      ...DEFAULT_TOKENS,
+      colors: {
+        primary:    "#E8ECF4",
+        accent:     "#4F6BD6",
+        background: "#F5F7FA",
+        surface:    "#FFFFFF",
+        sidebar:    "#EAEEF5",
+        text:       "#1A202C",
+        textMuted:  "#718096",
+        border:     "#D1D9E8",
+        success:    "#2E8B57",
+        warning:    "#D4831F",
+        danger:     "#E53E3E",
+      },
+    },
+  },
+];
+
+/* ═══════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════ */
+async function sqlOne(q: any) {
+  try {
+    const r = await db.execute(q) as any;
+    const rows = Array.isArray(r) ? r : (r?.rows ?? []);
+    return rows[0] ?? null;
+  } catch { return null; }
+}
+
+let themeSchemaReady = false;
+async function ensureThemeSchemaReady() {
+  if (themeSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT to_regclass('public.office_themes') IS NOT NULL AS present
+    `) as { rows?: { present?: boolean }[] };
+    const row = (Array.isArray(r) ? r[0] : (r?.rows ?? [])[0]) ?? {};
+    if (!row.present) {
+      console.error("[themeBuilder] Migration 055 schema not ready — office_themes missing");
+      return;
+    }
+    themeSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+
+/* ═══════════════════════════════════════════════════
+   ROUTES
+═══════════════════════════════════════════════════ */
+
+/* GET /theme-builder/tokens — current user's active theme */
+router.get("/theme-builder/tokens", requireAuth, async (req, res) => {
+  try {
+    await ensureThemeSchemaReady();
+    const { userId } = getAuth(req as any);
+    const uid = userId ?? "default";
+    const row = await sqlOne(sql`
+      SELECT tokens FROM office_themes
+      WHERE user_id = ${uid} AND is_active = true
+      ORDER BY updated_at DESC LIMIT 1
+    `);
+    if (row?.tokens) {
+      res.json({ tokens: row.tokens, hasCustomTheme: true });
+    } else {
+      /* No saved custom theme — tell frontend to use CSS vars as-is */
+      res.json({ tokens: null, hasCustomTheme: false });
+    }
+  } catch { res.json({ tokens: null, hasCustomTheme: false }); }
+});
+
+/* GET /theme-builder/public-tokens — public (no auth) for landing page */
+router.get("/theme-builder/public-tokens", async (_req, res) => {
+  try {
+    await ensureThemeSchemaReady();
+    const row = await sqlOne(sql`
+      SELECT tokens FROM office_themes
+      WHERE is_active = true
+      ORDER BY updated_at DESC LIMIT 1
+    `);
+    const tokens = row?.tokens ?? DEFAULT_TOKENS;
+    const scope = (tokens as any).scope ?? "both";
+    if (scope === "platform") {
+      return res.json({ tokens: DEFAULT_TOKENS });
+    }
+    res.json({ tokens });
+  } catch { res.json({ tokens: DEFAULT_TOKENS }); }
+});
+
+/* POST /theme-builder/save */
+router.post("/theme-builder/save", requireAuth, async (req, res) => {
+  try {
+    await ensureThemeSchemaReady();
+    const { userId } = getAuth(req as any);
+    const { tokens, name } = req.body;
+    if (!tokens) return res.status(400).json({ error: "tokens مطلوب" });
+
+    const existing = await sqlOne(sql`
+      SELECT id FROM office_themes WHERE user_id = ${userId!} AND is_active = true LIMIT 1
+    `);
+    if (existing) {
+      await db.execute(sql`
+        UPDATE office_themes
+        SET tokens     = ${JSON.stringify(tokens)}::jsonb,
+            name       = ${name ?? "الثيم المخصص"},
+            scope      = ${(tokens as any).scope ?? "both"},
+            updated_at = NOW()
+        WHERE user_id = ${userId!} AND is_active = true
+      `);
+    } else {
+      await db.execute(sql`
+        INSERT INTO office_themes (user_id, name, tokens, scope, is_active, updated_at)
+        VALUES (${userId!}, ${name ?? "الثيم المخصص"}, ${JSON.stringify(tokens)}::jsonb,
+                ${(tokens as any).scope ?? "both"}, true, NOW())
+      `);
+    }
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* DELETE /theme-builder/reset — restore to defaults */
+router.delete("/theme-builder/reset", requireAuth, async (req, res) => {
+  try {
+    await ensureThemeSchemaReady();
+    const { userId } = getAuth(req as any);
+    await db.execute(sql`DELETE FROM office_themes WHERE user_id = ${userId!}`);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* GET /theme-builder/presets */
+router.get("/theme-builder/presets", (_req, res) => res.json(PRESETS));
+
+export default router;

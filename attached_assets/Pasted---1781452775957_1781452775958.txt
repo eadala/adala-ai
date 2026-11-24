@@ -1,0 +1,110 @@
+إذا كان الموقع كان يعمل ثم بعد طلبك تحويل رابط العميل إلى رابط إلزامي وجاهز لا يمكن تغييره ظهرت الشاشة البيضاء مباشرة، فاحتمال كبير أن المشكلة ليست في Clerk أو React أساساً، بل في منطق الروابط (Routing / URL Handling).
+
+الأسباب الأكثر احتمالاً:
+
+1. كسر الـ Router
+
+مثال:
+
+const tenantSlug = settings.customUrl;
+navigate(`/${tenantSlug}`);
+
+ثم أصبح:
+
+const tenantSlug = undefined;
+navigate(`/${tenantSlug}`);
+
+فتدخل الصفحة في Loop أو Crash.
+
+⸻
+
+2. فرض رابط إجباري بدون بيانات موجودة
+
+مثلاً:
+
+if (!office.customDomain) {
+  throw new Error("Custom Domain Required");
+}
+
+لكن المكاتب القديمة لا تملك customDomain.
+
+فتنهار الواجهة بالكامل.
+
+⸻
+
+3. Middleware يمنع كل الصفحات
+
+مثال:
+
+if (!tenantSlug) {
+   return redirect("/setup-domain");
+}
+
+وصفحة setup-domain نفسها تحتاج tenantSlug.
+
+فتدخل في Redirect Loop.
+
+⸻
+
+4. تعديل قاعدة البيانات
+
+إذا تم تغيير الحقل من:
+
+website_url nullable
+
+إلى:
+
+website_url not null
+
+بدون تحديث البيانات القديمة.
+
+فقد تفشل استعلامات البداية.
+
+⸻
+
+5. Infinite Redirect
+
+مثال:
+
+useEffect(() => {
+  navigate(`/office/${slug}`);
+}, [slug]);
+
+وعند كل تحميل يعيد التوجيه لنفس الصفحة.
+
+فيظهر للمستخدم شاشة فارغة.
+
+⸻
+
+قبل أي إصلاح
+
+أنصحك بإرجاع آخر نسخة كانت تعمل.
+
+إذا كنت على Replit:
+
+1. افتح History.
+2. ارجع إلى النسخة قبل طلب:
+
+“اجعل رابط العميل إلزامياً وغير قابل للتعديل”
+
+3. شغل الموقع.
+
+إذا عاد للعمل فوراً فتم تحديد السبب بنسبة كبيرة.
+
+⸻
+
+أعطِ الـ Agent هذا الأمر:
+
+Search git history and identify all files modified after the feature:
+"Make client website URL mandatory and auto-generated"
+Compare current version with the last working deployment.
+Rollback only the URL enforcement changes.
+Restore previous routing behavior.
+Restore nullable URL handling.
+Remove redirect loops.
+Verify homepage renders.
+Verify login renders.
+Verify dashboard renders.
+Generate exact root cause report with changed files.
+
+ومن وصفك، أرجح أن الخطأ ليس عشوائياً، بل مرتبط مباشرة بالتعديل الأخير الخاص بإجبار العميل على استخدام رابط معين. ابدأ بالرجوع إلى آخر نسخة مستقرة قبل هذا التعديل، وغالباً سيعود الموقع للعمل ثم يمكن إعادة تنفيذ الميزة بطريقة صحيحة.

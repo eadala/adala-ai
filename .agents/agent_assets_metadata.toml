@@ -1,0 +1,32 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "duS8RMlCtEWQ1R3uPpfMi"
+uri = "file://adala-production-audit.md"
+type = "text"
+title = "تقرير التدقيق الاحترافي — عدالة AI"
+
+[[outputs]]
+id = "REHR6shEEaLc5CWWwuaNt"
+uri = "file://FINAL_PRODUCTION_READINESS_REPORT.md"
+type = "text"
+title = "FINAL_PRODUCTION_READINESS_REPORT.md"
+
+[[outputs]]
+id = "ZN-z-ka_gKXrD13Ne5XmT"
+uri = "file://LAUNCH_BLOCKERS_REPORT.md"
+type = "text"
+title = "LAUNCH_BLOCKERS_REPORT.md"
+
+[[outputs]]
+id = "30X3WPJcmi8yosCo-AaQV"
+uri = "file://STRIPE_PRODUCTION_AUDIT.md"
+type = "text"
+title = "STRIPE_PRODUCTION_AUDIT.md"
+
+[[outputs]]
+id = "HSyBaaqrq3dCg9cacuxJ7"
+uri = "file://ADALA_PLATFORM_AUDIT_REPORT.md"
+type = "text"
+title = "تقرير التدقيق الشامل — ADALA AI Platform Audit"

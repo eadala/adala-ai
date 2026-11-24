@@ -1,0 +1,239 @@
+تمام. هذا هو CI/CD Production Pipeline احترافي لعدالة AI (GitHub → Hetzner) مع:
+
+* Auto Deploy
+* Migrations آمنة
+* Rollback
+* Zero-downtime restart
+
+سأعطيك التصميم + الملفات الجاهزة.
+
+⸻
+
+🧠 1. الفكرة العامة (Pipeline Architecture)
+
+GitHub Push
+    ↓
+GitHub Actions
+    ↓
+SSH إلى Hetzner
+    ↓
+Pull latest code
+    ↓
+Docker build
+    ↓
+DB migrations
+    ↓
+Rolling restart
+    ↓
+Live production
+
+⸻
+
+📁 2. إعداد GitHub Actions
+
+أنشئ الملف:
+
+.github/workflows/deploy.yml
+
+⸻
+
+⚙️ 3. CI/CD Pipeline (Production Ready)
+
+name: Deploy Adalah AI
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+      - name: Deploy to Hetzner Server
+        run: |
+          ssh root@${{ secrets.SERVER_IP }} << 'EOF'
+          cd /var/www/adalah-ai
+          echo "🔄 Pull latest code..."
+          git pull origin main
+          echo "🐳 Rebuilding containers..."
+          docker compose down
+          docker compose build --no-cache
+          echo "🗄️ Running migrations..."
+          docker compose run --rm api npm run migrate
+          echo "🚀 Starting services..."
+          docker compose up -d
+          echo "✅ Deployment successful"
+          EOF
+
+⸻
+
+🔐 4. GitHub Secrets المطلوبة
+
+في GitHub repo:
+
+Settings → Secrets and Variables → Actions
+
+أضف:
+
+SSH_KEY      = private SSH key
+SERVER_IP    = your hetzner ip
+
+⸻
+
+🖥️ 5. تجهيز السيرفر (مرة واحدة فقط)
+
+على Hetzner:
+
+mkdir -p /var/www/adalah-ai
+cd /var/www/adalah-ai
+git clone https://github.com/your-org/adalah-ai.git .
+
+⸻
+
+🐳 6. إضافة Script Migrations (مهم جداً)
+
+في package.json داخل API:
+
+{
+  "scripts": {
+    "migrate": "node ./dist/migrate.js"
+  }
+}
+
+⸻
+
+🧠 7. Migration Runner (آمن)
+
+import { Pool } from "pg";
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+async function run() {
+  await db.query(`
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+  `);
+  console.log("Migrations complete");
+}
+run().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+
+⸻
+
+🚀 8. تحسين مهم (Zero-Downtime Deploy)
+
+بدل:
+
+docker compose down
+docker compose up -d
+
+استخدم:
+
+docker compose up -d --build --remove-orphans
+
+أو أفضل:
+
+docker compose up -d --scale api=2
+
+⸻
+
+🔁 9. Rollback System (احترافي)
+
+أضف tag لكل release:
+
+git tag v1.0.0
+git push origin v1.0.0
+
+ولو فشل deploy:
+
+git checkout v1.0.0
+docker compose up -d --build
+
+⸻
+
+📊 10. إضافة Health Check (مهم جداً)
+
+في API:
+
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({ status: "ok" });
+  } catch {
+    res.status(500).json({ status: "error" });
+  }
+});
+
+⸻
+
+🔐 11. تحسين أمان CI/CD
+
+على السيرفر:
+
+ufw allow 22
+ufw allow 80
+ufw allow 443
+ufw enable
+
+وممنوع فتح DB مباشرة من الخارج.
+
+⸻
+
+🧠 12. الشكل النهائي للنظام
+
+Developer Push
+    ↓
+GitHub Actions
+    ↓
+Hetzner Server
+    ↓
+Docker Build
+    ↓
+Migration Runner
+    ↓
+Rolling Deploy
+    ↓
+Health Check
+    ↓
+Production Live
+
+⸻
+
+📈 13. ماذا أصبحت الآن عدالة AI؟
+
+أصبحت:
+
+* SaaS-ready deployment
+* قابل للتوسع
+* قابل للـ rollback
+* آمن migrations
+* فصل كامل بين layers
+* مناسب لمنتج قانوني فعلي
+
+⸻
+
+🧠 الخلاصة
+
+أنت الآن انتقلت من:
+
+Replit Prototype
+
+إلى:
+
+Real Production Legal AI Platform
+
+⸻
+
+إذا تريد الخطوة التالية، ￼ أقدر أبني لك مباشرة:
+
+🔥 “Observability Stack كامل (Logs + Monitoring + Alerts + Grafana + Sentry) لعدالة AI”
+
+وهذا هو ما يجعل النظام “مؤسسي فعلياً” وليس مجرد تشغيل إنتاجي.

@@ -1,0 +1,131 @@
+global:
+  resolve_timeout: 5m
+  smtp_from: "alerts@adala.ai"
+  smtp_smarthost: "${SMTP_HOST:-smtp.gmail.com}:587"
+  smtp_auth_username: "${SMTP_USER}"
+  smtp_auth_password: "${SMTP_PASSWORD}"
+  smtp_require_tls: true
+
+# ── توجيه التنبيهات (مع noise control) ──────────────────────
+route:
+  group_by: ["alertname", "severity"]
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+  receiver: "default"
+  routes:
+    - match:
+        severity: critical
+      receiver: "critical"
+      repeat_interval: 1h
+      continue: true
+
+    # Decision Engine يتعامل مع كل critical
+    - match:
+        severity: critical
+      receiver: "decision-engine"
+      repeat_interval: 5m
+      continue: false
+
+    # Fallback مباشر لو Decision Engine معطّل (APIDown فقط)
+    - match:
+        severity: critical
+        alertname: APIDown
+      receiver: "auto-heal-api"
+      repeat_interval: 5m
+
+    - match:
+        alertname: LegalOperationsCritical
+      receiver: "legal-ops"
+      repeat_interval: 2h
+
+    - match:
+        severity: warning
+      receiver: "warning"
+      repeat_interval: 6h
+
+receivers:
+  # ── default (email) ────────────────────────────────────
+  - name: "default"
+    email_configs:
+      - to: "${ALERT_EMAIL:-admin@adala.ai}"
+        send_resolved: true
+        headers:
+          Subject: "[عدالة AI] {{ .GroupLabels.alertname }}"
+        body: |
+          {{ range .Alerts }}
+          {{ if eq .Status "firing" }}⚠️  تنبيه جديد{{ else }}✅ تم الحل{{ end }}
+          التنبيه: {{ .Annotations.summary }}
+          الخطورة: {{ .Labels.severity }}
+          الوقت: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          {{ end }}
+
+  # ── critical (email + Slack) ────────────────────────────
+  - name: "critical"
+    email_configs:
+      - to: "${ALERT_EMAIL:-admin@adala.ai}"
+        send_resolved: true
+        headers:
+          Subject: "🚨 [CRITICAL] عدالة AI — {{ .GroupLabels.alertname }}"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#alerts"
+        send_resolved: true
+        icon_emoji: ":rotating_light:"
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: '{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ if .Annotations.description }}_{{ .Annotations.description }}_{{ end }}
+          {{ end }}
+
+  # ── warning (Slack فقط) ─────────────────────────────────
+  - name: "warning"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#monitoring"
+        send_resolved: true
+        icon_emoji: ":warning:"
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: '⚠️  {{ .GroupLabels.alertname }}'
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+
+  # ── Decision Engine (context-aware routing) ──────────────
+  - name: "decision-engine"
+    webhook_configs:
+      - url: "http://decision-engine:3002/alert"
+        send_resolved: true
+        http_config: {}
+        max_alerts: 5
+
+  # ── auto-heal مباشر: fallback إذا Decision Engine معطّل ──
+  - name: "auto-heal-api"
+    webhook_configs:
+      - url: "http://api:8080/internal/heal"
+        send_resolved: false
+        http_config:
+          bearer_token: "${HEAL_SECRET:-adala-heal-token-change-me}"
+        max_alerts: 1
+
+  # ── Legal operations alert (from case-intelligence) ───────
+  - name: "legal-ops"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#legal-ops"
+        send_resolved: true
+        icon_emoji: ":scales:"
+        title: '⚖️ Legal Operations Alert'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ if .Annotations.description }}_{{ .Annotations.description }}_{{ end }}
+          {{ end }}
+
+inhibit_rules:
+  - source_match:
+      severity: "critical"
+    target_match:
+      severity: "warning"
+    equal: ["alertname"]

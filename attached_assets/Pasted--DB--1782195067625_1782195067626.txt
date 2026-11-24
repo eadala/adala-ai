@@ -1,0 +1,185 @@
+تمام—هذا عرضٌ لمشكلة تشغيلية وليس “خلل عشوائي”، وغالباً مرتبط مباشرة بالتغييرات الأخيرة في الـ DB / migrations أو فصل البيئات.
+
+خلّنا نشتغل عليها بطريقة تشخيص سريعة ومنهجية:
+
+⸻
+
+أولاً: حدّد نوع العطل بدقة
+
+صفحة الفواتير والاشتراك عادة تتعطل لأحد هذه الأسباب:
+
+1) خطأ في الـ API (الأكثر شيوعاً)
+
+* 500 Internal Server Error
+* endpoint لا يرجع بيانات
+
+2) مشكلة قاعدة بيانات
+
+* جدول اشتراكات/فواتير غير متوافق
+* تغيير schema (مثل UUID ↔ TEXT)
+* migration ناقص
+
+3) مشكلة Auth
+
+* المستخدم غير مُعرّف داخل request
+* token لا يحمل user_id صحيح
+
+4) Frontend issue
+
+* الصفحة لا تعرض بسبب undefined data
+* أو فشل fetch
+
+⸻
+
+ثانياً: أسرع تشخيص (خطوة واحدة مهمة جداً)
+
+افتح DevTools في المتصفح:
+
+Network tab
+
+ثم ادخل صفحة الاشتراك
+
+وابحث عن:
+
+* request فاشل
+* status code (500 / 401 / 404)
+
+⸻
+
+ثالثاً: أكثر سبب محتمل في حالتك (حسب سياقك السابق)
+
+بناءً على تغييرك الأخير:
+
+تحويل dev/prod + مشاكل UUID/TEXT
+
+فالأرجح جداً أن المشكلة هنا:
+
+🔴 اختلاف في جدول الاشتراكات أو الفواتير
+
+مثال شائع:
+
+user_id UUID (في dev)
+user_id TEXT (في production)
+
+أو:
+
+subscription_id UUID
+invoice_id TEXT
+
+فتفشل JOIN queries مثل:
+
+SELECT * FROM subscriptions
+WHERE user_id = $1
+
+⸻
+
+رابعاً: افحص هذه الأشياء فوراً
+
+1) Backend logs
+
+ابحث عن:
+
+ERROR
+Sequelize / Prisma / QueryFailedError
+relation does not exist
+invalid input syntax for type uuid
+
+⸻
+
+2) جدول الاشتراكات
+
+نفّذ:
+
+SELECT * FROM subscriptions LIMIT 5;
+
+ثم:
+
+\d subscriptions
+
+⸻
+
+3) API endpoint
+
+غالباً:
+
+* /api/billing
+* /api/subscriptions
+* /api/invoices
+
+افحص هل يرجع:
+
+* null
+* error
+* empty response
+
+⸻
+
+خامساً: إصلاحات محتملة مباشرة
+
+الحالة (A): user_id mismatch
+
+إذا كان TEXT vs UUID:
+
+الحل:
+
+ALTER TABLE subscriptions
+ALTER COLUMN user_id TYPE text;
+
+أو الأفضل (لو قررت UUID لاحقاً):
+
+USING user_id::uuid
+
+⸻
+
+الحالة (B): جدول مفقود بعد migration
+
+SELECT tablename FROM pg_tables;
+
+⸻
+
+الحالة (C): API يفشل بسبب null user
+
+في backend:
+
+if (!req.user?.id) {
+  return res.status(401).json({ error: "Unauthorized" });
+}
+
+⸻
+
+سادساً: احتمال قوي جداً في نظامك (مهم)
+
+بما أنك عدّلت بيئة DB مؤخراً:
+
+قد يكون جدول الاشتراكات لم يتم ترحيله بنفس طريقة ai_workflows
+
+يعني:
+
+* جزء TEXT
+* جزء UUID
+* أو migration لم يُطبق بالكامل
+
+⸻
+
+الخلاصة
+
+تعطل صفحة الاشتراك غالباً ليس Frontend مشكلة.
+
+بل واحد من التالي:
+
+1. mismatch في user_id (الأرجح)
+2. migration ناقص في جدول billing
+3. API error بسبب UUID/TEXT
+4. query JOIN فشل
+
+⸻
+
+الخطوة التالية (ضرورية)
+
+أرسل لي واحد من التالي وسأحدد لك السبب بدقة خلال رسالة واحدة:
+
+* رسالة الخطأ من Console أو Network
+* أو كود endpoint الخاص بالاشتراكات
+* أو schema جدول subscriptions / invoices
+
+وسأعطيك إصلاح مباشر بدون تخمين.

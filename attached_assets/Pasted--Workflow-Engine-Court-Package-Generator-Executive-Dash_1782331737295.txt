@@ -1,0 +1,427 @@
+إذا كنت تقصد Workflow Engine + Court Package Generator + Executive Dashboard كآخر مرحلة ناقصة، فإليك مواصفات احترافية جاهزة لإرسالها إلى Replit Agent:
+
+ADALAH BANKRUPTCY V2
+
+Workflow Engine + Court Package Generator + Executive Dashboard
+
+Objective
+
+Implement the next generation of Adalah Bankruptcy.
+
+The system must evolve from a bankruptcy management module into a complete Bankruptcy Operating System.
+
+All new functionality must integrate with the existing architecture.
+
+No existing routes, APIs, tables, permissions, subscriptions, or workflows may be modified or broken.
+
+All enhancements must be additive and backward compatible.
+
+⸻
+
+PHASE 1
+
+Bankruptcy Workflow Engine
+
+Create a workflow orchestration engine.
+
+Purpose:
+
+Guide users through the complete bankruptcy lifecycle.
+
+Database:
+
+bk_workflows
+
+bk_workflow_steps
+
+bk_workflow_events
+
+⸻
+
+Default Workflow
+
+Draft
+
+Preparation
+
+Court Submission
+
+Court Review
+
+Case Opened
+
+Claims Collection
+
+Claims Verification
+
+Assets Management
+
+Meetings
+
+Voting
+
+Distribution
+
+Closure
+
+⸻
+
+Workflow Features
+
+Track:
+
+Current Step
+
+Completion Percentage
+
+Pending Actions
+
+Required Documents
+
+Assigned Users
+
+Due Dates
+
+Automatic Reminders
+
+⸻
+
+Dashboard Widget
+
+Display:
+
+Current Workflow Stage
+
+Completion %
+
+Upcoming Tasks
+
+Blocked Tasks
+
+Overdue Tasks
+
+⸻
+
+PHASE 2
+
+Court Package Generator
+
+Create a one-click court filing generator.
+
+Button:
+
+Generate Court Package
+
+Source Data:
+
+Case
+
+Creditors
+
+Claims
+
+Assets
+
+Liabilities
+
+Documents
+
+AI Analysis
+
+⸻
+
+Generated Documents
+
+Opening Petition
+
+Bankruptcy Filing Request
+
+Financial Summary
+
+Assets Register
+
+Liabilities Register
+
+Creditors Register
+
+Case Timeline
+
+Executive Summary
+
+Supporting Documents Index
+
+⸻
+
+Export Formats
+
+PDF
+
+DOCX
+
+Arabic RTL
+
+Professional Layout
+
+Court Ready
+
+⸻
+
+Storage
+
+Generated files stored in:
+
+bk_reports
+
+Document category:
+
+court_package
+
+⸻
+
+PHASE 3
+
+Executive Dashboard
+
+Create management-level analytics.
+
+Route:
+
+/bankruptcy/executive
+
+⸻
+
+KPIs
+
+Total Cases
+
+Active Cases
+
+Closed Cases
+
+Total Creditors
+
+Total Claims
+
+Approved Claims
+
+Rejected Claims
+
+Disputed Claims
+
+Total Assets
+
+Total Asset Value
+
+Total Liabilities
+
+Recovery Rate
+
+Distribution Rate
+
+Case Completion Rate
+
+⸻
+
+Charts
+
+Claims by Status
+
+Assets by Category
+
+Liabilities by Category
+
+Monthly Activity
+
+Case Progress
+
+Recovery Trend
+
+⸻
+
+Filters
+
+Office
+
+Date Range
+
+Case Type
+
+Procedure Type
+
+Trustee
+
+Status
+
+⸻
+
+PHASE 4
+
+Smart Task Engine
+
+Create intelligent task management.
+
+Database:
+
+bk_tasks
+
+bk_task_comments
+
+bk_task_assignments
+
+⸻
+
+Automatic Tasks
+
+Missing Documents
+
+Claim Review Required
+
+Meeting Preparation
+
+Distribution Approval
+
+Court Filing Review
+
+Asset Valuation Required
+
+⸻
+
+Features
+
+Assignment
+
+Priority
+
+Due Date
+
+Notifications
+
+Escalation Rules
+
+Completion Tracking
+
+⸻
+
+PHASE 5
+
+Bankruptcy Templates Engine
+
+Create reusable templates.
+
+Database:
+
+bk_templates
+
+⸻
+
+Templates
+
+Opening Petition
+
+Trustee Report
+
+Meeting Minutes
+
+Distribution Report
+
+Claim Review Report
+
+Asset Evaluation Report
+
+Court Correspondence
+
+⸻
+
+AI Integration
+
+Allow AI to populate templates automatically.
+
+Human approval required before publishing.
+
+⸻
+
+PHASE 6
+
+Executive Alerts System
+
+Create proactive alerts.
+
+Alert Types:
+
+High Risk Case
+
+Large Claim Dispute
+
+Missing Documents
+
+Asset Valuation Delay
+
+Distribution Delay
+
+Court Deadline
+
+Cash Flow Risk
+
+AI Risk Detection
+
+⸻
+
+Alert Severity
+
+Info
+
+Warning
+
+High
+
+Critical
+
+⸻
+
+PHASE 7
+
+Enterprise Readiness
+
+Implement:
+
+Workflow Analytics
+
+Task Analytics
+
+Case Health Score
+
+Risk Score
+
+Performance Monitoring
+
+Audit Compliance
+
+Trustee Productivity Metrics
+
+⸻
+
+Success Criteria
+
+Transform the Bankruptcy Module into a complete Bankruptcy Operating System.
+
+Target:
+
+80-90% operational automation.
+
+Human review and approval remain mandatory for legal decisions.
+
+Maintain full compatibility with:
+
+Existing Database
+
+Existing APIs
+
+Existing Permissions
+
+Existing Subscription System
+
+Existing Multi-Tenant Architecture
+
+No Breaking Changes Allowed.
+
+هذا الطلب أكثر قيمة حالياً من إضافة مزايا عشوائية، لأنه يحول “عدالة إفلاس” من وحدة إدارة ملفات إلى نظام تشغيل إفلاس متكامل فوق ما تم بناؤه بالفعل.

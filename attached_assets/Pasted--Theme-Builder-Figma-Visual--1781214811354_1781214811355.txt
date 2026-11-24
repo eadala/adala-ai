@@ -1,0 +1,297 @@
+تمام — هذا انتقال من “نظام ثيمات” إلى مستوى أعلى: Theme Builder يشبه Figma داخل منصة عدالة (Visual + Live Preview + Drag & Drop + Design Tokens).
+
+سأعطيك تصميم نظام + بنية + كود أساسي جاهز للتطوير على React.
+
+⸻
+
+🎨 🧠 Figma-like Theme Builder (عدالة)
+
+🎯 الفكرة
+
+بدل إدخال ألوان فقط:
+
+✔ واجهة مرئية
+✔ تغيير مباشر على الشاشة
+✔ Drag & Drop للعناصر
+✔ تعديل كل جزء من UI (Buttons / Cards / Invoice / Sidebar)
+✔ حفظ كـ Theme JSON
+
+⸻
+
+🧱 1. Architecture (المعمارية)
+
+Theme Builder UI (React Canvas)
+        ↓
+Design Tokens Engine (JSON)
+        ↓
+CSS Variables Injector
+        ↓
+Live Preview Renderer
+        ↓
+Save to Database
+
+⸻
+
+🧩 2. شكل النظام داخل المنصة
+
+🟦 الواجهة تنقسم إلى 3 أجزاء:
+
+1️⃣ Left Panel (Tools)
+
+* Colors
+* Fonts
+* Components
+* Spacing
+* Radius
+
+2️⃣ Center (Live Preview Canvas)
+
+* Dashboard preview
+* Invoice preview
+* Buttons / cards
+
+3️⃣ Right Panel (Properties Inspector)
+
+* تغيير خصائص العنصر المحدد
+
+⸻
+
+⚙️ 3. Design Token System (أساس النظام)
+
+{
+  "colors": {
+    "primary": "#1e3a8a",
+    "secondary": "#2563eb",
+    "accent": "#f59e0b",
+    "background": "#ffffff",
+    "text": "#111827"
+  },
+  "typography": {
+    "fontFamily": "Inter",
+    "headingFont": "Cairo",
+    "baseSize": "14px"
+  },
+  "radius": {
+    "card": "12px",
+    "button": "10px"
+  },
+  "spacing": {
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px"
+  }
+}
+
+⸻
+
+⚛️ 4. Theme Context (Dynamic Engine)
+
+import { createContext, useContext, useState, useEffect } from "react";
+const ThemeContext = createContext();
+export function ThemeProvider({ children }) {
+  const [tokens, setTokens] = useState(null);
+  useEffect(() => {
+    fetch("/api/theme")
+      .then(res => res.json())
+      .then(data => {
+        setTokens(data);
+        applyTokens(data);
+      });
+  }, []);
+  const applyTokens = (t) => {
+    const root = document.documentElement;
+    // Colors
+    root.style.setProperty("--primary", t.colors.primary);
+    root.style.setProperty("--secondary", t.colors.secondary);
+    root.style.setProperty("--accent", t.colors.accent);
+    root.style.setProperty("--bg", t.colors.background);
+    root.style.setProperty("--text", t.colors.text);
+    // Typography
+    root.style.setProperty("--font", t.typography.fontFamily);
+    root.style.setProperty("--heading-font", t.typography.headingFont);
+    // Radius
+    root.style.setProperty("--radius", t.radius.card);
+  };
+  const updateTokens = (newTokens) => {
+    setTokens(newTokens);
+    applyTokens(newTokens);
+  };
+  return (
+    <ThemeContext.Provider value={{ tokens, updateTokens }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+export const useTheme = () => useContext(ThemeContext);
+
+⸻
+
+🧱 5. Theme Builder UI (Core Editor)
+
+🎛️ Left Panel
+
+export function LeftPanel() {
+  return (
+    <div className="panel">
+      <h3>🎨 Theme Tools</h3>
+      <button>Colors</button>
+      <button>Typography</button>
+      <button>Buttons</button>
+      <button>Cards</button>
+      <button>Spacing</button>
+    </div>
+  );
+}
+
+⸻
+
+🧪 Center Canvas (Live Preview)
+
+export function Canvas({ tokens }) {
+  return (
+    <div className="canvas">
+      
+      <div className="card">
+        <h2>Dashboard Preview</h2>
+        <button className="btn">Create Case</button>
+      </div>
+      <div className="card">
+        <h2>Invoice Preview</h2>
+        <p>Total: 2,875 SAR</p>
+      </div>
+    </div>
+  );
+}
+
+⸻
+
+🎛️ Right Panel (Inspector)
+
+export function Inspector({ selected, tokens, setTokens }) {
+  const updateColor = (key, value) => {
+    setTokens({
+      ...tokens,
+      colors: {
+        ...tokens.colors,
+        [key]: value
+      }
+    });
+  };
+  return (
+    <div className="panel">
+      <h3>⚙️ Properties</h3>
+      <label>Primary Color</label>
+      <input
+        type="color"
+        value={tokens.colors.primary}
+        onChange={(e) => updateColor("primary", e.target.value)}
+      />
+      <label>Accent</label>
+      <input
+        type="color"
+        value={tokens.colors.accent}
+        onChange={(e) => updateColor("accent", e.target.value)}
+      />
+    </div>
+  );
+}
+
+⸻
+
+🎨 6. CSS (Live Visual System)
+
+:root {
+  --primary: #1e3a8a;
+  --secondary: #2563eb;
+  --accent: #f59e0b;
+  --bg: #ffffff;
+  --text: #111827;
+  --radius: 12px;
+  --font: Inter;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+/* Card */
+.card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+/* Button */
+.btn {
+  background: var(--primary);
+  color: white;
+  padding: 10px 15px;
+  border-radius: var(--radius);
+  border: none;
+}
+
+⸻
+
+🧠 7. Drag & Drop (Upgrade مهم)
+
+تضيف:
+
+* react-beautiful-dnd أو dnd-kit
+
+مثال فكرة:
+
+Button → drag → drop on canvas → properties appear right panel
+
+⸻
+
+💾 8. حفظ الثيم
+
+async function saveTheme(tokens) {
+  await fetch("/api/theme/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(tokens)
+  });
+}
+
+⸻
+
+⚡ 9. النتيجة النهائية
+
+بعد هذا النظام:
+
+✔ مالك المنصة يصمم UI مثل Figma
+✔ تغيير مباشر Live بدون تحديث الصفحة
+✔ حفظ Themes متعددة
+✔ تخصيص كل عنصر (Invoice / Dashboard / Buttons)
+✔ قابل للتحول إلى SaaS white-label
+
+⸻
+
+🚀 تطويرات “نخبوية” لاحقًا
+
+إذا تبغى نرفعها مستوى عالمي:
+
+🔥 Component-level editing (كل زر مستقل)
+
+🔥 AI Theme Generator (“صمم لي ثيم قانوني فاخر”)
+
+🔥 Versioning (Theme history)
+
+🔥 Collaboration (عدة مستخدمين مثل Figma)
+
+🔥 Export to CSS / Tailwind config
+
+🔥 Per-law-firm branding system
+
+⸻
+
+💬 إذا تبغى الخطوة التالية
+
+قل أحد التالي:
+
+* “حوّلها إلى Figma الحقيقي (Canvas + selection system)”
+* “ابنِ drag & drop كامل بالكود”
+* “اربطه بنظام الفواتير و PDF”
+
+وأبني لك النسخة المتقدمة مباشرة.

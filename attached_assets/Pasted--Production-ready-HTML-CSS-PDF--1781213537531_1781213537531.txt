@@ -1,0 +1,243 @@
+تمام — هذا قالب فاتورة ثنائي اللغة جاهز (Production-ready HTML + CSS + بسيط للطباعة PDF) مناسب لمنصة “عدالة” ويمكن تشغيله مباشرة أو تحويله إلى PDF عبر print أو Puppeteer لاحقًا.
+
+⸻
+
+🧾 📄 قالب فاتورة ثنائي اللغة (HTML جاهز)
+
+✅ يدعم:
+
+* عربي + إنجليزي
+* VAT اختياري
+* طباعة PDF مباشرة (Print)
+* تصميم احترافي لمكاتب المحاماة
+* RTL + LTR تلقائي
+
+⸻
+
+💻 الكود الكامل
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>Invoice</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+/* الصفحة */
+.invoice-box {
+  max-width: 900px;
+  margin: auto;
+  padding: 30px;
+  border: 1px solid #eee;
+}
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+  padding-bottom: 20px;
+}
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+}
+.firm-info {
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.6;
+}
+/* Client */
+.section {
+  margin-top: 20px;
+}
+.title {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+}
+table th {
+  background: #f5f5f5;
+}
+/* Totals */
+.totals {
+  margin-top: 20px;
+  text-align: right;
+  font-size: 14px;
+}
+.total-line {
+  margin: 5px 0;
+}
+/* Footer */
+.footer {
+  margin-top: 30px;
+  font-size: 12px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+/* Print */
+@media print {
+  body {
+    margin: 0;
+  }
+  .invoice-box {
+    border: none;
+  }
+}
+</style>
+</head>
+<body>
+<div class="invoice-box">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      🏛️ مكتب العدالة للمحاماة<br>
+      <small>Al-Adalah Law Firm</small>
+    </div>
+    <div class="firm-info">
+      📍 المدينة المنورة - السعودية<br>
+      Address: Medina, KSA<br><br>
+      📞 +9665XXXXXXX<br>
+      Email: info@adalaha.com<br><br>
+      🧾 VAT: 300XXXXXXXX<br>
+      CR: 1234567890
+    </div>
+  </div>
+  <!-- INVOICE INFO -->
+  <div class="section">
+    <div class="title">الفاتورة / Invoice</div>
+    رقم الفاتورة / Invoice No: INV-2026-001<br>
+    التاريخ / Date: 12-06-2026<br>
+    الحالة / Status: Unpaid
+  </div>
+  <!-- CLIENT -->
+  <div class="section">
+    <div class="title">العميل / Client</div>
+    الاسم / Name: Khaled Al-Farsi<br>
+    القضية / Case: Commercial Dispute<br>
+    رقم القضية / Case No: 4451<br>
+    المحامي / Lawyer: Ahmed Al-Shehri
+  </div>
+  <!-- TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th>الخدمة / Service</th>
+        <th>الوصف / Description</th>
+        <th>الكمية / Qty</th>
+        <th>السعر / Price</th>
+        <th>الإجمالي / Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>استشارة / Consultation</td>
+        <td>تحليل القضية / Case analysis</td>
+        <td>2</td>
+        <td>500</td>
+        <td>1000</td>
+      </tr>
+      <tr>
+        <td>مذكرة / Drafting</td>
+        <td>صياغة قانونية / Legal drafting</td>
+        <td>1</td>
+        <td>1500</td>
+        <td>1500</td>
+      </tr>
+    </tbody>
+  </table>
+  <!-- TOTALS -->
+  <div class="totals">
+    <div class="total-line">
+      Subtotal / المجموع: 2500 SAR
+    </div>
+    <div class="total-line">
+      VAT (15%) / الضريبة: 375 SAR
+    </div>
+    <div class="total-line" style="font-weight:bold; font-size:16px;">
+      TOTAL / الإجمالي: 2875 SAR
+    </div>
+  </div>
+  <!-- FOOTER -->
+  <div class="footer">
+    ملاحظات / Notes:<br>
+    Payment is due within 14 days.<br><br>
+    طرق الدفع / Payment Methods:<br>
+    Bank Transfer / Card / Online Payment Link
+  </div>
+</div>
+</body>
+</html>
+
+⸻
+
+🚀 كيف تستخدمه داخل منصتك (عدالة)
+
+1. عرض الفاتورة
+
+* صفحة HTML داخل Dashboard
+
+2. تحويل PDF
+
+puppeteer print → pdf
+
+3. ربط البيانات
+
+استبدل القيم بـ:
+
+{{client_name}}
+{{invoice_number}}
+{{items}}
+
+⸻
+
+🧠 تطوير مهم (أنصحك به)
+
+إذا تبغى هذا النظام يصير “Enterprise Legal Billing” أضف:
+
+🔥 Dynamic VAT Toggle
+
+🔥 Multi-language JSON system
+
+🔥 PDF auto-generation API
+
+🔥 WhatsApp invoice sending
+
+🔥 Stripe payment link button
+
+⸻
+
+💡 إذا تبغى الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+⚡ React Invoice Builder (احترافي جداً)
+
+⚡ PDF Generator (Puppeteer جاهز)
+
+⚡ نظام فواتير كامل داخل عدالة
+
+⚡ ربط الدفع + QR + ZATCA-ready
+
+⸻
+
+قل فقط:
+
+“طورها إلى React + PDF system”
+
+وأبني لك النسخة الأقوى مباشرة.

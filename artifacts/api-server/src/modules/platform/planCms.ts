@@ -1,0 +1,383 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; schema authority */
+import { Router } from "express";
+import { requireSuperAdmin } from "../../middlewares/requireAuth";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+import { createClerkClient } from "@clerk/express";
+
+const router = Router();
+const adminOnly = requireSuperAdmin;
+
+function getClerk() {
+  return createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+}
+
+/* ── Default plans (Enterprise Pricing v2) ───────────────── */
+export const DEFAULT_PLANS = [
+  {
+    id: "free", nameAr: "استكشف", nameEn: "Explorer",
+    monthlyPrice: 0, yearlyPrice: 0, color: "#64748B",
+    description: "جرّب النظام كاملاً · لا بطاقة ائتمان · لا التزام",
+    badge: "🎁 مجاني · 90 يوم تجربة", recommended: false, isContactOnly: false, sortOrder: 0,
+    features: ["قضايا أساسية (حتى 5)", "مستخدم واحد", "١ جيجا تخزين", "٥٬٠٠٠ AI credit", "تذكيرات ذكية", "تقويم قانوني", "تصدير PDF"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: false, aiAnalytics: false, aiCfo: false, customAiTraining: false, documentTemplates: false, contractsAi: false, ocr: false, backup: false, website: true, serviceStore: false, payments: false, mobileApp: false, whatsapp: false, workflow: false, reportsAdvanced: false, clientPortal: false, customDomain: false, apiAccess: false, whiteLabel: false, sla: false, dedicatedManager: false, priorityInfrastructure: false },
+    limits: { users: 1, storage: "١ GB", aiRequests: 5000, branches: 0 },
+  },
+  {
+    id: "basic", nameAr: "انطلق", nameEn: "Launch",
+    monthlyPrice: 399, yearlyPrice: 319, color: "#3B82F6",
+    description: "للمحامي المستقل — مكتب رقمي احترافي من اليوم الأول",
+    badge: null, recommended: false, isContactOnly: false, sortOrder: 1,
+    features: ["٢ مستخدم", "١٠ جيجا تخزين", "٢٠٬٠٠٠ AI credit/شهر", "إدارة قضايا + عقود AI", "فواتير إلكترونية", "قوالب مستندات", "موقع المكتب الرقمي"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: false, aiAnalytics: false, aiCfo: false, customAiTraining: false, documentTemplates: true, contractsAi: true, ocr: false, backup: false, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: false, workflow: false, reportsAdvanced: false, clientPortal: false, customDomain: false, apiAccess: false, whiteLabel: false, sla: false, dedicatedManager: false, priorityInfrastructure: false },
+    limits: { users: 2, storage: "١٠ GB", aiRequests: 20000, branches: 0 },
+  },
+  {
+    id: "pro", nameAr: "أتقن", nameEn: "Professional",
+    monthlyPrice: 899, yearlyPrice: 719, color: "#C9A84C",
+    description: "للمكاتب النشطة — AI متقدم + تحليلات + نمو حقيقي",
+    badge: "⭐ الأكثر شعبية", recommended: true, isContactOnly: false, sortOrder: 2,
+    features: ["٥ مستخدمين", "٥٠ جيجا تخزين", "١٠٠٬٠٠٠ AI credit/شهر", "كل مزايا انطلق +", "🤖 AI متقدم (GPT-4/Claude)", "📊 تحليلات AI للقضايا", "🔍 OCR — استخراج النصوص", "💾 نسخ احتياطي يومي", "تقارير متقدمة + KPIs"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: false, customAiTraining: false, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: false, workflow: false, reportsAdvanced: true, clientPortal: false, customDomain: false, apiAccess: false, whiteLabel: false, sla: false, dedicatedManager: false, priorityInfrastructure: false },
+    limits: { users: 5, storage: "٥٠ GB", aiRequests: 100000, branches: 0 },
+  },
+  {
+    id: "growth", nameAr: "توسّع", nameEn: "Business",
+    monthlyPrice: 1799, yearlyPrice: 1439, color: "#8B5CF6",
+    description: "المكتب الذكي — فروع + واتساب + بوابة عملاء + تشغيل آلي",
+    badge: "🏢 للمكاتب الذكية", recommended: false, isContactOnly: false, sortOrder: 3,
+    features: ["١٥ مستخدماً", "١٥٠ جيجا تخزين", "٣٠٠٬٠٠٠ AI credit/شهر", "كل مزايا أتقن +", "🏢 ٣ فروع مستقلة", "💬 WhatsApp Business", "📲 Telegram Bot", "👥 بوابة الموكّلين", "⚙️ سير عمل آلي", "📊 تقارير KPIs"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: false, customAiTraining: false, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: true, workflow: true, reportsAdvanced: true, clientPortal: true, customDomain: false, apiAccess: false, whiteLabel: false, sla: false, dedicatedManager: false, priorityInfrastructure: false },
+    limits: { users: 15, storage: "١٥٠ GB", aiRequests: 300000, branches: 3 },
+  },
+  {
+    id: "advanced", nameAr: "تميّز", nameEn: "Advanced",
+    monthlyPrice: 3999, yearlyPrice: 3199, color: "#EC4899",
+    description: "نظام تشغيل مكتب قانوني متكامل — محاسبة + HR + هوية كاملة",
+    badge: "🔥 ERP قانوني كامل", recommended: false, isContactOnly: false, sortOrder: 4,
+    features: ["٣٠ مستخدماً", "٣٠٠ جيجا تخزين", "٨٠٠٬٠٠٠ AI credit/شهر", "كل مزايا توسّع +", "١٠ فروع", "🌐 نطاق خاص", "🔌 API كامل", "🏷️ وايت لابل", "🧠 CFO ذكي", "⚖️ محاسبة ERP", "👥 HR متكامل"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: true, customAiTraining: false, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: true, workflow: true, reportsAdvanced: true, clientPortal: true, customDomain: true, apiAccess: true, whiteLabel: true, sla: false, dedicatedManager: false, priorityInfrastructure: false },
+    limits: { users: 30, storage: "٣٠٠ GB", aiRequests: 800000, branches: 10 },
+  },
+  {
+    id: "enterprise", nameAr: "هيمن", nameEn: "Enterprise",
+    monthlyPrice: 0, yearlyPrice: 0, color: "#10B981",
+    description: "بنية تحتية خاصة · AI غير محدود · مدير حساب مخصص · SLA 24/7",
+    badge: "🏆 للمجموعات الكبرى", recommended: false, isContactOnly: true, sortOrder: 5,
+    features: ["مستخدمون غير محدود", "تخزين غير محدود", "AI credits غير محدودة", "فروع غير محدودة", "🤝 مدير حساب مخصص", "🛡️ SLA 24/7", "☁️ Private Cloud", "🔗 تكاملات ERP خارجية", "📜 عقد SLA ملزم"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: true, customAiTraining: false, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: true, workflow: true, reportsAdvanced: true, clientPortal: true, customDomain: true, apiAccess: true, whiteLabel: true, sla: true, dedicatedManager: true, priorityInfrastructure: false },
+    limits: { users: "unlimited", storage: "غير محدود", aiRequests: "unlimited", branches: "unlimited" },
+  },
+  {
+    id: "elite", nameAr: "الأسطورة", nameEn: "Elite",
+    monthlyPrice: 0, yearlyPrice: 0, color: "#F59E0B",
+    description: "AI مدرَّب على بياناتك · بنية تحتية مخصصة · لا سقف ولا حدود",
+    badge: "👑 القمة المطلقة", recommended: false, isContactOnly: true, sortOrder: 6,
+    features: ["كل Enterprise +", "🤖 AI مدرَّب على بيانات مكتبك", "🏗️ بنية تحتية معزولة", "📜 SLA 99.99% قانوني", "🚀 هجرة مجانية من أي نظام", "🌟 مدير نجاح ٢٤/٧"],
+    featureFlags: { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: true, ai: true, aiAnalytics: true, aiCfo: true, customAiTraining: true, documentTemplates: true, contractsAi: true, ocr: true, backup: true, website: true, serviceStore: true, payments: true, mobileApp: true, whatsapp: true, workflow: true, reportsAdvanced: true, clientPortal: true, customDomain: true, apiAccess: true, whiteLabel: true, sla: true, dedicatedManager: true, priorityInfrastructure: true },
+    limits: { users: "unlimited", storage: "غير محدود", aiRequests: "unlimited", branches: "unlimited" },
+  },
+  /* ── عدالة إفلاس — Specialized Bankruptcy Module Plans ── */
+  {
+    id: "bk-starter", nameAr: "عدالة إفلاس — بداية", nameEn: "Adalah Bankruptcy Basic",
+    monthlyPrice: 1999, yearlyPrice: 1599, color: "#EA580C",
+    description: "للمحامين والمكاتب الصغيرة المتخصصة في الإفلاس وإعادة الهيكلة",
+    badge: null, recommended: false, isContactOnly: false, sortOrder: 10,
+    features: [
+      "٥ ملفات إفلاس نشطة", "٣ مستخدمين", "٢٠ جيجا تخزين",
+      "لوحة تحكم الإفلاس الكاملة", "إدارة الدائنين والمطالبات",
+      "إدارة الأصول والعقارات", "اجتماعات الدائنين وتوثيق المحاضر",
+      "بوابة الدائنين العامة", "تقديم المطالبات إلكترونياً",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: false,
+      bankruptcyValuations: false, bankruptcyAiAssistant: false,
+      bankruptcyAnalytics: false, bankruptcyApi: false,
+      bankruptcyWhiteLabel: false, bankruptcyCustomWorkflows: false,
+    },
+    limits: { users: 3, storage: "٢٠ GB", activeCases: 5 },
+  },
+  {
+    id: "bk-pro", nameAr: "عدالة إفلاس — احتراف", nameEn: "Adalah Bankruptcy Professional",
+    monthlyPrice: 4999, yearlyPrice: 3999, color: "#7C3AED",
+    description: "لأمناء الإفلاس ومكاتب المحاماة المتوسطة",
+    badge: "⭐ الأكثر طلباً", recommended: true, isContactOnly: false, sortOrder: 11,
+    features: [
+      "٢٥ ملف إفلاس نشط", "١٥ مستخدماً", "١٠٠ جيجا تخزين",
+      "كل مزايا بداية +",
+      "💸 التوزيعات وتقييم الأصول",
+      "🤖 مساعد AI للإفلاس",
+      "📊 تحليلات متقدمة",
+      "متابعة المطالبات في الوقت الفعلي",
+      "تقارير تفصيلية للأمانة",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: true,
+      bankruptcyValuations: true, bankruptcyAiAssistant: true,
+      bankruptcyAnalytics: true, bankruptcyApi: false,
+      bankruptcyWhiteLabel: false, bankruptcyCustomWorkflows: false,
+    },
+    limits: { users: 15, storage: "١٠٠ GB", activeCases: 25 },
+  },
+  {
+    id: "bk-enterprise", nameAr: "عدالة إفلاس — مؤسسات", nameEn: "Adalah Bankruptcy Enterprise",
+    monthlyPrice: 9999, yearlyPrice: 7999, color: "#0F172A",
+    description: "للشركات الاستشارية ومكاتب الأمناء الكبيرة",
+    badge: "🏆 للمؤسسات الكبرى", recommended: false, isContactOnly: false, sortOrder: 12,
+    features: [
+      "ملفات إفلاس غير محدودة", "مستخدمون غير محدود", "تخزين غير محدود",
+      "كل مزايا احتراف +",
+      "🔌 API كامل + تكاملات خارجية",
+      "🏷️ وايت لابل — هويتك الكاملة",
+      "⚙️ سير عمل مخصص",
+      "📋 تقارير تنفيذية",
+      "🛡️ دعم أولوية ٢٤/٧",
+    ],
+    featureFlags: {
+      bankruptcy: true, bankruptcyDashboard: true, bankruptcyCases: true,
+      bankruptcyCreditors: true, bankruptcyClaims: true, bankruptcyAssets: true,
+      bankruptcyMeetings: true, bankruptcyDocuments: true, bankruptcyPortal: true,
+      bankruptcyClaimSubmission: true, bankruptcyDistributions: true,
+      bankruptcyValuations: true, bankruptcyAiAssistant: true,
+      bankruptcyAnalytics: true, bankruptcyApi: true,
+      bankruptcyWhiteLabel: true, bankruptcyCustomWorkflows: true,
+    },
+    limits: { users: "unlimited", storage: "غير محدود", activeCases: "unlimited" },
+  },
+];
+
+/* plan_cms schema: artifacts/api-server/migrations/005_tenant_platform_tables.sql
+   This helper only seeds when the table is empty — no Runtime DDL.
+   Non-empty tables are read-only here so public GET /plans never rewrites admin-edited values. */
+export type PlanCmsDb = {
+  execute: (q: unknown) => Promise<unknown>;
+};
+
+type PlanCmsDeps = { db?: PlanCmsDb };
+
+function planCmsDb(deps?: PlanCmsDeps): PlanCmsDb {
+  return deps?.db ?? (db as unknown as PlanCmsDb);
+}
+
+/** Seed canonical defaults only when plan_cms has zero rows. No UPDATE/INSERT when non-empty. */
+export async function ensurePlanSeed(deps?: PlanCmsDeps) {
+  const database = planCmsDb(deps);
+  const result = await database.execute(sql`SELECT COUNT(*) as cnt FROM plan_cms`) as any;
+  const rows = Array.isArray(result) ? result : (result?.rows ?? []);
+  const cnt  = Number(rows[0]?.cnt ?? rows[0]?.count ?? 0);
+  if (cnt !== 0) return;
+
+  for (const p of DEFAULT_PLANS) {
+    await database.execute(sql`
+      INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+      VALUES (
+        ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
+        ${p.color}, ${p.description}, ${p.badge ?? null},
+        ${JSON.stringify(p.features)}::jsonb,
+        ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
+        ${JSON.stringify(p.featureFlags)}::jsonb,
+        ${JSON.stringify(p.limits)}::jsonb
+      )
+      ON CONFLICT (id) DO NOTHING
+    `);
+  }
+}
+
+/* ── Convert DB row → plan object ─────────────────────────── */
+function rowToPlan(row: any) {
+  const ff = row.feature_flags ?? {};
+  const lim = row.limits ?? {};
+  return {
+    id:            row.id,
+    nameAr:        row.name_ar,
+    nameEn:        row.name_en,
+    name:          row.name_ar,
+    monthlyPrice:  Number(row.monthly_price),
+    yearlyPrice:   Number(row.yearly_price),
+    price:         Number(row.monthly_price),
+    color:         row.color,
+    description:   row.description,
+    badge:         row.badge,
+    features:      Array.isArray(row.features) ? row.features : (typeof row.features === "string" ? JSON.parse(row.features) : []),
+    featureFlags:  typeof ff === "string" ? JSON.parse(ff) : ff,
+    limits:        typeof lim === "string" ? JSON.parse(lim) : lim,
+    recommended:   !!row.recommended,
+    popular:       !!row.recommended,
+    isContactOnly: !!row.is_contact_only,
+    sortOrder:     Number(row.sort_order),
+    isFree:        Number(row.monthly_price) === 0,
+  };
+}
+
+/* ── Public helper for billing.ts ─────────────────────────── */
+export async function getDbPlans(deps?: PlanCmsDeps) {
+  try {
+    await ensurePlanSeed(deps);
+    const database = planCmsDb(deps);
+    const result = await database.execute(sql`SELECT * FROM plan_cms ORDER BY sort_order ASC`) as any;
+    const rows = Array.isArray(result) ? result : (result?.rows ?? []);
+    if (!rows.length) return DEFAULT_PLANS.map(p => ({ ...p, name: p.nameAr, price: p.monthlyPrice, popular: p.recommended, isFree: p.monthlyPrice === 0 }));
+    return rows.map(rowToPlan);
+  } catch {
+    return DEFAULT_PLANS.map(p => ({ ...p, name: p.nameAr, price: p.monthlyPrice, popular: p.recommended, isFree: p.monthlyPrice === 0 }));
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   PUBLIC: GET /api/plans
+══════════════════════════════════════════════════════ */
+router.get("/plans", async (_req, res) => {
+  try {
+    const plans = await getDbPlans();
+    return res.json(plans);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   ADMIN: GET /api/admin/plans
+══════════════════════════════════════════════════════ */
+router.get("/admin/plans", adminOnly, async (_req, res) => {
+  try {
+    const plans = await getDbPlans();
+    return res.json(plans);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   ADMIN: PUT /api/admin/plans/:id  — update one plan
+══════════════════════════════════════════════════════ */
+router.put("/admin/plans/:id", adminOnly, async (req, res) => {
+  try {
+    await ensurePlanSeed();
+    const { id } = req.params as Record<string, string>;
+    const { nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
+
+    await db.execute(sql`
+      UPDATE plan_cms SET
+        name_ar         = ${nameAr},
+        name_en         = ${nameEn},
+        monthly_price   = ${Number(monthlyPrice ?? 0)},
+        yearly_price    = ${Number(yearlyPrice ?? 0)},
+        color           = ${color ?? "#64748B"},
+        description     = ${description ?? null},
+        badge           = ${badge ?? null},
+        features        = ${JSON.stringify(features ?? [])}::jsonb,
+        recommended     = ${!!recommended},
+        is_contact_only = ${!!isContactOnly},
+        sort_order      = ${Number(sortOrder ?? 0)},
+        feature_flags   = ${JSON.stringify(featureFlags ?? {})}::jsonb,
+        limits          = ${JSON.stringify(limits ?? {})}::jsonb,
+        updated_at      = NOW()
+      WHERE id = ${id}
+    `);
+
+    const updated = await db.execute(sql`SELECT * FROM plan_cms WHERE id = ${id}`) as any;
+    const updatedRows = Array.isArray(updated) ? updated : (updated?.rows ?? []);
+    return res.json(updatedRows[0] ? rowToPlan(updatedRows[0]) : { ok: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   ADMIN: POST /api/admin/plans  — create new plan
+══════════════════════════════════════════════════════ */
+router.post("/admin/plans", adminOnly, async (req, res) => {
+  try {
+    await ensurePlanSeed();
+    const { id, nameAr, nameEn, monthlyPrice, yearlyPrice, color, description, badge, features, recommended, isContactOnly, sortOrder, featureFlags, limits } = req.body;
+
+    if (!id || !nameAr) return res.status(400).json({ error: "id و nameAr مطلوبان" });
+
+    /* Ensure unique ID */
+    const existing = await db.execute(sql`SELECT id FROM plan_cms WHERE id = ${id}`) as any;
+    const existingRows = Array.isArray(existing) ? existing : (existing?.rows ?? []);
+    if (existingRows.length > 0) return res.status(409).json({ error: "المعرّف مستخدم مسبقاً" });
+
+    const defaultFlags = { cases: true, invoices: true, reminders: true, calendar: true, exportPdf: true, reportsBasic: true, aiBasic: false, ai: false, aiAnalytics: false, aiCfo: false, customAiTraining: false, documentTemplates: false, contractsAi: false, ocr: false, backup: false, website: false, serviceStore: false, payments: false, mobileApp: false, whatsapp: false, workflow: false, reportsAdvanced: false, clientPortal: false, customDomain: false, apiAccess: false, whiteLabel: false, sla: false, dedicatedManager: false, priorityInfrastructure: false };
+    const defaultLimits = { users: 1, storage: "١ GB", aiRequests: 10, branches: 0 };
+
+    await db.execute(sql`
+      INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+      VALUES (
+        ${id}, ${nameAr}, ${nameEn ?? nameAr}, ${Number(monthlyPrice ?? 0)}, ${Number(yearlyPrice ?? 0)},
+        ${color ?? "#64748B"}, ${description ?? null}, ${badge ?? null},
+        ${JSON.stringify(features ?? [])}::jsonb,
+        ${!!recommended}, ${!!isContactOnly}, ${Number(sortOrder ?? 99)},
+        ${JSON.stringify(featureFlags ?? defaultFlags)}::jsonb,
+        ${JSON.stringify(limits ?? defaultLimits)}::jsonb
+      )
+    `);
+
+    const created = await db.execute(sql`SELECT * FROM plan_cms WHERE id = ${id}`) as any;
+    const createdRows = Array.isArray(created) ? created : (created?.rows ?? []);
+    return res.status(201).json(createdRows[0] ? rowToPlan(createdRows[0]) : { ok: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   ADMIN: DELETE /api/admin/plans/:id  — delete plan
+══════════════════════════════════════════════════════ */
+router.delete("/admin/plans/:id", adminOnly, async (req, res) => {
+  try {
+    await ensurePlanSeed();
+    const { id } = req.params as Record<string, string>;
+    const builtIn = ["free", "basic", "pro", "growth", "advanced", "enterprise", "elite"];
+    if (builtIn.includes(id)) return res.status(400).json({ error: "لا يمكن حذف الباقات الافتراضية" });
+    await db.execute(sql`DELETE FROM plan_cms WHERE id = ${id}`);
+    return res.json({ ok: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/* ══════════════════════════════════════════════════════
+   ADMIN: POST /api/admin/plans/reset  — restore defaults
+══════════════════════════════════════════════════════ */
+router.post("/admin/plans/reset", adminOnly, async (_req, res) => {
+  try {
+    await ensurePlanSeed();
+    for (const p of DEFAULT_PLANS) {
+      await db.execute(sql`
+        INSERT INTO plan_cms (id, name_ar, name_en, monthly_price, yearly_price, color, description, badge, features, recommended, is_contact_only, sort_order, feature_flags, limits)
+        VALUES (
+          ${p.id}, ${p.nameAr}, ${p.nameEn}, ${p.monthlyPrice}, ${p.yearlyPrice},
+          ${p.color}, ${p.description}, ${p.badge ?? null},
+          ${JSON.stringify(p.features)}::jsonb,
+          ${p.recommended}, ${p.isContactOnly}, ${p.sortOrder},
+          ${JSON.stringify(p.featureFlags)}::jsonb,
+          ${JSON.stringify(p.limits)}::jsonb
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          name_ar = EXCLUDED.name_ar, name_en = EXCLUDED.name_en,
+          monthly_price = EXCLUDED.monthly_price, yearly_price = EXCLUDED.yearly_price,
+          color = EXCLUDED.color, description = EXCLUDED.description,
+          badge = EXCLUDED.badge, features = EXCLUDED.features,
+          recommended = EXCLUDED.recommended, is_contact_only = EXCLUDED.is_contact_only,
+          sort_order = EXCLUDED.sort_order,
+          feature_flags = EXCLUDED.feature_flags,
+          limits = EXCLUDED.limits,
+          updated_at = NOW()
+      `);
+    }
+    const plans = await getDbPlans();
+    return res.json(plans);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;

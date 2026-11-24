@@ -1,0 +1,328 @@
+هذا برومبت احترافي موجه مباشرة إلى Replit Agent لبناء نظام “الوكيل التنفيذي الذكي” داخل منصة عدالة AI:
+
+ADAALAH AI EXECUTIVE AGENT SYSTEM
+
+You are a Senior AI Architect, Enterprise SaaS Architect, Workflow Automation Architect, and LegalTech Systems Engineer.
+
+Your mission is to transform Adaalah AI from a traditional Legal Management Platform into an AI-Driven Legal Operating System.
+
+The AI must not be limited to answering questions.
+
+The AI must be capable of taking actions inside the platform.
+
+Objective
+
+Create an AI Executive Agent Layer that sits above all modules and can perform tasks, automate workflows, communicate with users, and manage operations through natural language commands.
+
+⸻
+
+AI COMMAND CENTER
+
+Create a new core module called:
+
+AI Command Center
+
+This will become the primary interface of the platform.
+
+Users should be able to type commands such as:
+
+* Create a new case for client Khaled
+* Ask Ahmed for a case summary
+* Send invoice reminders to overdue clients
+* Schedule a meeting tomorrow at 10 AM
+* Generate a defense memorandum
+* Follow up with all pending contracts
+* Create a legal report for this week
+
+The AI must understand the request and execute actions inside the system.
+
+⸻
+
+AI ACTION ENGINE
+
+Create an Action Engine that allows AI to interact with all modules.
+
+Modules:
+
+Cases
+
+Contracts
+
+CRM
+
+Clients
+
+Invoices
+
+Documents
+
+HR
+
+Attendance
+
+Payroll
+
+Meetings
+
+Tasks
+
+Compliance
+
+Risk Management
+
+Legal Research
+
+Notifications
+
+Website Builder
+
+Subscriptions
+
+Billing
+
+Marketplace
+
+Each module must expose actions to the AI.
+
+Example:
+
+Cases:
+
+* Create Case
+* Update Case
+* Close Case
+* Assign Lawyer
+* Schedule Hearing
+
+Clients:
+
+* Create Client
+* Update Client
+* Contact Client
+* Generate Client Report
+
+Invoices:
+
+* Create Invoice
+* Send Invoice
+* Mark as Paid
+* Follow Up
+
+HR:
+
+* Create Employee
+* Approve Leave
+* Issue Warning
+* Assign Tasks
+
+⸻
+
+AI COMMUNICATION LAYER
+
+The AI must communicate through:
+
+* Internal Notifications
+* Email
+* WhatsApp
+* SMS
+* Telegram
+
+Example:
+
+User command:
+
+Ask Khaled to send me a case summary within 2 hours.
+
+AI actions:
+
+1. Find Khaled in the system.
+2. Create a task.
+3. Send WhatsApp message.
+4. Send email.
+5. Send internal notification.
+6. Log activity.
+7. Track completion status.
+
+⸻
+
+AI FOLLOW-UP SYSTEM
+
+The AI must not stop after sending.
+
+It should monitor outcomes.
+
+Example:
+
+If Khaled does not respond within 2 hours:
+
+* Send reminder.
+* Escalate to manager.
+* Notify requester.
+
+⸻
+
+AI AUTONOMOUS WORKFLOWS
+
+Allow recurring autonomous tasks.
+
+Examples:
+
+* Daily invoice collection follow-up.
+* Weekly legal performance reports.
+* Contract expiration monitoring.
+* Compliance monitoring.
+* Employee productivity reports.
+
+Users can activate:
+
+Manual Mode
+
+Semi-Autonomous Mode
+
+Fully Autonomous Mode
+
+⸻
+
+AI EXECUTIVE ASSISTANT
+
+Create a digital executive assistant.
+
+When a user logs in:
+
+The assistant displays:
+
+* Upcoming hearings
+* Pending tasks
+* Overdue invoices
+* High-risk cases
+* Contracts requiring action
+* Team performance alerts
+
+Example:
+
+Good morning.
+
+You have:
+
+* 3 hearings today.
+* 5 overdue invoices.
+* 2 contracts requiring review.
+* 1 high-risk case.
+
+Would you like me to handle these tasks?
+
+Buttons:
+
+Review
+
+Execute Automatically
+
+Assign Team
+
+⸻
+
+ROLE-BASED AI
+
+Different AI agents:
+
+AI Managing Partner
+
+AI Lawyer
+
+AI Legal Researcher
+
+AI Contract Manager
+
+AI HR Manager
+
+AI Finance Manager
+
+AI Compliance Officer
+
+AI Client Relations Manager
+
+Each agent has dedicated permissions.
+
+⸻
+
+AI PERMISSION SYSTEM
+
+Create AI-specific permissions.
+
+Examples:
+
+AI_CAN_SEND_EMAIL
+
+AI_CAN_SEND_WHATSAPP
+
+AI_CAN_CREATE_CASE
+
+AI_CAN_CREATE_CONTRACT
+
+AI_CAN_CREATE_INVOICE
+
+AI_CAN_ASSIGN_TASKS
+
+AI_CAN_APPROVE_REQUESTS
+
+AI_CAN_ACCESS_FINANCIAL_DATA
+
+Every office can configure AI permissions.
+
+⸻
+
+AI MEMORY SYSTEM
+
+The AI should remember:
+
+* Office preferences
+* Team structure
+* Frequently used templates
+* Common workflows
+* Client preferences
+
+Memory must be office-specific and secure.
+
+⸻
+
+AUDIT LOGS
+
+Every AI action must be recorded.
+
+Store:
+
+* User request
+* AI decision
+* Executed action
+* Timestamp
+* Result
+
+Provide full audit history.
+
+⸻
+
+SECURITY
+
+Implement:
+
+RBAC
+
+MFA
+
+Approval Workflows
+
+Human Approval Mode
+
+Sensitive Action Controls
+
+Audit Trails
+
+⸻
+
+FINAL DELIVERABLE
+
+Build a production-ready AI Executive Agent System integrated into Adaalah AI.
+
+The AI should function as an operational executive assistant capable of managing legal, administrative, financial, HR, and communication workflows through natural language commands.
+
+هذا النظام إذا تم تنفيذه جيدًا سيجعل عدالة AI أقرب إلى موظف تنفيذي رقمي يدير المكتب، وليس مجرد مساعد محادثة أو مولد نصوص.

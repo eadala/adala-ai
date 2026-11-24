@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "directive_id": "ADALA-CD-AUTONOMOUS-001",
+  "deployment_branch": "deploy/production",
+  "staging_branch": "develop",
+  "forbidden_deploy_branch_prefixes": [
+    "cursor/",
+    "backup/",
+    "refs/backup/",
+    "hotfix-unreviewed/"
+  ],
+  "production_cd_active": false,
+  "staging_cd_active": false,
+  "staging_required": true,
+  "owner_waived_independent_staging": false,
+  "production_domain": "https://adalahai.com",
+  "coolify_production_source_branch_observed": "main",
+  "coolify_production_mode_observed": "deploy_on_push",
+  "agent_must_not_change_coolify_production_until_merge": true,
+  "require_credential_incident_cleared": true,
+  "require_clean_history": true,
+  "ci_must_pass_before_coolify": true,
+  "coolify_forbid_direct_push_webhook": true,
+  "contaminated_blob_oid": "3f1a3e36c8b6ace9e1bf1b6c072951f8a8f6f925",
+  "kill_switch_env": "ADALA_CD_KILL_SWITCH",
+  "credential_cleared_env": "ADALA_CREDENTIAL_INCIDENT_CLEARED",
+  "retain_successful_releases": 3,
+  "coolify": {
+    "trigger_mode": "ci_controlled_webhook",
+    "forbid_unrestricted_push_deploy": true,
+    "webhook_secret_name": "COOLIFY_DEPLOY_WEBHOOK_URL",
+    "api_token_secret_name": "COOLIFY_API_TOKEN",
+    "app_uuid_secret_name": "COOLIFY_APP_UUID",
+    "api_url_secret_name": "COOLIFY_API_URL"
+  },
+  "pre_deploy": {
+    "require_backup_verified": true,
+    "reject_destructive_migration_keywords": [
+      "DROP TABLE",
+      "DROP COLUMN",
+      "TRUNCATE",
+      "DELETE FROM"
+    ]
+  },
+  "post_deploy": {
+    "health_path": "/api/healthz",
+    "unauthenticated_must_not_200": ["/api/cases", "/api/clients"],
+    "require_commit_match": true
+  },
+  "rollback": {
+    "application_image_only": true,
+    "never_touch_postgres_data": true,
+    "retain_releases": 3
+  }
+}

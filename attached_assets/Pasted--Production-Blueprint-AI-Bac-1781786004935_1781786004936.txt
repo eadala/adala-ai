@@ -1,0 +1,331 @@
+تمام — سأعطيك حزمة كاملة متكاملة (Production Blueprint) لطبقة الذكاء الاصطناعي في عدالة AI تشمل:
+Backend + DB + Billing + Admin Dashboard + Smart Legal AI System بشكل جاهز للبناء الفعلي.
+
+سأرتبها كمنظومة واحدة بدل أجزاء منفصلة.
+
+⸻
+
+🧠 أولاً: Architecture نهائية (عدالة AI – AI Layer)
+
+Frontend (React)
+      ↓
+API Gateway (NestJS)
+      ↓
+AI Service Layer
+      ↓
+AI Router + Policy Engine
+      ↓
+Provider Adapters
+(OpenAI | Claude | Gemini | Local LLM)
+      ↓
+Response + Logging + Billing
+
+⸻
+
+⚙️ ثانياً: Backend كامل (NestJS Structure)
+
+/src
+  /modules
+    /ai
+      ai.controller.ts
+      ai.service.ts
+      ai.router.ts
+      /providers
+        openai.provider.ts
+        gemini.provider.ts
+        claude.provider.ts
+      /policy
+        policy.engine.ts
+      /billing
+        usage.tracker.ts
+        cost.calculator.ts
+  /modules
+    /tenants
+    /billing
+    /admin
+
+⸻
+
+🤖 1) AI Interface موحد
+
+export interface AIProvider {
+  generate(prompt: string, options?: any): Promise<{
+    text: string;
+    tokens: number;
+  }>;
+}
+
+⸻
+
+🔌 2) Provider System (مثال OpenAI)
+
+export class OpenAIProvider implements AIProvider {
+  async generate(prompt: string) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return {
+      text: data.choices[0].message.content,
+      tokens: data.usage.total_tokens
+    };
+  }
+}
+
+⸻
+
+🧠 3) AI Router (المخ الأساسي)
+
+export class AIRouter {
+  constructor(private providers: Record<string, AIProvider>) {}
+  async run(provider: string, prompt: string) {
+    const selected = this.providers[provider];
+    if (!selected) throw new Error("Provider not found");
+    return selected.generate(prompt);
+  }
+}
+
+⸻
+
+🧠 4) Policy Engine (الذكاء الحقيقي للنظام)
+
+export class PolicyEngine {
+  selectProvider(input: any) {
+    if (input.type === "legal_analysis") return "claude";
+    if (input.cost_sensitive) return "gemini";
+    if (input.fast_mode) return "gemini_flash";
+    return "openai";
+  }
+}
+
+⸻
+
+💰 5) Billing System (الأهم تجارياً)
+
+⸻
+
+📊 DB Schema (Prisma)
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  balance   Float
+  plan      String
+}
+model AIUsage {
+  id         String   @id @default(cuid())
+  tenantId   String
+  provider   String
+  tokens     Int
+  cost       Float
+  createdAt  DateTime @default(now())
+}
+
+⸻
+
+🧮 حساب التكلفة
+
+export class CostCalculator {
+  calculate(provider: string, tokens: number) {
+    const rates = {
+      openai: 0.002,
+      gemini: 0.0005,
+      claude: 0.003
+    };
+    return tokens * rates[provider];
+  }
+}
+
+⸻
+
+🚨 خصم الرصيد
+
+if (tenant.balance < cost) {
+  throw new Error("Insufficient balance");
+}
+tenant.balance -= cost;
+
+⸻
+
+📜 تسجيل الاستخدام
+
+await prisma.aIUsage.create({
+  data: {
+    tenantId,
+    provider,
+    tokens,
+    cost
+  }
+});
+
+⸻
+
+🧑‍💼 6) Admin Dashboard (لوحة التحكم)
+
+📊 Features
+
+1. Live Monitoring
+
+* Requests per second
+* Most used model
+* Latency graph
+
+⸻
+
+2. Cost Control
+
+* تكلفة كل عميل
+* أكثر نموذج مكلف
+* ربح الشركة
+
+⸻
+
+3. Provider Management
+
+* تشغيل/إيقاف OpenAI
+* تغيير الأسعار
+* API keys
+
+⸻
+
+4. Alerts
+
+* ارتفاع مفاجئ في التكلفة
+* فشل مزود AI
+
+⸻
+
+🏢 7) Client Dashboard (مكاتب المحاماة)
+
+داخل عدالة AI:
+
+📊 Overview
+
+* استخدام AI
+* الرصيد
+* الفواتير
+
+⸻
+
+⚙️ AI Settings
+
+{
+  "default_provider": "auto",
+  "mode": "balanced"
+}
+
+Modes:
+
+* ⚡ Fast (رخيص)
+* ⚖️ Balanced
+* 🧠 Accurate (قانوني دقيق)
+
+⸻
+
+📜 History
+
+* كل استعلام AI
+* الرد
+* التكلفة
+
+⸻
+
+⚖️ 8) Smart Legal AI System (ميزة عدالة الأساسية)
+
+⸻
+
+🧠 Legal Prompt Engine
+
+export class LegalAI {
+  buildPrompt(type: string, data: any) {
+    switch(type) {
+      case "contract":
+        return `اكتب عقد قانوني سعودي مطابق للأنظمة: ${data}`;
+      case "lawsuit":
+        return `صغ لائحة دعوى احترافية: ${data}`;
+      case "analysis":
+        return `حلل هذا العقد قانونياً: ${data}`;
+    }
+  }
+}
+
+⸻
+
+⚖️ Legal Routing ذكي
+
+المهمة	النموذج
+عقود	Claude
+قضايا	GPT-4o
+تلخيص	Gemini
+بحث سريع	Gemini Flash
+
+⸻
+
+🚀 9) Smart Features (احترافية SaaS)
+
+🔹 Cache Layer
+
+* يمنع إعادة نفس الطلب
+* يقلل التكلفة 30%
+
+⸻
+
+🔹 Fallback System
+
+try OpenAI
+catch → Claude
+catch → Gemini
+
+⸻
+
+🔹 Multi-Tenant Isolation
+
+كل مكتب:
+
+* بياناته منفصلة
+* رصيده منفصل
+* استخدامه منفصل
+
+⸻
+
+🔹 Auto Model Switching
+
+if (cost > limit) use cheaper model
+
+⸻
+
+🔥 النتيجة النهائية
+
+بعد هذا النظام:
+
+عدالة AI تصبح:
+
+* 🧠 منصة ذكاء اصطناعي قانونية متقدمة
+* 💰 تتحكم بالتكلفة بدقة
+* ⚙️ تدعم أكثر من مزود AI
+* 🏢 SaaS متعدد العملاء
+* ⚖️ متخصص في المجال القانوني
+
+⸻
+
+⚡ إذا تبغى الخطوة التالية (مهم جداً)
+
+أقدر أبني لك واحد من التالي مباشرة:
+
+🔥 1) كود مشروع كامل جاهز (GitHub structure)
+
+🔥 2) لوحة تحكم React احترافية (Admin + Clients)
+
+🔥 3) نظام فواتير كامل (Invoices PDF + Stripe + Wallet)
+
+🔥 4) Smart Legal AI Prompt Library جاهز للسوق السعودي
+
+قل لي: وش تبغى نحوله إلى تنفيذ فعلي أولاً؟

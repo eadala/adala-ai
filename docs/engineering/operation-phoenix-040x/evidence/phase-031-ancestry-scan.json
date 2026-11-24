@@ -1,0 +1,21 @@
+{
+  "ref": "8685f64a6ddb4d983f030b8c1b7b6e1607c6dc6b",
+  "scanned_blobs": 6364,
+  "skipped": 107,
+  "by_class": {},
+  "findings": [
+    {
+      "path": ".env.example",
+      "type": "presence_on_031",
+      "class": "INFO",
+      "present": true
+    },
+    {
+      "path": "docker-compose.yml",
+      "type": "presence_on_031",
+      "class": "INFO",
+      "present": true
+    }
+  ],
+  "baseline_blob_reachable": false
+}

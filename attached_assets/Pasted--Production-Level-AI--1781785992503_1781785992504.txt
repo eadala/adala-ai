@@ -1,0 +1,312 @@
+تمام — خليني أبني لك تصميم كامل احترافي (Production-Level) لطبقة الذكاء الاصطناعي داخل عدالة AI يشمل:
+
+1. 🧠 Architecture كاملة
+2. 💰 نظام الفوترة والتكلفة
+3. ⚙️ لوحة التحكم (Admin + لكل مكتب)
+
+بشكل قريب من أنظمة مثل B.AI / OpenRouter / Vercel AI Gateway
+
+⸻
+
+🧠 1) Architecture كاملة (AI Layer في عدالة AI)
+
+🔷 الفكرة الأساسية
+
+تصميم طبقة مستقلة اسمها:
+
+AI Gateway Service
+
+تفصل الذكاء الاصطناعي عن باقي النظام.
+
+⸻
+
+🧱 البنية العامة
+
+Frontend (React)
+      ↓
+Backend API (Node.js / NestJS)
+      ↓
+AI Gateway Layer
+      ↓
+AI Router
+      ↓
+Providers (OpenAI / Gemini / Claude / Local Models)
+
+⸻
+
+🧩 مكونات الـ AI Layer
+
+1. AI Router (المخ الرئيسي)
+
+* يحدد أي مزود يستخدم
+* يدعم fallback
+* يدعم cost optimization
+
+⸻
+
+2. Provider Adapters
+
+كل مزود له Adapter مستقل:
+
+* OpenAI Adapter
+* Gemini Adapter
+* Claude Adapter
+* Local LLM (اختياري لاحقًا)
+
+⸻
+
+3. Policy Engine (مهم جدًا)
+
+يقرر:
+
+* هل نستخدم cheap model أو premium
+* هل المهمة قانونية تحتاج دقة أعلى
+* هل العميل VIP
+
+⸻
+
+4. Usage Tracker
+
+يسجل كل طلب:
+
+* tokens
+* cost
+* latency
+* provider
+
+⸻
+
+5. Cache Layer
+
+* يمنع تكرار نفس الطلب
+* يقلل التكلفة 20–40%
+
+⸻
+
+⚙️ 2) تصميم Router احترافي (نسخة قوية)
+
+class AIEngine {
+  constructor(
+    private providers: Record<string, AIProvider>,
+    private policy: PolicyEngine,
+    private usage: UsageTracker
+  ) {}
+  async run(request: AIRequest) {
+    const providerName = this.policy.selectProvider(request);
+    const provider = this.providers[providerName];
+    const start = Date.now();
+    try {
+      const result = await provider.generate(request.prompt);
+      this.usage.log({
+        provider: providerName,
+        tokens: result.tokens,
+        cost: result.cost,
+        latency: Date.now() - start,
+      });
+      return result.text;
+    } catch (e) {
+      return this.fallback(request);
+    }
+  }
+}
+
+⸻
+
+💰 3) نظام الفوترة (Billing System)
+
+هذا أهم جزء في SaaS مثل “عدالة AI”
+
+⸻
+
+🔷 الفكرة
+
+كل طلب AI يتحول إلى:
+
+تكلفة + رصيد + خصم + خطة اشتراك
+
+⸻
+
+🧱 قاعدة البيانات
+
+Tenants (المكاتب)
+
+id | name | plan | balance
+
+⸻
+
+AI Usage Logs
+
+id | tenant_id | provider | tokens | cost | created_at
+
+⸻
+
+Pricing Table
+
+{
+  "openai": {
+    "input": 0.0005,
+    "output": 0.0015
+  },
+  "gemini": {
+    "input": 0.0001,
+    "output": 0.0003
+  }
+}
+
+⸻
+
+🧮 حساب التكلفة
+
+cost = (inputTokens * priceIn) + (outputTokens * priceOut)
+
+⸻
+
+💳 خصائص النظام المتقدم
+
+🔹 Prepaid Wallet
+
+* العميل يشحن رصيد
+
+🔹 Monthly Subscription
+
+* حد استخدام
+
+🔹 Pay-as-you-go
+
+* دفع حسب الاستخدام
+
+🔹 AI Cost Limit
+
+* وقف الخدمة إذا تجاوز الحد
+
+⸻
+
+🚨 حماية مالية مهمه
+
+if (tenant.balance < estimatedCost) {
+  throw new Error("Insufficient balance");
+}
+
+⸻
+
+⚙️ 4) لوحة التحكم (Admin + Clients)
+
+⸻
+
+🧑‍💼 A) لوحة الإدارة (Admin Dashboard)
+
+تحتوي على:
+
+📊 1. مراقبة مباشرة
+
+* عدد الطلبات في الوقت الحقيقي
+* أكثر نموذج مستخدم
+* تكلفة اليوم
+
+⸻
+
+💰 2. أرباح وتكاليف
+
+* Cost vs Revenue
+* هامش الربح لكل AI provider
+
+⸻
+
+⚙️ 3. إدارة المزودين
+
+* تشغيل/إيقاف OpenAI
+* تغيير الأسعار
+* إضافة API Keys
+
+⸻
+
+🚨 4. تنبيهات
+
+* ارتفاع تكلفة غير طبيعي
+* فشل provider
+
+⸻
+
+🏢 B) لوحة العميل (كل مكتب قانوني)
+
+داخل “عدالة AI”
+
+📊 Dashboard
+
+* عدد طلبات AI
+* تكلفة الشهر
+* الرصيد المتبقي
+
+⸻
+
+⚙️ AI Settings
+
+العميل يقدر يختار:
+
+* Default Provider:
+    * OpenAI
+    * Gemini
+    * Auto
+* Mode:
+    * ⚡ Fast (cheap)
+    * ⚖️ Balanced
+    * 🧠 Accurate (premium)
+
+⸻
+
+📜 AI History
+
+* كل استعلام
+* الرد
+* التكلفة
+
+⸻
+
+💳 Billing
+
+* شحن رصيد
+* فواتير
+* اشتراك
+
+⸻
+
+🔥 5) ميزة “الذكاء الحقيقي” (ميزة تنافس B.AI)
+
+Smart Legal Routing (مهم جدًا لك)
+
+مثال داخل عدالة AI:
+
+نوع المهمة	النموذج
+صياغة عقد	Claude
+تحليل قانوني	GPT-4o
+تلخيص	Gemini Flash
+بحث سريع	Gemini
+
+⸻
+
+🚀 النتيجة النهائية
+
+بعد تطبيق هذا النظام عندك:
+
+💡 منصة مثل الشركات الكبيرة:
+
+* OpenRouter
+* B.AI
+* Poe API Layer
+
+لكن مخصصة لـ:
+
+⚖️ القطاع القانوني (عدالة AI)
+
+⸻
+
+⚡ إذا تبغى الخطوة التالية
+
+أقدر أبني لك مباشرة:
+
+1. 🔥 ￼ كود NestJS كامل جاهز للـ AI Gateway
+2. 🔥 ￼ Database schema (Prisma) جاهز للإنتاج
+3. 🔥 ￼ لوحة تحكم UI (React Dashboard احترافي)
+4. 🔥 ￼ Smart Legal Prompt System للعقود والقضايا
+
+قل لي: ابدأ بأي واحد أولاً.

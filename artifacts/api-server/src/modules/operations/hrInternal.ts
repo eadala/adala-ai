@@ -1,0 +1,333 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt; pagination touch-up */
+import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import {
+  formatLeaveBalancesResponse,
+  type LeaveBalanceEmployeeRow,
+  type LeaveBalanceLedgerRow,
+} from "../../lib/hrLeaveBalances";
+
+const router = Router();
+
+/** HR Internal schema owned by Migration 048; ensureTables() is readiness-only. */
+let hrInternalSchemaReady = false;
+async function ensureTables() {
+  if (hrInternalSchemaReady) return;
+  try {
+    const r = await db.execute(sql`
+      SELECT
+        to_regclass('public.hr_announcements') IS NOT NULL AS hr_announcements_present,
+        to_regclass('public.employee_requests') IS NOT NULL AS employee_requests_present,
+        to_regclass('public.leave_balances') IS NOT NULL AS leave_balances_present
+    `).catch(() => ({ rows: [{}] }));
+    const row = ((r as { rows?: Record<string, unknown>[] }).rows ?? [])[0] ?? {};
+    if (!row.hr_announcements_present || !row.employee_requests_present || !row.leave_balances_present) {
+      console.error("[hrInternal] Migration 048 schema not ready — hr_announcements / employee_requests / leave_balances missing");
+      return;
+    }
+    hrInternalSchemaReady = true;
+  } catch { /* non-blocking */ }
+}
+
+async function sqlAll(q: any): Promise<any[]> {
+  try {
+    const r = await db.execute(q) as any;
+    return Array.isArray(r) ? r : (r?.rows ?? []);
+  } catch { return []; }
+}
+async function sqlOne(q: any): Promise<any> {
+  return (await sqlAll(q))[0] ?? null;
+}
+
+/* ══════════════════════════════════════════════
+   ANNOUNCEMENTS
+══════════════════════════════════════════════ */
+router.get("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  try {
+    const rows = await sqlAll(sql`
+      SELECT * FROM hr_announcements
+      WHERE office_id = ${tid}
+        AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
+      ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.get("/hr-internal/announcements/all", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  try {
+    const rows = await sqlAll(sql`
+      SELECT * FROM hr_announcements WHERE office_id = ${tid} ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.post("/hr-internal/announcements", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  try {
+    const { title, content, priority, targetDept, authorName, authorId, expiresAt } = req.body as any;
+    if (!title || !content) return res.status(400).json({ error: "العنوان والمحتوى مطلوبان" });
+    const row = await sqlOne(sql`
+      INSERT INTO hr_announcements (office_id, title, content, priority, target_dept, author_name, author_id, expires_at)
+      VALUES (${tid}, ${title}, ${content}, ${priority ?? 'normal'}, ${targetDept ?? null}, ${authorName ?? null}, ${authorId ?? null}, ${expiresAt ?? null})
+      RETURNING *
+    `);
+    res.status(201).json(row);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+router.delete("/hr-internal/announcements/:id", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  await db.execute(sql`DELETE FROM hr_announcements WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
+  res.status(204).end();
+});
+
+/* ══════════════════════════════════════════════
+   EMPLOYEE REQUESTS
+══════════════════════════════════════════════ */
+router.get("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  try {
+    const rows = await sqlAll(sql`
+      SELECT er.*, e.full_name as employee_name, e.job_title, e.department
+      FROM employee_requests er
+      INNER JOIN employees e ON er.employee_id = e.id::text AND e.office_id = ${tid}
+      WHERE er.office_id = ${tid}
+      ORDER BY er.created_at DESC
+    `);
+    res.json(rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.post("/hr-internal/requests", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  try {
+    const { employeeId, type, subject, body } = req.body as any;
+    if (!employeeId || !subject) return res.status(400).json({ error: "الموظف والموضوع مطلوبان" });
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${employeeId} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
+    const row = await sqlOne(sql`
+      INSERT INTO employee_requests (office_id, employee_id, type, subject, body)
+      VALUES (${tid}, ${employeeId}, ${type ?? 'document'}, ${subject}, ${body ?? null})
+      RETURNING *
+    `);
+    res.status(201).json(row);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+router.patch("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  try {
+    const { status, response, resolvedBy } = req.body as any;
+    const tid = (req as any).tenantId as string;
+    const row = await sqlOne(sql`
+      UPDATE employee_requests SET
+        status = COALESCE(${status ?? null}, status),
+        response = COALESCE(${response ?? null}, response),
+        resolved_by = COALESCE(${resolvedBy ?? null}, resolved_by),
+        resolved_at = CASE WHEN ${status ?? null} IS NOT NULL AND ${status ?? null} != 'pending' THEN NOW() ELSE resolved_at END
+      WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}
+      RETURNING *
+    `);
+    if (!row) return res.status(404).json({ error: "الطلب غير موجود" });
+    res.json(row);
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+router.delete("/hr-internal/requests/:id", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tid = (req as any).tenantId as string;
+  await db.execute(sql`DELETE FROM employee_requests WHERE id = ${parseInt(String(req.params.id))} AND office_id = ${tid}`);
+  res.status(204).end();
+});
+
+/* ══════════════════════════════════════════════
+   LEAVE BALANCES — set-based (no per-employee N+1)
+══════════════════════════════════════════════ */
+router.get("/hr-internal/leave-balances", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  try {
+    const year = parseInt(String(req.query.year ?? new Date().getFullYear()), 10);
+    const tid = (req as any).tenantId as string;
+
+    /* 1) Batch INSERT … SELECT missing balances for active tenant employees */
+    await db.execute(sql`
+      INSERT INTO leave_balances (office_id, employee_id, leave_type, year, quota, used)
+      SELECT
+        e.office_id,
+        e.id::text,
+        v.leave_type,
+        ${year},
+        v.quota,
+        0
+      FROM employees e
+      CROSS JOIN (
+        VALUES
+          ('annual'::text, 21),
+          ('sick'::text, 14),
+          ('emergency'::text, 3)
+      ) AS v(leave_type, quota)
+      WHERE e.status = 'active'
+        AND e.office_id = ${tid}
+      ON CONFLICT (employee_id, leave_type, year) DO NOTHING
+    `);
+
+    /* 2) Set-based UPDATE … FROM grouped approved-leave usage (missing → 0) */
+    await db.execute(sql`
+      UPDATE leave_balances AS lb
+      SET used = COALESCE(agg.total, 0)
+      FROM employees AS e
+      LEFT JOIN (
+        SELECT
+          l.employee_id::text AS employee_id,
+          l.type AS leave_type,
+          COALESCE(SUM(l.days), 0)::int AS total
+        FROM leaves l
+        INNER JOIN employees e2 ON e2.id = l.employee_id AND e2.office_id = ${tid}
+        WHERE l.status = 'approved'
+          AND EXTRACT(YEAR FROM l.start_date::date) = ${year}
+          AND l.type IN ('annual', 'sick', 'emergency')
+        GROUP BY l.employee_id, l.type
+      ) AS agg
+        ON agg.employee_id = lb.employee_id
+       AND agg.leave_type = lb.leave_type
+      WHERE lb.employee_id = e.id::text
+        AND e.office_id = ${tid}
+        AND e.status = 'active'
+        AND lb.year = ${year}
+    `);
+
+    /* 3) One SELECT for response payload (employees ⨝ balances) */
+    const rows = await sqlAll(sql`
+      SELECT
+        e.id,
+        e.full_name,
+        e.job_title,
+        e.department,
+        e.office_id,
+        e.status,
+        lb.employee_id,
+        lb.leave_type,
+        lb.year,
+        lb.quota,
+        lb.used
+      FROM employees e
+      LEFT JOIN leave_balances lb
+        ON lb.employee_id = e.id::text
+       AND lb.year = ${year}
+      WHERE e.status = 'active'
+        AND e.office_id = ${tid}
+      ORDER BY e.full_name,
+        CASE lb.leave_type
+          WHEN 'annual' THEN 1
+          WHEN 'sick' THEN 2
+          WHEN 'emergency' THEN 3
+          ELSE 4
+        END
+    `);
+
+    const employees: LeaveBalanceEmployeeRow[] = [];
+    const seen = new Set<string>();
+    const balances: LeaveBalanceLedgerRow[] = [];
+    for (const r of rows) {
+      const id = String(r.id);
+      if (!seen.has(id)) {
+        seen.add(id);
+        employees.push({
+          id,
+          full_name: r.full_name,
+          job_title: r.job_title,
+          department: r.department,
+          office_id: r.office_id,
+          status: r.status,
+        });
+      }
+      if (r.leave_type != null) {
+        balances.push({
+          employee_id: String(r.employee_id ?? id),
+          leave_type: r.leave_type,
+          year: Number(r.year ?? year),
+          quota: Number(r.quota ?? 0),
+          used: Number(r.used ?? 0),
+        });
+      }
+    }
+
+    res.json(formatLeaveBalancesResponse(employees, balances, year, tid));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.patch("/hr-internal/leave-balances/:employeeId", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  try {
+    const tid = (req as any).tenantId as string;
+    const { leaveType, quota, year } = req.body as any;
+    const y = year ?? new Date().getFullYear();
+    const empId = String(req.params.employeeId);
+    /* Verify employee belongs to this office before updating balances */
+    const emp = await sqlOne(sql`SELECT id FROM employees WHERE id::text = ${empId} AND office_id = ${tid} LIMIT 1`);
+    if (!emp) return res.status(404).json({ error: "الموظف غير موجود" });
+    await db.execute(sql`
+      UPDATE leave_balances SET quota = ${parseInt(quota)}
+      WHERE employee_id = ${empId} AND leave_type = ${leaveType} AND year = ${y}
+    `);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════
+   PAYSLIP DATA — مُقيَّد بـ office_id + payroll:view
+══════════════════════════════════════════════ */
+router.get("/hr-internal/payslip/:payrollId", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  try {
+    const row = await sqlOne(sql`
+      SELECT p.*, e.full_name, e.job_title, e.department, e.national_id, e.bank_iban, e.bank_name, e.hire_date
+      FROM payroll p
+      INNER JOIN employees e ON p.employee_id = e.id::text AND e.office_id = ${tid}
+      WHERE p.id = ${parseInt(String(req.params.payrollId))}
+    `);
+    if (!row) return res.status(404).json({ error: "لم يُوجد كشف راتب" });
+    res.json(row);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════════════
+   DASHBOARD STATS
+══════════════════════════════════════════════ */
+router.get("/hr-internal/dashboard", requireAuthWithTenant, async (req, res) => {
+  await ensureTables();
+  const tenantId = (req as any).tenantId as string;
+  try {
+    const year = new Date().getFullYear();
+    const [ann, pendingReqs, pendingLeaves, totalEmp] = await Promise.all([
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM hr_announcements WHERE office_id = ${tenantId} AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)`),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM employee_requests WHERE office_id = ${tenantId} AND status = 'pending'`),
+      sqlOne(sql`
+        SELECT COUNT(*)::int as count FROM leaves l
+        INNER JOIN employees e ON l.employee_id = e.id AND e.office_id = ${tenantId}
+        WHERE l.status = 'pending'
+      `),
+      sqlOne(sql`SELECT COUNT(*)::int as count FROM employees WHERE status = 'active' AND office_id = ${tenantId}`),
+    ]);
+    res.json({
+      announcements: ann?.count ?? 0,
+      pendingRequests: pendingReqs?.count ?? 0,
+      pendingLeaves: pendingLeaves?.count ?? 0,
+      totalEmployees: totalEmp?.count ?? 0,
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+export default router;

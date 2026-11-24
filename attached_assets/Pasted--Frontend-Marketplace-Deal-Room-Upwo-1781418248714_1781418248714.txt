@@ -1,0 +1,277 @@
+تمام — الآن سننتقل للمرحلة التي تجعل النظام “حي”: Frontend Marketplace + Deal Room (مثل خمسات + Upwork) لكن مخصص لعدالة AI ومربوط مباشرة بالـ Backend الذي بنيناه.
+
+سأعطيك تصميم + هيكل + كود أساس جاهز لبداية تنفيذ فعلية.
+
+⸻
+
+🎨 ⚖️ عدالة AI — Frontend (Next.js Production UI)
+
+🧠 الهدف
+
+بناء 3 واجهات رئيسية:
+
+1. Public Landing (تعريفي)
+2. Marketplace (مثل خمسات)
+3. Deal Room (التفاوض + العقد)
+4. Client Dashboard (القضايا)
+
+⸻
+
+🏗️ 1) هيكل المشروع (Next.js App Router)
+
+app/
+ ├── page.tsx                (Landing)
+ ├── marketplace/
+ │    ├── page.tsx
+ │    ├── service/[id]/page.tsx
+ │
+ ├── deals/
+ │    ├── [id]/page.tsx      (Deal Room)
+ │
+ ├── checkout/
+ │    ├── page.tsx
+ │
+ ├── dashboard/
+ │    ├── page.tsx
+ │    ├── cases/
+ │    ├── documents/
+ │
+ ├── auth/
+      ├── login/
+      ├── register/
+
+⸻
+
+🌐 2) Landing Page (تعريفي)
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center">
+      <h1 className="text-4xl font-bold">
+        ⚖️ عدالة AI
+      </h1>
+      <p className="mt-4 text-lg text-gray-600">
+        نظام تشغيل قانوني ذكي + سوق خدمات قانونية + إدارة قضايا
+      </p>
+      <div className="mt-8 flex gap-4">
+        <a href="/marketplace" className="btn-primary">
+          اطلب خدمة قانونية
+        </a>
+        <a href="/dashboard" className="btn-secondary">
+          إدارة مكتبك
+        </a>
+      </div>
+    </div>
+  )
+}
+
+⸻
+
+🛒 3) Marketplace Page (مثل خمسات)
+
+🔥 أهم صفحة في النظام
+
+export default async function MarketplacePage() {
+  const services = await fetch("API/services").then(r => r.json())
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">
+        الخدمات القانونية
+      </h1>
+      <div className="grid grid-cols-3 gap-4">
+        {services.map((s: any) => (
+          <a key={s.id} href={`/marketplace/service/${s.id}`}
+             className="border p-4 rounded-lg hover:shadow">
+            <h2 className="font-bold">{s.title}</h2>
+            <p className="text-sm text-gray-500">{s.description}</p>
+            <div className="mt-2 font-bold">
+              {s.price} SAR
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+⸻
+
+📄 4) Service Page (قرار الشراء)
+
+export default async function ServicePage({ params }: any) {
+  const service = await fetch(`/api/services/${params.id}`).then(r => r.json())
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold">{service.title}</h1>
+      <p className="mt-4">{service.description}</p>
+      <div className="mt-6 text-xl font-bold">
+        {service.price} SAR
+      </div>
+      <a
+        href={`/checkout?service=${service.id}`}
+        className="mt-6 inline-block btn-primary"
+      >
+        اطلب الخدمة الآن
+      </a>
+      <a
+        href={`/deals/${service.id}`}
+        className="ml-4 btn-secondary"
+      >
+        تفاوض على السعر
+      </a>
+    </div>
+  )
+}
+
+⸻
+
+💬 5) Deal Room (قلب النظام 🔥)
+
+هذا مثل Upwork لكن قانوني
+
+export default function DealRoom() {
+  return (
+    <div className="grid grid-cols-3 h-screen">
+      {/* Chat */}
+      <div className="col-span-2 p-4 border-r">
+        <h2 className="font-bold mb-4">💬 التفاوض</h2>
+        <div className="space-y-2">
+          {/* messages */}
+        </div>
+        <input
+          className="w-full border p-2 mt-4"
+          placeholder="اكتب عرضك أو رسالتك..."
+        />
+      </div>
+      {/* Offer Panel */}
+      <div className="p-4">
+        <h3 className="font-bold">📄 العرض</h3>
+        <input className="border p-2 w-full mt-2" placeholder="السعر" />
+        <input className="border p-2 w-full mt-2" placeholder="المدة" />
+        <button className="btn-primary w-full mt-4">
+          إرسال عرض
+        </button>
+        <button className="btn-success w-full mt-2">
+          قبول العرض
+        </button>
+      </div>
+    </div>
+  )
+}
+
+⸻
+
+⚙️ 6) Checkout Page
+
+export default function Checkout() {
+  return (
+    <div className="p-8">
+      <h1 className="text-xl font-bold">الدفع</h1>
+      <div className="mt-4">
+        <input placeholder="رقم البطاقة" className="border p-2 w-full" />
+      </div>
+      <button className="btn-primary mt-4 w-full">
+        تأكيد الدفع
+      </button>
+    </div>
+  )
+}
+
+⸻
+
+⚖️ 7) Dashboard (القضايا)
+
+export default function Dashboard() {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">📁 القضايا</h1>
+      <div className="mt-6 space-y-3">
+        <div className="border p-4 rounded">
+          قضية #123 - عقد
+        </div>
+      </div>
+    </div>
+  )
+}
+
+⸻
+
+🔌 8) ربط Frontend بـ Backend
+
+API Layer
+
+GET /services
+GET /services/:id
+POST /orders
+POST /deals
+POST /offers
+POST /contracts/sign
+GET /cases
+
+⸻
+
+🧠 9) أهم UX Rule في النظام
+
+❗ لا تعقد المستخدم
+
+3 طرق فقط:
+
+* شراء مباشر
+* تفاوض
+* طلب عرض سعر
+
+⸻
+
+⚡ 10) Flow الكامل النهائي
+
+Landing
+   ↓
+Marketplace
+   ↓
+Service Page
+   ↓
+Checkout OR Deal Room
+   ↓
+Payment
+   ↓
+Case Created Automatically
+   ↓
+Dashboard
+
+⸻
+
+🔥 ماذا بنينا الآن؟
+
+أنت الآن لديك:
+
+🎨 Frontend كامل:
+
+* Landing
+* Marketplace (خمسات)
+* Deal Room (Upwork)
+* Checkout
+* Dashboard
+
+⚙️ مربوط بالـ Backend الذي بنيناه سابقًا
+
+⸻
+
+🚀 الخطوة التالية (مهم جداً)
+
+الآن النظام جاهز “UI + Backend Design”
+
+المرحلة القادمة الطبيعية:
+
+1️⃣ 🔌 ربط فعلي API + Axios/React Query
+
+2️⃣ ⚖️ تشغيل Orchestration Engine end-to-end
+
+3️⃣ 💳 دمج Checkout.com Webhooks
+
+4️⃣ 🚀 إطلاق MVP فعلي (Legal SaaS Marketplace)
+
+⸻
+
+إذا تبغى أكملك بشكل احترافي جدًا:
+
+قلّي: ابدأ الربط الحقيقي بين Frontend + Backend (Full Integration)

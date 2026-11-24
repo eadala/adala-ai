@@ -1,0 +1,103 @@
+من الصورة يظهر أن الموقع يفتح الدومين لكن يعرض شاشة فارغة (White Screen / Blank Screen)، وهذا يعني غالباً أحد الأسباب التالية:
+
+1. Crash في React أثناء التحميل.
+2. خطأ Clerk Authentication.
+3. خطأ Environment Variables.
+4. Error داخل Router.
+5. API Endpoint يرجع 500.
+6. Build فاشل بعد النشر.
+7. Infinite Loading State.
+8. Service Worker قديم.
+9. مشكلة SSR/Hydration.
+10. Import مفقود أو Circular Dependency.
+
+إذا كنت تستخدم Replit AI أو Agent، استخدم هذا الموجه الشامل:
+
+CRITICAL PRODUCTION RECOVERY TASK
+The website loads a completely blank screen.
+Perform a full root-cause analysis and automatically fix ALL issues preventing rendering.
+Checklist:
+1. Open browser console and capture every error.
+2. Open Network tab and inspect all failed requests.
+3. Check React render tree.
+4. Detect runtime crashes.
+5. Detect infinite loading states.
+6. Detect broken Clerk authentication.
+7. Verify Clerk publishable key.
+8. Verify Clerk frontend API.
+9. Verify Clerk middleware.
+10. Verify protected routes.
+11. Check environment variables:
+- DATABASE_URL
+- CLERK_SECRET_KEY
+- VITE_CLERK_PUBLISHABLE_KEY
+- SESSION_SECRET
+12. Verify API server startup.
+13. Verify Express routes.
+14. Verify database connection.
+15. Verify migrations.
+15. Check App.tsx:
+- Remove render blockers.
+- Add error boundaries.
+- Add fallback UI.
+16. Search entire project for:
+- Suspense deadlocks
+- Missing returns
+- Null rendering
+- Circular imports
+- Unhandled promises
+- Infinite useEffect loops
+17. Replace any blank screen condition with:
+Loading...
+Authentication Loading...
+Application Error
+Never render empty fragments.
+18. Add Global Error Boundary.
+19. Add Global Console Logger.
+20. Add automatic recovery page when app crashes.
+21. Rebuild frontend.
+22. Rebuild backend.
+23. Run production build.
+24. Fix all TypeScript errors.
+25. Fix all ESLint errors.
+26. Fix all runtime exceptions.
+27. Verify homepage renders successfully.
+28. Verify login page renders successfully.
+29. Verify dashboard renders successfully.
+30. Verify mobile Safari compatibility.
+31. Verify iPhone viewport compatibility.
+32. Generate report:
+- Root Cause Found
+- Files Changed
+- Errors Fixed
+- Remaining Issues
+- Final Production Status
+DO NOT STOP UNTIL THE APPLICATION RENDERS SUCCESSFULLY.
+
+إذا كان مشروع عدالة يستخدم React + Vite + Clerk + Replit فأنا أشك بنسبة كبيرة أن السبب هو:
+
+<SignedIn>
+...
+</SignedIn>
+<SignedOut>
+...
+</SignedOut>
+
+مع عدم وجود:
+
+<ClerkLoaded>
+
+أو وجود:
+
+if (!isLoaded) return null;
+
+وهذا يجعل Safari يعرض شاشة فارغة بالكامل.
+
+أرسل لي:
+
+* App.tsx
+* main.tsx
+* ملف ClerkProvider
+* أو رابط Replit
+
+وسأعطيك موجه إصلاح أدق يستهدف السبب الجذري مباشرة بدل الفحص العام.

@@ -1,0 +1,136 @@
+إليك برومبت تنفيذي قوي ومناسب لإرساله للمبرمج أو وكيل الذكاء الاصطناعي:
+
+⸻
+
+P0 Production Incident — Mandatory Root Cause Resolution
+
+لا تنفذ أي حلول التفافية (Workarounds) أو ترقيعات مؤقتة.
+
+المطلوب هو الوصول إلى السبب الجذري الحقيقي (Root Cause) وإصلاحه وفق الوثائق الرسمية لـ Clerk و Replit Deployments فقط.
+
+المهمة
+
+نفّذ تحقيقاً كاملاً في مشكلة المصادقة على بيئة الإنتاج، ولا تعتبر المهمة منتهية حتى يتم إثبات نجاحها بالأدلة التشغيلية.
+
+1. Domain & Deployment Verification
+
+تحقق بالأدلة من:
+
+* هل adalahai.com مرتبط فعلياً داخل Publishing → Domains؟
+* هل حالته Active أم Verifying أم Pending؟
+* هل توجد متطلبات DNS أو CNAME أو Domain Verification غير مكتملة؟
+* هل يعتبر Replit هذا النطاق جزءاً من الـ Deployment الحالي؟
+
+أرفق الأدلة، ولا تعتمد على الاستنتاج.
+
+⸻
+
+2. Clerk Verification
+
+تحقق من:
+
+* Production Instance
+* Development Instance
+* Publishable Key
+* Secret Key
+* Frontend API (FAPI)
+* Proxy Configuration
+* Authorized Domains
+
+وأثبت أن جميعها متطابقة مع النطاق الإنتاجي.
+
+⸻
+
+3. Runtime Trace
+
+تتبع الطلب التالي خطوة بخطوة:
+
+GET /api/__clerk/v1/environment
+
+وارسم مسار التنفيذ بالكامل:
+
+Browser
+↓
+Express
+↓
+clerkProxyMiddleware
+↓
+Clerk SDK
+↓
+Clerk API
+↓
+Response
+
+حدد أول نقطة يحدث عندها الفشل مع الدليل.
+
+⸻
+
+4. Deployment Audit
+
+أثبت بالأدلة:
+
+* Deployment ID
+* Commit SHA
+* Build Timestamp
+* Active Deployment
+* Bundle Hash
+* Last Modified
+* Build Logs
+
+وتأكد أن بيئة الإنتاج تعمل على آخر Commit وليس إصداراً قديماً.
+
+⸻
+
+5. Bundle Audit
+
+تحقق من الـ Bundle المنشور فعلياً وليس المحلي.
+
+أثبت وجود أو عدم وجود:
+
+* publishableKey
+* proxyUrl
+* FAPI
+* clerkProxyUrl
+* أي مراجع قديمة أو Hardcoded Values
+
+⸻
+
+6. Canonical Compliance
+
+راجع الملفات التالية:
+
+* App.tsx
+* main.tsx
+* clerkProxyMiddleware.ts
+* app.ts
+* vite.config.ts
+* artifact.toml
+* package.json
+
+وأكد أنها مطابقة 100٪ للوثائق الرسمية دون أي Workarounds أو منطق مخصص.
+
+إذا وُجد أي اختلاف، فاذكره مع سبب وجوده.
+
+⸻
+
+7. Acceptance Criteria
+
+لا تعتبر المهمة مكتملة حتى تتحقق جميع البنود التالية بالأدلة:
+
+* ✅ GET /api/__clerk/v1/environment يعيد HTTP 200.
+* ✅ اختفاء host_invalid.
+* ✅ Clerk.isLoaded === true.
+* ✅ نجاح تسجيل الدخول.
+* ✅ نجاح إنشاء Session.
+* ✅ نجاح الوصول إلى Dashboard.
+* ✅ عدم وجود أخطاء CSP أو CORS أو DNS أو Console.
+* ✅ عمل الموقع بالكامل على https://adalahai.com.
+
+⸻
+
+قواعد التنفيذ
+
+* ممنوع التخمين.
+* ممنوع استخدام عبارات مثل: قد يكون، يبدو، على الأرجح.
+* إذا لم يوجد دليل مباشر، فاكتب صراحة: “غير مثبت بالأدلة”.
+* لا تغلق المهمة إلا بعد تقديم أدلة تشغيلية (Runtime Evidence) تثبت أن السبب الجذري تم إصلاحه وأن بيئة الإنتاج تعمل بالكامل.

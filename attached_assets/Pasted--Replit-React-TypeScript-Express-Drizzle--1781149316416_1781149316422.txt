@@ -1,0 +1,370 @@
+نعم، ويمكن بناء ذلك بطريقة احترافية ومتوافقة مع **Replit + React + TypeScript + Express + Drizzle + PostgreSQL**.
+
+لكن لأن النظام كبير، فأفضل طريقة هي إنشاء هذه الملفات:
+
+```txt
+client/src/pages/super-admin/
+
+PlansPage.tsx
+CreatePlanPage.tsx
+EditPlanPage.tsx
+
+client/src/components/plans/
+
+PlanCard.tsx
+PlanLimitsForm.tsx
+PlanFeaturesForm.tsx
+PlanPricingForm.tsx
+
+server/routes/
+
+plans.ts
+
+shared/schema/
+
+plans.ts
+planFeatures.ts
+planLimits.ts
+```
+
+## 1. جدول الباقات
+
+### shared/schema/plans.ts
+
+```ts
+import {
+  pgTable,
+  uuid,
+  varchar,
+  decimal,
+  boolean,
+  integer
+} from "drizzle-orm/pg-core";
+
+export const plans = pgTable("plans", {
+
+  id: uuid("id")
+    .defaultRandom()
+    .primaryKey(),
+
+  name: varchar("name", {
+    length: 100
+  }).notNull(),
+
+  slug: varchar("slug", {
+    length: 100
+  }).notNull(),
+
+  monthlyPrice: decimal(
+    "monthly_price"
+  ),
+
+  yearlyPrice: decimal(
+    "yearly_price"
+  ),
+
+  displayOrder: integer(
+    "display_order"
+  ).default(1),
+
+  recommended: boolean(
+    "recommended"
+  ).default(false),
+
+  isVisible: boolean(
+    "is_visible"
+  ).default(true)
+
+});
+```
+
+---
+
+# 2. جدول حدود الباقة
+
+### shared/schema/planLimits.ts
+
+```ts
+export const planLimits = pgTable(
+  "plan_limits",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    planId: uuid("plan_id")
+      .notNull(),
+
+    users: integer("users"),
+
+    clients: integer("clients"),
+
+    cases: integer("cases"),
+
+    storageGb: integer(
+      "storage_gb"
+    )
+
+  }
+);
+```
+
+---
+
+# 3. جدول الخدمات
+
+### shared/schema/planFeatures.ts
+
+```ts
+export const planFeatures = pgTable(
+  "plan_features",
+  {
+
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    planId: uuid("plan_id")
+      .notNull(),
+
+    feature: varchar("feature", {
+      length: 255
+    })
+
+  }
+);
+```
+
+---
+
+# API
+
+### server/routes/plans.ts
+
+```ts
+router.get("/", async (_, res) => {
+
+  const data =
+    await db.query.plans.findMany();
+
+  res.json(data);
+
+});
+```
+
+---
+
+## إضافة باقة
+
+```ts
+router.post("/", async (req, res) => {
+
+  const {
+
+    name,
+
+    slug,
+
+    monthlyPrice,
+
+    yearlyPrice
+
+  } = req.body;
+
+  await db.insert(plans).values({
+
+    name,
+
+    slug,
+
+    monthlyPrice,
+
+    yearlyPrice
+
+  });
+
+  res.json({
+    success: true
+  });
+
+});
+```
+
+---
+
+# تعديل الباقة
+
+```ts
+router.patch("/:id", async (req, res) => {
+
+  await db
+    .update(plans)
+    .set(req.body)
+    .where(
+      eq(
+        plans.id,
+        req.params.id
+      )
+    );
+
+  res.json({
+    success: true
+  });
+
+});
+```
+
+---
+
+# حذف الباقة
+
+```ts
+router.delete("/:id", async (req, res) => {
+
+  await db
+    .delete(plans)
+    .where(
+      eq(
+        plans.id,
+        req.params.id
+      )
+    );
+
+  res.json({
+    success: true
+  });
+
+});
+```
+
+---
+
+# صفحة إدارة الباقات
+
+### PlansPage.tsx
+
+```tsx
+<Button>
+
+إضافة باقة
+
+</Button>
+
+<Table>
+
+اسم الباقة
+
+السعر الشهري
+
+السعر السنوي
+
+الحالة
+
+إجراءات
+
+</Table>
+```
+
+---
+
+# نموذج إضافة باقة
+
+```tsx
+<Input placeholder="اسم الباقة" />
+
+<Input placeholder="Slug" />
+
+<Input placeholder="السعر الشهري" />
+
+<Input placeholder="السعر السنوي" />
+
+<Checkbox>
+
+الباقة الموصى بها
+
+</Checkbox>
+
+<Checkbox>
+
+إظهار الباقة
+
+</Checkbox>
+
+<Button>
+
+حفظ
+
+</Button>
+```
+
+---
+
+# تبويب الخدمات
+
+```tsx
+AI
+
+بوابة العملاء
+
+الموقع الخارجي
+
+متجر الخدمات
+
+API
+
+SEO
+
+واتساب
+
+الفروع
+
+Workflow
+
+SLA
+```
+
+كل واحدة تكون:
+
+```tsx
+<Switch />
+```
+
+تشغيل أو إيقاف.
+
+---
+
+# تبويب الحدود
+
+```tsx
+عدد المستخدمين
+
+عدد العملاء
+
+عدد القضايا
+
+التخزين
+```
+
+---
+
+# صلاحية خاصة
+
+```ts
+SUPER_ADMIN
+```
+
+ويستطيع:
+
+* إنشاء عدد لا محدود من الباقات.
+* تعديل الأسعار.
+* إضافة مزايا جديدة.
+* حذف الباقات.
+* إخفاء أو إظهار الباقات.
+* تحديد الباقة الموصى بها.
+* منح اشتراكات مجانية.
+* ترقية أو تخفيض أي مكتب.
+* إنشاء كوبونات خصم.
+* إدارة الإضافات Add-ons.
+
+وهذا التصميم قريب جداً من لوحة إدارة الاشتراكات الموجودة في Stripe Billing وHubSpot وShopify، ومناسب لبناء عدالة AI كنظام SaaS احترافي قابل للتوسع.

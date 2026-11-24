@@ -1,0 +1,142 @@
+يمكنك إرسال هذا الأمر الاحترافي للمطور أو لوكيل الذكاء الاصطناعي المسؤول عن المشروع:
+
+⸻
+
+P1 Production Authentication Investigation (Evidence-Based)
+
+تم حل مشكلة تشغيل الواجهة الأمامية (Frontend) بنجاح، وأصبحت الصفحة الرئيسية تعمل على Production، مما يؤكد نجاح نشر الإصدار الجديد واستبدال الـ bundle القديم.
+
+لكن ما زالت طبقة المصادقة (Authentication) غير تعمل، حيث يتعطل تسجيل الدخول ولوحة التحكم.
+
+المطلوب
+
+لا تُجرِ أي تعديل أو إصلاح قبل إنهاء التحقيق التالي بالأدلة.
+
+المرحلة الأولى: تحديد أول نقطة فشل
+
+حدّد أول نقطة يتوقف عندها تدفق تسجيل الدخول بدءًا من:
+
+Browser
+→ React
+→ ClerkProvider
+→ Clerk SDK
+→ /api/__clerk/*
+→ Backend Proxy
+→ Clerk API
+→ Session Creation
+→ Redirect
+→ Dashboard
+
+ويجب تحديد أول مرحلة تفشل مع الدليل.
+
+⸻
+
+المرحلة الثانية: فحص Clerk
+
+تحقق من:
+
+* /api/__clerk/v1/environment
+* /api/__clerk/v1/client
+* /api/__clerk/v1/me
+
+لكل طلب اعرض:
+
+* HTTP Status
+* Response Headers
+* Response Body
+* أول رسالة خطأ إن وجدت
+
+⸻
+
+المرحلة الثالثة: فحص الـ Frontend
+
+تحقق من أن الـ bundle المنشور هو الإصدار الحالي وليس إصدارًا قديمًا.
+
+قدّم الأدلة التالية:
+
+* اسم ملف index-*.js
+* تاريخ Last-Modified
+* وجود:
+    * publishableKeyFromHost
+    * VITE_CLERK_PROXY_URL
+    * proxyUrl
+    * pk_live
+
+⸻
+
+المرحلة الرابعة: Runtime Audit
+
+أثناء محاولة تسجيل الدخول، سجّل القيم التالية:
+
+window.Clerk
+Clerk.loaded
+useAuth().isLoaded
+useAuth().isSignedIn
+useUser().isLoaded
+useUser().isSignedIn
+
+مع توضيح القيمة الفعلية لكل منها.
+
+⸻
+
+المرحلة الخامسة: Network Investigation
+
+سجّل أول Request يفشل أثناء تسجيل الدخول، مع:
+
+* URL
+* Method
+* HTTP Status
+* Request Headers
+* Response Headers
+* Response Body
+
+ولا تنتقل إلى أي استنتاج قبل تحديد أول Request فاشل.
+
+⸻
+
+المرحلة السادسة: Backend Audit
+
+راجع سجلات الخادم أثناء محاولة تسجيل الدخول وابحث عن:
+
+* Clerk Proxy Errors
+* Middleware Errors
+* CORS
+* CSP
+* Cookies
+* Session
+* Redirect
+* Runtime Exceptions
+
+مع تحديد أول Exception إن وجد.
+
+⸻
+
+المرحلة السابعة: Environment Verification
+
+تحقق من تطابق إعدادات Production فقط:
+
+* CLERK_PUBLISHABLE_KEY
+* CLERK_SECRET_KEY
+* VITE_CLERK_PUBLISHABLE_KEY
+* VITE_CLERK_PROXY_URL
+* Custom Domain
+* Proxy Configuration
+
+مع التأكد من أن جميعها تخص نفس بيئة الإنتاج (Production Instance).
+
+⸻
+
+التقرير النهائي
+
+لا تُقدّم أي إصلاح قبل إصدار تقرير يتضمن:
+
+1. أول نقطة فشل المثبتة بالأدلة.
+2. السبب الجذري الحقيقي (Root Cause).
+3. الملف المسؤول.
+4. السطر المسؤول.
+5. تأثير المشكلة على النظام.
+6. خطة الإصلاح بأقل تغيير ممكن (Minimal Fix).
+7. تحليل مخاطر الإصلاح (Regression Risk).
+8. خطة تحقق بعد الإصلاح (Post-Fix Validation Checklist).
+
+ممنوع الاعتماد على التخمين أو الترجيح. جميع الاستنتاجات يجب أن تكون مدعومة بأدلة قابلة للتحقق من سجلات التشغيل، الشبكة، والبيئة الإنتاجية.

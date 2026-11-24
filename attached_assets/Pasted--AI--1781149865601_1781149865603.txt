@@ -1,0 +1,264 @@
+هذه خطوة مهمة جداً إذا كنت تريد أن تصبح **عدالة AI** منصة إقليمية أو عالمية. أوصي بأن تكون:
+
+* **العربية هي اللغة الافتراضية والأساسية**.
+* إمكانية التحويل إلى الإنجليزية بضغطة زر.
+* دعم RTL للعربية وLTR للإنجليزية.
+* جميع النصوص تأتي من ملفات ترجمة وليس مكتوبة داخل المكونات.
+
+## واجهة المستخدم
+
+في الشريط العلوي:
+
+```text
+العربية | English
+```
+
+أو:
+
+```text
+🌐 العربية
+🌐 English
+```
+
+---
+
+# هيكل الملفات
+
+متوافق مع Replit + React + TypeScript:
+
+```text
+client/src/
+
+i18n/
+
+ar/
+
+common.json
+sidebar.json
+dashboard.json
+
+en/
+
+common.json
+sidebar.json
+dashboard.json
+
+i18n.ts
+```
+
+---
+
+# ملف العربية
+
+## i18n/ar/common.json
+
+```json
+{
+  "dashboard": "لوحة التحكم",
+  "cases": "القضايا",
+  "clients": "العملاء",
+  "invoices": "الفواتير",
+  "documents": "المستندات",
+  "logout": "تسجيل الخروج"
+}
+```
+
+---
+
+# ملف الإنجليزية
+
+## i18n/en/common.json
+
+```json
+{
+  "dashboard": "Dashboard",
+  "cases": "Cases",
+  "clients": "Clients",
+  "invoices": "Invoices",
+  "documents": "Documents",
+  "logout": "Logout"
+}
+```
+
+---
+
+# إعداد i18next
+
+## i18n.ts
+
+```ts
+import i18n from "i18next";
+
+import { initReactI18next } from "react-i18next";
+
+import ar from "./ar/common.json";
+import en from "./en/common.json";
+
+i18n
+.use(initReactI18next)
+.init({
+
+resources: {
+
+ar: {
+translation: ar
+},
+
+en: {
+translation: en
+}
+
+},
+
+lng: "ar",
+
+fallbackLng: "ar",
+
+interpolation: {
+escapeValue: false
+}
+
+});
+
+export default i18n;
+```
+
+---
+
+# الاستخدام
+
+```tsx
+import { useTranslation } from "react-i18next";
+
+const { t } = useTranslation();
+
+<h1>
+
+{t("dashboard")}
+
+</h1>
+```
+
+---
+
+# زر تغيير اللغة
+
+```tsx
+<Button
+onClick={() =>
+i18n.changeLanguage("ar")
+}
+>
+
+العربية
+
+</Button>
+
+<Button
+onClick={() =>
+i18n.changeLanguage("en")
+}
+>
+
+English
+
+</Button>
+```
+
+---
+
+# تغيير اتجاه الصفحة
+
+```tsx
+useEffect(() => {
+
+document.documentElement.dir =
+
+i18n.language === "ar"
+
+? "rtl"
+
+: "ltr";
+
+}, [i18n.language]);
+```
+
+---
+
+# حفظ اللغة للمستخدم
+
+جدول users:
+
+```ts
+preferredLanguage:
+varchar(
+"preferred_language",
+{
+length:10
+}
+)
+.default("ar")
+```
+
+---
+
+# عند تسجيل الدخول
+
+يتم تحميل:
+
+```ts
+user.preferredLanguage
+```
+
+وتطبيق:
+
+```ts
+i18n.changeLanguage(
+user.preferredLanguage
+);
+```
+
+---
+
+# داخل صفحة الإعدادات
+
+```text
+الإعدادات
+
+اللغة
+
+◉ العربية
+
+○ English
+```
+
+---
+
+# المواقع الخارجية لكل مكتب
+
+يمكن دعم:
+
+```text
+alshammari.adala-ai.com/ar
+
+alshammari.adala-ai.com/en
+```
+
+أو:
+
+```text
+ar.alshammari-law.com
+
+en.alshammari-law.com
+```
+
+---
+
+# أوصي أيضاً بإضافة مستقبلاً:
+
+* العربية 🇸🇦 (افتراضي)
+* English 🇬🇧
+* Français 🇫🇷
+* Türkçe 🇹🇷
+
+ليصبح **عدالة AI** منصة قانونية عالمية متعددة اللغات، مع بقاء العربية هي اللغة الأم والأساسية للمنصة.

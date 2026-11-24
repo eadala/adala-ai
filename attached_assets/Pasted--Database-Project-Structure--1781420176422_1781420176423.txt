@@ -1,0 +1,234 @@
+تمام — سأحوّلها الآن إلى تنفيذ فعلي جاهز (Database + Project Structure) بحيث تبدأ تبني مباشرة بدون إعادة تفكير.
+
+سأعطيك شيئين:
+
+1. 🧱 ERD (قاعدة البيانات الاحترافية)
+2. 📁 هيكلة المشروع (Next.js + Backend)
+
+⸻
+
+🧱 1) ERD — Database Design (Multi-Tenant SaaS)
+
+🟦 tenants (العملاء)
+
+id (UUID) PK
+name
+slug UNIQUE   ← الرابط الثابت /u/{slug}
+status (active / suspended)
+created_at
+
+⸻
+
+🟨 tenant_settings (إعدادات كل عميل)
+
+id (UUID) PK
+tenant_id FK → tenants.id
+theme_primary_color
+theme_logo_url
+services_config (JSON)
+payment_enabled (bool)
+checkout_account_id
+landing_config (JSON)
+created_at
+
+⸻
+
+🟩 users (مستخدمين النظام + العملاء)
+
+id (UUID) PK
+tenant_id FK → tenants.id
+name
+email
+role (ADMIN / CLIENT / STAFF)
+password_hash
+created_at
+
+⸻
+
+🟧 services (الخدمات داخل كل عميل)
+
+id (UUID) PK
+tenant_id FK
+title
+description
+price
+is_active
+created_at
+
+⸻
+
+🟥 orders (الطلبات)
+
+id (UUID) PK
+tenant_id FK
+user_id FK
+service_id FK
+status (pending / paid / processing / done)
+total_amount
+created_at
+
+⸻
+
+🟪 payments (الدفع)
+
+id (UUID) PK
+order_id FK
+tenant_id FK
+provider (Checkout.com)
+payment_status
+payment_intent_id
+amount
+currency
+created_at
+
+⸻
+
+🟫 audit_logs (مهم جداً)
+
+id
+tenant_id
+action
+entity_type
+entity_id
+metadata (JSON)
+created_at
+
+⸻
+
+📁 2) Project Architecture (Production Ready)
+
+🟦 Frontend (Next.js)
+
+/app
+  /u
+    /[slug]              ← صفحة العميل (Dynamic Tenant Page)
+  /admin                 ← لوحة تحكمك أنت
+    /tenants
+    /tenants/[id]
+    /settings
+  /api
+    /tenant
+    /orders
+    /payments
+
+⸻
+
+🟨 Backend (API Layer)
+
+إذا تستخدم NestJS أو Node:
+
+/src
+  /modules
+    /tenant
+      tenant.service.ts
+      tenant.controller.ts
+      tenant.repository.ts
+    /auth
+    /orders
+    /payments
+    /services
+  /common
+    guards/
+    middleware/
+    utils/
+
+⸻
+
+🟩 Core Logic (أهم جزء)
+
+🔥 Slug Resolver Middleware
+
+/u/al-mohamedi-law
+        ↓
+TenantService.findBySlug()
+        ↓
+attach tenant to request
+
+⸻
+
+🔥 Tenant Context Injection
+
+كل request يصبح:
+
+req.tenant = {
+  id: "...",
+  slug: "...",
+  settings: {...}
+}
+
+⸻
+
+🔄 3) Request Flow النهائي (مهم جداً)
+
+User enters URL
+      ↓
+Next.js route /u/[slug]
+      ↓
+API: resolve tenant
+      ↓
+DB lookup (tenants table)
+      ↓
+Return tenant config
+      ↓
+Render dynamic page
+      ↓
+User creates order
+      ↓
+Payment via Checkout.com
+      ↓
+Webhook updates payment table
+      ↓
+Order marked as PAID
+
+⸻
+
+⚙️ 4) أهم Design Decisions (مختصر حاسم)
+
+✔️ لماذا هذا التصميم قوي؟
+
+* كل عميل = tenant مستقل
+* نفس الكود يخدم آلاف العملاء
+* slug ثابت لا يتغير
+* كامل النظام قابل للتوسع
+
+⸻
+
+🚀 5) تحسينات “احتراف وادي السيليكون”
+
+إذا تبغى النظام يصير Enterprise فعلاً:
+
+🔹 Redis
+
+* caching لـ slug resolution
+* يقلل DB load 80%
+
+🔹 Event System
+
+* order_created
+* payment_success
+* tenant_created
+
+🔹 Webhooks Layer
+
+* Checkout.com callbacks
+
+⸻
+
+🧭 الخلاصة
+
+أنت الآن لديك:
+
+Full Multi-Tenant SaaS Blueprint جاهز للتحويل إلى كود مباشرة
+
+⸻
+
+إذا الخطوة التالية:
+
+أقدر أحوّله لك إلى واحد من التالي:
+
+1. 🔥 ￼ مشروع Next.js كامل جاهز (copy/paste)
+2. 🔥 ￼ Backend NestJS جاهز بالكامل
+3. 🔥 ￼ Prisma schema جاهز للتشغيل مباشرة
+4. 🔥 ￼ نظام توليد مشروع Auto-Build (Prompt يولد SaaS كامل)
+
+قل لي فقط: “حوّله إلى مشروع جاهز”

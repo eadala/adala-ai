@@ -1,0 +1,280 @@
+AI CEO Prompt — Enterprise Frontend Freeze & Quality Gate (Release Candidate)
+
+المرحلة الحالية
+
+تم الانتهاء من تطوير واجهة منصة عدالة على مستوى المؤسسات، وتشمل:
+
+* Enterprise Navigation
+* Adaptive UI
+* Desktop Experience
+* Tablet Experience
+* Mobile Experience
+* Adaptive Components
+* Responsive Forms
+* Mobile Data Tables
+* Adaptive Dialogs
+* Bottom Sheets
+* Empty States
+* Skeleton Loading
+
+اعتبر طبقة العرض (Presentation Layer) مكتملة.
+
+من الآن فصاعداً، يُمنع إضافة ميزات أو مكونات واجهة جديدة إلا بعد اجتياز بوابة الجودة (Quality Gate).
+
+⸻
+
+الهدف
+
+تحويل الواجهة الحالية إلى Release Candidate (RC) مستقرة، مع توحيد جميع المكونات، وإجراء تدقيق شامل، واعتمادها كمعيار رسمي للمنصة.
+
+المطلوب هو تثبيت الجودة (Stabilization)، وليس إضافة وظائف جديدة.
+
+⸻
+
+المرحلة الأولى: Frontend Audit
+
+قم بإجراء تدقيق شامل على الواجهة بالكامل.
+
+تحقق من:
+
+* جميع الصفحات.
+* جميع Routes.
+* جميع Layouts.
+* جميع النوافذ.
+* جميع النماذج.
+* جميع الجداول.
+* جميع البطاقات.
+* جميع الفلاتر.
+* جميع عناصر التنقل.
+* جميع حالات التحميل.
+* جميع حالات الخطأ.
+* جميع حالات البيانات الفارغة.
+
+وأصدر تقريراً يوضح أي مكون لا يزال يستخدم نمطاً قديماً.
+
+⸻
+
+المرحلة الثانية: Component Standardization
+
+تأكد من أن جميع أجزاء المنصة تستخدم فقط المكونات القياسية المعتمدة.
+
+يمنع استخدام
+
+* Dialog قديم.
+* Modal قديم.
+* Table غير متجاوب.
+* Form Grid مخصص.
+* Spinner قديم.
+* Empty State مخصص.
+* Skeleton مخصص.
+* Button خارج Design System.
+
+استبدل أي استثناء بالمكون الرسمي.
+
+⸻
+
+المرحلة الثالثة: Design System Enforcement
+
+اعتماد نظام التصميم كمرجع وحيد.
+
+توحيد:
+
+* الألوان.
+* Typography.
+* المسافات.
+* Border Radius.
+* Shadows.
+* Icons.
+* Buttons.
+* Inputs.
+* Cards.
+* Tables.
+* Alerts.
+* Toasts.
+* Badges.
+* Chips.
+* Tags.
+* Progress Indicators.
+* Loading States.
+* Empty States.
+
+لا يُسمح بأي اختلافات بصرية غير مبررة.
+
+⸻
+
+المرحلة الرابعة: Accessibility Audit
+
+إجراء مراجعة كاملة وفق WCAG 2.2 AA.
+
+يشمل:
+
+* Keyboard Navigation.
+* Focus Management.
+* Screen Readers.
+* Color Contrast.
+* Touch Targets.
+* RTL.
+* LTR.
+* Safe Areas.
+* Reduced Motion.
+* High Contrast.
+
+أي مخالفة يجب إصلاحها.
+
+⸻
+
+المرحلة الخامسة: Performance Audit
+
+قياس وتحسين:
+
+* Largest Contentful Paint (LCP).
+* Interaction to Next Paint (INP).
+* Cumulative Layout Shift (CLS).
+* Time to Interactive (TTI).
+* Bundle Size.
+* JavaScript Execution.
+* CSS Size.
+* Memory Usage.
+
+عدم إضافة أي مكتبة جديدة إلا إذا كانت هناك ضرورة واضحة.
+
+⸻
+
+المرحلة السادسة: Visual Regression
+
+إجراء مقارنة بصرية لجميع الصفحات.
+
+التحقق من:
+
+* Desktop.
+* Tablet.
+* Mobile.
+* الوضع الفاتح.
+* الوضع الداكن.
+* RTL.
+* LTR.
+
+أي اختلاف غير مقصود يجب معالجته.
+
+⸻
+
+المرحلة السابعة: End-to-End Validation
+
+اختبار جميع المسارات الحرجة:
+
+* تسجيل الدخول.
+* لوحة التحكم.
+* القضايا.
+* العملاء.
+* العقود.
+* المستندات.
+* المالية.
+* الموارد البشرية.
+* الذكاء الاصطناعي.
+* عدالة إفلاس.
+* JLWM.
+* إدارة المنصة.
+
+والتأكد من:
+
+* سلامة التنقل.
+* سلامة النماذج.
+* سلامة الحفظ.
+* سلامة البحث.
+* سلامة الفلاتر.
+* سلامة الصلاحيات.
+* سلامة التنقل التكيفي.
+
+⸻
+
+المرحلة الثامنة: Technical Debt Review
+
+استخرج تقريراً يتضمن:
+
+* الملفات المكررة.
+* المكونات غير المستخدمة.
+* Hooks غير المستخدمة.
+* CSS غير المستخدم.
+* Imports غير المستخدمة.
+* Dead Code.
+* Deprecated Components.
+* TODO / FIXME.
+* Console Logs.
+* Debug Code.
+
+ثم قم بتنظيفها دون التأثير على الوظائف.
+
+⸻
+
+المرحلة التاسعة: Production Readiness
+
+التحقق من:
+
+* TypeScript Errors = 0
+* ESLint Errors = 0
+* Build Warnings = 0
+* Runtime Errors = 0
+* Memory Leaks = 0
+* Accessibility Violations = 0
+* Performance Budget = PASS
+* Regression = 0
+
+⸻
+
+المرحلة العاشرة: Documentation
+
+إنشاء وثائق داخلية تشمل:
+
+Frontend Architecture
+
+* هيكل الواجهة.
+* المكونات القياسية.
+* Adaptive UI.
+* Navigation System.
+* Design System.
+
+Developer Guide
+
+كيفية استخدام:
+
+* AdaptiveDialog.
+* BottomSheet.
+* MobileDataTable.
+* ResponsiveFormGrid.
+* EmptyState.
+* SkeletonCard.
+
+مع أمثلة واضحة، ومنع إنشاء مكونات موازية تؤدي إلى تشتت التصميم.
+
+⸻
+
+التقرير التنفيذي النهائي
+
+أصدر تقريراً يتضمن:
+
+* عدد الصفحات التي تم تدقيقها.
+* عدد المكونات الموحدة.
+* نسبة الالتزام بنظام التصميم.
+* نتائج الأداء.
+* نتائج إمكانية الوصول.
+* نتائج اختبارات End-to-End.
+* نتائج Visual Regression.
+* نتائج تنظيف الديون التقنية.
+* أي مخاطر متبقية (إن وجدت) مع تصنيفها حسب الأولوية.
+
+معيار النجاح
+
+لا يتم اعتماد طبقة الواجهة إلا إذا تحققت جميع الشروط التالية:
+
+* Frontend Standardization: 100%
+* Adaptive UI Coverage: 100%
+* Design System Compliance: 100%
+* Accessibility (WCAG 2.2 AA): PASS
+* Performance Budget: PASS
+* Visual Regression: 0
+* Regression: 0
+* TypeScript Errors: 0
+* ESLint Errors: 0
+* Production Readiness: APPROVED
+
+بعد اجتياز هذه البوابة، يتم إعلان Frontend Feature Freeze، ويُمنع إجراء أي تعديلات بصرية أو إضافة مكونات واجهة جديدة إلا من خلال طلب تغيير رسمي (Change Request)، مع تحويل كامل التركيز إلى تطوير القيمة الأساسية لمنصة عدالة: الذكاء القانوني، الأتمتة، محرك سير العمل، والتحليلات المتقدمة.

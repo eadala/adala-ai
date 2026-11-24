@@ -1,0 +1,176 @@
+groups:
+  # ═══════════════════════════════════════════════════════
+  # API ALERTS — يستخدم أسماء المقاييس الحقيقية من prometheus.ts
+  # ═══════════════════════════════════════════════════════
+  - name: adala-api
+    rules:
+      - alert: HighAPIErrorRate
+        expr: |
+          rate(adala_http_errors_total[5m]) /
+          rate(adala_http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "معدل أخطاء API مرتفع (>5%)"
+          description: "معدل الأخطاء: {{ $value | humanizePercentage }} في الـ 5 دقائق الأخيرة"
+
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            rate(adala_http_request_duration_ms_bucket[5m])
+          ) > 1000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "زمن استجابة API مرتفع (p95 > 1s)"
+          description: "p95 latency: {{ $value }}ms"
+
+      - alert: APIDown
+        expr: up{job="adala_api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🚨 API عدالة متوقف"
+          description: "خدمة API لم تستجب لـ Prometheus scrape"
+
+      - alert: HighAIRequestRate
+        expr: rate(adala_ai_requests_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "طلبات AI مرتفعة (>10 req/s)"
+          description: "معدل طلبات AI: {{ $value }}/s — قد يؤثر على التكاليف"
+
+  # ═══════════════════════════════════════════════════════
+  # DATABASE ALERTS
+  # ═══════════════════════════════════════════════════════
+  - name: adala-database
+    rules:
+      - alert: DatabaseDown
+        expr: adala_db_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🚨 قاعدة البيانات غير متاحة"
+          description: "API يُبلّغ بأن DB لا تستجيب"
+
+      - alert: HighDBConnectionCount
+        expr: pg_stat_database_numbackends{datname="adala"} > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "اتصالات DB مرتفعة (>80)"
+          description: "عدد الاتصالات الحالية: {{ $value }}"
+
+      - alert: DBHighLatency
+        expr: adala_db_latency_ms > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "بطء في قاعدة البيانات (>500ms)"
+          description: "زمن الاستجابة الحالي: {{ $value }}ms"
+
+      - alert: PostgresExporterDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "postgres-exporter متوقف"
+
+  # ═══════════════════════════════════════════════════════
+  # REDIS ALERTS
+  # ═══════════════════════════════════════════════════════
+  - name: adala-redis
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🚨 Redis متوقف"
+
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis يستهلك أكثر من 85% من الذاكرة"
+          description: "الاستهلاك: {{ $value | humanizePercentage }}"
+
+  # ═══════════════════════════════════════════════════════
+  # HOST / NODE ALERTS
+  # ═══════════════════════════════════════════════════════
+  - name: adala-host
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "استخدام CPU مرتفع (>85%)"
+          description: "CPU: {{ $value }}%"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ذاكرة الخادم ممتلئة (>90%)"
+          description: "الذاكرة المستخدمة: {{ $value | humanizePercentage }}"
+
+      - alert: DiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{fstype!="tmpfs"} /
+          node_filesystem_size_bytes{fstype!="tmpfs"} < 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "مساحة القرص أقل من 10%"
+          description: "القرص: {{ $value | humanizePercentage }} متبقي"
+
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter متوقف"
+
+  # ═══════════════════════════════════════════════════════
+  # NODE.JS PROCESS ALERTS
+  # ═══════════════════════════════════════════════════════
+  - name: adala-nodejs
+    rules:
+      - alert: HighHeapUsage
+        expr: |
+          adala_node_nodejs_heap_size_used_bytes /
+          adala_node_nodejs_heap_size_total_bytes > 0.90
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node.js heap قريب من الامتلاء (>90%)"
+
+      - alert: EventLoopLag
+        expr: adala_node_nodejs_eventloop_lag_seconds > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event Loop lag مرتفع (>500ms)"
+          description: "Lag: {{ $value }}s"

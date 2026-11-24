@@ -1,0 +1,313 @@
+تمام — بما أنك قلت “نعم”، سأفترض أنك تريد MVP قابل للبيع خلال فترة قصيرة لكن مبني على نفس المعمارية القوية التي صممناها، وليس مجرد نموذج بسيط.
+
+سأحوّل كل شيء الآن إلى:
+
+⚖️ MVP Production Plan لمنصة عدالة AI (Marketplace + Deals + Cases)
+
+⸻
+
+🚀 ⚖️ عدالة AI — MVP (قابل للبيع فعليًا)
+
+🧠 الهدف من الـ MVP
+
+إطلاق نسخة تعمل فعليًا تحقق:
+
+* بيع خدمات قانونية (مثل خمسات)
+* تفاوض على السعر (Deal Room)
+* عقد إلكتروني تلقائي
+* إنشاء قضية تلقائي
+* لوحة مكتب محاماة
+
+⸻
+
+🧩 1) نطاق الـ MVP (لا نزيد تعقيد)
+
+❌ يتم تأجيله:
+
+* AI المتقدم
+* microservices
+* تعدد بوابات الدفع
+* أنظمة معقدة
+
+⸻
+
+✅ ما سيتم بناؤه الآن:
+
+🌐 Frontend
+
+* Landing Page
+* Marketplace
+* Service Page
+* Deal Room
+* Checkout
+* Dashboard
+
+⸻
+
+⚙️ Backend
+
+* Users + Auth
+* Services
+* Orders
+* Deals
+* Offers
+* Contracts
+* Cases
+* Webhook payments
+
+⸻
+
+💳 Integration
+
+* Checkout.com فقط
+
+⸻
+
+🏗️ 2) MVP Architecture (مبسطة لكن قوية)
+
+Next.js Frontend
+        ↓
+NestJS API
+        ↓
+PostgreSQL
+        ↓
+Redis (optional)
+        ↓
+Checkout.com Webhook
+        ↓
+Case Auto Creation
+
+⸻
+
+🧱 3) Database (MVP Version)
+
+نحتفظ فقط بالأساسيات:
+
+users
+
+services
+
+orders
+
+deals
+
+offers
+
+contracts
+
+cases
+
+✔ نفس التصميم السابق لكن بدون تعقيد إضافي
+
+⸻
+
+⚙️ 4) Backend Modules (MVP)
+
+auth/
+users/
+services/
+orders/
+deals/
+contracts/
+cases/
+payments/
+
+⸻
+
+🔁 5) أهم Flow في الـ MVP
+
+1. User selects service
+2. Creates order
+3. Pays (Checkout.com)
+4. System creates Deal
+5. Negotiation (optional)
+6. Contract generated
+7. Case created automatically
+8. Dashboard access
+
+⸻
+
+💬 6) Deal Room (MVP Version)
+
+فقط:
+
+* إرسال عرض سعر
+* قبول / رفض
+* رسالة بسيطة
+
+Client ↔ Lawyer
+Offer:
+- Price
+- Accept / Reject
+
+⸻
+
+📄 7) Contract Engine (MVP)
+
+Template ثابت:
+
+LEGAL SERVICE AGREEMENT
+Client: {{client}}
+Lawyer: {{lawyer}}
+Service: {{service}}
+Price: {{price}}
+Terms:
+- Digital agreement is binding
+- Delivery via platform
+
+✔ بدون ذكاء اصطناعي في MVP
+
+⸻
+
+⚖️ 8) Case Engine (MVP Core)
+
+async function createCase(order) {
+  return prisma.case.create({
+    data: {
+      client_id: order.user_id,
+      service_id: order.service_id,
+      status: "active"
+    }
+  })
+}
+
+⸻
+
+💳 9) Payment Flow (Checkout.com)
+
+Order Created
+   ↓
+Checkout.com Payment
+   ↓
+Webhook Success
+   ↓
+Trigger Orchestration
+   ↓
+Case Created
+
+⸻
+
+🎨 10) Frontend MVP Pages
+
+🌐 Landing
+
+* شرح المنصة
+* CTA: اطلب خدمة
+
+⸻
+
+🛒 Marketplace
+
+* قائمة خدمات
+* تصنيفات قانونية
+
+⸻
+
+📄 Service Page
+
+* وصف
+* سعر
+* زر شراء / تفاوض
+
+⸻
+
+💬 Deal Room
+
+* عرض سعر
+* دردشة بسيطة
+
+⸻
+
+💳 Checkout
+
+* دفع
+
+⸻
+
+⚖️ Dashboard
+
+* القضايا
+* الملفات
+
+⸻
+
+🧠 11) أهم ميزة في MVP
+
+تحويل أي عملية شراء إلى “قضية قانونية تلقائية”
+
+⸻
+
+🔥 12) ما الذي يميز MVP هذا عن أي SaaS عادي؟
+
+✔ ليس مجرد متجر
+✔ ليس مجرد CRM
+✔ ليس مجرد نظام محامين
+
+بل:
+
+⚖️ Marketplace + Legal Execution System
+
+⸻
+
+📦 13) خطة التنفيذ (14 يوم واقعي)
+
+🟦 الأيام 1–3
+
+* DB + NestJS skeleton
+* Auth + Users + Services
+
+🟦 الأيام 4–6
+
+* Orders + Payments integration
+* Checkout webhook
+
+🟦 الأيام 7–9
+
+* Deals + Offers
+* Deal Room UI
+
+🟦 الأيام 10–12
+
+* Contracts generator
+* Case creation engine
+
+🟦 الأيام 13–14
+
+* Frontend polish
+* Deployment
+
+⸻
+
+🚀 14) النتيجة النهائية MVP
+
+ستحصل على:
+
+🛒 متجر خدمات قانونية
+
+💬 نظام تفاوض
+
+📄 عقد تلقائي
+
+⚖️ نظام قضايا
+
+💳 دفع مباشر
+
+📊 لوحة تحكم مكاتب
+
+⸻
+
+💡 الخطوة التالية (مهمة جداً)
+
+الآن أمامك 3 خيارات:
+
+1️⃣ 🔥 نبدأ كتابة Repo كامل جاهز (GitHub production starter)
+
+2️⃣ 🎨 نبني UI كامل (Marketplace + Deal Room جاهز تصميميًا)
+
+3️⃣ ⚙️ نبدأ تشغيل أول Feature (Checkout → Case Flow فعلي)
+
+⸻
+
+قلّي فقط:
+
+ابدأ بالريبو الجاهز (Full Codebase) أو ابدأ بالواجهة أولاً

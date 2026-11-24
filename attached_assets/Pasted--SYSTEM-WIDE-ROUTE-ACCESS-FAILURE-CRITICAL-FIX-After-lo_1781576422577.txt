@@ -1,0 +1,128 @@
+🚨 SYSTEM-WIDE ROUTE & ACCESS FAILURE — CRITICAL FIX
+
+After login, the following modules are NOT accessible:
+- Case Management (case details page fails)
+- Tasks module
+- Documents module
+- Possibly other internal modules
+
+This is a SYSTEM-WIDE NAVIGATION OR AUTHORIZATION FAILURE.
+
+DO NOT add features.
+DO NOT redesign UI.
+DO NOT refactor architecture.
+
+ONLY FIX ACCESSIBILITY AND RUNTIME ERRORS.
+
+==================================================
+TASK 1 — ROOT CAUSE ANALYSIS
+==================================================
+
+Identify why authenticated users cannot access internal pages.
+
+Check:
+
+1. FRONTEND ROUTING
+- Broken routes
+- Missing route definitions
+- Incorrect dynamic params (/cases/:id)
+- Nested route issues
+- ProtectedRoute blocking valid users
+
+2. AUTH STATE
+- Clerk session availability after login
+- userId / orgId / tenantId missing
+- hydration issues (SSR/client mismatch)
+- undefined auth context
+
+3. TENANT CONTEXT
+- Missing activeTenant after login
+- middleware not injecting tenant_id
+- queries failing due to null tenant
+
+4. API FAILURES
+- 401 Unauthorized
+- 403 Forbidden
+- null responses causing crashes
+- incorrect headers (Authorization missing)
+
+5. FRONTEND CRASHES
+- undefined objects in CaseDetails
+- missing data guards
+- useEffect infinite or broken
+- React rendering errors
+
+==================================================
+TASK 2 — REPRODUCE FLOW
+==================================================
+
+Simulate full flow:
+
+Login →
+Dashboard →
+Cases →
+Case Detail →
+Tasks →
+Documents →
+Communications
+
+Log every failure point.
+
+==================================================
+TASK 3 — OUTPUT REPORT
+==================================================
+
+Generate:
+
+SYSTEM_NAVIGATION_FAILURE_REPORT.md
+
+Must include:
+
+- Broken routes list
+- Failing components
+- API endpoints failing
+- Auth failures
+- Tenant issues
+- Exact root cause per failure
+
+==================================================
+TASK 4 — FIXES
+==================================================
+
+Apply minimal safe fixes:
+
+- Fix route definitions only
+- Fix auth guards only
+- Fix missing tenant context only
+- Add null-safety guards only
+- Fix API headers only
+
+DO NOT:
+- rewrite architecture
+- rebuild modules
+- delete features
+
+==================================================
+TASK 5 — VALIDATION
+==================================================
+
+After fixes verify:
+
+✔ Case list opens
+✔ Case details opens
+✔ Tasks open
+✔ Documents open
+✔ No blank pages
+✔ No console errors
+✔ No 401/403 unexpected failures
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+System is considered FIXED only if:
+
+- All internal pages load after login
+- No route crashes
+- No auth loops
+- No missing tenant errors
