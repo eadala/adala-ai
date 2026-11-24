@@ -348,8 +348,14 @@ router.post("/client-auth/admin-create", requireAuth, async (req: Request, res: 
       VALUES (${id}, ${email.toLowerCase()}, ${hash}, ${name ?? null}, ${phone ?? null}, true)
     `);
 
-    // Link to case if provided
+    // Link to case if provided — only when the case belongs to this office
     if (caseId) {
+      const owned = sqlOne(await db.execute(sql`
+        SELECT id FROM cases WHERE id = ${caseId} AND office_id = ${admin.officeId} LIMIT 1
+      `));
+      if (!owned && !admin.isSA) {
+        res.status(403).json({ error: "القضية لا تنتمي لهذا المكتب" }); return;
+      }
       const ptToken = portalToken ?? null;
       let ptId: string | null = null;
       if (ptToken) {
@@ -377,28 +383,44 @@ router.patch("/client-auth/admin-reset-password/:clientId", requireAuth, async (
   const admin = await getAdminUser(req);
   if (!admin) { res.status(401).json({ error: "غير مصادق" }); return; }
   if (!admin.isAdmin) { res.status(403).json({ error: "يجب أن تكون مديراً" }); return; }
+  if (!admin.officeId || admin.officeId === "default" || admin.officeId === "platform") {
+    if (!admin.isSA) { res.status(403).json({ error: "لا يوجد مكتب مرتبط" }); return; }
+  }
   const { password } = req.body;
   if (!password || password.length < 6) { res.status(400).json({ error: "كلمة مرور جديدة (6 أحرف+) مطلوبة" }); return; }
   try {
+    const clientId = String(req.params.clientId);
+    /* Fail closed: only reset clients linked to this office (SA may reset any). */
+    if (!admin.isSA) {
+      const linked = sqlOne(await db.execute(sql`
+        SELECT 1 AS ok FROM client_case_links
+        WHERE client_id = ${clientId} AND office_id = ${admin.officeId}
+        LIMIT 1
+      `));
+      if (!linked) { res.status(403).json({ error: "العميل غير مرتبط بهذا المكتب" }); return; }
+    }
     const hash = await hashPassword(password);
-    await db.execute(sql`UPDATE client_accounts SET password_hash=${hash}, updated_at=NOW() WHERE id=${String(req.params.clientId)}`);
+    await db.execute(sql`UPDATE client_accounts SET password_hash=${hash}, updated_at=NOW() WHERE id=${clientId}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-/* GET /api/client-auth/admin-clients — list all client accounts linked to this office */
+/* GET /api/client-auth/admin-clients — list client accounts linked to this office only */
 router.get("/client-auth/admin-clients", requireAuth, async (req: Request, res: Response) => {
   const admin = await getAdminUser(req);
   if (!admin) { res.status(401).json({ error: "غير مصادق" }); return; }
+  if (!admin.officeId || admin.officeId === "default") {
+    res.status(403).json({ error: "لا يوجد مكتب مرتبط" }); return;
+  }
   try {
     const rows = sqlAll(await db.execute(sql`
       SELECT ca.id, ca.email, ca.name, ca.phone, ca.email_verified, ca.created_at,
              COUNT(ccl.case_id) as case_count,
              MAX(ccl.linked_at) as last_linked
       FROM client_accounts ca
-      LEFT JOIN client_case_links ccl ON ccl.client_id = ca.id AND ccl.office_id = ${admin.officeId}
+      INNER JOIN client_case_links ccl ON ccl.client_id = ca.id AND ccl.office_id = ${admin.officeId}
       GROUP BY ca.id
       ORDER BY ca.created_at DESC
       LIMIT 100

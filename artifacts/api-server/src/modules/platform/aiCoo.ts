@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 import { Router } from "express";
 import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { db } from "@workspace/db";
@@ -35,7 +36,8 @@ async function ensureNotifTable() {
 /* ── channel senders ── */
 async function sendTelegramAlert(officeId: string, text: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const s = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${officeId} OR office_id = 'default' ORDER BY (office_id = ${officeId}) DESC LIMIT 1`);
+    if (!officeId || officeId === "default" || officeId === "platform") return { ok: false, error: "Telegram: مكتب غير صالح" };
+    const s = await sqlOne(sql`SELECT * FROM telegram_settings WHERE office_id = ${officeId} LIMIT 1`);
     if (!s?.bot_token || !s?.chat_id) return { ok: false, error: "Telegram غير مضبوط" };
     const r = await fetch(`https://api.telegram.org/bot${s.bot_token}/sendMessage`, {
       method: "POST",
@@ -50,7 +52,8 @@ async function sendTelegramAlert(officeId: string, text: string): Promise<{ ok: 
 
 async function sendWhatsAppAlert(officeId: string, phones: string[], text: string): Promise<{ ok: boolean; sent: number; error?: string }> {
   try {
-    const s = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${officeId} OR office_id = 'default' ORDER BY (office_id = ${officeId}) DESC LIMIT 1`);
+    if (!officeId || officeId === "default" || officeId === "platform") return { ok: false, sent: 0, error: "WhatsApp: مكتب غير صالح" };
+    const s = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${officeId} LIMIT 1`);
     if (!s?.meta_token || !s?.meta_phone_id) return { ok: false, sent: 0, error: "WhatsApp غير مضبوط" };
     let sent = 0;
     for (const raw of phones.filter(Boolean)) {
@@ -70,7 +73,8 @@ async function sendWhatsAppAlert(officeId: string, phones: string[], text: strin
 
 async function sendEmailAlert(officeId: string, recipients: string[], subject: string, html: string): Promise<{ ok: boolean; sent: number; error?: string }> {
   try {
-    const s = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = ${officeId} OR office_id = 'default' ORDER BY (office_id = ${officeId}) DESC LIMIT 1`);
+    if (!officeId || officeId === "default" || officeId === "platform") return { ok: false, sent: 0, error: "SMTP: مكتب غير صالح" };
+    const s = await sqlOne(sql`SELECT * FROM email_notification_settings WHERE office_id = ${officeId} LIMIT 1`);
     if (!s?.smtp_host || !s?.smtp_user || !s?.smtp_pass) return { ok: false, sent: 0, error: "SMTP غير مضبوط" };
     const transporter = nodemailer.createTransport({
       host: s.smtp_host, port: parseInt(s.smtp_port ?? "587"),
@@ -339,9 +343,9 @@ router.get("/ai-coo/notif-settings", requireAuthWithTenant, async (req, res) => 
 
     /* Check whether each channel is actually configured */
     const [tg, wa, em] = await Promise.all([
-      sqlOne(sql`SELECT bot_token, chat_id FROM telegram_settings WHERE office_id = ${tenantId} OR office_id = 'default' ORDER BY (office_id = ${tenantId}) DESC LIMIT 1`).catch(() => null),
-      sqlOne(sql`SELECT meta_token, meta_phone_id FROM whatsapp_settings WHERE office_id = ${tenantId} OR office_id = 'default' ORDER BY (office_id = ${tenantId}) DESC LIMIT 1`).catch(() => null),
-      sqlOne(sql`SELECT smtp_host FROM email_notification_settings WHERE office_id = ${tenantId} OR office_id = 'default' ORDER BY (office_id = ${tenantId}) DESC LIMIT 1`).catch(() => null),
+      sqlOne(sql`SELECT bot_token, chat_id FROM telegram_settings WHERE office_id = ${tenantId} LIMIT 1`).catch(() => null),
+      sqlOne(sql`SELECT meta_token, meta_phone_id FROM whatsapp_settings WHERE office_id = ${tenantId} LIMIT 1`).catch(() => null),
+      sqlOne(sql`SELECT smtp_host FROM email_notification_settings WHERE office_id = ${tenantId} LIMIT 1`).catch(() => null),
     ]);
 
     res.json({
