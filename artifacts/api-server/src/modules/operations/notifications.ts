@@ -1,12 +1,22 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
 
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
+
 /* ── GET /notifications ───────────────────────────────────────────────────── */
-router.get("/notifications", requireAuth, async (req, res) => {
+router.get("/notifications", requireAuthWithTenant, async (req, res) => {
+  const tid = tenantIdOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب", notifications: [], unreadCount: 0 });
+
   const now = new Date();
   const in7Days  = new Date(now); in7Days.setDate(now.getDate() + 7);
   const in30Days = new Date(now); in30Days.setDate(now.getDate() + 30);
@@ -29,8 +39,9 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, title, total, due_date
       FROM client_invoices
-      WHERE status = 'overdue'
-         OR (status NOT IN ('paid','cancelled') AND due_date < NOW()::text)
+      WHERE office_id = ${tid}
+        AND (status = 'overdue'
+         OR (status NOT IN ('paid','cancelled') AND due_date < NOW()::text))
       ORDER BY created_at DESC
       LIMIT 10
     `);
@@ -53,7 +64,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, title, total, due_date
       FROM client_invoices
-      WHERE status NOT IN ('paid','cancelled','overdue')
+      WHERE office_id = ${tid}
+        AND status NOT IN ('paid','cancelled','overdue')
         AND due_date IS NOT NULL
         AND due_date::timestamp >= NOW()
         AND due_date::timestamp <= NOW() + INTERVAL '7 days'
@@ -79,7 +91,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, title, expires_at
       FROM contracts
-      WHERE expires_at IS NOT NULL
+      WHERE office_id = ${tid}
+        AND expires_at IS NOT NULL
         AND expires_at > NOW()
         AND expires_at <= NOW() + INTERVAL '30 days'
       ORDER BY expires_at ASC
@@ -105,7 +118,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, title, start_at, event_type, location
       FROM events
-      WHERE start_at IS NOT NULL
+      WHERE office_id = ${tid}
+        AND start_at IS NOT NULL
         AND start_at >= NOW()
         AND start_at <= NOW() + INTERVAL '24 hours'
       ORDER BY start_at ASC
@@ -132,7 +146,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, title, start_at, event_type
       FROM events
-      WHERE start_at IS NOT NULL
+      WHERE office_id = ${tid}
+        AND start_at IS NOT NULL
         AND start_at > NOW() + INTERVAL '24 hours'
         AND start_at <= NOW() + INTERVAL '7 days'
       ORDER BY start_at ASC
@@ -158,7 +173,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, email, role, created_at
       FROM invitations
-      WHERE status = 'pending'
+      WHERE office_id = ${tid}
+        AND status = 'pending'
         AND expires_at > NOW()
       ORDER BY created_at DESC
       LIMIT 5
@@ -182,7 +198,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
   /* 7. Pending leave requests */
   try {
     const rows = await db.execute(sql`
-      SELECT COUNT(*) as cnt FROM leaves WHERE status = 'pending'
+      SELECT COUNT(*) as cnt FROM leaves WHERE office_id = ${tid} AND status = 'pending'
     `);
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
     if (cnt > 0) {
@@ -204,7 +220,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT COUNT(*) as cnt
       FROM messages
-      WHERE direction = 'inbound'
+      WHERE office_id = ${tid}
+        AND direction = 'inbound'
         AND created_at >= NOW() - INTERVAL '24 hours'
     `);
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
@@ -224,12 +241,9 @@ router.get("/notifications", requireAuth, async (req, res) => {
 
   /* 9. Open cases (awareness) */
   try {
-    /* SECURITY: scope to authenticated tenant */
-    const tenantId = (req as any).tenantId as string | undefined;
-    const rows = await db.execute(tenantId
-      ? sql`SELECT COUNT(*) as cnt FROM cases WHERE status = 'open' AND office_id = ${tenantId}`
-      : sql`SELECT COUNT(*) as cnt FROM cases WHERE 1=0`
-    );
+    const rows = await db.execute(sql`
+      SELECT COUNT(*) as cnt FROM cases WHERE status = 'open' AND office_id = ${tid}
+    `);
     const cnt = parseInt((rows.rows?.[0] as any)?.cnt ?? "0");
     if (cnt > 5) {
       notifications.push({
@@ -250,7 +264,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const rows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, is_read, created_at
       FROM plan_notifications
-      WHERE is_read = FALSE
+      WHERE office_id = ${tid} AND is_read = FALSE
       ORDER BY created_at DESC
       LIMIT 5
     `);
@@ -273,7 +287,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const aiCrRows = await db.execute(sql`
       SELECT office_id, office_name, balance, monthly_allowance
       FROM office_ai_credits
-      WHERE monthly_allowance > 0
+      WHERE office_id = ${tid}
+        AND monthly_allowance > 0
         AND balance::numeric / NULLIF(monthly_allowance,0) < 0.20
       ORDER BY balance ASC
       LIMIT 5
@@ -298,7 +313,8 @@ router.get("/notifications", requireAuth, async (req, res) => {
     const failRows = await db.execute(sql`
       SELECT id, type, old_plan, new_plan, title, message, created_at
       FROM plan_notifications
-      WHERE is_read = FALSE
+      WHERE office_id = ${tid}
+        AND is_read = FALSE
         AND type IN ('downgrade','failed_payment')
         AND created_at >= NOW() - INTERVAL '7 days'
       ORDER BY created_at DESC
@@ -338,7 +354,8 @@ export default router;
 router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (req, res) => {
   try {
     const { planId } = req.params as Record<string, string>;
-    const tenantId = (req as any).tenantId as string;
+    const tenantId = tenantIdOf(req);
+    if (!tenantId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     if (planId.startsWith("plan-notif-")) {
       const realId = planId.replace("plan-notif-", "");
       await db.execute(sql`UPDATE plan_notifications SET is_read = TRUE WHERE id = ${realId} AND office_id = ${tenantId}`);
@@ -369,31 +386,25 @@ router.post("/notifications/mark-read/:planId", requireAuthWithTenant, async (re
 })();
 
 /* GET /api/notifications/settings */
-router.get("/notifications/settings", requireAuth, async (req, res) => {
+router.get("/notifications/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const userId = (req as any).auth?.userId;
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(userId);
+    const officeId = tenantIdOf(req);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const rows = await db.execute(sql`
       SELECT event_type, push_enabled, in_app_enabled, email_enabled
       FROM office_notification_settings
       WHERE office_id = ${officeId}
     `);
-    res.json({ settings: rows.rows ?? [] });
+    res.json({ settings: (rows as any).rows ?? rows ?? [] });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
 /* PATCH /api/notifications/settings */
-router.patch("/notifications/settings", requireAuth, async (req, res) => {
+router.patch("/notifications/settings", requireAuthWithTenant, async (req, res) => {
   try {
-    const userId = (req as any).auth?.userId;
-    if (!userId) return res.status(401).json({ error: "غير مصرح" });
-    const { resolveTenantId } = await import("../../middlewares/tenantMiddleware");
-    const officeId = await resolveTenantId(userId);
+    const officeId = tenantIdOf(req);
     if (!officeId) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
     const updates = req.body.settings as Array<{
       event_type: string;

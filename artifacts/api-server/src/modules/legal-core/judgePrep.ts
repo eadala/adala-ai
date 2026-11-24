@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -120,7 +121,11 @@ function generateFallback(): string {
   });
 }
 
-router.post("/judge-prep/generate", requireAuth, async (req, res) => {
+router.post("/judge-prep/generate", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  if (!tid || tid === "default" || tid === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
   const { caseType, factsummary, judgeStyle, strengths, weaknesses, previousNotes } = req.body;
 
   const caseContext = CASE_TYPE_CONTEXTS[caseType] || CASE_TYPE_CONTEXTS.civil;

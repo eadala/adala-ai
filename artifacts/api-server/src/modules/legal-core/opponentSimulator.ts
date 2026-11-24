@@ -1,4 +1,5 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 
 const router = Router();
@@ -214,7 +215,11 @@ ${userMessages}
   };
 }
 
-router.post("/opponent-simulator/respond", requireAuth, async (req, res) => {
+router.post("/opponent-simulator/respond", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  if (!tid || tid === "default" || tid === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
   const { caseDescription, side, caseType, difficulty, history, userMessage } = req.body as {
     caseDescription: string;
     side: "plaintiff" | "defendant";
@@ -252,7 +257,11 @@ ${sideContext}
   res.json({ response, round: messages.filter(m => m.role === "user").length });
 });
 
-router.post("/opponent-simulator/evaluate", requireAuth, async (req, res) => {
+router.post("/opponent-simulator/evaluate", requireAuthWithTenant, async (req, res) => {
+  const tid = (req as any).tenantId as string;
+  if (!tid || tid === "default" || tid === "platform") {
+    return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
+  }
   const { caseDescription, side, caseType, history } = req.body as {
     caseDescription: string;
     side: string;

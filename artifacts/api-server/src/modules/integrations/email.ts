@@ -1,8 +1,15 @@
-import { requireAuth } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import nodemailer from "nodemailer";
 
 const router = Router();
+
+function tenantIdOf(req: any): string | null {
+  const tid = req?.tenantId as string | undefined;
+  if (!tid || tid === "default" || tid === "platform" || tid === "unknown") return null;
+  return tid;
+}
 
 function getTransporter() {
   const host = process.env.SMTP_HOST;
@@ -17,7 +24,8 @@ function getTransporter() {
   });
 }
 
-router.post("/email/send-letter", requireAuth, async (req, res) => {
+router.post("/email/send-letter", requireAuthWithTenant, async (req, res) => {
+  if (!tenantIdOf(req)) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { to, toName, subject, body, fromName } = req.body;
   if (!to || !subject || !body) {
     return res.status(400).json({ error: "البريد والموضوع والمحتوى مطلوبة" });
@@ -61,7 +69,8 @@ router.get("/email/smtp-status", (_req, res) => {
 });
 
 // ─── POST /email/send-reminder ───────────────────────────────────────────────
-router.post("/email/send-reminder", requireAuth, async (req, res) => {
+router.post("/email/send-reminder", requireAuthWithTenant, async (req, res) => {
+  if (!tenantIdOf(req)) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   const { to, eventTitle, eventDate, eventType, location, minutesBefore } = req.body;
   if (!to || !eventTitle) {
     return res.status(400).json({ error: "البريد وعنوان الحدث مطلوبان" });
