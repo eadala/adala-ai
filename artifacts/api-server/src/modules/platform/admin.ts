@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-non-null-assertion -- pre-existing lint debt */
 import { requireAuth, requireSuperAdmin} from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -266,7 +267,8 @@ router.get("/admin/support", adminOnly, async (_req, res) => {
   res.json(tickets);
 });
 
-router.post("/admin/support", requireAuth, async (req, res) => {
+router.post("/admin/support", adminOnly, async (req, res) => {
+  /* Admin-only create — never accept arbitrary client office spoofing without SA. */
   const ticket = await db.insert(supportTicketsTable).values(req.body).returning();
   res.json(ticket[0]);
 });

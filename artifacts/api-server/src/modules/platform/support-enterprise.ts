@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- pre-existing lint debt */
 /**
  * Enterprise Support Center — عدالة AI
  * ─────────────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { requireAuth, requireSuperAdmin } from "../../middlewares/requireAuth";
+import { requireAuth, requireAuthWithTenant, requireSuperAdmin } from "../../middlewares/requireAuth";
 import { getAuth } from "@clerk/express";
 import { runSupportAIPipeline } from "./support-ai";
 import { eventBus } from "../../core/eventBus";
@@ -180,9 +181,13 @@ router.get("/support/tickets/stats", requireAuth, async (req: Request, res: Resp
 });
 
 /* POST /support/tickets — create ticket */
-router.post("/support/tickets", requireAuth, async (req: Request, res: Response) => {
-  const { userId } = getAuth(req);
+router.post("/support/tickets", requireAuthWithTenant, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as string | undefined;
+  const tenantId = (req as any).tenantId as string | undefined;
   if (!userId) { res.status(401).json({ error: "غير مصرح" }); return; }
+  if (!tenantId || tenantId === "default" || tenantId === "platform") {
+    res.status(403).json({ error: "لا يوجد مكتب مرتبط" }); return;
+  }
   try {
     const {
       subject, body, priority = "medium", category = "technical",
@@ -200,12 +205,12 @@ router.post("/support/tickets", requireAuth, async (req: Request, res: Response)
     const ticket = one(await db.execute(sql`
       INSERT INTO support_tickets
         (id, subject, body, priority, category, user_id, user_email, user_name, office_name,
-         case_id, invoice_id, source, tags,
+         office_id, case_id, invoice_id, source, tags,
          sla_response_deadline, sla_resolution_deadline, status)
       VALUES
         (gen_random_uuid()::text, ${subject.trim()}, ${body.trim()}, ${priority}, ${category},
          ${userId}, ${userEmail}, ${userName}, ${officeName ?? ""},
-         ${caseId ?? null}, ${invoiceId ?? null}, 'user', ${tagsArr},
+         ${tenantId}, ${caseId ?? null}, ${invoiceId ?? null}, 'user', ${tagsArr},
          ${sla.slaResponseDeadline}, ${sla.slaResolutionDeadline}, 'open')
       RETURNING *
     `));

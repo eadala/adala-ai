@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Tenant Provisioning Service
  * Runs automatically after successful Stripe payment.
@@ -119,23 +120,15 @@ export async function provisionTenant(opts: {
       `);
     }
 
-    /* 2. Update office plan — scoped to this specific office.
-       Try exact officeId match first; fall back to LIMIT 1 for
-       single-tenant deploys where officeId may be "default". */
-    const updateResult = await db.execute(sql`
+    /* 2. Update office plan — exact office only. Never fall back to another row. */
+    if (!officeId || officeId === "default" || officeId === "platform") {
+      throw new Error("provisionTenant requires a real officeId");
+    }
+    await db.execute(sql`
       UPDATE office_page
       SET plan = ${plan}, updated_at = NOW()
       WHERE id::text = ${officeId}
     `);
-    const rowsUpdated = (updateResult as any)?.rowCount ?? 0;
-    if (rowsUpdated === 0) {
-      /* Fallback: single-tenant mode — update the only row */
-      await db.execute(sql`
-        UPDATE office_page
-        SET plan = ${plan}, updated_at = NOW()
-        WHERE id = (SELECT id FROM office_page ORDER BY created_at LIMIT 1)
-      `);
-    }
 
     /* 3. Ledger credit entry */
     if (amountPaid && amountPaid > 0) {
