@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Web Push utility — VAPID key management + send helpers
  */
@@ -11,7 +12,7 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id     TEXT NOT NULL,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL,
       endpoint    TEXT NOT NULL UNIQUE,
       p256dh      TEXT NOT NULL,
       auth_key    TEXT NOT NULL,
@@ -19,6 +20,7 @@ async function ensureTables() {
       created_at  TIMESTAMP DEFAULT NOW()
     )
   `).catch(() => {});
+  await db.execute(sql`ALTER TABLE push_subscriptions ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS server_config (

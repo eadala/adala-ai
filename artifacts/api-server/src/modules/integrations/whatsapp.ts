@@ -1,4 +1,5 @@
-import { requireAuth, requireAuthWithTenant } from "../../middlewares/requireAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
+import { requireAuthWithTenant } from "../../middlewares/requireAuth";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -9,7 +10,7 @@ async function ensureTables() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS whatsapp_settings (
       id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default' UNIQUE,
+      office_id   TEXT NOT NULL UNIQUE,
       enabled     BOOLEAN NOT NULL DEFAULT FALSE,
       provider    TEXT NOT NULL DEFAULT 'twilio',
       account_sid TEXT,
@@ -23,7 +24,7 @@ async function ensureTables() {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS whatsapp_logs (
       id          SERIAL PRIMARY KEY,
-      office_id   TEXT NOT NULL DEFAULT 'default',
+      office_id   TEXT NOT NULL,
       to_number   TEXT NOT NULL,
       message     TEXT NOT NULL,
       template    TEXT,
@@ -32,6 +33,13 @@ async function ensureTables() {
       sent_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE whatsapp_settings ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+  await db.execute(sql`ALTER TABLE whatsapp_logs ALTER COLUMN office_id DROP DEFAULT`).catch(() => {});
+}
+
+function tidOf(req: any): string | null {
+  const tid = req?.tenantId;
+  return tid && String(tid).trim() ? String(tid) : null;
 }
 
 async function sqlOne(q: any) {
@@ -50,7 +58,8 @@ async function sqlAll(q: any) {
 
 router.get("/whatsapp/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     let row = await sqlOne(sql`SELECT * FROM whatsapp_settings WHERE office_id = ${tid}`);
     if (!row) {
@@ -68,7 +77,8 @@ router.get("/whatsapp/settings", requireAuthWithTenant, async (req, res) => {
 
 router.put("/whatsapp/settings", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { enabled, provider, accountSid, authToken, fromNumber, metaToken, metaPhoneId } = req.body;
     const row = await sqlOne(sql`
@@ -146,7 +156,8 @@ async function sendWhatsAppMessage(settings: any, to: string, message: string): 
 
 router.post("/whatsapp/send", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { to, message, template } = req.body;
     if (!to || !message) { res.status(400).json({ error: "to و message مطلوبان" }); return; }
@@ -171,7 +182,8 @@ router.post("/whatsapp/send", requireAuthWithTenant, async (req, res) => {
 
 router.post("/whatsapp/test", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const { to } = req.body;
     if (!to) { res.status(400).json({ error: "رقم الهاتف مطلوب" }); return; }
@@ -188,7 +200,8 @@ router.post("/whatsapp/test", requireAuthWithTenant, async (req, res) => {
 
 router.get("/whatsapp/logs", requireAuthWithTenant, async (req, res) => {
   await ensureTables();
-  const tid = (req as any).tenantId as string;
+  const tid = tidOf(req);
+  if (!tid) return res.status(403).json({ error: "لا يمكن تحديد المكتب" });
   try {
     const rows = await sqlAll(sql`
       SELECT * FROM whatsapp_logs WHERE office_id = ${tid}
