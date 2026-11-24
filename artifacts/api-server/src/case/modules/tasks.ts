@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- pre-existing lint debt */
 /**
  * Case Tasks Module — وحدة المهام المرتبطة بالقضية
  */
@@ -14,7 +15,7 @@ export class CaseTasks {
       SELECT id, title, description, status, priority, assignee_name, due_date, created_at
       FROM tasks
       WHERE case_id = ${caseId}
-        AND (office_id::text = ${this.tenantId} OR office_id IS NULL)
+        AND office_id::text = ${this.tenantId}
       ORDER BY created_at DESC
     `).catch(() => ({ rows: [] }));
     return (r as any).rows ?? (r as any) ?? [];
