@@ -1,5 +1,11 @@
 /**
- * Frontend static delivery boundaries — staging asset-403 regression.
+ * Frontend static delivery boundaries — middleware order / allowlist (Layer 1).
+ *
+ * NOTE: The primary staging asset JSON-403 root cause is CORS rejecting the
+ * staging Origin on Vite `crossorigin` asset GETs (see test:frontend-static-cors).
+ * This suite covers a separate invariant: allowlisted assets must not be
+ * intercepted by auth JSON after early static registration.
+ *
  * Run: pnpm --filter @workspace/api-server run test:frontend-static
  */
 import assert from "node:assert/strict";

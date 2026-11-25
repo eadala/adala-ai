@@ -1,40 +1,53 @@
-# Staging Asset 403 — Root Cause Report
+# Staging Asset 403 — Root Cause Report (Evidence-Corrected)
 
 **Incident:** Staging (`https://staging.adalahai.com`) served HTML but first-party JS/CSS under `/assets/*` returned **HTTP 403** with **`Content-Type: application/json`**, leaving the SPA on the pre-React loading screen indefinitely.
 
-**Classification (code):** Fixed in branch `cursor/staging-asset-403-recovery-da81`.  
-**Live acceptance:** Blocked without Traefik Basic Auth credentials (outer staging ACL). Agent probes receive `401 Unauthorized` / `www-authenticate: Basic realm="traefik"`.
+## Responsible component (verified)
 
-## Evidence chain
+**`evaluateCorsOrigin` / Express CORS middleware** in:
 
-| Observation | Implication |
-|-------------|-------------|
-| HTML document 200/304 | SPA entry + outer proxy allow document GET |
-| `/assets/*.js`, `/assets/*.css` → 403 JSON | Auth/API error middleware, not missing files or MIME misconfig alone |
-| CSS labeled `application/json` | Response body is JSON error, not static CSS |
-| Favicon / external fonts OK | Allowlisted or CDN paths; hashed Vite assets hit Clerk/auth path |
-| Production assets historically 200 | Defect is middleware order / boundary, not Vite build absence |
+* `artifacts/api-server/src/lib/corsOriginPolicy.ts`
+* wired from `artifacts/api-server/src/app.ts` (CORS runs **before** static asset delivery)
 
-## Responsible component
+### Triggering condition
 
-**Express application middleware order** in `artifacts/api-server/src/app.ts`:
+1. Vite emits module/script and stylesheet tags with the **`crossorigin`** attribute.
+2. The browser therefore sends `Origin: https://staging.adalahai.com` on those asset GETs (even though the Host is the same site).
+3. Historical allowlist accepted only `https://adalahai.com`, `https://www.adalahai.com`, `ALLOWED_ORIGINS`, and `localhost`.
+4. Staging Origin was **not** allowed → `createCorsOriginRejectedError` → **`403` + `application/json`** with `code: CORS_ORIGIN_NOT_ALLOWED` via `globalErrorHandler`.
+5. React never executes → indefinite loading screen.
 
-1. `clerkMiddleware` (and related auth JSON error shaping) ran **before** production `express.static` / SPA handlers.
-2. Requests for `/assets/index-*.js` (etc.) therefore entered Clerk/auth failure paths and returned **JSON 403**, never reaching the filesystem under `PUBLIC_DIR=/app/public`.
+### Live reproduction (production host, sanitized)
 
-**Why HTML succeeded:** Document requests were either served earlier, cached, or fell through differently than hashed asset paths; hashed `/assets/*` consistently traversed auth.
+Executed 2026-11-25 (Asia/Riyadh):
 
-**Why loading never ends:** Browser receives `index.html` but cannot execute bootstrap bundles → React never mounts → Clerk/`useClerkTimeout` never runs.
+| Request | Result |
+|---------|--------|
+| `GET https://adalahai.com/assets/vendor-react-*.js` (no Origin) | **200** `text/javascript` |
+| Same + `Origin: https://adalahai.com` | **200** `text/javascript` |
+| Same + `Origin: https://staging.adalahai.com` | **403** `application/json` `CORS_ORIGIN_NOT_ALLOWED` |
+| Same + `Origin: https://evil.example` | **403** `application/json` `CORS_ORIGIN_NOT_ALLOWED` |
 
-**Other environments:** Same middleware order exists in production Docker (`NODE_ENV=production`, `PUBLIC_DIR=/app/public`). Any environment where Clerk rejects or short-circuits asset requests before static can reproduce this. Staging showed it first because Development Clerk + redeploy timing interacted with the late static mount.
+Body shape matches the staging DevTools observation (JSON, not CSS/JS).
 
-## Non-causes (ruled out for primary defect)
+### Why HTML / favicon / fonts succeeded
 
-- Missing compiled assets in the image (would be 404 HTML/plain, not JSON 403).
-- Cloudflare WAF alone (JSON shape matches app auth errors).
-- Coolify mis-routing only HTML (favicon and fonts still load).
-- Intentionally requiring Clerk for JS/CSS (no product requirement).
+* Document navigation typically omits `Origin` → CORS allow (`missing-origin`).
+* Favicon / many image loads do not use CORS mode `cors`.
+* External fonts are third-party and unrelated to this allowlist.
 
-## Fix summary
+### Secondary concern (middleware order)
 
-Serve allowlisted public frontend assets **before** Clerk; skip Clerk for those paths; register SPA HTML fallback **after** `/api` routers. See `RECOVERY_IMPLEMENTATION.md`.
+Clerk previously sat **before** late `express.static`. Serving allowlisted assets before Clerk remains a valid defense-in-depth boundary, but **cannot** fix this incident alone because **CORS rejects the request first**.
+
+A miniature mock-auth harness that only models “auth after static” can go green without detecting the CORS defect. Differential coverage is therefore mandatory (`test:frontend-static-cors`).
+
+### Why prior tests missed it
+
+* No regression asserting staging Origin on `/assets/*`.
+* CORS tests covered beacons / production domains, not staging Host/Origin asset loads.
+* Production continued to work for `adalahai.com` Origins, masking staging misconfiguration.
+
+### Other environments
+
+Any Coolify/preview hostname not present in `PRODUCTION_CORS_DOMAINS` / `ALLOWED_ORIGINS` can reproduce the same JSON 403 on Vite `crossorigin` assets. Same-origin Host matching + explicit staging allowlist closes that class of failure.

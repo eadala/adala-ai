@@ -1,37 +1,40 @@
 # Staging Asset 403 — Recovery Implementation
 
-## Change set
+## Primary fix (application integrity)
+
+Update `corsOriginPolicy.ts` to:
+
+1. Allow **same-origin** (`Origin` === request public origin from Host / `X-Forwarded-Host` + proto).
+2. Explicitly allow **`STAGING_CORS_DOMAINS`** (`https://staging.adalahai.com`).
+3. Keep rejecting unknown Origins (including `evil.example`) with `CORS_ORIGIN_NOT_ALLOWED`.
+4. Reject Host header injection (`/`, whitespace, etc.) when deriving public origin.
+
+## Defense-in-depth (security boundary)
+
+Retain early allowlisted static delivery before Clerk + SPA after `/api`:
 
 | File | Role |
 |------|------|
-| `artifacts/api-server/src/lib/publicFrontendAssetPath.ts` | Strict allowlist: `/assets/*` (no `..` / dot segments) + small root file set |
-| `artifacts/api-server/src/middlewares/productionFrontendStatic.ts` | Early gated static + missing-asset 404; late SPA fallback |
-| `artifacts/api-server/src/app.ts` | Register early assets before Clerk; skip Clerk for allowlisted paths; SPA after `/api` |
-| `artifacts/api-server/src/tests/frontendStaticDelivery.test.ts` | Regression: MIME, no auth JSON on assets, API still 403, wiring order |
-| `artifacts/api-server/package.json` | `test:frontend-static` script |
-| `.github/workflows/ci.yml` | Runs `test:frontend-static` in unit job |
+| `publicFrontendAssetPath.ts` | Strict `/assets/*` + root file allowlist |
+| `productionFrontendStatic.ts` | Early gated static + missing-asset 404; late SPA |
+| `app.ts` | Early assets before Clerk; SPA after `/api` |
 
-## Security properties preserved
+## Test layers
 
-- No global auth disable; Clerk remains on all non-allowlisted routes including `/api/*`.
-- Allowlist only — not “everything before Clerk.”
-- Sensitive dot-paths (`/.env`, `/.git`, …) still 404 via `isSensitiveDotPath`.
-- Missing `/assets/*` → `404 text/plain` (never SPA HTML, never auth JSON).
-- Directory traversal under `/assets` rejected by allowlist (`..` / `/.`).
-- RLS / tenant isolation / fail-closed session reset unchanged.
-- Production secrets never injected into frontend bundles by this change.
+| Layer | Script | Proves |
+|-------|--------|--------|
+| 1 Unit | `test:frontend-static`, `test:cors-origin` | Allowlist predicates + CORS policy |
+| 2 Differential | `test:frontend-static-cors` | Broken baseline 403 JSON vs fixed 200 MIME |
+| 2 Real app | `test:frontend-static-prod` | Actual `app.ts` production chain + PUBLIC_DIR |
+| 3 Docker | CI `docker-production` | Image builds (local Docker unavailable in this agent VM) |
 
-## Middleware order (production)
+## Security impact
 
-1. Helmet, CORS, rate limits, body parsers (unchanged).
-2. **`registerEarlyProductionFrontendAssets`** — gated static + asset 404.
-3. Clerk gate with **`skipAuthForPublicFrontendAssets`**.
-4. `/api` routers + isolation / guards.
-5. **`registerProductionSpaFallback`** — HTML for non-API, non-asset GETs.
-6. Global error handler.
+* Does **not** disable Clerk, RLS, Traefik Basic Auth, or CORS for APIs.
+* Does **not** allow arbitrary Origins.
+* Same-origin allowance is Host-bound; staging domain is explicit.
+* `.env` / sensitive paths remain 404.
 
-## Rollback
+## Operator env (still recommended)
 
-1. Revert the PR commit on `develop` (or redeploy prior SHA).
-2. Confirm Coolify staging points at previous image.
-3. Expect recurrence of JSON 403 on `/assets/*` if rolled back without alternate fix.
+Set Coolify staging `ALLOWED_ORIGINS=https://staging.adalahai.com` even with code allowlist (defense in depth / other preview hosts).

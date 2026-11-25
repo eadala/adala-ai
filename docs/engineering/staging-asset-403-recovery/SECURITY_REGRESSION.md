@@ -2,13 +2,16 @@
 
 | Control | Expected | Verified how |
 |---------|----------|--------------|
-| Assets not auth-blocked | `/assets/*.js\|css` → 200 + correct MIME | `test:frontend-static` |
-| API still protected | `/api/*` without auth → 403 JSON | same test |
-| Sensitive paths | `/.env` → 404 | same + `test:stage9-security` |
-| Traversal | `/assets/../.env` not 200 with secrets | `test:frontend-static` |
-| Missing asset | 404 plain, not SPA HTML | `test:frontend-static` |
-| Wiring order | Early assets → Clerk → `/api` → SPA | string/order asserts in tests |
-| RLS / tenant | Unchanged code paths | no edits to tenant/RLS modules |
-| Clerk secret in FE | Not introduced | Dockerfile still build-arg publishable only |
+| Staging Origin assets | 200 + JS/CSS MIME | `test:frontend-static-cors`, `test:frontend-static-prod` |
+| Broken baseline still fails | staging Origin → 403 JSON | `test:frontend-static-cors` broken mode |
+| Evil Origin | still 403 `CORS_ORIGIN_NOT_ALLOWED` | cors + cors-incident + prod-app |
+| Same-origin Host match | allowed; Host injection rejected | `test:cors-origin` |
+| API still protected | `/api/*` → 401/403 JSON | prod-app + static suites |
+| Sensitive paths | `/.env` → 404, no secret leak | prod-app + stage9 |
+| Traversal | `/assets/../.env` not secret-bearing 200 | `test:frontend-static` |
+| Missing asset | 404 plain, not SPA HTML | cors-incident + static |
+| Early static before Clerk | wiring order | `test:frontend-static` |
+| RLS / tenant | Unchanged | no tenant/RLS edits |
+| Clerk secret in FE | Not introduced | Dockerfile publishable-only |
 
-**Fail-open prohibited:** Fix does not disable Clerk, RLS, or staging Traefik Basic Auth.
+**Fail-open prohibited:** Fix does not disable Clerk, CORS for unknown Origins, RLS, or Traefik Basic Auth.

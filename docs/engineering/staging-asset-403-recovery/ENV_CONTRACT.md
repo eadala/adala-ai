@@ -26,6 +26,16 @@ Verified against repository consumers (not assumed).
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Next.js naming; this app is Vite. Prefer `VITE_*`.
 - Secret keys must **never** be Vite-prefixed or baked into `public/`.
 
+## CORS / browser origin (incident-critical)
+
+| Variable / constant | Classification | Notes |
+|---------------------|----------------|-------|
+| `STAGING_CORS_DOMAINS` (code) | Runtime public allowlist | Includes `https://staging.adalahai.com` |
+| Same-origin Host match (code) | Runtime public | `Origin` must equal `https://{X-Forwarded-Host\|Host}` |
+| `ALLOWED_ORIGINS` | Runtime public config | Comma-separated extras; still set in Coolify for staging |
+
+Without staging Origin allowance, Vite `crossorigin` asset GETs return **403 JSON** (`CORS_ORIGIN_NOT_ALLOWED`).
+
 ## Staging isolation
 
 - Staging Clerk: **Development** instance.

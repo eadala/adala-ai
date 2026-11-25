@@ -10,6 +10,8 @@ import {
   createCorsOriginRejectedError,
   evaluateCorsOrigin,
   PRODUCTION_CORS_DOMAINS,
+  STAGING_CORS_DOMAINS,
+  requestPublicOrigin,
 } from "../lib/corsOriginPolicy";
 import { globalErrorHandler } from "../middlewares/errorHandler";
 
@@ -108,6 +110,62 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
   });
   assert.equal(d.allowed, false);
   console.log("  ✅ unknown origin → rejected (even on beacon path)");
+}
+
+{
+  for (const origin of STAGING_CORS_DOMAINS) {
+    const d = evaluateCorsOrigin(origin, {
+      method: "GET",
+      originalUrl: "/assets/index.js",
+    });
+    assert.equal(d.allowed, true, origin);
+    assert.equal(d.reason, "allowlist");
+  }
+  console.log("  ✅ staging CORS domains → allowed (Vite crossorigin assets)");
+}
+
+{
+  const self = requestPublicOrigin({
+    headers: {
+      host: "staging.adalahai.com",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(self, "https://staging.adalahai.com");
+  const d = evaluateCorsOrigin("https://staging.adalahai.com", {
+    method: "GET",
+    originalUrl: "/assets/vendor-react.js",
+    headers: {
+      host: "staging.adalahai.com",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(d.allowed, true);
+  assert.equal(d.reason, "same-origin");
+  console.log("  ✅ Origin matching Host (same-origin) → allowed");
+}
+
+{
+  const d = evaluateCorsOrigin("https://evil.example", {
+    method: "GET",
+    originalUrl: "/assets/vendor-react.js",
+    headers: {
+      host: "staging.adalahai.com",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(d.allowed, false);
+  console.log("  ✅ mismatched Origin vs Host → still rejected");
+}
+
+{
+  assert.equal(
+    requestPublicOrigin({
+      headers: { host: "evil.example/steal", "x-forwarded-proto": "https" },
+    }),
+    undefined,
+  );
+  console.log("  ✅ injected Host with path → rejected");
 }
 
 {

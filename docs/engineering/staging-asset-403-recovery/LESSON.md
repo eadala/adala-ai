@@ -1,13 +1,15 @@
-# Engineering Lesson — Never Auth-Gate Compiled Frontend Assets
+# Engineering Lesson — CORS + Vite `crossorigin` Can Kill SPA Bootstrap
 
 **Lesson ID:** STAGING-ASSET-403-2026-11
 
-Compiled Vite assets under `/assets/*` are public, content-hashed, non-sensitive delivery units. Placing Clerk (or any API auth that returns JSON errors) **before** the static asset handler causes:
+Vite emits `crossorigin` on JS/CSS. Browsers send `Origin: <site>` on those GETs. If the Express CORS allowlist omits the staging hostname, assets return **`403 application/json` (`CORS_ORIGIN_NOT_ALLOWED`)** while HTML still loads → indefinite loader.
 
-1. HTML to load,
-2. JS/CSS to fail with JSON 403,
-3. An indefinite pre-bootstrap loading screen that application-level timeouts cannot clear.
+Secondary lesson: middleware order (Clerk before static) is a real risk, but a green mock-auth harness is not proof of operational recovery. Require:
 
-**Permanent guard:** `test:frontend-static` in CI asserts middleware order, MIME types, missing-asset 404 (non-HTML), and continued API 403 protection.
+1. Differential test that fails on the broken baseline.
+2. Real `app` integration with `Origin: staging…`.
+3. Live Origin probes / browser acceptance when access exists.
 
-**Do not “fix” by disabling Clerk or Traefik Basic Auth.**
+**Permanent guards:** `test:frontend-static-cors`, `test:frontend-static-prod`, `test:cors-origin` in CI.
+
+**Do not “fix” by disabling Clerk, CORS, RLS, or Traefik Basic Auth.**

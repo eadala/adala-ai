@@ -93,6 +93,8 @@ jobs:
           pnpm --filter @workspace/api-server run test:vault-rls-060
           pnpm --filter @workspace/api-server run test:stage9-security
           pnpm --filter @workspace/api-server run test:frontend-static
+          pnpm --filter @workspace/api-server run test:frontend-static-cors
+          pnpm --filter @workspace/api-server run test:frontend-static-prod
           pnpm --filter @workspace/api-server run test:orphan-ai-refs
           pnpm --filter @workspace/api-server run test:stage152e
       - name: Frontend tests
