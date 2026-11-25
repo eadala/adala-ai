@@ -73,11 +73,14 @@ console.log("\n═══ resolveHealSecret ═══");
 console.log("\n═══ wiring: app.ts + internalHeal.ts ═══");
 {
   const appTs = readSrc("app.ts");
-  assert.match(appTs, /isSensitiveDotPath/);
-  assert.match(appTs, /status\(404\)/);
-  const guardIdx = appTs.indexOf("isSensitiveDotPath(req.path)");
-  const spaIdx = appTs.indexOf('sendFile("index.html"');
-  assert.ok(guardIdx >= 0 && spaIdx > guardIdx, "dot-path guard must run before SPA fallback");
+  assert.match(appTs, /registerEarlyProductionFrontendAssets/);
+  assert.match(appTs, /registerProductionSpaFallback/);
+  const earlyIdx = appTs.indexOf("registerEarlyProductionFrontendAssets");
+  const spaIdx = appTs.indexOf("registerProductionSpaFallback");
+  assert.ok(earlyIdx >= 0 && spaIdx > earlyIdx, "early assets must register before SPA fallback");
+  const staticMod = readSrc("middlewares/productionFrontendStatic.ts");
+  assert.match(staticMod, /isSensitiveDotPath/);
+  assert.match(staticMod, /sendFile\("index\.html"/);
 
   const heal = readSrc("routes/internalHeal.ts");
   assert.match(heal, /resolveHealSecret/);

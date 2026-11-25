@@ -27,11 +27,15 @@ import { requestIdMiddleware } from "./middlewares/requestId";
 import { globalErrorHandler } from "./middlewares/errorHandler";
 import { registerSwaggerDocs } from "./docs/swagger";
 import { prometheusMiddleware, registry } from "./observability/prometheus";
-import { isSensitiveDotPath } from "./lib/sensitiveStaticPath";
 import {
   clearTenantSessionFailClosed,
   setFailClosedTenantSession,
 } from "./lib/tenantSession";
+import {
+  registerEarlyProductionFrontendAssets,
+  registerProductionSpaFallback,
+  skipAuthForPublicFrontendAssets,
+} from "./middlewares/productionFrontendStatic";
 
 /* ── Sentry (backend) — initialise before Express ─────────────────────── */
 if (process.env.SENTRY_DSN) {
@@ -256,6 +260,16 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: true, limit: "3mb" }));
 
+/* ── Production frontend assets BEFORE Clerk ───────────────────────────────
+ * Staging incident: HTML loaded while /assets/*.js|css returned HTTP 403
+ * application/json (auth/middleware JSON). Compiled Vite assets must never
+ * traverse Clerk/API auth. API routes remain fully protected below.
+ * SPA fallback is registered AFTER /api routers.
+ */
+registerEarlyProductionFrontendAssets(app, {
+  publicDir: process.env.PUBLIC_DIR ?? "./public",
+});
+
 const clerk = clerkMiddleware((req) => ({
   publishableKey: publishableKeyFromHost(
     getClerkProxyHost(req) ?? "",
@@ -263,14 +277,14 @@ const clerk = clerkMiddleware((req) => ({
   ),
 }));
 // Public fire-and-forget beacons — skip Clerk (sendBeacon sends same-origin cookies).
-// TEMP diagnostic (no secrets): confirms whether skip matched under Production/Coolify paths.
+// Also skip allowlisted frontend asset paths (defense-in-depth if static fallthrough).
 app.use((req, res, next) => {
-  const skip = isMetricsBeaconRequest(req);
-  if (req.method === "POST" && (skip || /metrics\/vitals/i.test(req.originalUrl ?? ""))) {
+  const skipBeacon = isMetricsBeaconRequest(req);
+  if (req.method === "POST" && (skipBeacon || /metrics\/vitals/i.test(req.originalUrl ?? ""))) {
     logger.info(
       {
         middleware: "clerkBeaconGate",
-        skip,
+        skip: skipBeacon,
         method: req.method,
         path: req.path,
         url: req.url,
@@ -281,7 +295,8 @@ app.use((req, res, next) => {
       "[clerkBeaconGate]",
     );
   }
-  if (skip) return next();
+  if (skipBeacon) return next();
+  if (skipAuthForPublicFrontendAssets(req)) return next();
   clerk(req, res, next);
 });
 
@@ -341,27 +356,9 @@ app.use("/api", IsolationMiddleware);
 app.use("/api", router);
 app.use(preventionErrorHandler);
 
-/* ── Production: serve Vite frontend static files ─────────────────────── */
-if (process.env.NODE_ENV === "production") {
-  const publicDir = process.env.PUBLIC_DIR ?? "./public";
-
-  /* Stage 9: never serve or SPA-fallback sensitive/.git/.env paths (HTTP 404) */
-  app.use((req, res, next) => {
-    if (isSensitiveDotPath(req.path)) {
-      return void res.status(404).end();
-    }
-    next();
-  });
-
-  app.use(express.static(publicDir, {
-    maxAge: "1d",
-    etag: true,
-  }));
-
-  app.get(/^\/(?!api|assets|favicon\.svg|logo\.svg|robots\.txt|sw\.js|opengraph\.jpg).*/, (_req, res) => {
-    res.sendFile("index.html", { root: publicDir });
-  });
-}
+registerProductionSpaFallback(app, {
+  publicDir: process.env.PUBLIC_DIR ?? "./public",
+});
 
 app.use(globalErrorHandler);
 
