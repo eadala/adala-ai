@@ -9,8 +9,8 @@
 | Field | Value |
 |-------|-------|
 | Branch | `cursor/staging-asset-403-recovery-da81` |
-| HEAD SHA | `67faea463ed5ca2416a129e7e86d6933609313cf` |
-| Tree SHA | `9fdaddba7284904fdb9064a63dab4be5face961d` |
+| HEAD SHA | `5d01274c0ae87d3618665eec21895d9336fe4691` (docs tip; functional fix `2c54d9c0`) |
+| Tree SHA | `4586ca69fef17bff0dfbc2a75627531f2a4259f7` |
 | PR | https://github.com/eadala/adala-ai/pull/188 → `develop` |
 | Merge gate | `REVIEW_REQUIRED` (agent cannot Approve) |
 | On develop | **No** |
