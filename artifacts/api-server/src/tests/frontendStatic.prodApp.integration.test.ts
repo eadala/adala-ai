@@ -82,11 +82,8 @@ try {
   const base = `http://127.0.0.1:${port}`;
 
   async function get(path: string, origin?: string) {
-    const headers: Record<string, string> = {
-      Host: "staging.adalahai.com",
-      "X-Forwarded-Host": "staging.adalahai.com",
-      "X-Forwarded-Proto": "https",
-    };
+    // Explicit Origin allowlist only — do not spoof Host to bypass CORS.
+    const headers: Record<string, string> = {};
     if (origin) headers.Origin = origin;
     const res = await fetch(`${base}${path}`, { headers });
     return {

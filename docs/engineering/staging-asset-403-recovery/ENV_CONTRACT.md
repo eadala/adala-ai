@@ -31,10 +31,12 @@ Verified against repository consumers (not assumed).
 | Variable / constant | Classification | Notes |
 |---------------------|----------------|-------|
 | `STAGING_CORS_DOMAINS` (code) | Runtime public allowlist | Includes `https://staging.adalahai.com` |
-| Same-origin Host match (code) | Runtime public | `Origin` must equal `https://{X-Forwarded-Host\|Host}` |
-| `ALLOWED_ORIGINS` | Runtime public config | Comma-separated extras; still set in Coolify for staging |
+| `PRODUCTION_CORS_DOMAINS` (code) | Runtime public allowlist | `adalahai.com` / `www` |
+| `ALLOWED_ORIGINS` | Runtime public config | Comma-separated **exact** `https://host` entries only; wildcards/paths rejected |
 
-Without staging Origin allowance, Vite `crossorigin` asset GETs return **403 JSON** (`CORS_ORIGIN_NOT_ALLOWED`).
+**Forbidden:** trusting `Host` / `X-Forwarded-Host`, wildcards, unrestricted origin reflection.
+
+Without staging Origin on the allowlist, Vite `crossorigin` asset GETs return **403 JSON** (`CORS_ORIGIN_NOT_ALLOWED`).
 
 ## Staging isolation
 

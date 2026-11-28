@@ -7,6 +7,11 @@
  * Staging incident (asset JSON 403): Vite emits `<script type="module" crossorigin>`
  * and `<link … crossorigin>`, so the browser sends `Origin: https://staging…` even for
  * same-host asset GETs. Rejecting that Origin with application/json 403 prevents SPA bootstrap.
+ *
+ * Security contract:
+ * - Trusted origins are an explicit allowlist only (code + validated env).
+ * - Never reflect Host / X-Forwarded-Host into the allowlist.
+ * - Never allow wildcards or unrestricted origin reflection.
  */
 
 import {
@@ -27,57 +32,57 @@ export const STAGING_CORS_DOMAINS = [
 export type CorsOriginDecision = {
   allowed: boolean;
   /** Why the origin was accepted (diagnostic only). */
-  reason?:
-    | "missing-origin"
-    | "metrics-beacon-null"
-    | "allowlist"
-    | "same-origin";
+  reason?: "missing-origin" | "metrics-beacon-null" | "allowlist";
 };
 
 export type CorsPolicyRequest = PathLike & {
   method?: string;
-  headers?: Record<string, string | string[] | undefined>;
-  protocol?: string;
-  hostname?: string;
 };
 
-function firstHeader(
-  value: string | string[] | undefined,
-): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
+/**
+ * Strict origin parser for allowlist entries.
+ * Accepts only `http(s)://host[:port]` with no path/query/hash/userinfo/wildcard.
+ */
+export function parseTrustedOrigin(raw: string): string | null {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  if (value.includes("*")) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username || url.password) return null;
+  if (url.pathname !== "/" || url.search || url.hash) return null;
+  if (!url.hostname) return null;
+  // Reconstruct canonical origin (scheme://host[:port]).
+  return url.origin;
 }
 
-/**
- * Public origin of this request (scheme://host[:port]) from proxy-aware headers.
- * Used to allow same-origin Vite `crossorigin` asset loads without env sprawl.
- */
-export function requestPublicOrigin(req: CorsPolicyRequest): string | undefined {
-  const xfProto = firstHeader(req.headers?.["x-forwarded-proto"]);
-  const protoRaw =
-    xfProto?.split(",")[0]?.trim() ||
-    (req.protocol ? String(req.protocol).replace(/:$/, "") : "") ||
-    "https";
-  const proto = protoRaw.toLowerCase() === "http" ? "http" : "https";
-
-  const xfHost = firstHeader(req.headers?.["x-forwarded-host"]);
-  const hostRaw =
-    xfHost?.split(",")[0]?.trim() ||
-    firstHeader(req.headers?.host)?.trim() ||
-    (req.hostname ? String(req.hostname).trim() : "");
-  if (!hostRaw) return undefined;
-  // Reject header injection / path smuggling in Host.
-  if (/[\s/?#\\]/.test(hostRaw)) return undefined;
-  return `${proto}://${hostRaw}`;
+/** Split + validate comma-separated env allowlist entries. Invalid entries dropped. */
+export function parseAllowedOriginsEnv(raw: string | undefined | null): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of String(raw).split(",")) {
+    const origin = parseTrustedOrigin(part);
+    if (!origin || seen.has(origin)) continue;
+    seen.add(origin);
+    out.push(origin);
+  }
+  return out;
 }
 
 /**
  * Decide whether a browser Origin is allowed.
  * - Missing Origin (non-browser / same-origin omit): allowed.
- * - Literal "null" (opaque origin, e.g. sendBeacon privacy contexts): allowed
- *   ONLY for public metrics beacon paths (normalized originalUrl/path).
- * - Same as request public origin (Host / X-Forwarded-*): allowed.
- * - Otherwise: production + staging domains, ALLOWED_ORIGINS, localhost.
+ * - Literal "null" (opaque origin): allowed ONLY for public metrics beacons.
+ * - Otherwise: production + staging code allowlists, validated ALLOWED_ORIGINS,
+ *   and localhost only when NODE_ENV !== "production".
+ *
+ * Does NOT trust Host / X-Forwarded-Host.
  */
 export function evaluateCorsOrigin(
   origin: string | undefined,
@@ -96,16 +101,25 @@ export function evaluateCorsOrigin(
     return { allowed: false };
   }
 
-  const self = requestPublicOrigin(req);
-  if (self && origin === self) {
-    return { allowed: true, reason: "same-origin" };
+  // Reject malformed / non-canonical Origin strings (paths, wildcards, junk).
+  const normalized = parseTrustedOrigin(origin);
+  if (!normalized || normalized !== origin) {
+    return { allowed: false };
   }
+
+  const envAllow = allowedOrigins
+    .map((o) => parseTrustedOrigin(o))
+    .filter((o): o is string => Boolean(o));
+
+  const localhostOk =
+    process.env.NODE_ENV !== "production" &&
+    /^http:\/\/localhost(:\d+)?$/.test(origin);
 
   if (
     (PRODUCTION_CORS_DOMAINS as readonly string[]).includes(origin) ||
     (STAGING_CORS_DOMAINS as readonly string[]).includes(origin) ||
-    allowedOrigins.includes(origin) ||
-    /^http:\/\/localhost(:\d+)?$/.test(origin)
+    envAllow.includes(origin) ||
+    localhostOk
   ) {
     return { allowed: true, reason: "allowlist" };
   }

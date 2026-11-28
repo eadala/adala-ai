@@ -2,33 +2,29 @@
 
 Statuses: PASS | FAIL | BLOCKED | NOT RUN
 
-Updated: 2026-11-28 (Asia/Riyadh) — CI green on PR #188 @ `fb6a6302`.
+Updated: 2026-11-28 (Asia/Riyadh) — trusted-origin allowlist (no Host reflection).
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| G01 Root cause reproduced | PASS | Live prod probe: staging Origin → `CORS_ORIGIN_NOT_ALLOWED` JSON 403; differential harness reproduces baseline |
-| G02 Application fix implemented | PASS | `corsOriginPolicy.ts` same-origin + `STAGING_CORS_DOMAINS`; early static retained |
-| G03 Mock auth contract verified | PASS | Mock suite Layer-1 only; primary proof is CORS differential + real app |
-| G04 Regression detects original defect | PASS | `test:frontend-static-cors` broken-baseline asserts 403 JSON |
-| G05 Real application integration | PASS | `test:frontend-static-prod` boots real `app` |
-| G06 Production-mode Docker artifact | PASS | CI `Docker — production Dockerfile` SUCCESS on PR #188 @ `fb6a6302` |
-| G07 JS/CSS delivery verified | PASS (lab) / BLOCKED (live staging) | Lab harnesses PASS; live staging Traefik Basic Auth 401 |
-| G08 Security boundary regression | PASS | evil Origin 403; `/.env` 404; API 401/403 |
-| G09 Auth initialization verified | BLOCKED | Needs staging Basic Auth + browser after deploy |
-| G10 Tenant isolation / RLS | PASS | CI Gate 8 SUCCESS; no RLS code weakened |
-| G11 Staging resource isolation | BLOCKED | No Coolify/DB credential access from agent |
-| G12 Required CI gates | PASS | PR #188 `✅ All Gates Passed` (Tests, Docker, TS, ESLint, Security, Tenant Isolation, DB Migrations, RG) |
-| G13 Commit/PR traceability | PASS | Branch `cursor/staging-asset-403-recovery-da81`, PR #188, SHA `fb6a6302` |
-| G14 Staging deployed revision | BLOCKED | Fix **not** on `develop` yet (`REVIEW_REQUIRED`); Coolify not redeployed |
-| G15 Live browser bootstrap | BLOCKED | Traefik Basic Auth; undeployed fix |
+| G01 Root cause reproduced | PASS | Live prod probe + `test:frontend-static-cors` broken baseline |
+| G02 Application fix implemented | PASS | Explicit `STAGING_CORS_DOMAINS` + validated `ALLOWED_ORIGINS`; no Host trust |
+| G03 Mock auth contract verified | PASS | Layer-1 only; primary = CORS differential + real app |
+| G04 Regression detects original defect | PASS | Broken baseline → 403 JSON; fixed → 200 MIME |
+| G05 Real application integration | PASS | `test:frontend-static-prod` |
+| G06 Production-mode Docker artifact | BLOCKED (local) / PASS (prior CI @ fb6a6302) | Docker CLI absent in agent VM; re-confirm on new tip CI |
+| G07 JS/CSS delivery verified | PASS (lab) / BLOCKED (live) | Lab MIME OK; staging Traefik 401 |
+| G08 Security boundary regression | PASS | evil Origin 403; no Host reflection; `/.env` 404; API gated |
+| G09 Auth initialization verified | BLOCKED | Needs merge + deploy + Basic Auth + browser |
+| G10 Tenant isolation / RLS | PASS | No RLS/tenant edits; prior CI Gate 8 green |
+| G11 Staging resource isolation | BLOCKED | No Coolify DB access |
+| G12 Required CI gates | NOT RUN | Pending push of hardened tip; prior tip All Gates Passed |
+| G13 Commit/PR traceability | PASS | PR #188 → develop |
+| G14 Staging deployed revision | BLOCKED | Not on develop; `REVIEW_REQUIRED` |
+| G15 Live browser bootstrap | BLOCKED | Traefik + undeployed |
 | G16 Authenticated staging workflow | BLOCKED | No staging test user + undeployed |
-| G17 No production modification | PASS | Zero production deploys/config changes |
-| G18 Recovery docs completed | PASS | This directory + `scripts/staging/smoke-asset-delivery.mjs` |
+| G17 No production modification | PASS | Zero prod changes |
+| G18 Recovery docs completed | PASS | This directory |
 
 **Decision:** STAGING PARTIALLY RECOVERED — BLOCKERS REMAIN
 
-**Next owner actions (exact):**
-1. Approve & merge PR #188 into `develop`.
-2. Coolify staging redeploy of merged `develop` SHA; set `ALLOWED_ORIGINS=https://staging.adalahai.com`.
-3. Run: `STAGING_BASIC_AUTH_USER=… STAGING_BASIC_AUTH_PASS=… node scripts/staging/smoke-asset-delivery.mjs`
-4. Browser: Clerk login + dashboard (staging Clerk Dev user).
+**Owner (exact):** Approve+merge #188 → Coolify redeploy → `scripts/staging/smoke-asset-delivery.mjs` with Basic Auth → Clerk login check.

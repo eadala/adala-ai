@@ -50,4 +50,4 @@ A miniature mock-auth harness that only models “auth after static” can go gr
 
 ### Other environments
 
-Any Coolify/preview hostname not present in `PRODUCTION_CORS_DOMAINS` / `ALLOWED_ORIGINS` can reproduce the same JSON 403 on Vite `crossorigin` assets. Same-origin Host matching + explicit staging allowlist closes that class of failure.
+Any Coolify/preview hostname not present in `PRODUCTION_CORS_DOMAINS` / `STAGING_CORS_DOMAINS` / validated `ALLOWED_ORIGINS` can reproduce the same JSON 403 on Vite `crossorigin` assets. Explicit staging allowlist (not Host reflection) closes the staging failure class without trusting forwarded Host headers.

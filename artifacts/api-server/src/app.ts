@@ -21,6 +21,7 @@ import { logger } from "./lib/logger";
 import {
   createCorsOriginRejectedError,
   evaluateCorsOrigin,
+  parseAllowedOriginsEnv,
 } from "./lib/corsOriginPolicy";
 import { WebhookHandlers } from "./webhookHandlers";
 import { requestIdMiddleware } from "./middlewares/requestId";
@@ -225,10 +226,7 @@ app.use("/api/fincore/providers",    infoLimiter);
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const ALLOWED_ORIGINS = parseAllowedOriginsEnv(process.env.ALLOWED_ORIGINS);
 
 // cors `origin` callback has no `req` — use options delegate so beacon paths can
 // allow opaque Origin "null" without weakening CORS for the rest of the API.

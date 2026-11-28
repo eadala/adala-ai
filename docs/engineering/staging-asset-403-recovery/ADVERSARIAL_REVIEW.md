@@ -4,7 +4,7 @@
 |---|----------|---------|----------|-------------|
 | 1 | Can new asset serving expose unintended files? | Allowlist + `isSensitiveDotPath`; `.env` 404 in prod-app test | — | OK |
 | 2 | Protected route via alternate path? | `/api/*` still auth-gated in real app test | — | OK |
-| 3 | Encoded traversal bypass? | `..` / `/.` rejected in allowlist; Host injection rejected in `requestPublicOrigin` | P2 | Covered; add more encoded variants later if needed |
+| 3 | Encoded traversal / Host spoof CORS? | Asset allowlist rejects `..`; CORS does **not** trust Host/`X-Forwarded-Host` | — | OK |
 | 4 | Auth bypass via route precedence? | Early static only for allowlisted paths; Clerk skip scoped | — | OK |
 | 5 | Tenant isolation bypass? | No tenant middleware changes | — | OK |
 | 6 | Secrets in FE artifacts? | No new Vite env secrets; `.env` not served | — | OK |

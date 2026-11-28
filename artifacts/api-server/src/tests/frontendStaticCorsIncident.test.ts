@@ -82,17 +82,9 @@ async function listen(app: express.Express) {
   };
 }
 
-async function get(
-  base: string,
-  path: string,
-  origin: string | undefined,
-  host = "staging.adalahai.com",
-) {
-  const headers: Record<string, string> = {
-    Host: host,
-    "X-Forwarded-Proto": "https",
-    "X-Forwarded-Host": host,
-  };
+async function get(base: string, path: string, origin: string | undefined) {
+  // Policy is Origin-allowlist only — Host/X-Forwarded-Host must not affect CORS.
+  const headers: Record<string, string> = {};
   if (origin !== undefined) headers.Origin = origin;
   const res = await fetch(`${base}${path}`, { headers });
   const body = await res.text();

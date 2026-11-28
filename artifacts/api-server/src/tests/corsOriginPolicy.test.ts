@@ -1,5 +1,5 @@
 /**
- * CORS origin policy — metrics beacon Origin:null exception + 403 rejection.
+ * CORS origin policy — explicit trusted-origin allowlist (no Host reflection).
  * Run: pnpm --filter @workspace/api-server run test:cors-origin
  */
 import assert from "node:assert/strict";
@@ -9,11 +9,26 @@ import cors from "cors";
 import {
   createCorsOriginRejectedError,
   evaluateCorsOrigin,
+  parseAllowedOriginsEnv,
+  parseTrustedOrigin,
   PRODUCTION_CORS_DOMAINS,
   STAGING_CORS_DOMAINS,
-  requestPublicOrigin,
 } from "../lib/corsOriginPolicy";
 import { globalErrorHandler } from "../middlewares/errorHandler";
+
+console.log("\n═══ parseTrustedOrigin / parseAllowedOriginsEnv ═══");
+{
+  assert.equal(parseTrustedOrigin("https://staging.adalahai.com"), "https://staging.adalahai.com");
+  assert.equal(parseTrustedOrigin("https://evil.example/path"), null);
+  assert.equal(parseTrustedOrigin("https://*.adalahai.com"), null);
+  assert.equal(parseTrustedOrigin("https://user:pass@evil.example"), null);
+  assert.equal(parseTrustedOrigin("not-a-url"), null);
+  assert.deepEqual(
+    parseAllowedOriginsEnv("https://staging.adalahai.com, https://evil.example/x, *"),
+    ["https://staging.adalahai.com"],
+  );
+  console.log("  ✅ trusted origin parser rejects wildcards/paths/userinfo");
+}
 
 console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 
@@ -94,13 +109,28 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 }
 
 {
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   const d = evaluateCorsOrigin("http://localhost:5173", {
     method: "POST",
     originalUrl: "/api/offices/my",
   });
   assert.equal(d.allowed, true);
   assert.equal(d.reason, "allowlist");
-  console.log("  ✅ localhost development origin → allowed");
+  process.env.NODE_ENV = prev;
+  console.log("  ✅ localhost development origin → allowed (non-production)");
+}
+
+{
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const d = evaluateCorsOrigin("http://localhost:5173", {
+    method: "POST",
+    originalUrl: "/api/offices/my",
+  });
+  assert.equal(d.allowed, false);
+  process.env.NODE_ENV = prev;
+  console.log("  ✅ localhost rejected when NODE_ENV=production");
 }
 
 {
@@ -125,47 +155,23 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 }
 
 {
-  const self = requestPublicOrigin({
-    headers: {
-      host: "staging.adalahai.com",
-      "x-forwarded-proto": "https",
-    },
-  });
-  assert.equal(self, "https://staging.adalahai.com");
-  const d = evaluateCorsOrigin("https://staging.adalahai.com", {
+  // Spoofed Host must NEVER grant CORS — only explicit allowlist.
+  const d = evaluateCorsOrigin("https://attacker.example", {
     method: "GET",
     originalUrl: "/assets/vendor-react.js",
-    headers: {
-      host: "staging.adalahai.com",
-      "x-forwarded-proto": "https",
-    },
-  });
-  assert.equal(d.allowed, true);
-  assert.equal(d.reason, "same-origin");
-  console.log("  ✅ Origin matching Host (same-origin) → allowed");
-}
-
-{
-  const d = evaluateCorsOrigin("https://evil.example", {
-    method: "GET",
-    originalUrl: "/assets/vendor-react.js",
-    headers: {
-      host: "staging.adalahai.com",
-      "x-forwarded-proto": "https",
-    },
   });
   assert.equal(d.allowed, false);
-  console.log("  ✅ mismatched Origin vs Host → still rejected");
+  console.log("  ✅ arbitrary Origin rejected (no Host reflection)");
 }
 
 {
-  assert.equal(
-    requestPublicOrigin({
-      headers: { host: "evil.example/steal", "x-forwarded-proto": "https" },
-    }),
-    undefined,
-  );
-  console.log("  ✅ injected Host with path → rejected");
+  const d = evaluateCorsOrigin("https://preview.example.com", {
+    method: "GET",
+    originalUrl: "/assets/x.js",
+  }, parseAllowedOriginsEnv("https://preview.example.com, https://bad.example/path"));
+  assert.equal(d.allowed, true);
+  assert.equal(d.reason, "allowlist");
+  console.log("  ✅ validated ALLOWED_ORIGINS entry → allowed");
 }
 
 {
@@ -274,6 +280,13 @@ async function post(
   const r = await post(app, "/api/offices/my", "https://adalahai.com");
   assert.equal(r.status, 200);
   console.log("  ✅ middleware: production origin → unchanged");
+}
+
+{
+  const app = buildCorsApp();
+  const r = await post(app, "/api/offices/my", "https://staging.adalahai.com");
+  assert.equal(r.status, 200);
+  console.log("  ✅ middleware: staging origin → allowed");
 }
 
 {

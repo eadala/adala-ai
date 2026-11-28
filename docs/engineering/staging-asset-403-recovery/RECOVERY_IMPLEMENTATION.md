@@ -2,12 +2,13 @@
 
 ## Primary fix (application integrity)
 
-Update `corsOriginPolicy.ts` to:
+Update `corsOriginPolicy.ts` to an **explicit trusted-origin allowlist**:
 
-1. Allow **same-origin** (`Origin` === request public origin from Host / `X-Forwarded-Host` + proto).
-2. Explicitly allow **`STAGING_CORS_DOMAINS`** (`https://staging.adalahai.com`).
-3. Keep rejecting unknown Origins (including `evil.example`) with `CORS_ORIGIN_NOT_ALLOWED`.
-4. Reject Host header injection (`/`, whitespace, etc.) when deriving public origin.
+1. Code allowlists: `PRODUCTION_CORS_DOMAINS` + `STAGING_CORS_DOMAINS` (`https://staging.adalahai.com`).
+2. Env allowlist: `ALLOWED_ORIGINS` parsed via `parseAllowedOriginsEnv` (rejects wildcards, paths, userinfo).
+3. Localhost only when `NODE_ENV !== "production"`.
+4. Unknown Origins rejected with `CORS_ORIGIN_NOT_ALLOWED`.
+5. **Does not** trust `Host` / `X-Forwarded-Host` and does not reflect request Host into CORS.
 
 ## Defense-in-depth (security boundary)
 

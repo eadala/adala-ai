@@ -12,4 +12,6 @@ Secondary lesson: middleware order (Clerk before static) is a real risk, but a g
 
 **Permanent guards:** `test:frontend-static-cors`, `test:frontend-static-prod`, `test:cors-origin` in CI.
 
+**CORS hardening:** use an explicit trusted-origin allowlist. Never reflect `Host` / `X-Forwarded-Host`. Never allow wildcards.
+
 **Do not “fix” by disabling Clerk, CORS, RLS, or Traefik Basic Auth.**

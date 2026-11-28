@@ -5,7 +5,9 @@
 | Staging Origin assets | 200 + JS/CSS MIME | `test:frontend-static-cors`, `test:frontend-static-prod` |
 | Broken baseline still fails | staging Origin → 403 JSON | `test:frontend-static-cors` broken mode |
 | Evil Origin | still 403 `CORS_ORIGIN_NOT_ALLOWED` | cors + cors-incident + prod-app |
-| Same-origin Host match | allowed; Host injection rejected | `test:cors-origin` |
+| No Host reflection | spoofed Host cannot grant CORS | `test:cors-origin` |
+| ALLOWED_ORIGINS validation | wildcards/paths dropped | `test:cors-origin` |
+| Localhost in production | rejected when `NODE_ENV=production` | `test:cors-origin` |
 | API still protected | `/api/*` → 401/403 JSON | prod-app + static suites |
 | Sensitive paths | `/.env` → 404, no secret leak | prod-app + stage9 |
 | Traversal | `/assets/../.env` not secret-bearing 200 | `test:frontend-static` |
