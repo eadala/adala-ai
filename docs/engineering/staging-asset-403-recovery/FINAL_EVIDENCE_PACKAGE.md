@@ -10,7 +10,9 @@
 
 **STAGING PARTIALLY RECOVERED — EXTERNAL BLOCKERS REMAIN**
 
-All independently executable engineering work for the CORS remediation is complete, tested, committed, and on PR #188. Live staging operational closure requires owner Approve/merge + Coolify redeploy + Traefik Basic Auth verification.
+**Release candidate status:** FROZEN & DEPLOY-READY (code/lab/CI docker+tests) pending owner Approve and DB-migration CI completion on tip.
+
+Frozen tip: `67faea46` / tree `9fdaddba`. Live staging operational closure still requires owner Approve/merge + Coolify redeploy + Traefik Basic Auth verification.
 
 ---
 
@@ -65,7 +67,8 @@ CI tip `2c54d9c0` (partial, concurrent with this tip's follow-up): Docker produc
 | Item | Value |
 |------|-------|
 | Branch | `cursor/staging-asset-403-recovery-da81` |
-| Tip SHA | see latest push after adversarial test commit |
+| Tip SHA | `67faea463ed5ca2416a129e7e86d6933609313cf` |
+| Tree SHA | `9fdaddba7284904fdb9064a63dab4be5face961d` |
 | PR | https://github.com/eadala/adala-ai/pull/188 → `develop` |
 | On develop? | **No** (`REVIEW_REQUIRED`) |
 | Staging deployed SHA | **Unknown / not this fix** (Traefik 401) |
