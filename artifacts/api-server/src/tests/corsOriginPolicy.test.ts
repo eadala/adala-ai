@@ -1,5 +1,5 @@
 /**
- * CORS origin policy — metrics beacon Origin:null exception + 403 rejection.
+ * CORS origin policy — explicit trusted-origin allowlist (no Host reflection).
  * Run: pnpm --filter @workspace/api-server run test:cors-origin
  */
 import assert from "node:assert/strict";
@@ -9,9 +9,26 @@ import cors from "cors";
 import {
   createCorsOriginRejectedError,
   evaluateCorsOrigin,
+  parseAllowedOriginsEnv,
+  parseTrustedOrigin,
   PRODUCTION_CORS_DOMAINS,
+  STAGING_CORS_DOMAINS,
 } from "../lib/corsOriginPolicy";
 import { globalErrorHandler } from "../middlewares/errorHandler";
+
+console.log("\n═══ parseTrustedOrigin / parseAllowedOriginsEnv ═══");
+{
+  assert.equal(parseTrustedOrigin("https://staging.adalahai.com"), "https://staging.adalahai.com");
+  assert.equal(parseTrustedOrigin("https://evil.example/path"), null);
+  assert.equal(parseTrustedOrigin("https://*.adalahai.com"), null);
+  assert.equal(parseTrustedOrigin("https://user:pass@evil.example"), null);
+  assert.equal(parseTrustedOrigin("not-a-url"), null);
+  assert.deepEqual(
+    parseAllowedOriginsEnv("https://staging.adalahai.com, https://evil.example/x, *"),
+    ["https://staging.adalahai.com"],
+  );
+  console.log("  ✅ trusted origin parser rejects wildcards/paths/userinfo");
+}
 
 console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 
@@ -92,13 +109,28 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 }
 
 {
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   const d = evaluateCorsOrigin("http://localhost:5173", {
     method: "POST",
     originalUrl: "/api/offices/my",
   });
   assert.equal(d.allowed, true);
   assert.equal(d.reason, "allowlist");
-  console.log("  ✅ localhost development origin → allowed");
+  process.env.NODE_ENV = prev;
+  console.log("  ✅ localhost development origin → allowed (non-production)");
+}
+
+{
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const d = evaluateCorsOrigin("http://localhost:5173", {
+    method: "POST",
+    originalUrl: "/api/offices/my",
+  });
+  assert.equal(d.allowed, false);
+  process.env.NODE_ENV = prev;
+  console.log("  ✅ localhost rejected when NODE_ENV=production");
 }
 
 {
@@ -108,6 +140,59 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
   });
   assert.equal(d.allowed, false);
   console.log("  ✅ unknown origin → rejected (even on beacon path)");
+}
+
+{
+  for (const origin of STAGING_CORS_DOMAINS) {
+    const d = evaluateCorsOrigin(origin, {
+      method: "GET",
+      originalUrl: "/assets/index.js",
+    });
+    assert.equal(d.allowed, true, origin);
+    assert.equal(d.reason, "allowlist");
+  }
+  console.log("  ✅ staging CORS domains → allowed (Vite crossorigin assets)");
+}
+
+{
+  // Spoofed Host must NEVER grant CORS — only explicit allowlist.
+  const d = evaluateCorsOrigin("https://attacker.example", {
+    method: "GET",
+    originalUrl: "/assets/vendor-react.js",
+  });
+  assert.equal(d.allowed, false);
+  console.log("  ✅ arbitrary Origin rejected (no Host reflection)");
+}
+
+{
+  for (const origin of [
+    "https://staging.adalahai.com.evil.com",
+    "https://adalahai.com.evil.com",
+    "https://notstaging.adalahai.com",
+    "https://staging.adalahai.com.attacker",
+    "http://staging.adalahai.com",
+    "https://staging.adalahai.com:8443",
+    "https://Staging.Adalahai.com",
+    "https://staging.adalahai.com/",
+    "https://staging.adalahai.com/path",
+  ]) {
+    const d = evaluateCorsOrigin(origin, {
+      method: "GET",
+      originalUrl: "/assets/index.js",
+    });
+    assert.equal(d.allowed, false, origin);
+  }
+  console.log("  ✅ lookalike / wrong-protocol / port / case / path Origins rejected");
+}
+
+{
+  const d = evaluateCorsOrigin("https://preview.example.com", {
+    method: "GET",
+    originalUrl: "/assets/x.js",
+  }, parseAllowedOriginsEnv("https://preview.example.com, https://bad.example/path"));
+  assert.equal(d.allowed, true);
+  assert.equal(d.reason, "allowlist");
+  console.log("  ✅ validated ALLOWED_ORIGINS entry → allowed");
 }
 
 {
@@ -220,11 +305,50 @@ async function post(
 
 {
   const app = buildCorsApp();
+  const r = await post(app, "/api/offices/my", "https://staging.adalahai.com");
+  assert.equal(r.status, 200);
+  console.log("  ✅ middleware: staging origin → allowed");
+}
+
+{
+  const app = buildCorsApp();
   const r = await post(app, "/api/metrics/vitals", "https://evil.example");
   assert.equal(r.status, 403);
   assert.ok(r.body && typeof r.body === "object");
   assert.equal(r.body.error?.code, "CORS_ORIGIN_NOT_ALLOWED");
   console.log("  ✅ middleware: unknown origin → 403");
+}
+
+{
+  // OPTIONS preflight: trusted staging Origin must not 403; evil must.
+  const app = buildCorsApp();
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const port = (server.address() as { port: number }).port;
+  try {
+    const ok = await fetch(`http://127.0.0.1:${port}/api/offices/my`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://staging.adalahai.com",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.notEqual(ok.status, 403, `staging preflight status=${ok.status}`);
+    const vary = ok.headers.get("vary") || "";
+    assert.match(vary, /origin/i, `Vary should include Origin, got "${vary}"`);
+
+    const bad = await fetch(`http://127.0.0.1:${port}/api/offices/my`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.equal(bad.status, 403);
+    console.log("  ✅ middleware: OPTIONS preflight staging OK + Vary Origin; evil 403");
+  } finally {
+    server.close();
+  }
 }
 
 console.log("\n✅ corsOriginPolicy: all checks passed\n");
