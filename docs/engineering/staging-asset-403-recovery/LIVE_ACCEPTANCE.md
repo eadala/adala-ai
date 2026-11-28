@@ -42,7 +42,15 @@ This matches staging DevTools (JSON 403 on JS/CSS with Vite `crossorigin`).
 - [ ] Staging DB / Clerk Dev isolation confirmed
 - [ ] Production unchanged
 
+## CI (2026-11-28 Asia/Riyadh)
+
+PR #188 @ `fb6a6302`: **All Gates Passed**. Merge blocked: `REVIEW_REQUIRED`.
+
+Operator smoke after deploy + Basic Auth:
+
+`node scripts/staging/smoke-asset-delivery.mjs` (env: `STAGING_BASIC_AUTH_USER` / `STAGING_BASIC_AUTH_PASS`).
+
 ## Classification
 
 **STAGING PARTIALLY RECOVERED — BLOCKERS REMAIN**
-(code + differential tests verified; live Traefik/Coolify verification pending operator)
+(code + CI verified; live Traefik/Coolify/merge approval pending owner)

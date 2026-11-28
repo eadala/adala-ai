@@ -14,8 +14,18 @@
 1. Confirm Coolify staging tracks `develop` (or the recovery branch SHA intentionally).
 2. Ensure build args include staging `VITE_CLERK_PUBLISHABLE_KEY` (`pk_test_…`).
 3. Ensure runtime env: staging `CLERK_SECRET_KEY`, isolated `DATABASE_URL`, `PUBLIC_DIR=/app/public`.
-4. Redeploy; record deployed image/SHA from Coolify.
-5. With Traefik Basic Auth credentials, verify acceptance checklist in `LIVE_ACCEPTANCE.md`.
+4. Set `ALLOWED_ORIGINS=https://staging.adalahai.com` (belt-and-suspenders with code allowlist).
+5. Redeploy; record deployed image/SHA from Coolify.
+6. Run operator smoke (does not print secrets):
+
+```bash
+STAGING_URL=https://staging.adalahai.com \
+STAGING_BASIC_AUTH_USER='…' \
+STAGING_BASIC_AUTH_PASS='…' \
+node scripts/staging/smoke-asset-delivery.mjs
+```
+
+7. Complete browser checklist in `LIVE_ACCEPTANCE.md`.
 
 ## Rollback
 

@@ -9,12 +9,18 @@
 * Docs + gate matrix under this directory.
 * PR: https://github.com/eadala/adala-ai/pull/188 → `develop`
 
+## CI (2026-11-28 Asia/Riyadh)
+
+PR #188 @ `fb6a6302`: **All Gates Passed** (Tests, Docker, TypeScript, ESLint, Security, Tenant Isolation, DB Migrations, Release Guardian).  
+`mergeStateStatus=BLOCKED` — **`REVIEW_REQUIRED`** (no reviews yet). Fix **not** on `origin/develop`.
+
 ## Not done (genuine blockers)
 
-1. Traefik Basic Auth credentials for `staging.adalahai.com` — required for G14–G16.
-2. Coolify access to confirm deployed SHA / `DATABASE_URL` / Clerk Dev isolation (G11, G14).
-3. Staging test user for authenticated dashboard (G16).
-4. Local Docker CLI in agent VM (G06 local); rely on CI docker job after push.
+1. **Owner Approve + merge PR #188** into `develop` (branch protection).
+2. Coolify staging redeploy of merged SHA; confirm `ALLOWED_ORIGINS` includes staging.
+3. Traefik Basic Auth for live smoke: `node scripts/staging/smoke-asset-delivery.mjs`
+4. Staging Clerk Dev test user for authenticated dashboard (G16).
+5. Coolify confirmation of staging DB / Clerk Dev isolation (G11).
 
 ## Do not
 
