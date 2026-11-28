@@ -22,11 +22,12 @@ Prior tip `fb6a6302`: **All Gates Passed**. Hardened tip pending re-run after pu
 ## Not done (genuine blockers)
 
 1. **Owner Approve + merge PR #188** into `develop` (branch protection) — agent cannot approve.
-2. Coolify staging redeploy of merged SHA; confirm `ALLOWED_ORIGINS` includes staging.
-3. Traefik Basic Auth for live smoke: `node scripts/staging/smoke-asset-delivery.mjs`
-4. Staging Clerk Dev test user for authenticated dashboard (G16).
-5. Coolify confirmation of staging DB / Clerk Dev isolation (G11).
-6. Local Docker CLI absent — G06 relies on CI docker job.
+2. Staging CD (`cd-coolify-staging.yml`) is fail-closed: needs `ADALA_STAGING_CD_ACTIVE` + credential/history gates; otherwise manual Coolify redeploy of merged SHA.
+3. Confirm Coolify runtime `ALLOWED_ORIGINS=https://staging.adalahai.com`.
+4. Traefik Basic Auth for live smoke: `node scripts/staging/smoke-asset-delivery.mjs`
+5. Staging Clerk Dev test user for authenticated dashboard (G16).
+6. Coolify confirmation of staging DB / Clerk Dev isolation (G11).
+7. Local Docker CLI absent — G10 satisfied via CI Docker job on tip.
 
 ## Do not
 

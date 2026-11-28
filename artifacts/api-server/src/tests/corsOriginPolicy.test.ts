@@ -165,6 +165,27 @@ console.log("\n═══ corsOriginPolicy: evaluateCorsOrigin ═══");
 }
 
 {
+  for (const origin of [
+    "https://staging.adalahai.com.evil.com",
+    "https://adalahai.com.evil.com",
+    "https://notstaging.adalahai.com",
+    "https://staging.adalahai.com.attacker",
+    "http://staging.adalahai.com",
+    "https://staging.adalahai.com:8443",
+    "https://Staging.Adalahai.com",
+    "https://staging.adalahai.com/",
+    "https://staging.adalahai.com/path",
+  ]) {
+    const d = evaluateCorsOrigin(origin, {
+      method: "GET",
+      originalUrl: "/assets/index.js",
+    });
+    assert.equal(d.allowed, false, origin);
+  }
+  console.log("  ✅ lookalike / wrong-protocol / port / case / path Origins rejected");
+}
+
+{
   const d = evaluateCorsOrigin("https://preview.example.com", {
     method: "GET",
     originalUrl: "/assets/x.js",
@@ -296,6 +317,38 @@ async function post(
   assert.ok(r.body && typeof r.body === "object");
   assert.equal(r.body.error?.code, "CORS_ORIGIN_NOT_ALLOWED");
   console.log("  ✅ middleware: unknown origin → 403");
+}
+
+{
+  // OPTIONS preflight: trusted staging Origin must not 403; evil must.
+  const app = buildCorsApp();
+  const server = createServer(app);
+  await new Promise<void>((r) => server.listen(0, r));
+  const port = (server.address() as { port: number }).port;
+  try {
+    const ok = await fetch(`http://127.0.0.1:${port}/api/offices/my`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://staging.adalahai.com",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.notEqual(ok.status, 403, `staging preflight status=${ok.status}`);
+    const vary = ok.headers.get("vary") || "";
+    assert.match(vary, /origin/i, `Vary should include Origin, got "${vary}"`);
+
+    const bad = await fetch(`http://127.0.0.1:${port}/api/offices/my`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.equal(bad.status, 403);
+    console.log("  ✅ middleware: OPTIONS preflight staging OK + Vary Origin; evil 403");
+  } finally {
+    server.close();
+  }
 }
 
 console.log("\n✅ corsOriginPolicy: all checks passed\n");
